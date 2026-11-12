@@ -34,7 +34,9 @@ window.CONTEUDO = {
     titulo: "Antes de abrir, escolhe a nossa trilha",
     texto: "Toque em uma música para ouvir. Ela fica baixinho enquanto você lê.",
     volume: 0.3, // de 0 (mudo) a 1 (máximo)
+    // "capa" é opcional: uma imagem quadrada que aparece ao lado do nome da música
     lista: [
+      { titulo: "undressed", artista: "sombr", arquivo: "assets/music/undressed.mp3", capa: "assets/music/undressed.webp" },
       { titulo: "Música de exemplo 1", artista: "[troque pelo nome da música]", arquivo: "assets/music/exemplo-1.wav" },
       { titulo: "Música de exemplo 2", artista: "[troque pelo nome da música]", arquivo: "assets/music/exemplo-2.wav" },
     ],

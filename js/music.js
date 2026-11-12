@@ -75,6 +75,28 @@ window.Music = (() => {
     }
   }
 
+  /* A capa da música com o disco saindo de trás dela (ou só o disco, se não houver capa). */
+  function art(song) {
+    const box = document.createElement("span");
+    box.className = "art";
+    const disc = document.createElement("span");
+    disc.className = "disc";
+    box.append(disc);
+    if (song && song.capa) {
+      const img = document.createElement("img");
+      img.className = "art__cover";
+      img.alt = "";
+      img.onerror = () => {
+        img.remove();
+        box.classList.remove("art--cover");
+      };
+      img.src = song.capa;
+      box.classList.add("art--cover");
+      box.append(img);
+    }
+    return box;
+  }
+
   /* Desenha as duas listas (a grande e a do canto) no estado atual. */
   function paint() {
     for (const list of [$("picker-list"), $("player-list")]) {
@@ -87,8 +109,6 @@ window.Music = (() => {
         btn.setAttribute("aria-pressed", String(i === current));
         if (i === current && playing) btn.classList.add("is-playing");
 
-        const disc = document.createElement("span");
-        disc.className = "disc";
         const text = document.createElement("span");
         text.className = "song__text";
         const title = document.createElement("span");
@@ -102,7 +122,7 @@ window.Music = (() => {
         if (failed.has(i)) by.classList.add("is-error");
 
         text.append(title, by);
-        btn.append(disc, text);
+        btn.append(art(song), text);
         btn.addEventListener("click", () => play(i));
         li.append(btn);
         list.append(li);
@@ -111,6 +131,7 @@ window.Music = (() => {
 
     const song = songs[current];
     songBtn.textContent = song ? song.titulo : "";
+    muteBtn.replaceChildren(art(song));
     muteBtn.classList.toggle("is-playing", playing);
     muteBtn.setAttribute("aria-pressed", String(!playing));
     muteBtn.setAttribute("aria-label", playing ? "Pausar a música" : "Tocar a música");
