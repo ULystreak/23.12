@@ -228,3 +228,18 @@
   .yn-stars, .yn-comet { animation: none; }
   .comet__tail, .comet__head, .cord, .dusk__who, .dusk__thread { transition-duration: .2s; transition-delay: 0s; }
 }
+
+/* ====================== refinamentos ====================== */
+
+/* a noite vai chegando conforme ela lê (a opacidade vem da rolagem) */
+.yn-night {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background:
+    radial-gradient(1.4px 1.4px at 40px 80px, #fff 55%, transparent 60%),
+    radial-gradient(1.1px 1.1px at 150px 30px, #fff 55%, transparent 60%),
+    radial-gradient(1.6px 1.6px at 110px 170px, #cfe8ff 55%, transparent 60%),
+    linear-gradient(#04061f 0%, #0a0f3a 42%, #1a1a5e 72%, #3d2d7c 100%);
+  background-size: 190px 210px, 190px 210px, 190px 210px, 100% 100%;
+}

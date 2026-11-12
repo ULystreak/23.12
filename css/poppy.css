@@ -234,3 +234,33 @@
   .pp-blob, .vhs__reel, .peek__arm, .ch--poppy .ch__tag::before { animation: none; }
   .gp, .gp__spark, .peek { transition-duration: .2s; transition-delay: 0s; }
 }
+
+/* ====================== refinamentos ====================== */
+
+/* as letras do título caem como blocos de brinquedo */
+.ch__head.is-in .ch__letter {
+  animation: block-drop .75s var(--ease-spring) both;
+  animation-delay: calc(.2s + var(--i) * 42ms);
+}
+
+@keyframes block-drop { from { opacity: 0; translate: 0 -46px; scale: .7; } }
+
+/* uma faixa de "tracking" passa pela tela quando a fita começa */
+.bg--poppy .bg-veil::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -22%;
+  height: 20%;
+  background: linear-gradient(transparent, rgba(255, 255, 255, .1) 35%, rgba(255, 255, 255, .3) 50%, rgba(255, 255, 255, .1) 65%, transparent);
+  mix-blend-mode: screen;
+  animation: vhs-sweep 1.5s 1.3s cubic-bezier(.4, 0, .6, 1) both;
+}
+
+@keyframes vhs-sweep { to { translate: 0 620%; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ch__head.is-in .ch__letter,
+  .bg--poppy .bg-veil::after { animation: none; }
+}

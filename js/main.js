@@ -4,6 +4,7 @@
   const C = window.CONTEUDO;
   const $ = (id) => document.getElementById(id);
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const words = window.Chapters.words;
 
   const world = $("world");
   const approach = $("approach");
@@ -12,20 +13,25 @@
   const whisper = $("whisper");
   const trail = $("trail");
   const trailPath = $("trail-path");
+  const petals = $("petals");
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   const click = (el) => new Promise((r) => el.addEventListener("click", r, { once: true }));
 
-  /* Frases que aparecem e somem no fundo branco. */
+  /* Frases que aparecem palavra por palavra e somem no fundo branco. */
   async function say(lines) {
-    for (const line of lines) {
-      whisper.textContent = line;
+    for (const text of lines) {
+      const line = document.createElement("span");
+      words(line, text);
+      whisper.replaceChildren(line);
+      await frame();
       whisper.classList.add("is-visible");
-      await sleep(2700);
+      await sleep(reduce ? 2200 : 2300 + text.split(" ").length * 110);
       whisper.classList.remove("is-visible");
-      await sleep(1300);
+      await sleep(1100);
     }
+    whisper.replaceChildren();
   }
 
   /* Anda para frente até a próxima carta chegar. */
@@ -75,7 +81,12 @@
     envelope.disabled = true;
     hint.classList.remove("is-visible");
     envelope.classList.add("is-open");
-    await sleep(reduce ? 600 : 2000);
+
+    // o lacre estoura e solta um punhado de pétalas
+    const box = envelope.getBoundingClientRect();
+    setTimeout(() => window.Petals.burst(box.left + box.width / 2, box.top + box.height * 0.57), 180);
+
+    await sleep(reduce ? 600 : 2200);
   }
 
   async function leaveWorld() {
@@ -94,13 +105,13 @@
 
   async function handScene() {
     const hand = $("hand");
-    const text = $("hand-text");
     const follow = $("follow");
 
-    text.textContent = C.mao.texto;
+    words($("hand-text"), C.mao.texto);
     follow.textContent = C.mao.botao;
     hand.hidden = false;
     await frame();
+    document.body.classList.add("is-looking"); // o olhar desce: as pétalas sobem na tela
     hand.classList.add("is-visible");
     await sleep(reduce ? 300 : 1700);
     hand.classList.add("is-tied");
@@ -128,10 +139,11 @@
     trailPath.style.strokeDashoffset = length;
     trail.classList.add("is-visible");
     await frame();
-    trailPath.style.transition = `stroke-dashoffset ${reduce ? 0.3 : 2.2}s cubic-bezier(.65, 0, .35, 1)`;
+    trailPath.style.transition = `stroke-dashoffset ${reduce ? 0.3 : 2.2}s cubic-bezier(.77, 0, .175, 1)`;
     trailPath.style.strokeDashoffset = 0;
     await sleep(reduce ? 400 : 2300);
 
+    document.body.classList.remove("is-looking");
     hand.classList.remove("is-visible", "is-ready");
     await sleep(reduce ? 300 : 1100);
     hand.hidden = true;
@@ -153,7 +165,7 @@
     final.hidden = false;
     await frame();
     final.classList.add("is-visible");
-    await sleep(reduce ? 300 : 1800);
+    await sleep(reduce ? 300 : 2000);
     await type($("final-text"), C.final.frase);
     if (C.final.assinatura) {
       const sign = $("final-sign");
@@ -161,6 +173,35 @@
       await sleep(900);
       sign.classList.add("is-visible");
     }
+  }
+
+  /* ---------- preparação ---------- */
+
+  /* Espera as letras carregarem, para o texto não trocar de fonte no meio da entrada. */
+  const fontsReady = () => Promise.race([document.fonts ? document.fonts.ready : null, sleep(2500)]);
+
+  /* Baixa as imagens dos capítulos durante a abertura, para aparecerem na hora. */
+  function preloadImages() {
+    const files = new Set();
+    for (const song of (C.musica && C.musica.lista) || []) files.add(song.capa);
+    for (const chapter of [C.capitulo1, C.capitulo2]) {
+      files.add(chapter.capa);
+      for (const b of chapter.blocos || []) [b.arquivo, b.esquerda, b.direita].forEach((f) => files.add(f));
+    }
+    for (const file of files) if (file) new Image().src = file;
+  }
+
+  /* No computador, o mundo acompanha de leve o ponteiro: a carta inclina e as pétalas vão para o outro lado. */
+  function followPointer() {
+    if (reduce || !matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+    window.addEventListener("pointermove", (event) => {
+      const px = (event.clientX / window.innerWidth - 0.5).toFixed(3);
+      const py = (event.clientY / window.innerHeight - 0.5).toFixed(3);
+      for (const node of [petals, approach]) {
+        node.style.setProperty("--px", px);
+        node.style.setProperty("--py", py);
+      }
+    }, { passive: true });
   }
 
   /* ---------- o roteiro ---------- */
@@ -172,7 +213,7 @@
 
   const steps = [
     ["inicio", async () => {
-      await sleep(900);
+      await sleep(700);
       await say(C.abertura || []);
       await walk("heart");
       await openEnvelope();
@@ -190,6 +231,8 @@
     window.Petals.start();
     sizeTrail();
     window.addEventListener("resize", sizeTrail);
+    followPointer();
+    preloadImages();
 
     // Para testar uma parte sem passar por tudo: index.html?cena=poppy
     // (inicio, poppy, carta2, yourname, mao, final)
@@ -200,6 +243,7 @@
       world.inert = true;
     }
 
+    await fontsReady();
     for (const [, run] of steps.slice(from)) await run();
   }
 

@@ -123,6 +123,13 @@ window.Music = (() => {
 
         text.append(title, by);
         btn.append(art(song), text);
+        if (i === current && playing) {
+          // três barrinhas que dançam ao lado da música que está tocando
+          const eq = document.createElement("span");
+          eq.className = "eq";
+          eq.append(document.createElement("i"), document.createElement("i"), document.createElement("i"));
+          btn.append(eq);
+        }
         btn.addEventListener("click", () => play(i));
         li.append(btn);
         list.append(li);
@@ -168,10 +175,12 @@ window.Music = (() => {
   function pick() {
     if (!songs.length) return Promise.resolve();
 
-    $("picker-title").textContent = C.titulo;
+    window.Chapters.words($("picker-title"), C.titulo);
     $("picker-lead").textContent = C.texto;
     paint();
     picker.hidden = false;
+    picker.classList.add("is-entering"); // a lista entra em cascata só nesta primeira vez
+    setTimeout(() => picker.classList.remove("is-entering"), 1900);
     requestAnimationFrame(() => requestAnimationFrame(() => picker.classList.add("is-visible")));
 
     return new Promise((resolve) => {

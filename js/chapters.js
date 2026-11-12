@@ -5,6 +5,9 @@ window.Chapters = (() => {
   const scroll = $("scroll");
   const bg = $("chapter-bg");
   const view = $("chapter");
+  const thread = $("scroll-thread");
+  const themeColor = document.querySelector('meta[name="theme-color"]');
+  const THEME = { poppy: "#0d2534", yourname: "#090e33" };
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -17,11 +20,21 @@ window.Chapters = (() => {
     return node;
   }
 
+  /* Quebra um texto em palavras, para elas entrarem uma a uma (a cascata fica no CSS). */
+  function words(node, text) {
+    node.replaceChildren();
+    String(text).split(" ").forEach((word, i) => {
+      const span = el("span", "word", word);
+      span.style.setProperty("--i", i);
+      node.append(span, " ");
+    });
+  }
+
   /* ---------- fundo de cada tema ---------- */
 
   const BACKDROPS = {
     poppy: ["pp-blob pp-blob--r", "pp-blob pp-blob--b", "pp-blob pp-blob--y", "pp-blob pp-blob--g", "pp-floor"],
-    yourname: ["yn-stars", "yn-stars yn-stars--far", "yn-comet"],
+    yourname: ["yn-night", "yn-stars", "yn-stars yn-stars--far", "yn-comet"],
   };
 
   function backdrop(config) {
@@ -49,15 +62,20 @@ window.Chapters = (() => {
   function title(config) {
     const h = el("h1", "ch__title");
     if (config.tema !== "poppy") {
-      h.textContent = config.titulo;
+      words(h, config.titulo);
       return h;
     }
     // no tema do jogo, cada letra ganha uma cor de brinquedo
     h.setAttribute("aria-label", config.titulo);
+    let i = 0;
     for (const word of config.titulo.split(" ")) {
       const span = el("span", "ch__word");
       span.setAttribute("aria-hidden", "true");
-      for (const letter of word) span.append(el("span", "ch__letter", letter));
+      for (const letter of word) {
+        const block = el("span", "ch__letter", letter);
+        block.style.setProperty("--i", i++); // ordem em que as letras caem
+        span.append(block);
+      }
       h.append(span, " ");
     }
     return h;
@@ -195,9 +213,32 @@ window.Chapters = (() => {
     return seen;
   }
 
+  /* O que acompanha a rolagem: o fio na borda, o céu que anoitece, o piso que anda,
+     a capa que fica para trás. Cada camada recebe o valor direto, sem variável herdada. */
+  function follow() {
+    const layers = reduce ? [] : [
+      [bg.querySelector(".yn-night"), (n, p) => { n.style.opacity = (p * 0.92).toFixed(3); }],
+      [bg.querySelector(".yn-hills"), (n, p) => { n.style.translate = `0 ${(p * 16).toFixed(1)}px`; }],
+      [bg.querySelector(".yn-stars:not(.yn-stars--far)"), (n, p) => { n.style.translate = `0 ${(p * -36).toFixed(1)}px`; }],
+      [bg.querySelector(".yn-stars--far"), (n, p) => { n.style.translate = `0 ${(p * -16).toFixed(1)}px`; }],
+      [bg.querySelector(".pp-floor"), (n, p, y) => { n.style.backgroundPositionY = `${(y * 0.45).toFixed(0)}px`; }],
+      [view.querySelector(".cover img"), (n, p, y) => { n.style.translate = `0 ${(y * 0.32).toFixed(1)}px`; }],
+    ].filter(([node]) => node);
+
+    const update = () => {
+      const max = view.scrollHeight - view.clientHeight;
+      const y = view.scrollTop;
+      const p = max > 0 ? Math.min(1, y / max) : 0;
+      thread.style.scale = `1 ${p.toFixed(4)}`;
+      for (const [node, apply] of layers) apply(node, p, y);
+    };
+    view.addEventListener("scroll", update, { passive: true });
+    update();
+    return () => view.removeEventListener("scroll", update);
+  }
+
   async function play(config) {
     const close = render(config);
-    const rolling = reduce ? 400 : 1900;
 
     scroll.hidden = false;
     await frame();
@@ -206,8 +247,10 @@ window.Chapters = (() => {
     scroll.classList.add("is-visible");
     await sleep(reduce ? 100 : 550);
     scroll.classList.add("is-open");
+    themeColor.content = THEME[config.tema] || "#ffffff"; // a barra do navegador acompanha a cena
     const seen = watch();
-    await sleep(rolling);
+    const unfollow = follow();
+    await sleep(reduce ? 400 : 1900);
 
     const covered = window.innerWidth < 820;
     if (covered) window.Petals.pause();
@@ -217,15 +260,19 @@ window.Chapters = (() => {
     close.disabled = true;
 
     seen.disconnect();
+    unfollow();
+    themeColor.content = "#ffffff";
     window.Petals.start();
+    window.Petals.gust(Math.random() < 0.5 ? -1 : 1); // o pergaminho fecha e levanta um vento
     scroll.classList.remove("is-open");
     await sleep(reduce ? 400 : 1300);
     scroll.classList.remove("is-visible");
     await sleep(650);
     scroll.hidden = true;
+    thread.style.scale = "";
     view.replaceChildren();
     bg.replaceChildren();
   }
 
-  return { play };
+  return { play, words };
 })();

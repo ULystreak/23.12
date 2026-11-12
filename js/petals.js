@@ -15,6 +15,7 @@ window.Petals = (() => {
   let petals = [];
   let running = false;
   let last = 0;
+  let rush = 0; // quanto se andou no último quadro: estica as pétalas na direção do movimento
 
   const rand = (a, b) => a + Math.random() * (b - a);
 
@@ -25,6 +26,8 @@ window.Petals = (() => {
     p.z = z;
     p.x = rand(-0.6, 0.6) * W * z;
     p.y = atTop ? (-H / 2 - 40) * z : rand(-0.55, 0.55) * H * z;
+    p.vx = 0;
+    p.vy = 0;
     p.age = 0;
     return p;
   }
@@ -61,11 +64,14 @@ window.Petals = (() => {
 
   function step(dt, elapsed) {
     const speed = reduce ? 0.5 : 1;
+    const drag = Math.exp(-2.4 * dt); // os empurrões (salto, vento) vão perdendo força
     for (const p of petals) {
       p.age += elapsed;
       p.phase += p.swayRate * dt;
-      p.y += p.fall * speed * dt;
-      p.x += Math.sin(p.phase) * p.sway * dt;
+      p.y += (p.fall * speed + p.vy) * dt;
+      p.x += (Math.sin(p.phase) * p.sway + p.vx) * dt;
+      p.vx *= drag;
+      p.vy *= drag;
       p.rot += p.spin * dt;
       p.flip += p.flipRate * dt;
 
@@ -74,6 +80,7 @@ window.Petals = (() => {
       const r = p.size / p.z;
       if (sy > H / 2 + r + 20 || Math.abs(sx) > W / 2 + r + 60) place(p, depth(), true);
     }
+    rush *= 0.88;
   }
 
   function draw() {
@@ -89,8 +96,18 @@ window.Petals = (() => {
       const alpha = Math.max(0, fog * near) * born * (p.z < 1 ? 0.78 : 0.92);
       if (alpha <= 0.01) continue;
 
+      const px = p.x / p.z;
+      const py = p.y / p.z;
+
       ctx.save();
-      ctx.translate(cx + p.x / p.z, cy + p.y / p.z);
+      ctx.translate(cx + px, cy + py);
+      if (rush > 0.004) {
+        // andando: a pétala estica para fora do centro, como um rastro de velocidade
+        const angle = Math.atan2(py, px);
+        ctx.rotate(angle);
+        ctx.scale(1 + Math.min(2.6, (rush * 20) / p.z), 1);
+        ctx.rotate(-angle);
+      }
       ctx.rotate(p.rot);
       ctx.scale(1, Math.max(0.14, Math.abs(Math.cos(p.flip))));
       ctx.globalAlpha = alpha;
@@ -130,6 +147,7 @@ window.Petals = (() => {
 
   /* Anda para frente: traz todas as pétalas para mais perto. */
   function advance(dz) {
+    rush = Math.max(rush, dz);
     for (const p of petals) {
       p.z -= dz;
       const sx = p.x / p.z;
@@ -143,8 +161,31 @@ window.Petals = (() => {
     }
   }
 
+  /* Um punhado de pétalas salta de um ponto da tela (quando uma carta se abre). */
+  function burst(sx, sy, count = 28) {
+    if (reduce) return;
+    for (let i = 0; i < count; i++) {
+      const p = petals[(Math.random() * petals.length) | 0];
+      const z = rand(0.8, 1.9);
+      const angle = rand(0, Math.PI * 2);
+      const force = rand(160, 460);
+      p.z = z;
+      p.x = (sx - W / 2) * z;
+      p.y = (sy - H / 2) * z;
+      p.vx = Math.cos(angle) * force * z;
+      p.vy = (Math.sin(angle) * force - 150) * z;
+      p.age = 1;
+    }
+  }
+
+  /* Uma rajada de vento empurra todas para um lado (quando o pergaminho se fecha). */
+  function gust(direction = 1) {
+    if (reduce) return;
+    for (const p of petals) p.vx += direction * rand(140, 380) * p.z;
+  }
+
   window.addEventListener("resize", resize);
   resize();
 
-  return { start, pause, advance };
+  return { start, pause, advance, burst, gust };
 })();
