@@ -1,0 +1,5 @@
+# configuração local do Claude e sobras de testes automáticos
+.claude/
+.playwright-mcp/
+.playwright-cli/
+output/

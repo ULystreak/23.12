@@ -1,0 +1,207 @@
+/* O roteiro da página: em que ordem as coisas acontecem. */
+
+(() => {
+  const C = window.CONTEUDO;
+  const $ = (id) => document.getElementById(id);
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const world = $("world");
+  const approach = $("approach");
+  const envelope = $("envelope");
+  const hint = $("hint");
+  const whisper = $("whisper");
+  const trail = $("trail");
+  const trailPath = $("trail-path");
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const click = (el) => new Promise((r) => el.addEventListener("click", r, { once: true }));
+
+  /* Frases que aparecem e somem no fundo branco. */
+  async function say(lines) {
+    for (const line of lines) {
+      whisper.textContent = line;
+      whisper.classList.add("is-visible");
+      await sleep(2700);
+      whisper.classList.remove("is-visible");
+      await sleep(1300);
+    }
+  }
+
+  /* Anda para frente até a próxima carta chegar. */
+  function walk(seal) {
+    envelope.dataset.seal = seal;
+    envelope.classList.remove("is-open");
+    envelope.disabled = true;
+    approach.classList.remove("is-arrived");
+    approach.style.setProperty("--s", 0);
+    approach.style.setProperty("--o", 0);
+    world.classList.remove("is-away");
+    world.inert = false;
+    hint.classList.remove("is-visible");
+    document.body.classList.add("is-walking");
+
+    const FAR = 26;
+    const duration = reduce ? 900 : 5800;
+
+    return new Promise((resolve) => {
+      const t0 = performance.now();
+      let prevZ = FAR;
+
+      const tick = (now) => {
+        const t = Math.min(1, (now - t0) / duration);
+        const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        const z = FAR + (1 - FAR) * e;
+
+        approach.style.setProperty("--s", (1 / z).toFixed(4));
+        approach.style.setProperty("--o", Math.min(1, t * 4).toFixed(3));
+        window.Petals.advance((prevZ - z) * 0.3);
+        prevZ = z;
+
+        if (t < 1) return requestAnimationFrame(tick);
+
+        document.body.classList.remove("is-walking");
+        approach.classList.add("is-arrived");
+        envelope.disabled = false;
+        hint.classList.add("is-visible");
+        resolve();
+      };
+      requestAnimationFrame(tick);
+    });
+  }
+
+  async function openEnvelope() {
+    await click(envelope);
+    envelope.disabled = true;
+    hint.classList.remove("is-visible");
+    envelope.classList.add("is-open");
+    await sleep(reduce ? 600 : 2000);
+  }
+
+  async function leaveWorld() {
+    if (world.classList.contains("is-away")) return;
+    world.classList.add("is-away");
+    world.inert = true; // a carta escondida não recebe foco nem leitor de tela
+    await sleep(700);
+    approach.classList.remove("is-arrived");
+  }
+
+  /* ---------- a mão e o fio ---------- */
+
+  function sizeTrail() {
+    trail.setAttribute("viewBox", `0 0 ${window.innerWidth} ${window.innerHeight}`);
+  }
+
+  async function handScene() {
+    const hand = $("hand");
+    const text = $("hand-text");
+    const follow = $("follow");
+
+    text.textContent = C.mao.texto;
+    follow.textContent = C.mao.botao;
+    hand.hidden = false;
+    await frame();
+    hand.classList.add("is-visible");
+    await sleep(reduce ? 300 : 1700);
+    hand.classList.add("is-tied");
+    await sleep(reduce ? 300 : 1500);
+    hand.classList.add("is-ready");
+
+    await click(follow);
+    follow.disabled = true;
+
+    // o fio sai do dedo mindinho e vai até onde a carta vai aparecer
+    sizeTrail();
+    const knot = hand.querySelector(".hand__knot").getBoundingClientRect();
+    const x0 = knot.left + knot.width * 0.2;
+    const y0 = knot.top + knot.height * 0.5;
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+    const below = window.innerHeight + 60;
+    trailPath.setAttribute(
+      "d",
+      `M ${x0 + 30} ${below} C ${x0 + 26} ${y0 + 170}, ${x0 - 12} ${y0 + 60}, ${x0} ${y0} ` +
+      `S ${cx - 110} ${cy + 120}, ${cx} ${cy}`
+    );
+    const length = trailPath.getTotalLength();
+    trailPath.style.strokeDasharray = length;
+    trailPath.style.strokeDashoffset = length;
+    trail.classList.add("is-visible");
+    await frame();
+    trailPath.style.transition = `stroke-dashoffset ${reduce ? 0.3 : 2.2}s cubic-bezier(.65, 0, .35, 1)`;
+    trailPath.style.strokeDashoffset = 0;
+    await sleep(reduce ? 400 : 2300);
+
+    hand.classList.remove("is-visible", "is-ready");
+    await sleep(reduce ? 300 : 1100);
+    hand.hidden = true;
+  }
+
+  /* ---------- a última carta ---------- */
+
+  async function type(el, text) {
+    el.setAttribute("aria-label", text);
+    for (const ch of text) {
+      el.textContent += ch;
+      await sleep(reduce ? 0 : /[,.!?]/.test(ch) ? 480 : 55 + Math.random() * 70);
+    }
+  }
+
+  async function finale() {
+    const final = $("final");
+    await leaveWorld();
+    final.hidden = false;
+    await frame();
+    final.classList.add("is-visible");
+    await sleep(reduce ? 300 : 1800);
+    await type($("final-text"), C.final.frase);
+    if (C.final.assinatura) {
+      const sign = $("final-sign");
+      sign.textContent = C.final.assinatura;
+      await sleep(900);
+      sign.classList.add("is-visible");
+    }
+  }
+
+  /* ---------- o roteiro ---------- */
+
+  async function chapter(config) {
+    await leaveWorld();
+    await window.Chapters.play(config);
+  }
+
+  const steps = [
+    ["inicio", async () => {
+      await sleep(900);
+      await say(C.abertura || []);
+      await walk("heart");
+      await openEnvelope();
+      await leaveWorld();
+      await window.Music.pick();
+    }],
+    ["poppy", () => chapter(C.capitulo1)],
+    ["carta2", async () => { await walk("star"); await openEnvelope(); }],
+    ["yourname", () => chapter(C.capitulo2)],
+    ["mao", handScene],
+    ["final", async () => { await walk("none"); await openEnvelope(); await finale(); }],
+  ];
+
+  async function main() {
+    window.Petals.start();
+    sizeTrail();
+    window.addEventListener("resize", sizeTrail);
+
+    // Para testar uma parte sem passar por tudo: index.html?cena=poppy
+    // (inicio, poppy, carta2, yourname, mao, final)
+    const wanted = new URLSearchParams(location.search).get("cena");
+    const from = Math.max(0, steps.findIndex(([name]) => name === wanted));
+    if (from > 0) {
+      world.classList.add("is-away");
+      world.inert = true;
+    }
+
+    for (const [, run] of steps.slice(from)) await run();
+  }
+
+  main();
+})();

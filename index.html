@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#ffffff">
+  <title>Para você</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23b3123a' d='M16 28C4 19 2 12 6 7c3-3 8-2 10 2 2-4 7-5 10-2 4 5 2 12-10 21z'/%3E%3C/svg%3E">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Klee+One:wght@400;600&family=Shippori+Mincho:wght@500;700&family=VT323&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/scroll.css">
+  <link rel="stylesheet" href="css/poppy.css">
+  <link rel="stylesheet" href="css/yourname.css">
+  <link rel="stylesheet" href="css/final.css">
+</head>
+<body>
+
+  <!-- Pétalas caindo (desenhadas pelo js/petals.js) -->
+  <canvas id="petals" aria-hidden="true"></canvas>
+
+  <!-- O fio vermelho que leva até a última carta -->
+  <svg id="trail" class="trail" aria-hidden="true" preserveAspectRatio="none">
+    <path id="trail-path" d=""/>
+  </svg>
+
+  <!-- Mundo branco: a carta que se aproxima -->
+  <main id="world" class="world">
+    <p id="whisper" class="whisper" aria-live="polite"></p>
+
+    <div id="approach" class="approach">
+      <button id="envelope" class="envelope" type="button" aria-label="Abrir a carta">
+        <span class="envelope__back"></span>
+        <span class="envelope__paper"></span>
+        <span class="envelope__front"></span>
+        <span class="envelope__flap"></span>
+        <span class="envelope__cord"></span>
+        <span class="envelope__seal"></span>
+      </button>
+      <span class="approach__shadow"></span>
+    </div>
+
+    <p id="hint" class="hint">toque na carta</p>
+  </main>
+
+  <!-- Escolha da música -->
+  <section id="picker" class="picker" hidden aria-labelledby="picker-title">
+    <h1 id="picker-title" class="picker__title"></h1>
+    <p id="picker-lead" class="picker__lead"></p>
+    <ul id="picker-list" class="songs"></ul>
+    <button id="picker-go" class="btn" type="button" disabled>Abrir a carta</button>
+  </section>
+
+  <!-- Pergaminho: cada capítulo é desenhado aqui dentro -->
+  <section id="scroll" class="scroll" hidden>
+    <div class="scroll__rod"></div>
+    <div id="sheet" class="scroll__sheet">
+      <div id="chapter-bg" class="scroll__bg" aria-hidden="true"></div>
+      <div id="chapter" class="scroll__view" tabindex="0"></div>
+    </div>
+    <div class="scroll__rod"></div>
+  </section>
+
+  <!-- A mão com o fio vermelho -->
+  <section id="hand" class="hand" hidden>
+    <svg class="hand__art" viewBox="0 0 240 330" aria-hidden="true">
+      <path class="hand__shape" d="M78 330 L78 282 C66 264 60 242 60 216 L60 107 a12 12 0 0 1 24 0 L84 184 a2 2 0 0 0 4 0 L88 67 a13 13 0 0 1 26 0 L114 180 a2 2 0 0 0 4 0 L118 53 a14 14 0 0 1 28 0 L146 182 a2 2 0 0 0 4 0 L150 72 a13 13 0 0 1 26 0 L176 200 C177 210 183 208 188 198 L208 158 A13 13 0 0 1 231 170 L213 206 C206 240 186 268 164 284 L162 330"/>
+      <path class="hand__crease" d="M92 236 C112 222 140 222 168 240"/>
+      <path class="hand__crease" d="M100 262 C118 252 138 252 156 262"/>
+      <!-- o laço no dedo mindinho -->
+      <g class="hand__knot">
+        <path pathLength="1" d="M59 150 C66 154 78 154 85 150"/>
+        <path pathLength="1" d="M59 156 C66 160 78 160 85 156"/>
+        <path pathLength="1" d="M60 153 C46 140 38 150 50 156 C40 164 50 172 60 155"/>
+      </g>
+    </svg>
+    <p id="hand-text" class="hand__text"></p>
+    <button id="follow" class="btn btn--thread" type="button">Seguir o fio</button>
+  </section>
+
+  <!-- A última carta, em branco -->
+  <section id="final" class="final" hidden>
+    <div class="final__page">
+      <p id="final-text" class="final__text"></p>
+      <p id="final-sign" class="final__sign"></p>
+    </div>
+  </section>
+
+  <!-- Mini seletor de música, sempre no canto -->
+  <div id="player" class="player" hidden>
+    <button id="player-mute" class="player__mute" type="button" aria-label="Silenciar a música" aria-pressed="false">
+      <span class="disc"></span>
+    </button>
+    <button id="player-song" class="player__song" type="button" aria-expanded="false" aria-controls="player-menu"></button>
+    <div id="player-menu" class="player__menu" hidden>
+      <ul id="player-list" class="songs songs--mini"></ul>
+      <label class="player__vol">
+        <span>Volume</span>
+        <input id="player-vol" type="range" min="0" max="100" value="30">
+      </label>
+    </div>
+  </div>
+
+  <script src="js/content.js"></script>
+  <script src="js/petals.js"></script>
+  <script src="js/music.js"></script>
+  <script src="js/scenes.js"></script>
+  <script src="js/chapters.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

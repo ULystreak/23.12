@@ -1,0 +1,439 @@
+/* Escolha da música, mini seletor e o pergaminho */
+
+/* ---------- escolha da música ---------- */
+
+.picker {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+  text-align: center;
+  background: radial-gradient(ellipse 80% 44% at 50% 50%, rgba(255, 255, 255, .94) 50%, rgba(255, 255, 255, 0));
+  opacity: 0;
+  transition: opacity .65s ease;
+}
+
+.picker.is-visible { opacity: 1; }
+
+.picker__title {
+  max-width: 16em;
+  margin: 0 0 .5rem;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(1.45rem, 5.4vw, 2rem);
+  line-height: 1.3;
+  text-wrap: balance;
+}
+
+.picker__lead {
+  max-width: 24em;
+  margin: 0 0 1.6rem;
+  color: var(--ink-soft);
+  font-size: 1rem;
+}
+
+.picker .songs { width: min(100%, 24rem); margin-bottom: 2rem; }
+
+/* ---------- lista de músicas ---------- */
+
+.songs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.songs li + li { border-top: 1px solid #f3dbe1; }
+
+.song {
+  display: flex;
+  align-items: center;
+  gap: .9rem;
+  width: 100%;
+  padding: .8rem .35rem;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.song__text { display: grid; min-width: 0; }
+
+.song__title {
+  font-weight: 600;
+  line-height: 1.35;
+  transition: color .2s ease;
+}
+
+.song__by { color: var(--ink-soft); font-size: .88rem; line-height: 1.4; }
+.song__by.is-error { color: var(--rose); }
+
+.song:hover .song__title,
+.song[aria-pressed="true"] .song__title { color: var(--rose); }
+
+/* o disco */
+.disc {
+  flex: none;
+  display: block;
+  width: 2.4rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    conic-gradient(from 30deg, rgba(255, 255, 255, .22), transparent 14%, transparent 50%, rgba(255, 255, 255, .22) 58%, transparent 72%),
+    radial-gradient(circle, #fff 0 7%, var(--rose) 8% 33%, #1d1418 34% 100%);
+  box-shadow: 0 2px 6px rgba(42, 27, 34, .25);
+  transition: scale .12s ease-out;
+  animation: spin 3.2s linear infinite paused;
+}
+
+.song:active .disc,
+.player__mute:active .disc { scale: .92; }
+
+.is-playing .disc,
+.is-playing.player__mute .disc { animation-play-state: running; }
+
+@keyframes spin { to { rotate: 360deg; } }
+
+/* ---------- mini seletor no canto ---------- */
+
+.player {
+  position: fixed;
+  z-index: 20;
+  top: max(.8rem, env(safe-area-inset-top));
+  right: max(.8rem, env(safe-area-inset-right));
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 .2rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .86);
+  box-shadow: 0 2px 12px rgba(42, 27, 34, .16), 0 0 0 1px rgba(42, 27, 34, .05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: player-in .8s var(--ease-out) both;
+}
+
+@keyframes player-in { from { opacity: 0; translate: 0 -10px; } }
+
+.player__mute {
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: .2rem;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+}
+
+.player__mute .disc { width: 1.9rem; }
+.player__mute:not(.is-playing) .disc { opacity: .5; }
+
+.player__song {
+  max-width: 9.5rem;
+  min-height: 44px;
+  padding: .2rem .7rem .2rem .35rem;
+  border: 0;
+  background: none;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: .88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.player__menu {
+  position: absolute;
+  top: calc(100% + .5rem);
+  right: 0;
+  width: min(18rem, 100vw - 1.6rem);
+  padding: .4rem .8rem .8rem;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 12px 34px rgba(42, 27, 34, .22), 0 0 0 1px rgba(42, 27, 34, .05);
+}
+
+.songs--mini .song { padding: .55rem .1rem; gap: .7rem; }
+.songs--mini .disc { width: 1.8rem; }
+.songs--mini .song__title { font-size: .95rem; }
+
+.player__vol {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  margin-top: .6rem;
+  padding-top: .7rem;
+  border-top: 1px solid #f3dbe1;
+  color: var(--ink-soft);
+  font-size: .88rem;
+}
+
+.player__vol input { flex: 1; min-width: 0; accent-color: var(--rose); }
+
+/* ---------- pergaminho ---------- */
+
+.scroll {
+  --rod: 22px;
+  --sheet-w: min(100vw - 26px, 760px);
+  --sheet-h: calc(100vh - 20px - 2 * var(--rod));
+  --sheet-h: calc(100dvh - 20px - 2 * var(--rod));
+
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .6s ease;
+}
+
+.scroll.is-visible { opacity: 1; }
+
+.scroll__rod {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  width: min(100vw - 6px, var(--sheet-w) + 26px);
+  height: var(--rod);
+  border-radius: 999px;
+  background: linear-gradient(#ffffff, #f7e9ed 45%, #e2c3cb);
+  box-shadow: 0 5px 12px rgba(42, 27, 34, .2), inset 0 -1px 0 rgba(42, 27, 34, .08);
+}
+
+/* as pontas do rolo */
+.scroll__rod::before,
+.scroll__rod::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 9px;
+  height: 130%;
+  translate: 0 -50%;
+  border-radius: 4px;
+  background: linear-gradient(#d8375c, var(--rose));
+}
+
+.scroll__rod::before { left: 10px; }
+.scroll__rod::after { right: 10px; }
+
+/* O pergaminho abre recortando a folha (clip-path) e descendo o rolo de baixo
+   (translate): nenhum layout é recalculado, então fica liso no celular. */
+.scroll__sheet {
+  position: relative;
+  flex: none;
+  width: var(--sheet-w);
+  height: var(--sheet-h);
+  margin: -5px 0;
+  overflow: hidden;
+  background: #111;
+  box-shadow: 0 18px 44px rgba(42, 27, 34, .28);
+  pointer-events: auto;
+  clip-path: inset(0 -60px 100% -60px);
+  transition: clip-path 1.25s var(--ease-in-out);
+}
+
+.scroll__sheet + .scroll__rod {
+  translate: 0 calc(10px - var(--sheet-h));
+  transition: translate 1.25s var(--ease-in-out);
+}
+
+/* abrir demora mais que fechar */
+.scroll.is-open .scroll__sheet { clip-path: inset(0 -60px -60px -60px); transition-duration: 1.8s; }
+.scroll.is-open .scroll__sheet + .scroll__rod { translate: 0 0; transition-duration: 1.8s; }
+
+.scroll__bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--sheet-h);
+  overflow: hidden;
+}
+
+.scroll__view {
+  position: relative;
+  height: var(--sheet-h);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, .35) transparent;
+  outline: none;
+}
+
+/* ---------- o que é comum aos capítulos ---------- */
+
+.ch {
+  position: relative;
+  display: grid;
+  gap: 2.6rem;
+  width: min(100%, 36rem);
+  margin: 0 auto;
+  padding: 4.5rem 1.25rem 5rem;
+}
+
+.ch__head { text-align: center; }
+
+.reveal {
+  opacity: 0;
+  translate: 0 14px;
+  transition: opacity .6s ease-out, translate .6s var(--ease-out);
+}
+
+.reveal.is-in { opacity: 1; translate: 0 0; }
+
+.glass {
+  padding: 1.5rem 1.4rem;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, .1);
+  border: 1px solid rgba(255, 255, 255, .26);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .34), 0 18px 44px rgba(0, 0, 0, .32);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+}
+
+.glass p { margin: 0; }
+.glass p + p { margin-top: 1em; }
+
+.shot { margin: 0; }
+
+.shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.shot figcaption {
+  margin-top: .7rem;
+  text-align: center;
+  font-size: .95rem;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, .65);
+}
+
+.shot--empty .shot__frame {
+  display: grid;
+  place-items: center;
+  min-height: 11rem;
+  padding: 1.2rem;
+  border: 2px dashed currentColor;
+  border-radius: 14px;
+  text-align: center;
+  font-size: .92rem;
+  opacity: .7;
+}
+
+.scene { display: block; width: 100%; height: auto; overflow: visible; }
+
+/* imagem de ponta a ponta, como um quadro de cinema */
+.shot--wide { margin-inline: calc(50% - 50cqw); }
+.ch .shot--wide .shot__frame { padding: 0; border-radius: 0; background: none; box-shadow: none; }
+.ch .shot--wide img { border-radius: 0; }
+
+/* capa do capítulo: abre a folha e se desfaz no fundo, com o título por cima */
+.cover {
+  margin: -4.5rem calc(50% - 50cqw) 0;
+  overflow: hidden;
+}
+
+.cover img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  scale: 1.08;
+  -webkit-mask-image: linear-gradient(#000 56%, transparent);
+  mask-image: linear-gradient(#000 56%, transparent);
+  transition: scale 2.6s var(--ease-out);
+}
+
+.cover.is-in img { scale: 1; }
+.cover + .ch__head { margin-top: -5.6rem; }
+
+/* duas imagens que se completam, ligadas pelo fio vermelho */
+.pair__frames {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3%;
+}
+
+.pair__img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  object-fit: cover;
+  border-radius: 14px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .38), 0 16px 40px rgba(9, 8, 50, .5);
+  transition: translate .9s var(--ease-out) .15s, rotate .9s var(--ease-out) .15s;
+}
+
+/* chegam separadas e inclinadas, e se encostam */
+.pair__img--a { translate: -14px 0; rotate: -2.5deg; }
+.pair__img--b { translate: 14px 0; rotate: 2.5deg; }
+.is-in .pair__img { translate: 0 0; rotate: 0deg; }
+
+.pair__thread {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.pair__thread path {
+  fill: none;
+  stroke: var(--thread);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  filter: drop-shadow(0 0 1.4px rgba(255, 120, 130, .9));
+  transition: stroke-dashoffset 1.1s var(--ease-in-out) 1s;
+}
+
+.is-in .pair__thread path { stroke-dashoffset: 0; }
+
+.pair__captions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3%;
+  margin-top: .7rem;
+  text-align: center;
+  font-size: .95rem;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, .65);
+}
+
+.scroll__view { container-type: inline-size; }
+
+/* fundo: imagem opcional e a camada que fica por cima de tudo */
+.bg-photo,
+.bg-veil { position: absolute; inset: 0; pointer-events: none; }
+
+.bg-photo {
+  background-position: center;
+  background-size: cover;
+  animation: photo-in .9s ease-out both;
+}
+
+@keyframes photo-in { from { opacity: 0; } }
+
+.ch__end { display: grid; justify-items: center; padding-top: 1rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll__sheet, .scroll__sheet + .scroll__rod { transition-duration: .2s !important; }
+  .reveal { translate: none; transition-duration: .2s; }
+  .cover img { scale: 1; transition: none; }
+  .pair__img, .pair__thread path { transition-duration: .2s; transition-delay: 0s; }
+  .disc { animation: none; }
+}

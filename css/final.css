@@ -1,0 +1,187 @@
+/* A mão, o fio vermelho e a última carta */
+
+/* ---------- o fio que cruza a tela ---------- */
+
+.trail {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .6s ease;
+}
+
+.trail.is-visible { opacity: 1; }
+
+.trail path {
+  fill: none;
+  stroke: var(--thread);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+/* a última carta vem amarrada só com o fio */
+.envelope[data-seal="none"] .envelope__seal {
+  width: 4.5%;
+  background: var(--thread);
+  box-shadow: none;
+}
+
+.envelope[data-seal="none"] .envelope__seal::after { display: none; }
+
+/* ---------- a mão ---------- */
+
+.hand {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.hand__art {
+  width: min(62vw, 300px, 46vh);
+  height: auto;
+  overflow: visible;
+  translate: 0 108%;
+  filter: drop-shadow(0 12px 22px rgba(179, 18, 58, .16));
+  transition: translate 1.5s var(--ease-out);
+}
+
+.hand.is-visible .hand__art { translate: 0 5%; }
+
+.hand__shape {
+  fill: #fff;
+  stroke: var(--ink);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.hand__crease {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2;
+  stroke-linecap: round;
+  opacity: .3;
+}
+
+.hand__knot path {
+  fill: none;
+  stroke: var(--thread);
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset .8s ease;
+}
+
+.hand__knot path:nth-child(2) { transition-delay: .25s; }
+.hand__knot path:nth-child(3) { transition-delay: .55s; }
+.hand.is-tied .hand__knot path { stroke-dashoffset: 0; }
+
+.hand__text {
+  position: absolute;
+  top: 13vh;
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0 8vw;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(1.5rem, 6vw, 2.5rem);
+  line-height: 1.3;
+  opacity: 0;
+  filter: blur(8px);
+  transition: opacity 1.1s ease .5s, filter 1.1s ease .5s;
+}
+
+.hand.is-tied .hand__text { opacity: 1; filter: none; }
+
+.btn--thread {
+  position: absolute;
+  top: calc(13vh + clamp(3.2rem, 10vw, 4.6rem));
+  background: var(--thread);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.btn--thread:hover { background: #b31224; }
+.hand.is-ready .btn--thread { opacity: 1; pointer-events: auto; }
+.hand.is-ready .btn--thread:disabled { opacity: 0; }
+
+/* ---------- a última carta ---------- */
+
+.final {
+  --line: 2.9rem;
+
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  pointer-events: none;
+}
+
+.final__page {
+  width: min(100%, 30rem);
+  height: min(78vh, calc(var(--line) * 12));
+  padding: calc(var(--line) * 2) 2rem 0;
+  border-radius: 4px;
+  background:
+    repeating-linear-gradient(transparent 0 calc(var(--line) - 1px), #f5dfe4 calc(var(--line) - 1px) var(--line)),
+    var(--paper);
+  box-shadow: 0 34px 60px -24px rgba(179, 18, 58, .3), 0 2px 6px rgba(42, 27, 34, .1);
+  opacity: 0;
+  scale: .5;
+  translate: 0 6vh;
+  transition: opacity .9s ease, scale 1.4s var(--ease-out), translate 1.4s var(--ease-out);
+}
+
+.final.is-visible .final__page { opacity: 1; scale: 1; translate: 0 0; }
+
+.final__text {
+  margin: 0;
+  font-family: var(--font-hand);
+  font-weight: 600;
+  font-size: clamp(1.35rem, 5.4vw, 1.8rem);
+  line-height: var(--line);
+}
+
+/* o cursor piscando: a carta ainda está sendo escrita */
+.final__text::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  margin-left: 3px;
+  vertical-align: -.15em;
+  background: var(--rose);
+  animation: caret 1.1s steps(2, jump-none) infinite;
+}
+
+@keyframes caret { to { opacity: 0; } }
+
+.final__sign {
+  margin: var(--line) 0 0;
+  text-align: right;
+  font-size: 1.15rem;
+  line-height: var(--line);
+  opacity: 0;
+  transition: opacity 1.2s ease;
+}
+
+.final__sign.is-visible { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hand__art, .final__page { transition-duration: .3s; }
+  .final__text::after { animation: none; }
+}
