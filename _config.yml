@@ -1,0 +1,7 @@
+# GitHub Pages: publica o site como está e deixa de fora o que é só de desenvolvimento.
+# (Pastas que começam com "_" ou "." já ficam de fora sozinhas.)
+exclude:
+  - PRODUCT.md
+  - DESIGN.md
+  - LEIA-ME.md
+  - output

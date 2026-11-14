@@ -1,8 +1,10 @@
 # configuração local do Claude e sobras de testes automáticos
 .claude/
+.impeccable/
 .playwright-mcp/
 .playwright-cli/
 output/
+node_modules/
 
 # rascunho de prompt, não faz parte do site
 PROMPT.md
