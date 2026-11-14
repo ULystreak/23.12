@@ -6,41 +6,45 @@
   position: fixed;
   inset: 0;
   z-index: 6;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem 1.5rem;
+  display: grid;
+  place-items: center;
+  padding: max(2rem, env(safe-area-inset-top)) 1.5rem max(2rem, env(safe-area-inset-bottom));
   text-align: center;
-  background: radial-gradient(ellipse 80% 44% at 50% 50%, rgba(255, 255, 255, .94) 50%, rgba(255, 255, 255, 0));
+  background: radial-gradient(ellipse 84% 48% at 50% 50%, rgba(255, 255, 255, .96) 46%, rgba(255, 255, 255, 0));
   opacity: 0;
   transition: opacity .65s ease;
 }
 
 .picker.is-visible { opacity: 1; }
 
+.picker__box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 25rem;
+}
+
 .picker__title {
-  max-width: 16em;
-  margin: 0 0 .5rem;
+  max-width: 15em;
+  margin: 0 0 .6rem;
   font-family: var(--font-display);
   font-weight: 500;
-  font-size: clamp(1.45rem, 5.4vw, 2rem);
-  line-height: 1.3;
+  font-size: clamp(1.55rem, 5.8vw, 2.1rem);
+  line-height: 1.28;
+  letter-spacing: .005em;
   text-wrap: balance;
 }
 
 .picker__lead {
-  max-width: 24em;
-  margin: 0 0 1.6rem;
+  max-width: 23em;
+  margin: 0 0 1.9rem;
   color: var(--ink-soft);
-  font-size: 1rem;
+  font-size: .98rem;
+  line-height: 1.6;
 }
 
-.picker .songs { width: min(100%, 24rem); margin-bottom: 2rem; }
-
-/* ---------- lista de músicas ---------- */
-
-.songs {
+.picker .songs {
   margin: 0;
   padding: 0;
   list-style: none;
@@ -50,30 +54,54 @@
 .songs li + li { border-top: 1px solid #f3dbe1; }
 
 .song {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: .9rem;
+  gap: 1rem;
   width: 100%;
-  padding: .8rem .35rem;
+  padding: .85rem .5rem .85rem .35rem;
   border: 0;
+  border-radius: 10px;
   background: none;
   text-align: left;
   cursor: pointer;
+  transition: background .2s ease, scale .16s ease-out;
+}
+
+.song:active { scale: .985; }
+
+@media (hover: hover) and (pointer: fine) {
+  .song:hover { background: rgba(179, 18, 58, .045); }
 }
 
 .song__text { display: grid; min-width: 0; }
 
 .song__title {
   font-weight: 600;
-  line-height: 1.35;
+  font-size: 1.08rem;
+  line-height: 1.3;
   transition: color .2s ease;
 }
 
-.song__by { color: var(--ink-soft); font-size: .88rem; line-height: 1.4; }
+.song__by { color: var(--ink-soft); font-size: .88rem; line-height: 1.45; }
 .song__by.is-error { color: var(--rose); }
 
-.song:hover .song__title,
 .song[aria-pressed="true"] .song__title { color: var(--rose); }
+
+/* o fio sublinha a música escolhida */
+.song__title::after {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 1.5px;
+  margin-top: 2px;
+  background: var(--thread);
+  transform-origin: 0 50%;
+  scale: 0 1;
+  transition: scale .55s var(--ease-out);
+}
+
+.song[aria-pressed="true"] .song__title::after { scale: 1 1; }
 
 /* o disco */
 .disc {
@@ -99,7 +127,7 @@
 /* a capa da música, com o disco saindo de trás dela */
 .art { position: relative; flex: none; display: block; width: 2.4rem; aspect-ratio: 1; }
 .art .disc { width: 100%; }
-.art--cover { width: 3rem; margin-right: .95rem; }
+.art--cover { width: 3.4rem; margin-right: 1.05rem; }
 
 .art__cover {
   position: relative;
@@ -107,8 +135,8 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 6px;
-  box-shadow: 0 2px 6px rgba(42, 27, 34, .3);
+  border-radius: 7px;
+  box-shadow: 0 3px 8px -2px rgba(42, 27, 34, .35), 0 0 0 1px rgba(42, 27, 34, .06);
 }
 
 .art--cover .disc {
@@ -226,6 +254,28 @@
 }
 
 .scroll.is-visible { opacity: 1; }
+
+/* o rolo fechado sobe e some, devolvendo o mundo branco */
+.scroll.is-leaving { opacity: 0; translate: 0 -46px; transition: opacity .45s ease, translate .52s var(--ease-in-out); }
+
+/* o papel que voa da carta até virar o rolo */
+.ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 6;
+  border-radius: 3px;
+  background:
+    repeating-linear-gradient(transparent 0 13px, rgba(179, 18, 58, .1) 13px 14px) 0 20px,
+    var(--paper);
+  box-shadow: 0 10px 30px -8px rgba(42, 27, 34, .35), 0 0 0 1px rgba(42, 27, 34, .07);
+  transform-origin: 0 0;
+  will-change: transform, filter;
+  pointer-events: none;
+}
+
+/* avisos que a fita mostra por cima do capítulo (cada tema decide o que escreve) */
+.scroll__osd { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
 
 .scroll__rod {
   position: relative;

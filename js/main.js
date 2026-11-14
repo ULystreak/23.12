@@ -4,9 +4,11 @@
   const C = window.CONTEUDO;
   const $ = (id) => document.getElementById(id);
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const fine = matchMedia("(hover: hover) and (pointer: fine)").matches;
   const words = window.Chapters.words;
 
   const world = $("world");
+  const cam = $("cam");
   const approach = $("approach");
   const envelope = $("envelope");
   const hint = $("hint");
@@ -15,10 +17,13 @@
   const trailPath = $("trail-path");
   const petals = $("petals");
   const body = envelope.querySelector(".envelope__body"); // o corpo 3D da carta
+  const paper = envelope.querySelector(".envelope__paper");
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   const click = (el) => new Promise((r) => el.addEventListener("click", r, { once: true }));
+
+  /* ---------- o mundo branco ---------- */
 
   /* Frases que aparecem palavra por palavra e somem no fundo branco. */
   async function say(lines) {
@@ -28,7 +33,7 @@
       whisper.replaceChildren(line);
       await frame();
       whisper.classList.add("is-visible");
-      await sleep(reduce ? 2200 : 2300 + text.split(" ").length * 110);
+      await sleep(reduce ? 2200 : 2400 + text.split(" ").length * 120);
       whisper.classList.remove("is-visible");
       await sleep(1100);
     }
@@ -38,20 +43,21 @@
   /* Anda para frente até a próxima carta chegar. */
   function walk(seal) {
     envelope.dataset.seal = seal;
-    envelope.classList.remove("is-open");
+    envelope.classList.remove("is-open", "is-given");
     body.style.rotate = "";
     body.style.translate = "";
     envelope.disabled = true;
     approach.classList.remove("is-arrived");
     approach.style.setProperty("--s", 0);
     approach.style.setProperty("--o", 0);
-    world.classList.remove("is-away");
+    world.classList.remove("is-away", "is-dim");
     world.inert = false;
     hint.classList.remove("is-visible");
     document.body.classList.add("is-walking");
 
-    const FAR = 26;
-    const duration = reduce ? 900 : 5800;
+    const FAR = 16;
+    const duration = reduce ? 900 : 6600;
+    const STEP_HZ = 1.7; // passos por segundo
 
     return new Promise((resolve) => {
       const t0 = performance.now();
@@ -59,15 +65,29 @@
 
       const tick = (now) => {
         const t = Math.min(1, (now - t0) / duration);
-        const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
         const z = FAR + (1 - FAR) * e;
 
         approach.style.setProperty("--s", (1 / z).toFixed(4));
-        approach.style.setProperty("--o", Math.min(1, t * 4).toFixed(3));
+        approach.style.setProperty("--o", Math.min(1, t * 3).toFixed(3));
+        // profundidade de campo: a carta nasce desfocada lá no fundo e entra em foco ao chegar
+        const blur = z > 1.18 ? Math.min(9, (z - 1.18) * 1.15) : 0;
+        approach.style.filter = blur > 0.12 ? `blur(${blur.toFixed(2)}px)` : "";
+
         if (!reduce) {
           // de longe ela vem girando no ar; chega de frente
           body.style.setProperty("--ry", `${((1 - e) * 64).toFixed(2)}deg`);
           body.style.setProperty("--rx", `${((1 - e) * -18).toFixed(2)}deg`);
+          // o passo: sobe e desce a cada passo, pende de leve para os lados, e tudo acompanha a velocidade
+          const speed = 4 * e * (1 - e);
+          const amp = Math.min(1, speed * 1.7);
+          const ph = ((now - t0) / 1000) * STEP_HZ * Math.PI * 2;
+          const by = Math.sin(ph) * 5.5 * amp;
+          const bx = Math.sin(ph / 2) * 4 * amp;
+          cam.style.translate = `${bx.toFixed(2)}px ${by.toFixed(2)}px`;
+          cam.style.rotate = `${(bx * 0.09).toFixed(3)}deg`;
+          trail.style.translate = cam.style.translate;
+          window.Petals.setCamera(bx * 1.5, by * 1.5);
         }
         window.Petals.advance((prevZ - z) * 0.3);
         prevZ = z;
@@ -76,6 +96,11 @@
 
         body.style.removeProperty("--ry");
         body.style.removeProperty("--rx");
+        cam.style.translate = "";
+        cam.style.rotate = "";
+        trail.style.translate = "";
+        approach.style.filter = "";
+        window.Petals.setCamera(0, 0);
         document.body.classList.remove("is-walking");
         approach.classList.add("is-arrived");
         envelope.disabled = false;
@@ -86,8 +111,10 @@
     });
   }
 
+  /* Espera o toque e abre a carta: o lacre parte, o cordão solta, a aba levanta, o papel sai. */
   async function openEnvelope() {
     await click(envelope);
+    window.SFX.unlock();
     envelope.disabled = true;
     hint.classList.remove("is-visible");
 
@@ -100,11 +127,20 @@
     body.style.rotate = "";
     body.style.translate = "";
 
-    // o lacre estoura e solta um punhado de pétalas
-    const box = envelope.getBoundingClientRect();
-    setTimeout(() => window.Petals.burst(box.left + box.width / 2, box.top + box.height * 0.57), 180);
+    const seal = envelope.querySelector(".envelope__seal").getBoundingClientRect();
+    const sealed = envelope.dataset.seal !== "none";
+    setTimeout(() => (sealed ? window.SFX.crack() : window.SFX.whoosh(0.7)), 30);
+    setTimeout(() => window.Petals.burst(seal.left + seal.width / 2, seal.top + seal.height / 2, sealed ? 30 : 14), 130);
+    setTimeout(() => window.SFX.paper(0.9), reduce ? 200 : 1350);
 
-    await sleep(reduce ? 600 : 2200);
+    await sleep(reduce ? 600 : 2500);
+  }
+
+  /* Onde o papel está na tela: é dali que ele voa para virar o pergaminho. */
+  function paperRect() {
+    if (world.classList.contains("is-away")) return null;
+    const r = paper.getBoundingClientRect();
+    return r.width > 10 ? r : null;
   }
 
   async function leaveWorld() {
@@ -113,6 +149,64 @@
     world.inert = true; // a carta escondida não recebe foco nem leitor de tela
     await sleep(700);
     approach.classList.remove("is-arrived");
+    world.classList.remove("is-dim");
+  }
+
+  /* ---------- o olhar: ponteiro no computador, inclinação no celular ---------- */
+
+  function setGaze(px, py) {
+    for (const node of [petals, approach]) {
+      node.style.setProperty("--px", px.toFixed(3));
+      node.style.setProperty("--py", py.toFixed(3));
+    }
+  }
+
+  function followPointer() {
+    window.addEventListener("pointermove", (event) => {
+      setGaze(event.clientX / window.innerWidth - 0.5, event.clientY / window.innerHeight - 0.5);
+    }, { passive: true });
+  }
+
+  /* O celular inclina e a carta acompanha. A posição de repouso é a que ela estiver segurando,
+     e vai se ajustando devagar, para não precisar manter o aparelho reto. */
+  function followTilt() {
+    let base = null;
+    let tx = 0, ty = 0, cx = 0, cy = 0, raf = 0;
+    const clamp = (v) => Math.max(-1, Math.min(1, v));
+
+    const apply = () => {
+      cx += (tx - cx) * 0.1;
+      cy += (ty - cy) * 0.1;
+      setGaze(cx, cy);
+      raf = Math.abs(tx - cx) + Math.abs(ty - cy) > 0.002 ? requestAnimationFrame(apply) : 0;
+    };
+
+    const onTilt = (event) => {
+      if (event.gamma == null || event.beta == null) return;
+      if (!base) base = { g: event.gamma, b: event.beta };
+      base.g += (event.gamma - base.g) * 0.012;
+      base.b += (event.beta - base.b) * 0.012;
+      tx = clamp((event.gamma - base.g) / 28) * 0.5;
+      ty = clamp((event.beta - base.b) / 28) * 0.5;
+      if (!raf) raf = requestAnimationFrame(apply);
+    };
+
+    const enable = () => window.addEventListener("deviceorientation", onTilt, { passive: true });
+    const DOE = window.DeviceOrientationEvent;
+    if (!DOE) return;
+    if (typeof DOE.requestPermission === "function") {
+      // iPhone: só pode pedir depois de um toque
+      const ask = () => DOE.requestPermission().then((r) => { if (r === "granted") enable(); }).catch(() => {});
+      window.addEventListener("pointerdown", ask, { once: true });
+    } else {
+      enable();
+    }
+  }
+
+  function followGaze() {
+    if (reduce) return;
+    if (fine) followPointer();
+    else followTilt();
   }
 
   /* ---------- a mão e o fio ---------- */
@@ -151,6 +245,7 @@
 
     await click(follow);
     follow.disabled = true;
+    window.SFX.unlock();
 
     // o fio sai do laço no pulso e vai até onde a carta vai aparecer
     sizeTrail();
@@ -170,6 +265,7 @@
     trailPath.style.strokeDashoffset = length;
     trail.classList.add("is-visible");
     await frame();
+    window.SFX.whoosh(1.8);
     trailPath.style.transition = `stroke-dashoffset ${reduce ? 0.3 : 2.2}s cubic-bezier(.77, 0, .175, 1)`;
     trailPath.style.strokeDashoffset = 0;
     await sleep(reduce ? 400 : 2300);
@@ -186,6 +282,7 @@
     el.setAttribute("aria-label", text);
     for (const ch of text) {
       el.textContent += ch;
+      if (ch.trim()) window.SFX.pen();
       await sleep(reduce ? 0 : /[,.!?]/.test(ch) ? 480 : 55 + Math.random() * 70);
     }
   }
@@ -204,6 +301,7 @@
       await sleep(900);
       sign.classList.add("is-visible");
     }
+    window.Petals.setCalm(0.55);
   }
 
   /* ---------- preparação ---------- */
@@ -217,29 +315,27 @@
     for (const song of (C.musica && C.musica.lista) || []) files.add(song.capa);
     for (const chapter of [C.capitulo1, C.capitulo2]) {
       files.add(chapter.capa);
+      files.add(chapter.fundo);
       for (const b of chapter.blocos || []) [b.arquivo, b.esquerda, b.direita].forEach((f) => files.add(f));
     }
+    files.add(C.mao && C.mao.imagem);
     for (const file of files) if (file) new Image().src = file;
-  }
-
-  /* No computador, o mundo acompanha de leve o ponteiro: a carta inclina e as pétalas vão para o outro lado. */
-  function followPointer() {
-    if (reduce || !matchMedia("(hover: hover) and (pointer: fine)").matches) return;
-    window.addEventListener("pointermove", (event) => {
-      const px = (event.clientX / window.innerWidth - 0.5).toFixed(3);
-      const py = (event.clientY / window.innerHeight - 0.5).toFixed(3);
-      for (const node of [petals, approach]) {
-        node.style.setProperty("--px", px);
-        node.style.setProperty("--py", py);
-      }
-    }, { passive: true });
   }
 
   /* ---------- o roteiro ---------- */
 
+  /* A música é escolhida com a carta aberta ao fundo, esperando. */
+  async function pickMusic() {
+    world.classList.add("is-dim");
+    await window.Music.pick();
+  }
+
+  /* O papel da carta voa e vira o pergaminho; o capítulo acontece dentro dele. */
   async function chapter(config) {
-    await leaveWorld();
-    await window.Chapters.play(config);
+    const from = paperRect();
+    if (from) envelope.classList.add("is-given");
+    leaveWorld();
+    await window.Chapters.play(config, from);
   }
 
   const steps = [
@@ -248,8 +344,7 @@
       await say(C.abertura || []);
       await walk("heart");
       await openEnvelope();
-      await leaveWorld();
-      await window.Music.pick();
+      await pickMusic();
     }],
     ["poppy", () => chapter(C.capitulo1)],
     ["carta2", async () => { await walk("star"); await openEnvelope(); }],
@@ -258,16 +353,28 @@
     ["final", async () => { await walk("none"); await openEnvelope(); await finale(); }],
   ];
 
+  /* Uma pose parada da carta, para a imagem da prévia do link (?cena=og). */
+  async function pose() {
+    world.classList.remove("is-away");
+    envelope.dataset.seal = "heart";
+    approach.style.setProperty("--s", 1);
+    approach.style.setProperty("--o", 1);
+    approach.classList.add("is-arrived");
+    hint.hidden = true;
+    document.documentElement.dataset.pose = "og";
+  }
+
   async function main() {
     window.Petals.start();
     sizeTrail();
     window.addEventListener("resize", sizeTrail);
-    followPointer();
+    followGaze();
     preloadImages();
 
     // Para testar uma parte sem passar por tudo: index.html?cena=poppy
     // (inicio, poppy, carta2, yourname, mao, final)
     const wanted = new URLSearchParams(location.search).get("cena");
+    if (wanted === "og") return pose();
     const from = Math.max(0, steps.findIndex(([name]) => name === wanted));
     if (from > 0) {
       world.classList.add("is-away");

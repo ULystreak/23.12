@@ -247,17 +247,48 @@ window.Chapters = (() => {
     return () => view.removeEventListener("scroll", update);
   }
 
-  async function play(config) {
+  /* O papel da carta voa até o alto da tela e vira o rolo fechado do pergaminho. */
+  async function fly(from) {
+    const ghost = $("ghost");
+    const rod = scroll.querySelector(".scroll__rod");
+    scroll.hidden = false; // ainda invisível: só para medir onde o rolo fica
+    await frame();
+    const to = rod.getBoundingClientRect();
+    ghost.hidden = false;
+    ghost.style.width = `${from.width}px`;
+    ghost.style.height = `${from.height}px`;
+    const sx = to.width / from.width;
+    const sy = Math.max(0.04, (to.height * 0.9) / from.height);
+    const anim = ghost.animate([
+      { transform: `translate(${from.left}px, ${from.top}px) scale(1, 1)`, filter: "blur(0px)", opacity: 1 },
+      { filter: "blur(2px)", opacity: 1, offset: .5 },
+      { transform: `translate(${to.left}px, ${to.top + to.height * 0.05}px) scale(${sx}, ${sy})`, filter: "blur(0px)", opacity: 1 },
+    ], { duration: 1050, easing: "cubic-bezier(.77, 0, .175, 1)", fill: "forwards" });
+    await anim.finished.catch(() => {});
+    scroll.classList.add("is-visible");
+    await sleep(260);
+    ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 250, fill: "forwards" });
+    await sleep(250);
+    ghost.hidden = true;
+    anim.cancel();
+  }
+
+  async function play(config, from) {
     const close = render(config);
 
-    scroll.hidden = false;
-    await frame();
+    if (from && !reduce) {
+      await fly(from);
+    } else {
+      scroll.hidden = false;
+      await frame();
+      scroll.classList.add("is-visible");
+      await sleep(reduce ? 100 : 550);
+    }
     view.scrollTop = 0;
     fitLabels();
-    scroll.classList.add("is-visible");
-    await sleep(reduce ? 100 : 550);
     scroll.classList.add("is-open");
     themeColor.content = THEME[config.tema] || "#ffffff"; // a barra do navegador acompanha a cena
+    window.SFX.paper(1.4);
     const seen = watch();
     const unfollow = follow();
     await sleep(reduce ? 400 : 1900);
@@ -274,10 +305,13 @@ window.Chapters = (() => {
     themeColor.content = "#ffffff";
     window.Petals.start();
     window.Petals.gust(Math.random() < 0.5 ? -1 : 1); // o pergaminho fecha e levanta um vento
+    window.SFX.paper(1.1);
     scroll.classList.remove("is-open");
     await sleep(reduce ? 400 : 1300);
-    scroll.classList.remove("is-visible");
-    await sleep(650);
+    scroll.classList.add("is-leaving"); // o rolo fechado sobe e some
+    await sleep(520);
+    scroll.classList.remove("is-visible", "is-leaving");
+    await sleep(120);
     scroll.hidden = true;
     thread.style.scale = "";
     view.replaceChildren();
