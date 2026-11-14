@@ -3,11 +3,13 @@
 window.Chapters = (() => {
   const $ = (id) => document.getElementById(id);
   const scroll = $("scroll");
+  const sheet = $("sheet");
   const bg = $("chapter-bg");
   const view = $("chapter");
+  const osd = $("chapter-osd");
   const thread = $("scroll-thread");
   const themeColor = document.querySelector('meta[name="theme-color"]');
-  const THEME = { poppy: "#0d2534", yourname: "#090e33" };
+  const THEME = { poppy: "#0b1f2b", yourname: "#090e33" };
   // No seu computador, imagem faltando vira um aviso. No site publicado, o espaço simplesmente some.
   const authoring = ["localhost", "127.0.0.1", ""].includes(location.hostname);
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -34,29 +36,98 @@ window.Chapters = (() => {
 
   /* ---------- fundo de cada tema ---------- */
 
+  /* O grão da fita: um ruído pequeno, repetido e deslocado a cada passo. */
+  let grainUrl = null;
+  function grain() {
+    if (grainUrl) return grainUrl;
+    const c = document.createElement("canvas");
+    c.width = c.height = 128;
+    const ctx = c.getContext("2d");
+    const img = ctx.createImageData(128, 128);
+    for (let i = 0; i < img.data.length; i += 4) {
+      const v = Math.random() < 0.5 ? 255 : 0; // pontos claros e escuros, quase todos transparentes
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+      img.data[i + 3] = Math.random() * 110;
+    }
+    ctx.putImageData(img, 0, 0);
+    grainUrl = `url(${c.toDataURL()})`;
+    return grainUrl;
+  }
+
   const BACKDROPS = {
-    poppy: ["pp-blob pp-blob--r", "pp-blob pp-blob--b", "pp-blob pp-blob--y", "pp-blob pp-blob--g", "pp-floor"],
-    yourname: ["yn-night", "yn-stars", "yn-stars yn-stars--far", "yn-comet"],
+    poppy: ["pp-light", "pp-blob pp-blob--r", "pp-blob pp-blob--b", "pp-blob pp-blob--y", "pp-blob pp-blob--g", "pp-floor", "pp-dust"],
+    yourname: ["yn-day", "yn-night", "yn-stars", "yn-stars yn-stars--far", "yn-comet"],
   };
+
+  let sky = null;   // o céu em WebGL do capítulo do filme, quando dá
+  let photo = null; // a imagem de fundo opcional
 
   function backdrop(config) {
     bg.replaceChildren();
     bg.className = `scroll__bg bg--${config.tema}`;
+    sky = null;
+    photo = null;
+
+    if (config.tema === "yourname") {
+      sky = window.Sky.create(bg);
+      if (sky) bg.classList.add("has-sky");
+    }
     for (const name of BACKDROPS[config.tema] || []) bg.append(el("div", name));
-    if (config.tema === "yourname") bg.append(window.Scenes.build("serra"));
+    if (config.tema === "poppy") {
+      bg.insertBefore(window.Scenes.build("fabrica"), bg.querySelector(".pp-floor"));
+      bg.insertBefore(window.Scenes.build("lampada"), bg.querySelector(".pp-floor"));
+    }
+    if (config.tema === "yourname" && !sky) bg.append(window.Scenes.build("serra"));
+    if (config.tema === "poppy" && !reduce) {
+      const g = el("div", "pp-grain");
+      g.style.backgroundImage = grain();
+      bg.append(g);
+    }
     const veil = el("div", "bg-veil");
     bg.append(veil);
+
     if (config.fundo) {
       // a foto só entra se o arquivo existir; sem ela fica o fundo desenhado
       const probe = new Image();
       probe.onload = () => {
         if (!veil.isConnected) return;
-        const photo = el("div", "bg-photo");
+        photo = el("div", "bg-photo");
         photo.style.backgroundImage = `url("${encodeURI(config.fundo)}")`;
-        bg.insertBefore(photo, veil);
+        bg.insertBefore(photo, bg.querySelector(".pp-grain") || veil);
       };
       probe.src = config.fundo;
     }
+  }
+
+  /* ---------- os avisos da fita (tema do jogo) ---------- */
+
+  function osdPoppy(config) {
+    osd.replaceChildren();
+    osd.className = "scroll__osd osd--poppy";
+    const play = el("span", "osd__play", "PLAY");
+    const tag = el("span", "osd__tag", config.etiqueta || "");
+    const counter = el("span", "osd__counter", "SP 0:00:00");
+    osd.append(play, tag, counter);
+    const t0 = Date.now();
+    const pad = (n) => String(n).padStart(2, "0");
+    const timer = setInterval(() => {
+      const s = Math.floor((Date.now() - t0) / 1000);
+      counter.textContent = `SP ${Math.floor(s / 3600)}:${pad(Math.floor(s / 60) % 60)}:${pad(s % 60)}`;
+    }, 1000);
+    return () => { clearInterval(timer); osd.replaceChildren(); osd.className = "scroll__osd"; };
+  }
+
+  /* De vez em quando a fita perde o tracking por um instante. */
+  function glitches() {
+    if (reduce) return () => {};
+    let timer = 0;
+    const hit = () => {
+      sheet.classList.add("is-glitch");
+      setTimeout(() => sheet.classList.remove("is-glitch"), 280);
+      timer = setTimeout(hit, 5500 + Math.random() * 5500);
+    };
+    timer = setTimeout(hit, 2800);
+    return () => clearTimeout(timer);
   }
 
   /* ---------- blocos ---------- */
@@ -119,8 +190,35 @@ window.Chapters = (() => {
     return wrap;
   }
 
+  /* Uma cena desenhada. O cordão pode vir de uma imagem (arquivo), com o SVG de reserva. */
+  function scene(b) {
+    const wrap = el("div", `stage stage--${b.cena} reveal`);
+    const draw = () => {
+      const art = window.Scenes.build(b.cena);
+      if (!art) return false;
+      const label = art.querySelector("[data-label]");
+      if (label) label.textContent = b.rotulo || "";
+      wrap.replaceChildren(art);
+      return true;
+    };
+    if (b.arquivo) {
+      const img = el("img", "stage__img");
+      img.alt = "";
+      img.onerror = () => { if (!draw()) wrap.remove(); };
+      img.src = b.arquivo;
+      wrap.append(img);
+      return wrap;
+    }
+    if (!draw()) {
+      console.warn(`Cena desconhecida em js/content.js: "${b.cena}"`);
+      return null;
+    }
+    return wrap;
+  }
+
   function block(b) {
     if (b.tipo === "par") return pair(b);
+    if (b.tipo === "cena") return scene(b);
 
     if (b.tipo === "texto") {
       const card = el("div", "glass reveal");
@@ -156,19 +254,6 @@ window.Chapters = (() => {
       return fig;
     }
 
-    if (b.tipo === "cena") {
-      const art = window.Scenes.build(b.cena);
-      if (!art) {
-        console.warn(`Cena desconhecida em js/content.js: "${b.cena}"`);
-        return null;
-      }
-      const label = art.querySelector("[data-label]");
-      if (label) label.textContent = b.rotulo || "";
-      const wrap = el("div", `stage stage--${b.cena} reveal`);
-      wrap.append(art);
-      return wrap;
-    }
-
     console.warn(`Tipo de bloco desconhecido em js/content.js: "${b.tipo}"`);
     return null;
   }
@@ -179,8 +264,9 @@ window.Chapters = (() => {
 
     const ch = el("article", `ch ch--${config.tema}`);
     // com capa, a imagem abre o capítulo; sem capa, a etiqueta fica solta no canto
+    // (no tema do jogo a etiqueta vai para os avisos da fita)
     if (config.capa) ch.append(cover(config));
-    else if (config.etiqueta) ch.append(el("p", "ch__tag", config.etiqueta));
+    else if (config.etiqueta && config.tema !== "poppy") ch.append(el("p", "ch__tag", config.etiqueta));
     const head = el("header", "ch__head reveal");
     head.append(title(config));
     ch.append(head);
@@ -225,12 +311,13 @@ window.Chapters = (() => {
 
   /* O que acompanha a rolagem: o fio na borda, o céu que anoitece, o piso que anda,
      a capa que fica para trás. Cada camada recebe o valor direto, sem variável herdada. */
-  function follow() {
+  function follow(config) {
     const layers = reduce ? [] : [
-      [bg.querySelector(".yn-night"), (n, p) => { n.style.opacity = (p * 0.92).toFixed(3); }],
+      [bg.querySelector(".yn-day"), (n, p) => { n.style.opacity = Math.max(0, 1 - p * 2.2).toFixed(3); }],
+      [bg.querySelector(".yn-night"), (n, p) => { n.style.opacity = Math.max(0, (p - 0.45) / 0.55 * 0.94).toFixed(3); }],
       [bg.querySelector(".yn-hills"), (n, p) => { n.style.translate = `0 ${(p * 16).toFixed(1)}px`; }],
-      [bg.querySelector(".yn-stars:not(.yn-stars--far)"), (n, p) => { n.style.translate = `0 ${(p * -36).toFixed(1)}px`; }],
-      [bg.querySelector(".yn-stars--far"), (n, p) => { n.style.translate = `0 ${(p * -16).toFixed(1)}px`; }],
+      [bg.querySelector(".yn-stars:not(.yn-stars--far)"), (n, p) => { n.style.translate = `0 ${(p * -36).toFixed(1)}px`; n.style.opacity = Math.min(1, p * 1.6).toFixed(3); }],
+      [bg.querySelector(".yn-stars--far"), (n, p) => { n.style.translate = `0 ${(p * -16).toFixed(1)}px`; n.style.opacity = Math.min(0.55, p).toFixed(3); }],
       [bg.querySelector(".pp-floor"), (n, p, y) => { n.style.backgroundPositionY = `${(y * 0.45).toFixed(0)}px`; }],
       [view.querySelector(".cover img"), (n, p, y) => { n.style.translate = `0 ${(y * 0.32).toFixed(1)}px`; }],
     ].filter(([node]) => node);
@@ -241,6 +328,9 @@ window.Chapters = (() => {
       const p = max > 0 ? Math.min(1, y / max) : 0;
       thread.style.scale = `1 ${p.toFixed(4)}`;
       for (const [node, apply] of layers) apply(node, p, y);
+      if (sky) sky.setProgress(p);
+      // no filme, a foto do lago aparece no auge do crepúsculo e some de novo com a noite
+      if (photo && config.tema === "yourname") photo.style.opacity = Math.max(0, 1 - Math.abs(p - 0.5) * 2.4).toFixed(3);
     };
     view.addEventListener("scroll", update, { passive: true });
     update();
@@ -286,11 +376,14 @@ window.Chapters = (() => {
     }
     view.scrollTop = 0;
     fitLabels();
+    if (sky) sky.start();
     scroll.classList.add("is-open");
     themeColor.content = THEME[config.tema] || "#ffffff"; // a barra do navegador acompanha a cena
     window.SFX.paper(1.4);
     const seen = watch();
-    const unfollow = follow();
+    const unfollow = follow(config);
+    const stopOsd = config.tema === "poppy" ? osdPoppy(config) : () => {};
+    const stopGlitch = config.tema === "poppy" ? glitches() : () => {};
     await sleep(reduce ? 400 : 1900);
 
     const covered = window.innerWidth < 820;
@@ -302,18 +395,22 @@ window.Chapters = (() => {
 
     seen.disconnect();
     unfollow();
+    stopGlitch();
     themeColor.content = "#ffffff";
     window.Petals.start();
     window.Petals.gust(Math.random() < 0.5 ? -1 : 1); // o pergaminho fecha e levanta um vento
     window.SFX.paper(1.1);
     scroll.classList.remove("is-open");
     await sleep(reduce ? 400 : 1300);
+    stopOsd();
     scroll.classList.add("is-leaving"); // o rolo fechado sobe e some
     await sleep(520);
     scroll.classList.remove("is-visible", "is-leaving");
     await sleep(120);
     scroll.hidden = true;
     thread.style.scale = "";
+    if (sky) sky.destroy();
+    sky = null;
     view.replaceChildren();
     bg.replaceChildren();
   }

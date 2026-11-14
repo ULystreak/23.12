@@ -99,25 +99,29 @@ window.Scenes = (() => {
 </svg>`,
 
     esteira: `
-<svg ${NS} viewBox="0 0 400 150" class="scene" role="img" aria-label="Uma esteira de fábrica levando brinquedos coloridos e um coração">
-  <g class="belt__toys">
-    <g id="belt-set">
-      <rect x="30" y="62" width="34" height="34" rx="6" fill="#f0443e"/>
-      <rect x="37" y="69" width="20" height="20" rx="4" fill="#ff7a73"/>
-      <circle cx="120" cy="79" r="17" fill="#ffd23f"/>
-      <path d="M103 79 a17 17 0 0 0 34 0 z" fill="#f2a900"/>
-      <path d="M190 96 l19 -38 l19 38 z" fill="#43b85c"/>
-      <path transform="translate(284 80) scale(1.9)" d="M0 8 C-13 -4 -6 -13 0 -6 C6 -13 13 -4 0 8Z" fill="#ff5d7a"/>
-      <rect x="338" y="66" width="30" height="30" rx="15" fill="#2f7df6"/>
-      <circle cx="353" cy="81" r="6" fill="#9cc4ff"/>
-    </g>
-    <use href="#belt-set" x="400"/>
-  </g>
-  <rect class="belt__body" x="-10" y="96" width="420" height="20" rx="10"/>
-  <path class="belt__tread" d="M-10 106 H410"/>
-  <g class="belt__rollers"><circle cx="20" cy="106" r="6"/><circle cx="65" cy="106" r="6"/><circle cx="110" cy="106" r="6"/><circle cx="155" cy="106" r="6"/><circle cx="200" cy="106" r="6"/><circle cx="245" cy="106" r="6"/><circle cx="290" cy="106" r="6"/><circle cx="335" cy="106" r="6"/><circle cx="380" cy="106" r="6"/></g>
-  <path class="belt__legs" d="M70 117 v28 M330 117 v28 M50 146 h40 M310 146 h40"/>
-</svg>`,
+<div class="belt" role="img" aria-label="Uma esteira de fábrica levando brinquedos coloridos e um coração">
+  <div class="belt__run">
+    <svg ${NS} viewBox="0 0 800 110" class="belt__toys" aria-hidden="true">
+      <g id="belt-set">
+        <rect x="30" y="62" width="34" height="34" rx="6" fill="#f0443e"/>
+        <rect x="37" y="69" width="20" height="20" rx="4" fill="#ff7a73"/>
+        <circle cx="120" cy="79" r="17" fill="#ffd23f"/>
+        <path d="M103 79 a17 17 0 0 0 34 0 z" fill="#f2a900"/>
+        <path d="M190 96 l19 -38 l19 38 z" fill="#43b85c"/>
+        <path transform="translate(284 80) scale(1.9)" d="M0 8 C-13 -4 -6 -13 0 -6 C6 -13 13 -4 0 8Z" fill="#ff5d7a"/>
+        <rect x="338" y="66" width="30" height="30" rx="15" fill="#2f7df6"/>
+        <circle cx="353" cy="81" r="6" fill="#9cc4ff"/>
+      </g>
+      <use href="#belt-set" x="400"/>
+    </svg>
+  </div>
+  <svg ${NS} viewBox="0 0 400 150" class="scene belt__base" aria-hidden="true">
+    <rect class="belt__body" x="-10" y="96" width="420" height="20" rx="10"/>
+    <path class="belt__tread" d="M-10 106 H410"/>
+    <g class="belt__rollers"><circle cx="20" cy="106" r="6"/><circle cx="65" cy="106" r="6"/><circle cx="110" cy="106" r="6"/><circle cx="155" cy="106" r="6"/><circle cx="200" cy="106" r="6"/><circle cx="245" cy="106" r="6"/><circle cx="290" cy="106" r="6"/><circle cx="335" cy="106" r="6"/><circle cx="380" cy="106" r="6"/></g>
+    <path class="belt__legs" d="M70 117 v28 M330 117 v28 M50 146 h40 M310 146 h40"/>
+  </svg>
+</div>`,
 
     cometa: `
 <svg ${NS} viewBox="0 0 400 200" class="scene" role="img" aria-label="Um cometa que se divide em dois">
@@ -182,6 +186,48 @@ window.Scenes = (() => {
   <path pathLength="1" d="M46.5 54.6 C 50.5 55.4, 48.6 66.4, 52.6 68"/>
 </svg>`;
 
+  /* a fábrica ao fundo do capítulo do jogo: cabos pendurados, uma lâmpada, tinta descascando, uma esteira longe */
+  svg.fabrica = `
+<svg ${NS} viewBox="0 0 400 300" preserveAspectRatio="xMidYMin slice" class="pp-fabrica" aria-hidden="true">
+  <g class="pp-pipes">
+    <rect x="-10" y="14" width="420" height="10" rx="5" fill="#b93a33"/>
+    <rect x="-10" y="16" width="420" height="3" rx="1.5" fill="#e0574f" opacity=".8"/>
+    <rect x="60" y="10" width="14" height="18" rx="3" fill="#8a1f1b"/>
+    <rect x="300" y="10" width="14" height="18" rx="3" fill="#8a1f1b"/>
+    <rect x="-10" y="34" width="420" height="6" rx="3" fill="#c99a16"/>
+    <rect x="-10" y="35" width="420" height="2" rx="1" fill="#ffd23f" opacity=".7"/>
+    <rect x="180" y="31" width="10" height="12" rx="2" fill="#8d6b0d"/>
+    <circle cx="340" cy="37" r="7" fill="#2f7df6" stroke="#113a8c" stroke-width="2"/>
+  </g>
+  <path class="pp-cable" d="M-20 0 C 60 118, 140 118, 220 0"/>
+  <path class="pp-cable--sheen pp-cable--sheen" d="M-10 8 C 60 112, 130 112, 200 14"/>
+  <path class="pp-cable pp-cable--thin" d="M120 0 C 200 150, 300 150, 420 8"/>
+  <path class="pp-cable pp-cable--thin" d="M-10 30 C 100 100, 250 96, 410 40"/>
+  <g class="pp-far" transform="translate(0 6)">
+    <rect x="262" y="206" width="180" height="9" rx="4.5"/>
+    <path d="M282 215 v34 M420 215 v34 M272 249 h20 M410 249 h20"/>
+    <rect x="296" y="186" width="20" height="20" rx="4"/>
+    <circle cx="348" cy="196" r="10"/>
+    <path d="M378 206 l11 -20 l11 20 z"/>
+  </g>
+</svg>`;
+
+  /* a lâmpada pendurada, à parte, para balançar sem repintar a fábrica inteira */
+  svg.lampada = `
+<svg ${NS} viewBox="0 0 80 110" class="pp-lamp" aria-hidden="true">
+  <defs>
+    <radialGradient id="pp-glow">
+      <stop offset="0" stop-color="#fff1c8" stop-opacity=".95"/>
+      <stop offset=".25" stop-color="#ffe3a0" stop-opacity=".45"/>
+      <stop offset="1" stop-color="#ffd27a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <path class="pp-wire" d="M40 0 V52"/>
+  <rect class="pp-socket" x="33" y="48" width="14" height="10" rx="2"/>
+  <circle cx="40" cy="68" r="36" fill="url(#pp-glow)"/>
+  <circle class="pp-bulb" cx="40" cy="67" r="8.5"/>
+</svg>`;
+
   /* as montanhas no fundo do capítulo de Your Name */
   svg.serra = `
 <svg ${NS} viewBox="0 0 400 120" preserveAspectRatio="none" class="yn-hills">
@@ -192,7 +238,13 @@ window.Scenes = (() => {
   /* Devolve o elemento <svg> da cena pedida (ou null se o nome não existir). */
   function build(name) {
     if (!svg[name]) return null;
-    const doc = new DOMParser().parseFromString(svg[name].trim(), "image/svg+xml");
+    const source = svg[name].trim();
+    if (source.startsWith("<div")) {
+      const tpl = document.createElement("template");
+      tpl.innerHTML = source;
+      return tpl.content.firstElementChild;
+    }
+    const doc = new DOMParser().parseFromString(source, "image/svg+xml");
     return document.importNode(doc.documentElement, true);
   }
 

@@ -339,19 +339,22 @@ void main() {
     petals.length = target;
   }
 
-  function frame(now) {
-    if (!running) return;
-    const elapsed = (now - last) / 1000;
-    last = now;
-    step(Math.min(0.05, elapsed), elapsed);
-    renderer.draw();
-    requestAnimationFrame(frame);
-  }
+  /* Só um laço de desenho por vez: pausar e voltar não pode deixar dois rodando. */
+  let loop = 0;
 
   function start() {
     if (running) return;
     running = true;
     last = performance.now();
+    const id = ++loop;
+    const frame = (now) => {
+      if (!running || id !== loop) return;
+      const elapsed = (now - last) / 1000;
+      last = now;
+      step(Math.min(0.05, elapsed), elapsed);
+      renderer.draw();
+      requestAnimationFrame(frame);
+    };
     requestAnimationFrame(frame);
   }
 

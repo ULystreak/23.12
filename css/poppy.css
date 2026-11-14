@@ -1,59 +1,238 @@
-/* Capítulo 1: a fábrica de brinquedos (Poppy Playtime) */
+/* Capítulo 1: a fábrica de brinquedos abandonada, vista numa fita VHS (Poppy Playtime) */
 
 /* ---------- fundo ---------- */
 
 .bg--poppy {
-  background: radial-gradient(120% 80% at 50% 0%, #1a4155 0%, #0d2534 55%, #071520 100%);
+  background: radial-gradient(130% 80% at 50% 0%, #163a4c 0%, #0b2130 48%, #06141d 100%);
+}
+
+/* uma lâmpada no alto: um cone de luz que treme */
+.pp-light {
+  position: absolute;
+  inset: 0;
+  background:
+    conic-gradient(from 180deg at 50% -4%, transparent 41%, rgba(255, 226, 170, .12) 48%, rgba(255, 226, 170, .2) 50%, rgba(255, 226, 170, .12) 52%, transparent 59%),
+    radial-gradient(60% 24% at 50% 0%, rgba(255, 226, 170, .22), transparent 70%);
+  animation: pp-flicker 7s steps(1, end) infinite;
+}
+
+@keyframes pp-flicker {
+  0%, 100% { opacity: 1; }
+  7%  { opacity: .78; }
+  9%  { opacity: 1; }
+  41% { opacity: .9; }
+  43% { opacity: .6; }
+  44% { opacity: 1; }
+  72% { opacity: .84; }
+  74% { opacity: 1; }
 }
 
 .pp-blob {
   position: absolute;
-  width: 48vmin;
+  width: 50vmin;
   aspect-ratio: 1;
   border-radius: 50%;
-  filter: blur(46px);
-  opacity: .55;
-  animation: pp-drift 17s ease-in-out infinite alternate;
+  filter: blur(48px);
+  opacity: .4;
+  animation: pp-drift 19s ease-in-out infinite alternate;
 }
 
-.pp-blob--r { left: -12%; top: 6%; background: #f0443e; }
-.pp-blob--b { right: -14%; top: 30%; background: #2f7df6; animation-delay: -6s; }
-.pp-blob--y { left: 10%; bottom: 16%; background: #ffd23f; opacity: .36; animation-delay: -10s; }
-.pp-blob--g { right: 4%; bottom: -8%; background: #43b85c; opacity: .4; animation-delay: -3s; }
+.pp-blob--r { left: -14%; top: 8%; background: #f0443e; }
+.pp-blob--b { right: -16%; top: 34%; background: #2f7df6; animation-delay: -6s; }
+.pp-blob--y { left: 8%; bottom: 18%; background: #ffd23f; opacity: .22; animation-delay: -10s; }
+.pp-blob--g { right: 2%; bottom: -6%; background: #43b85c; opacity: .28; animation-delay: -3s; }
 
 @keyframes pp-drift {
   from { translate: 0 0; }
   to   { translate: 6vmin -5vmin; }
 }
 
-/* o piso xadrez da fábrica */
+/* os cabos pendurados, a tinta descascando e a esteira ao fundo */
+.pp-fabrica {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 62%;
+  overflow: visible;
+}
+
+.pp-cable { fill: none; stroke: #04111a; stroke-width: 7; stroke-linecap: round; }
+.pp-cable--thin { stroke-width: 3.5; stroke: #0a1c27; }
+.pp-cable--sheen { fill: none; stroke: rgba(160, 200, 220, .18); stroke-width: 1.4; stroke-linecap: round; }
+.pp-wire { fill: none; stroke: #04111a; stroke-width: 2.5; }
+.pp-bulb { fill: #ffe8b0; }
+.pp-socket { fill: #1b2a33; }
+
+.pp-lamp {
+  position: absolute;
+  top: 0;
+  left: calc(50% - 40px);
+  width: 80px;
+  height: 110px;
+  overflow: visible;
+  transform-origin: 50% 0;
+  animation: pp-swing 6.5s ease-in-out infinite alternate;
+}
+
+@keyframes pp-swing {
+  from { transform: rotate(-3.5deg); }
+  to   { transform: rotate(3deg); }
+}
+
+.pp-pipes { opacity: .9; }
+.pp-far { fill: #07161f; stroke: #07161f; stroke-width: 4; stroke-linecap: round; opacity: .9; }
+
+/* o piso xadrez da fábrica, desbotado */
 .pp-floor {
   position: absolute;
   left: -30%;
   right: -30%;
   bottom: 0;
   height: 30%;
-  background: conic-gradient(#e6e0d2 25%, #16303f 0 50%, #e6e0d2 0 75%, #16303f 0) 0 0 / 72px 72px;
+  background: conic-gradient(#d9d2c3 25%, #10262f 0 50%, #d9d2c3 0 75%, #10262f 0) 0 0 / 72px 72px;
   transform: perspective(420px) rotateX(62deg);
   transform-origin: 50% 100%;
-  opacity: .42;
+  opacity: .34;
   -webkit-mask-image: linear-gradient(transparent, #000 70%);
   mask-image: linear-gradient(transparent, #000 70%);
 }
 
+/* poeira flutuando na luz: o padrão se repete a cada 290px, e a camada só desliza (sem repintar) */
+.pp-dust {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: .7;
+  -webkit-mask-image: radial-gradient(60% 70% at 50% 20%, #000, transparent);
+  mask-image: radial-gradient(60% 70% at 50% 20%, #000, transparent);
+}
+
+.pp-dust::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 -290px -40px;
+  background-image:
+    radial-gradient(1.4px 1.4px at 30px 40px, rgba(255, 240, 210, .55) 50%, transparent 60%),
+    radial-gradient(1px 1px at 120px 160px, rgba(255, 240, 210, .4) 50%, transparent 60%),
+    radial-gradient(1.6px 1.6px at 200px 90px, rgba(255, 240, 210, .5) 50%, transparent 60%),
+    radial-gradient(1px 1px at 70px 230px, rgba(255, 240, 210, .35) 50%, transparent 60%),
+    radial-gradient(1.2px 1.2px at 250px 210px, rgba(255, 240, 210, .45) 50%, transparent 60%);
+  background-size: 290px 290px;
+  will-change: translate;
+  animation: pp-float 26s linear infinite;
+}
+
+@keyframes pp-float { to { translate: 40px -290px; } }
+
+/* a foto da fábrica, quando existir, fica escurecida atrás dos textos */
 .bg--poppy .bg-photo::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(7, 21, 32, .5);
+  background: rgba(6, 20, 29, .55);
 }
 
-/* linhas de fita velha e bordas escuras */
+/* o grão da fita, pulando de posição */
+.pp-grain {
+  position: absolute;
+  inset: -64px;
+  background-size: 128px 128px;
+  opacity: .22;
+  will-change: translate;
+  animation: pp-grain .5s steps(1, end) infinite;
+}
+
+@keyframes pp-grain {
+  0%   { translate: 0 0; }
+  20%  { translate: -38px 22px; }
+  40%  { translate: 20px -48px; }
+  60%  { translate: -14px -10px; }
+  80%  { translate: 44px 36px; }
+  100% { translate: 8px -30px; }
+}
+
+/* linhas de varredura e bordas escuras */
 .bg--poppy .bg-veil {
   background:
-    repeating-linear-gradient(rgba(0, 0, 0, .17) 0 1px, transparent 1px 3px),
-    radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, .58));
+    repeating-linear-gradient(rgba(0, 0, 0, .16) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, .6));
 }
+
+/* a faixa de tracking: passa quando a fita começa e, de vez em quando, no meio */
+.bg--poppy .bg-veil::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -24%;
+  height: 22%;
+  background:
+    repeating-linear-gradient(rgba(255, 255, 255, 0) 0 2px, rgba(255, 255, 255, .12) 2px 3px),
+    linear-gradient(transparent, rgba(255, 255, 255, .09) 35%, rgba(255, 255, 255, .26) 50%, rgba(255, 255, 255, .09) 65%, transparent);
+  mix-blend-mode: screen;
+  animation: vhs-sweep 1.5s 1.3s cubic-bezier(.4, 0, .6, 1) both;
+}
+
+@keyframes vhs-sweep { to { translate: 0 570%; } }
+
+.scroll__sheet.is-glitch .bg--poppy .bg-veil::after { animation: vhs-sweep .5s linear both; }
+.scroll__sheet.is-glitch .scroll__view { animation: tracking .28s steps(6, end) both; }
+.scroll__sheet.is-glitch .scroll__osd { animation: osd-jitter .28s steps(3, end) both; }
+
+@keyframes tracking {
+  0%   { translate: 0 0; }
+  18%  { translate: -4px 0; }
+  36%  { translate: 3px 0; }
+  54%  { translate: -2px 1px; }
+  72%  { translate: 5px 0; }
+  90%  { translate: -1px 0; }
+  100% { translate: 0 0; }
+}
+
+@keyframes osd-jitter {
+  0%   { translate: 0 0; opacity: 1; }
+  40%  { translate: 6px 0; opacity: .5; }
+  70%  { translate: -4px 0; opacity: 1; }
+  100% { translate: 0 0; }
+}
+
+/* ---------- os avisos da fita ---------- */
+
+.osd--poppy > span {
+  position: absolute;
+  padding: .12em .45em .06em;
+  border-radius: 3px;
+  background: rgba(4, 12, 18, .6);
+  color: #eef4f8;
+  font-family: "VT323", "Courier New", monospace;
+  font-size: 1.35rem;
+  line-height: 1;
+  letter-spacing: .07em;
+  text-shadow: 1.4px 0 rgba(240, 68, 62, .85), -1.4px 0 rgba(47, 125, 246, .85);
+  animation: osd-in .9s 1.1s both;
+}
+
+@keyframes osd-in { from { opacity: 0; } }
+
+.osd__play { top: .9rem; left: 1rem; }
+.osd__tag { bottom: .9rem; left: 1rem; }
+.osd__counter { bottom: .9rem; right: 1rem; font-variant-numeric: tabular-nums; }
+
+/* o triângulo de "tocando", piscando como num videocassete */
+.osd__play::before {
+  content: "";
+  display: inline-block;
+  width: .52em;
+  height: .6em;
+  margin-right: .45em;
+  vertical-align: -.02em;
+  background: currentColor;
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+  animation: pp-blink 1.3s steps(2, jump-none) infinite;
+}
+
+@keyframes pp-blink { to { opacity: 0; } }
 
 /* ---------- texto ---------- */
 
@@ -62,50 +241,32 @@
   font-family: "Fredoka", "Trebuchet MS", sans-serif;
   font-size: 1.08rem;
   line-height: 1.65;
+  padding-top: 5.2rem;
 }
-
-/* o aviso de "fita rodando" fica no canto da tela, como num videocassete */
-.ch--poppy .ch__tag {
-  position: absolute;
-  top: 1.1rem;
-  left: 1.25rem;
-  margin: 0;
-  font-family: "VT323", "Courier New", monospace;
-  font-size: 1.6rem;
-  line-height: 1;
-  letter-spacing: .06em;
-  text-shadow: 2px 0 rgba(240, 68, 62, .75), -2px 0 rgba(47, 125, 246, .75);
-}
-
-.ch--poppy .ch__tag::before {
-  content: "";
-  display: inline-block;
-  width: .5em;
-  height: .58em;
-  margin-right: .45em;
-  background: currentColor;
-  clip-path: polygon(0 0, 100% 50%, 0 100%);
-  animation: pp-blink 1.3s steps(2, jump-none) infinite;
-}
-
-@keyframes pp-blink { to { opacity: 0; } }
 
 .ch--poppy .ch__title {
   margin: 0;
   font-weight: 700;
-  font-size: clamp(2.3rem, 10vw, 3.7rem);
-  line-height: 1.08;
+  font-size: clamp(2.4rem, 10.5vw, 3.9rem);
+  line-height: 1.06;
   text-wrap: balance;
 }
 
-/* vidro mais escuro: o texto continua legível com uma foto do jogo atrás */
-.ch--poppy .glass { background: rgba(8, 22, 32, .48); }
+/* tudo neste mundo entra com mola: um pouco além e volta */
+.ch--poppy .reveal { translate: 0 26px; transition-timing-function: ease-out, var(--ease-spring); transition-duration: .55s, .8s; }
+
+/* vidro escuro: o texto continua legível com a fábrica atrás */
+.ch--poppy .glass {
+  background: rgba(7, 20, 30, .55);
+  border-color: rgba(255, 255, 255, .2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), 0 18px 44px rgba(0, 0, 0, .4);
+}
 
 .ch__word { display: inline-block; white-space: nowrap; }
 
 .ch__letter {
   display: inline-block;
-  text-shadow: 0 4px 0 rgba(0, 0, 0, .42);
+  text-shadow: 0 4px 0 rgba(0, 0, 0, .42), 1.5px 0 rgba(240, 68, 62, .5), -1.5px 0 rgba(47, 125, 246, .5);
 }
 
 .ch__letter:nth-child(4n + 1) { color: #ff5a52; rotate: -4deg; }
@@ -113,10 +274,18 @@
 .ch__letter:nth-child(4n + 3) { color: #5aa2ff; rotate: -2deg; }
 .ch__letter:nth-child(4n + 4) { color: #55cd70; rotate: 4deg; }
 
+/* as letras do título caem como blocos de brinquedo */
+.ch__head.is-in .ch__letter {
+  animation: block-drop .75s var(--ease-spring) both;
+  animation-delay: calc(.2s + var(--i) * 42ms);
+}
+
+@keyframes block-drop { from { opacity: 0; translate: 0 -46px; scale: .7; } }
+
 .ch--poppy .shot__frame {
   padding: 10px;
   border-radius: 20px;
-  background: #15181d;
+  background: #121a21;
   box-shadow: inset 0 0 0 2px #2c323b, 0 18px 40px rgba(0, 0, 0, .4);
 }
 
@@ -143,7 +312,9 @@
   transition: translate .12s ease, box-shadow .12s ease;
 }
 
-.ch--poppy .ch__close:hover { translate: 0 -1px; }
+@media (hover: hover) and (pointer: fine) {
+  .ch--poppy .ch__close:hover { translate: 0 -1px; }
+}
 
 .ch--poppy .ch__close:active {
   translate: 0 4px;
@@ -151,6 +322,7 @@
 }
 
 .ch--poppy :focus-visible { outline-color: #ffd23f; }
+.ch--poppy ::selection { background: #ffd23f; color: #0b1f2b; }
 
 /* ---------- cena: as mãos ---------- */
 
@@ -177,6 +349,11 @@
 .is-in .gp__spark { opacity: 1; transform: none; }
 .gp__heart { fill: #ff5d7a; }
 .gp__rays { fill: none; stroke: #ffd23f; stroke-width: 3.5; stroke-linecap: round; }
+
+/* as faíscas tremem enquanto as mãos ficam juntas */
+.is-in .gp__rays { animation: pp-spark .32s steps(2, jump-none) 1.9s infinite; }
+
+@keyframes pp-spark { to { opacity: .35; stroke-width: 2; } }
 
 /* ---------- cena: a fita ---------- */
 
@@ -230,41 +407,6 @@
   to   { transform: rotate(9deg); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .pp-blob, .vhs__reel, .peek__arm, .ch--poppy .ch__tag::before { animation: none; }
-  .gp, .gp__spark, .peek { transition-duration: .2s; transition-delay: 0s; }
-}
-
-/* ====================== refinamentos ====================== */
-
-/* as letras do título caem como blocos de brinquedo */
-.ch__head.is-in .ch__letter {
-  animation: block-drop .75s var(--ease-spring) both;
-  animation-delay: calc(.2s + var(--i) * 42ms);
-}
-
-@keyframes block-drop { from { opacity: 0; translate: 0 -46px; scale: .7; } }
-
-/* uma faixa de "tracking" passa pela tela quando a fita começa */
-.bg--poppy .bg-veil::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: -22%;
-  height: 20%;
-  background: linear-gradient(transparent, rgba(255, 255, 255, .1) 35%, rgba(255, 255, 255, .3) 50%, rgba(255, 255, 255, .1) 65%, transparent);
-  mix-blend-mode: screen;
-  animation: vhs-sweep 1.5s 1.3s cubic-bezier(.4, 0, .6, 1) both;
-}
-
-@keyframes vhs-sweep { to { translate: 0 620%; } }
-
-@media (prefers-reduced-motion: reduce) {
-  .ch__head.is-in .ch__letter,
-  .bg--poppy .bg-veil::after { animation: none; }
-}
-
 /* ---------- cena: a esteira ---------- */
 
 .stage--esteira {
@@ -272,22 +414,41 @@
   mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
 }
 
-.stage--esteira .scene { overflow: hidden; }
+.belt { position: relative; }
+.belt__base { display: block; width: 100%; height: auto; }
+
+/* os brinquedos: um desenho com o dobro da largura, que desliza inteiro (barato, sem repintar) */
+.belt__run {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  aspect-ratio: 400 / 110;
+  overflow: hidden;
+}
+
+.belt__toys {
+  display: block;
+  width: 200%;
+  height: 100%;
+  will-change: transform;
+  animation: belt 10s linear infinite paused;
+}
 
 .belt__body { fill: #16222b; stroke: #33434f; stroke-width: 2; }
 .belt__tread { fill: none; stroke: #4a5c69; stroke-width: 3; stroke-dasharray: 10 12; animation: tread .55s linear infinite paused; }
 .belt__rollers circle { fill: #2c3a45; stroke: #55697a; stroke-width: 2; }
 .belt__legs { fill: none; stroke: #33434f; stroke-width: 5; stroke-linecap: round; }
 
-/* os brinquedos passam sem parar; o conjunto é desenhado duas vezes para emendar */
-.belt__toys { animation: belt 10s linear infinite paused; }
-
 .is-in .belt__toys,
 .is-in .belt__tread { animation-play-state: running; }
 
-@keyframes belt { to { transform: translateX(-400px); } }
+@keyframes belt { to { transform: translateX(-50%); } }
 @keyframes tread { to { stroke-dashoffset: 22; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .belt__toys, .belt__tread { animation: none; }
+  .pp-blob, .pp-light, .pp-lamp, .pp-dust, .pp-grain, .vhs__reel, .peek__arm, .osd__play::before,
+  .ch__head.is-in .ch__letter, .bg--poppy .bg-veil::after, .is-in .gp__rays, .belt__toys, .belt__tread { animation: none; }
+  .gp, .gp__spark, .peek { transition-duration: .2s; transition-delay: 0s; }
+  .ch--poppy .reveal { translate: none; }
 }
