@@ -98,6 +98,27 @@ window.Scenes = (() => {
   </g>
 </svg>`,
 
+    esteira: `
+<svg ${NS} viewBox="0 0 400 150" class="scene" role="img" aria-label="Uma esteira de fábrica levando brinquedos coloridos e um coração">
+  <g class="belt__toys">
+    <g id="belt-set">
+      <rect x="30" y="62" width="34" height="34" rx="6" fill="#f0443e"/>
+      <rect x="37" y="69" width="20" height="20" rx="4" fill="#ff7a73"/>
+      <circle cx="120" cy="79" r="17" fill="#ffd23f"/>
+      <path d="M103 79 a17 17 0 0 0 34 0 z" fill="#f2a900"/>
+      <path d="M190 96 l19 -38 l19 38 z" fill="#43b85c"/>
+      <path transform="translate(284 80) scale(1.9)" d="M0 8 C-13 -4 -6 -13 0 -6 C6 -13 13 -4 0 8Z" fill="#ff5d7a"/>
+      <rect x="338" y="66" width="30" height="30" rx="15" fill="#2f7df6"/>
+      <circle cx="353" cy="81" r="6" fill="#9cc4ff"/>
+    </g>
+    <use href="#belt-set" x="400"/>
+  </g>
+  <rect class="belt__body" x="-10" y="96" width="420" height="20" rx="10"/>
+  <path class="belt__tread" d="M-10 106 H410"/>
+  <g class="belt__rollers"><circle cx="20" cy="106" r="6"/><circle cx="65" cy="106" r="6"/><circle cx="110" cy="106" r="6"/><circle cx="155" cy="106" r="6"/><circle cx="200" cy="106" r="6"/><circle cx="245" cy="106" r="6"/><circle cx="290" cy="106" r="6"/><circle cx="335" cy="106" r="6"/><circle cx="380" cy="106" r="6"/></g>
+  <path class="belt__legs" d="M70 117 v28 M330 117 v28 M50 146 h40 M310 146 h40"/>
+</svg>`,
+
     cometa: `
 <svg ${NS} viewBox="0 0 400 200" class="scene" role="img" aria-label="Um cometa que se divide em dois">
   <defs>

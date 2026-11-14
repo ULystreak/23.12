@@ -45,7 +45,7 @@
 }
 
 .hand__art {
-  width: min(62vw, 300px, 46vh);
+  width: min(62vw, 300px, 38vh);
   height: auto;
   overflow: visible;
   translate: 0 108%;
@@ -74,7 +74,7 @@
 .hand__knot path {
   fill: none;
   stroke: var(--thread);
-  stroke-width: 3.2;
+  stroke-width: 4.6;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-dasharray: 1;
@@ -86,14 +86,51 @@
 .hand__knot path:nth-child(3) { transition-delay: .55s; }
 .hand.is-tied .hand__knot path { stroke-dashoffset: 0; }
 
-.hand__text {
+/* o trançado do cordão aparece depois que ele é amarrado */
+.hand__braid path {
+  fill: none;
+  stroke: #ffa477;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-dasharray: 3 4.5;
+  opacity: 0;
+  transition: opacity .7s ease 1.2s;
+}
+
+.hand.is-tied .hand__braid path { opacity: .95; }
+
+.hand__top {
   position: absolute;
-  top: 13vh;
+  top: 10vh;
   left: 0;
   right: 0;
-  margin: 0;
+  display: grid;
+  justify-items: center;
+  gap: .5rem;
   padding: 0 8vw;
   text-align: center;
+}
+
+/* o nome do fio, em japonês e em português */
+.hand__note {
+  margin: 0 0 .6rem;
+  color: var(--ink-soft);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  line-height: 1.5;
+  --d: 1.3s;
+}
+
+.hand__note [lang="ja"] {
+  display: block;
+  padding-left: .3em;
+  color: var(--thread);
+  font-size: 1.5rem;
+  letter-spacing: .3em;
+}
+
+.hand__text {
+  margin: 0;
   font-family: var(--font-display);
   font-weight: 500;
   font-size: clamp(1.5rem, 6vw, 2.5rem);
@@ -105,8 +142,6 @@
 body.is-looking #petals { --look: -7vh; }
 
 .btn--thread {
-  position: absolute;
-  top: calc(13vh + clamp(3.2rem, 10vw, 4.6rem));
   background: var(--thread);
   opacity: 0;
   pointer-events: none;

@@ -9,7 +9,8 @@
 
    IMAGENS: basta salvar o arquivo com o MESMO NOME que está escrito aqui.
    Enquanto o arquivo não existir, o fundo fica desenhado e a foto mostra
-   um aviso com o nome que falta. Veja a lista completa no LEIA-ME.md.
+   um aviso com o nome que falta (só no seu computador: no site publicado
+   o espaço da foto some). Veja a lista completa no LEIA-ME.md.
 
    TIPOS DE BLOCO (valem nos dois capítulos; pode repetir, apagar e reordenar):
      { tipo: "texto",  texto: `...` }
@@ -47,6 +48,7 @@ window.CONTEUDO = {
        { tipo: "cena", cena: "maos" }                 duas mãos, azul e vermelha, se encontrando
        { tipo: "cena", cena: "fita", rotulo: "..." }  uma fita VHS com o rótulo que você escrever
        { tipo: "cena", cena: "espiada" }              um robozinho de brinquedo espiando pelo canto
+       { tipo: "cena", cena: "esteira" }              uma esteira de fábrica levando brinquedos e um coração
   */
   capitulo1: {
     tema: "poppy",
@@ -59,6 +61,7 @@ window.CONTEUDO = {
 
 [Uma linha em branco começa outro parágrafo. Dois ou três parágrafos ficam bem em cada cartão.]` },
       { tipo: "imagem", arquivo: "assets/images/poppy-1.jpg", legenda: "" },
+      { tipo: "cena", cena: "esteira" },
       { tipo: "texto", texto: `[Texto 2: o que você pensou dela naquele dia, o susto que vocês levaram, a piada que ficou.]` },
       { tipo: "cena", cena: "maos" },
       { tipo: "imagem", arquivo: "assets/images/poppy-2.jpg", legenda: "" },
@@ -95,9 +98,11 @@ window.CONTEUDO = {
     fechar: "Fechar este capítulo",
   },
 
-  /* ---------- A MÃO E O FIO VERMELHO ---------- */
+  /* ---------- A MÃO E O FIO VERMELHO (o akai ito do filme) ---------- */
   mao: {
     texto: "Olha a sua mão.",
+    kanji: "赤い糸",                                  // "akai ito" em japonês; deixe "" para não mostrar
+    legenda: "akai ito, o fio vermelho do destino",  // aparece logo abaixo; deixe "" para não mostrar
     botao: "Seguir o fio",
   },
 

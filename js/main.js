@@ -14,6 +14,7 @@
   const trail = $("trail");
   const trailPath = $("trail-path");
   const petals = $("petals");
+  const body = envelope.querySelector(".envelope__body"); // o corpo 3D da carta
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -38,6 +39,8 @@
   function walk(seal) {
     envelope.dataset.seal = seal;
     envelope.classList.remove("is-open");
+    body.style.rotate = "";
+    body.style.translate = "";
     envelope.disabled = true;
     approach.classList.remove("is-arrived");
     approach.style.setProperty("--s", 0);
@@ -61,11 +64,18 @@
 
         approach.style.setProperty("--s", (1 / z).toFixed(4));
         approach.style.setProperty("--o", Math.min(1, t * 4).toFixed(3));
+        if (!reduce) {
+          // de longe ela vem girando no ar; chega de frente
+          body.style.setProperty("--ry", `${((1 - e) * 64).toFixed(2)}deg`);
+          body.style.setProperty("--rx", `${((1 - e) * -18).toFixed(2)}deg`);
+        }
         window.Petals.advance((prevZ - z) * 0.3);
         prevZ = z;
 
         if (t < 1) return requestAnimationFrame(tick);
 
+        body.style.removeProperty("--ry");
+        body.style.removeProperty("--rx");
         document.body.classList.remove("is-walking");
         approach.classList.add("is-arrived");
         envelope.disabled = false;
@@ -80,7 +90,15 @@
     await click(envelope);
     envelope.disabled = true;
     hint.classList.remove("is-visible");
+
+    // congela o balanço onde ele está, e deixa a carta endireitar com suavidade ao abrir
+    const pose = getComputedStyle(body);
+    body.style.rotate = pose.rotate;
+    body.style.translate = pose.translate;
     envelope.classList.add("is-open");
+    void body.offsetWidth;
+    body.style.rotate = "";
+    body.style.translate = "";
 
     // o lacre estoura e solta um punhado de pétalas
     const box = envelope.getBoundingClientRect();
@@ -109,19 +127,32 @@
 
     words($("hand-text"), C.mao.texto);
     follow.textContent = C.mao.botao;
+
+    // o nome do fio: "akai ito", em japonês e em português
+    const note = $("hand-note");
+    note.hidden = !C.mao.kanji && !C.mao.legenda;
+    words(note, C.mao.legenda || "");
+    if (C.mao.kanji) {
+      const kanji = document.createElement("span");
+      kanji.className = "word";
+      kanji.lang = "ja";
+      kanji.textContent = C.mao.kanji;
+      kanji.style.setProperty("--i", 0);
+      note.prepend(kanji);
+    }
     hand.hidden = false;
     await frame();
     document.body.classList.add("is-looking"); // o olhar desce: as pétalas sobem na tela
     hand.classList.add("is-visible");
     await sleep(reduce ? 300 : 1700);
     hand.classList.add("is-tied");
-    await sleep(reduce ? 300 : 1500);
+    await sleep(reduce ? 300 : 2900);
     hand.classList.add("is-ready");
 
     await click(follow);
     follow.disabled = true;
 
-    // o fio sai do dedo mindinho e vai até onde a carta vai aparecer
+    // o fio sai do laço no pulso e vai até onde a carta vai aparecer
     sizeTrail();
     const knot = hand.querySelector(".hand__knot").getBoundingClientRect();
     const x0 = knot.left + knot.width * 0.2;

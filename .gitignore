@@ -3,3 +3,6 @@
 .playwright-mcp/
 .playwright-cli/
 output/
+
+# rascunho de prompt, não faz parte do site
+PROMPT.md

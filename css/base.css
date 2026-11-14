@@ -134,7 +134,7 @@ body.is-walking .trail { animation: bob .58s ease-in-out infinite alternate; }
 
 .hint.is-visible { opacity: 1; }
 
-/* ---------- a carta ---------- */
+/* ---------- a carta (um objeto 3D) ---------- */
 
 .approach {
   position: relative;
@@ -157,6 +157,7 @@ body.is-walking .trail { animation: bob .58s ease-in-out infinite alternate; }
   transition: opacity .6s ease;
 }
 
+/* O botão é só a área de toque e a "câmera" (a perspectiva). Quem gira é o corpo, lá dentro. */
 .envelope {
   position: relative;
   display: block;
@@ -166,33 +167,53 @@ body.is-walking .trail { animation: bob .58s ease-in-out infinite alternate; }
   border: 0;
   background: none;
   cursor: pointer;
-  filter: drop-shadow(0 18px 26px rgba(179, 18, 58, .16)) drop-shadow(0 2px 3px rgba(42, 27, 34, .12));
+  perspective: 1000px;
+  transition: scale .15s ease-out;
 }
 
-/* no computador a carta inclina de leve na direção do ponteiro */
-.envelope {
-  transform: perspective(900px) rotateY(calc(var(--px, 0) * 12deg)) rotateX(calc(var(--py, 0) * -9deg));
-  transition: scale .15s ease-out, transform 1.2s var(--ease-out);
-}
 .envelope:disabled { cursor: default; }
 .envelope:not(:disabled):active { scale: .985; }
 
-.approach.is-arrived .envelope { animation: float 4.6s ease-in-out infinite; }
-
-@keyframes float {
-  0%, 100% { translate: 0 0; rotate: -1.2deg; }
-  50%      { translate: 0 -9px; rotate: 1deg; }
+/* O corpo da carta: planos em profundidades diferentes, num espaço 3D de verdade.
+   --px/--py: o ponteiro, no computador. --ry/--rx: o giro na caminhada e ao abrir. */
+.envelope__body {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform:
+    rotateY(calc(var(--px, 0) * 18deg + var(--ry, 0deg)))
+    rotateX(calc(var(--py, 0) * -14deg + var(--rx, 0deg)));
+  transition: transform 1.2s var(--ease-out), rotate .9s var(--ease-out), translate .9s var(--ease-out);
 }
 
-.envelope__back,
-.envelope__front,
-.envelope__flap,
-.envelope__paper { position: absolute; display: block; }
+.envelope__body > span { position: absolute; }
+
+/* parada, ela flutua e balança devagar: dá para ver que tem volume */
+.approach.is-arrived .envelope:not(.is-open) .envelope__body { animation: sway 7s ease-in-out infinite; }
+
+@keyframes sway {
+  0%, 100% { rotate: .25 1 0 0deg; translate: 0 0; }
+  25%      { rotate: .25 1 0 12deg; translate: 0 -9px; }
+  75%      { rotate: .25 1 0 -12deg; translate: 0 -4px; }
+}
+
+/* aberta: fica de frente e inclina de leve para trás, mostrando o papel */
+.envelope.is-open .envelope__body { --ry: 0deg; --rx: 11deg; }
+
+/* a sombra da própria carta, flutuando atrás: quando ela gira, a sombra desloca diferente */
+.envelope__shade {
+  inset: 8% 5% -8%;
+  border-radius: 14px;
+  background: rgba(179, 18, 58, .3);
+  filter: blur(18px);
+  transform: translateZ(-38px);
+}
 
 .envelope__back {
   inset: 0;
   border-radius: 7px;
   background: linear-gradient(#f6eef0, #fbf6f7);
+  box-shadow: inset 0 0 0 1px rgba(179, 18, 58, .08);
 }
 
 .envelope__paper {
@@ -201,9 +222,12 @@ body.is-walking .trail { animation: bob .58s ease-in-out infinite alternate; }
   top: 6%;
   height: 86%;
   border-radius: 3px;
-  background: var(--paper);
+  background:
+    repeating-linear-gradient(transparent 0 13px, rgba(179, 18, 58, .1) 13px 14px) 0 20px,
+    var(--paper);
   box-shadow: 0 0 0 1px rgba(42, 27, 34, .07);
-  transition: translate 1s var(--ease-out) .95s;
+  transform: translateZ(1px);
+  transition: translate 1s var(--ease-out) 1.05s;
 }
 
 .envelope__front {
@@ -214,27 +238,45 @@ body.is-walking .trail { animation: bob .58s ease-in-out infinite alternate; }
     linear-gradient(to top left, transparent 49.6%, rgba(179, 18, 58, .13) 50%, transparent 50.4%) 100% 100% / 50% 62% no-repeat,
     linear-gradient(#ffffff, #fdf7f8);
   clip-path: polygon(0 0, 50% 54%, 100% 0, 100% 100%, 0 100%);
+  transform: translateZ(2px);
 }
 
+/* a luz: o lado que se afasta escurece, o que se aproxima clareia */
+.envelope__front::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, rgba(179, 18, 58, .16), transparent 40%, transparent 60%, rgba(179, 18, 58, .16)) 0 0 / 200% 100%;
+  background-position: calc(50% + var(--px, 0) * 90%) 0;
+  transition: background-position 1.2s var(--ease-out);
+}
+
+.approach.is-arrived .envelope:not(.is-open) .envelope__front::after { animation: shade 7s ease-in-out infinite; }
+
+@keyframes shade {
+  0%, 100% { background-position: 50% 0; }
+  25%      { background-position: 100% 0; }
+  75%      { background-position: 0% 0; }
+}
+
+/* a aba: presa pela borda de cima, deita sobre a frente e levanta girando no espaço */
 .envelope__flap {
   top: 0;
   left: 0;
   right: 0;
   height: 60%;
-  z-index: 3;
   background: linear-gradient(#ffffff, #f9eef1);
   clip-path: polygon(0 0, 100% 0, 50% 100%);
   transform-origin: 50% 0;
-  transform: perspective(900px) rotateX(0deg);
-  transition: transform .8s var(--ease-in-out) .45s, z-index 0s .85s;
+  transform: translateZ(3px) rotateX(0deg);
+  transition: transform .95s var(--ease-in-out) .45s, filter .95s ease .45s;
 }
 
-/* o cordão vermelho e o lacre */
+/* o cordão vermelho e o lacre, cada um um pouco mais à frente */
 .envelope__cord {
-  position: absolute;
   inset: 0;
-  z-index: 4;
-  transition: opacity .35s ease, scale .5s var(--ease-out);
+  transform: translateZ(3.6px);
+  transition: opacity .35s ease;
 }
 
 .envelope__cord::before,
@@ -243,14 +285,13 @@ body.is-walking .trail { animation: bob .58s ease-in-out infinite alternate; }
   position: absolute;
   background: var(--thread);
   border-radius: 2px;
+  transition: scale .5s var(--ease-in-out);
 }
 
 .envelope__cord::before { left: 0; right: 0; top: 57%; height: 2px; }
 .envelope__cord::after  { top: 0; bottom: 0; left: calc(50% - 1px); width: 2px; }
 
 .envelope__seal {
-  position: absolute;
-  z-index: 5;
   left: 50%;
   top: 57%;
   width: 19%;
@@ -261,7 +302,8 @@ body.is-walking .trail { animation: bob .58s ease-in-out infinite alternate; }
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #d8375c, var(--rose) 55%, #8c0d2c);
   box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .13), 0 2px 5px rgba(42, 27, 34, .3);
-  transition: opacity .35s ease, scale .5s var(--ease-out);
+  transform: translateZ(7px);
+  transition: opacity .4s ease, scale .55s var(--ease-out), transform .55s var(--ease-out);
 }
 
 /* o desenho no lacre (coração ou estrela): uma máscara, não um símbolo de texto */
@@ -294,20 +336,13 @@ body.is-walking .trail { animation: bob .58s ease-in-out infinite alternate; }
   75%, 100% { opacity: 0; scale: 2.2; }
 }
 
-/* aberta: o lacre estoura, os cordões se recolhem, a aba levanta e o papel sobe */
-.envelope__cord::before,
-.envelope__cord::after { transition: scale .5s var(--ease-in-out); }
-
+/* aberta: o lacre salta para frente e some, os cordões se recolhem,
+   a aba levanta girando e vai parar atrás do papel, e o papel sobe */
+.envelope.is-open .envelope__seal { opacity: 0; scale: 1.45; transform: translateZ(80px); }
 .envelope.is-open .envelope__cord::before { scale: 0 1; }
 .envelope.is-open .envelope__cord::after { scale: 1 0; }
 .envelope.is-open .envelope__cord { opacity: 0; transition-delay: .45s; }
-.envelope.is-open .envelope__seal { opacity: 0; scale: 1.45; }
-
-.envelope.is-open .envelope__flap {
-  z-index: -1;
-  transform: perspective(900px) rotateX(180deg);
-}
-
+.envelope.is-open .envelope__flap { transform: translateZ(0px) rotateX(180deg); filter: brightness(.93); }
 .envelope.is-open .envelope__paper { translate: 0 -46%; }
 
 /* ---------- botões ---------- */
@@ -334,7 +369,8 @@ body.is-walking .trail { animation: bob .58s ease-in-out infinite alternate; }
   body.is-walking .world,
   body.is-walking #petals,
   body.is-walking .trail,
-  .approach.is-arrived .envelope,
+  .envelope__body,
+  .envelope__front::after,
   .envelope__seal::before { animation: none !important; }
   .word { filter: none; translate: none; transition-duration: .2s; transition-delay: 0s; }
   .world.is-away { translate: none; }

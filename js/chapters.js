@@ -8,6 +8,8 @@ window.Chapters = (() => {
   const thread = $("scroll-thread");
   const themeColor = document.querySelector('meta[name="theme-color"]');
   const THEME = { poppy: "#0d2534", yourname: "#090e33" };
+  // No seu computador, imagem faltando vira um aviso. No site publicado, o espaço simplesmente some.
+  const authoring = ["localhost", "127.0.0.1", ""].includes(location.hostname);
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -101,6 +103,10 @@ window.Chapters = (() => {
       const img = el("img", `pair__img pair__img--${side}`);
       img.alt = legenda || "";
       img.onerror = () => {
+        if (!authoring) {
+          wrap.hidden = true;
+          return;
+        }
         wrap.className = "shot shot--empty reveal is-in";
         wrap.replaceChildren(el("div", "shot__frame", `Falta a imagem ${arquivo}. Salve um arquivo com esse nome, ou apague este bloco em js/content.js.`));
       };
@@ -128,6 +134,10 @@ window.Chapters = (() => {
       const fig = el("figure", "shot reveal");
       const box = el("div", "shot__frame");
       const missing = (message) => {
+        if (!authoring) {
+          fig.hidden = true;
+          return;
+        }
         fig.classList.add("shot--empty");
         box.textContent = message;
       };

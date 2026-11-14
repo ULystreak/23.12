@@ -28,6 +28,7 @@ Para ir direto a uma parte, sem passar por tudo:
 
 Salve cada imagem em `assets/images/` **com exatamente este nome**. Ela aparece sozinha.
 Enquanto o arquivo não existir, o fundo fica desenhado e a foto mostra um aviso com o nome que falta.
+Esse aviso só aparece no seu computador: no site publicado, o espaço da foto que falta simplesmente some.
 
 | Arquivo | Onde aparece | Situação |
 |---|---|---|
