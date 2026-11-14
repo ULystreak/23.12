@@ -1,0 +1,28 @@
+/* ============================================================================
+   A MÃO
+   "Olha a sua mão.": a mão com o akai ito, por cima do mundo branco.
+   Esqueleto: o mínimo para funcionar.
+   ========================================================================== */
+
+.mao {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--seguro-base) + clamp(120px, 24vh, 220px));
+  width: min(58vw, 260px);
+  margin-left: calc(min(58vw, 260px) * -0.5);
+  pointer-events: none;
+}
+.mao svg,
+.mao img { width: 100%; height: auto; }
+
+/* O fio no modo leve (sem WebGL): um traço que sobe do pé da tela. */
+.fio-leve {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .mao { width: min(24vw, 180px); margin-left: calc(min(24vw, 180px) * -0.5); bottom: calc(var(--seguro-base) + 84px); }
+}

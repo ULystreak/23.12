@@ -1,0 +1,113 @@
+/* ============================================================================
+   PERGAMINHO
+   A folha DOM. No celular cobre a tela; no computador é uma coluna central com
+   o mundo branco dos lados. Esqueleto: o mínimo para funcionar.
+   ========================================================================== */
+
+#pergaminho {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%;
+  height: var(--tela);
+  z-index: var(--z-pergaminho);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;                  /* dos lados da coluna, o toque passa para o mundo */
+}
+
+.perg-moldura {
+  position: relative;
+  width: 100%;
+  max-width: var(--coluna);
+  height: 100%;
+  background: var(--papel);
+  color: var(--tinta);
+  overflow: hidden;
+  pointer-events: auto;
+  will-change: transform, opacity;
+}
+
+/* No computador a folha é um objeto no mundo: uma sombra bem leve separa do branco. */
+@media (min-width: 760px) {
+  .perg-moldura { box-shadow: 0 0 0 1px var(--papel-linha), 0 24px 80px rgba(42, 27, 34, 0.08); }
+}
+
+/* ---- a folha em branco (seletor de música) --------------------------------- */
+.perg-folha {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding:
+    calc(var(--seguro-topo) + var(--esp-7))
+    max(var(--margem), var(--seguro-dir))
+    calc(var(--seguro-base) + var(--esp-7))
+    max(var(--margem), var(--seguro-esq));
+}
+/* Centraliza na vertical com margens automáticas (e não com justify-content):
+   se o conteúdo for mais alto que a tela (celular deitado), o topo continua alcançável. */
+.perg-folha > :first-child { margin-top: auto; }
+.perg-folha > :last-child { margin-bottom: auto; }
+
+/* ---- a camada do capítulo -------------------------------------------------- */
+.perg-camada {
+  position: absolute;
+  inset: 0;
+  background: var(--papel);
+  will-change: clip-path;
+}
+.perg-fundo {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+}
+.perg-rolagem {
+  position: absolute;
+  inset: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;                 /* o fio de progresso faz o papel da barra */
+}
+.perg-rolagem::-webkit-scrollbar { display: none; }
+.perg-conteudo {
+  position: relative;
+  min-height: 100%;
+  padding-bottom: var(--seguro-base);
+}
+
+/* ---- o fio de progresso na borda ------------------------------------------- */
+.perg-fio {
+  position: absolute;
+  top: 0; bottom: 0;
+  right: max(5px, var(--seguro-dir));
+  width: 2px;
+  pointer-events: none;
+}
+.perg-fio i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--fio);
+  border-radius: 2px;
+  transform: scaleY(0);
+  transform-origin: top center;
+}
+
+/* ---- o rolo que acompanha a borda enquanto desenrola ------------------------- */
+.perg-rolo {
+  position: absolute;
+  left: 0; right: 0;
+  top: -11px;
+  height: 22px;
+  border-radius: 11px;
+  background: linear-gradient(to bottom, #fffdf8 0%, var(--papel) 34%, var(--papel-sombra) 78%, #d9cdb9 100%);
+  box-shadow: 0 6px 14px rgba(42, 27, 34, 0.16);
+  pointer-events: none;
+  will-change: transform;
+}

@@ -1,0 +1,126 @@
+/* ============================================================================
+   CAPÍTULO 1: O JOGO
+   Fita antiga de uma fábrica de brinquedos: petróleo + vermelho, amarelo, azul
+   e verde. Fredoka nos títulos e textos, VT323 no que é "da fita".
+   Esqueleto: o mínimo para funcionar.
+   ========================================================================== */
+
+.poppy-fundo { background-color: var(--poppy-fundo); }
+
+.poppy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-7);
+  padding:
+    calc(var(--seguro-topo) + var(--esp-9))
+    max(var(--margem), var(--seguro-dir))
+    calc(var(--seguro-base) + var(--esp-8))
+    max(var(--margem), var(--seguro-esq));
+  font-family: var(--fonte-brinquedo);
+  font-weight: 500;
+  font-size: var(--texto-corpo);
+  line-height: 1.65;
+  color: var(--poppy-texto);
+}
+.poppy ::selection { background: var(--poppy-amarelo); color: var(--poppy-fundo); }
+.poppy :focus-visible { outline-color: var(--poppy-amarelo); }
+
+.poppy-cabeca { display: grid; gap: var(--esp-4); min-height: 46vh; align-content: center; }
+.poppy-titulo {
+  font-family: var(--fonte-brinquedo);
+  font-weight: 600;
+  font-size: var(--texto-titulo);
+  line-height: 1.12;
+  color: var(--poppy-amarelo);
+}
+.poppy-subtitulo {
+  font-family: var(--fonte-fita);
+  font-size: clamp(1.25rem, 1.1rem + 0.8vw, 1.625rem);
+  line-height: 1.3;
+  letter-spacing: 0.04em;
+  color: var(--poppy-texto);
+}
+
+.poppy-texto { max-width: 34em; }
+
+.poppy-imagem { display: grid; gap: var(--esp-3); }
+.poppy-imagem img {
+  width: 100%;
+  border-radius: 10px;
+  border: 3px solid var(--poppy-texto);
+}
+.poppy-imagem figcaption {
+  font-family: var(--fonte-fita);
+  font-size: 1.25rem;
+  letter-spacing: 0.04em;
+}
+
+.poppy-cena { display: grid; justify-items: center; padding: var(--esp-5) 0; }
+.poppy-cena svg { width: min(100%, 420px); height: auto; }
+
+.poppy-fita { position: relative; width: min(100%, 360px); }
+.poppy-fita svg { width: 100%; }
+.poppy-fita-etiqueta,
+.poppy-fita-data {
+  position: absolute;
+  left: 12%; right: 12%;
+  font-family: var(--fonte-fita);
+  line-height: 1;
+  color: #101820;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.poppy-fita-etiqueta { top: 17%; font-size: clamp(1.125rem, 5.2vw, 1.5rem); }
+.poppy-fita-data { top: 31%; font-size: clamp(0.9375rem, 4.2vw, 1.125rem); }
+
+.poppy-esteira { width: 100%; overflow: hidden; }
+.poppy-esteira-faixa {
+  display: flex;
+  gap: var(--esp-4);
+  overflow-x: auto;
+  padding: var(--esp-3) 0;
+  scrollbar-width: none;
+}
+.poppy-esteira-faixa::-webkit-scrollbar { display: none; }
+.poppy-caixa {
+  flex: none;
+  padding: var(--esp-3) var(--esp-4);
+  border-radius: 8px;
+  font-weight: 600;
+  color: #101820;
+  background: var(--poppy-amarelo);
+}
+.poppy-caixa-1 { background: var(--poppy-azul); }
+.poppy-caixa-2 { background: var(--poppy-verde); }
+.poppy-caixa-3 { background: var(--poppy-vermelho); color: #fff; }
+.poppy-esteira-base {
+  height: 12px;
+  border-radius: 6px;
+  background: repeating-linear-gradient(90deg, var(--poppy-texto) 0 14px, var(--poppy-fundo-claro) 14px 28px);
+}
+
+.poppy-rodape { display: grid; justify-items: center; padding-top: var(--esp-7); }
+.poppy-fechar {
+  min-height: 52px;
+  padding: 12px 26px;
+  border-radius: 14px;
+  font-family: var(--fonte-brinquedo);
+  font-weight: 600;
+  font-size: var(--texto-subtitulo);
+  color: #101820;
+  background: var(--poppy-amarelo);
+  box-shadow: 0 5px 0 #b98a0c;
+  transition: transform 140ms var(--curva-ui), box-shadow 140ms var(--curva-ui);
+}
+.poppy-fechar:active { transform: translateY(4px) scale(0.99); box-shadow: 0 1px 0 #b98a0c; }
+
+/* Entrada das partes: caem com peso e assentam (nada desliza suave). */
+.poppy-entra { opacity: 0; transform: translateY(-28px) scale(0.96); }
+.poppy-entra.visivel {
+  opacity: 1;
+  transform: none;
+  transition: transform 620ms var(--curva-poppy-pulo), opacity 200ms linear;
+}
+html.reduzido .poppy-entra { transform: none; }
+html.reduzido .poppy-entra.visivel { transition: opacity 400ms linear; }

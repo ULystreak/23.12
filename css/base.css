@@ -1,0 +1,379 @@
+/* ============================================================================
+   BASE
+   Reset, tokens, fontes e os estilos compartilhados do mundo branco.
+   Arquivo do esqueleto: as cenas não editam aqui; usam os tokens.
+   ========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   Fontes (hospedadas em assets/fonts; nada vem de fora)
+   A Shippori Mincho 400 também está declarada no CSS crítico do index.html,
+   com a mesma descrição, para a primeira frase não esperar este arquivo.
+   ------------------------------------------------------------------------- */
+@font-face {
+  font-family: "Shippori Mincho";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/shippori-mincho-400.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Shippori Mincho";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../assets/fonts/shippori-mincho-600.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* Só os três glifos de "赤い糸" (akai ito), para quem quiser escrever o nome do fio. */
+@font-face {
+  font-family: "Shippori Mincho";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/shippori-mincho-akaiito-400.woff2") format("woff2");
+  unicode-range: U+3044, U+7CF8, U+8D64;
+}
+@font-face {
+  font-family: "Klee One";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/klee-one-400.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Klee One";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../assets/fonts/klee-one-600.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* Fredoka é variável: um arquivo cobre os pesos de 300 a 700. */
+@font-face {
+  font-family: "Fredoka";
+  font-style: normal;
+  font-weight: 300 700;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url("../assets/fonts/fredoka-var.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "VT323";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/vt323-400.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ---------------------------------------------------------------------------
+   Tokens
+   ------------------------------------------------------------------------- */
+:root {
+  /* Mundo branco */
+  --branco: #ffffff;
+  --tinta: #2a1b22;
+  --tinta-suave: #6b5961;        /* 6,6:1 sobre branco */
+  --tinta-fraca: #8a7a81;        /* só para traços e detalhes, não para texto corrido */
+  --rosa: #b3123a;               /* pétalas */
+  --fio: #d7192d;                /* o fio vermelho */
+  --fio-escuro: #a80f22;
+  --papel: #fbf7f0;              /* a folha, um pouco mais morna que o mundo */
+  --papel-sombra: #efe7da;
+  --papel-linha: #e3d9c8;
+
+  /* Capítulo do jogo */
+  --poppy-fundo: #0d2534;
+  --poppy-fundo-claro: #16384c;
+  --poppy-vermelho: #e2332f;
+  --poppy-amarelo: #f6c12d;
+  --poppy-azul: #2f8fd8;
+  --poppy-verde: #3fb86b;
+  --poppy-texto: #f2ead8;
+
+  /* Capítulo do filme */
+  --yn-noite: #090e33;
+  --yn-crepusculo: #4a398c;
+  --yn-rosa: #b25d9b;
+  --yn-pessego: #ffd1a1;
+  --yn-texto: #fdf6ee;
+
+  /* Tipos */
+  --fonte-titulo: "Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", Georgia, "Times New Roman", serif;
+  --fonte-mao: "Klee One", "Shippori Mincho", "Hiragino Maru Gothic ProN", Georgia, serif;
+  --fonte-brinquedo: "Fredoka", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  --fonte-fita: "VT323", "Courier New", ui-monospace, monospace;
+
+  /* Escala de texto (fluida entre 360 px e 1440 px) */
+  --texto-frase: clamp(1.625rem, 6.6vw, 2.75rem);
+  --texto-titulo: clamp(1.75rem, 1.2rem + 3vw, 3.25rem);
+  --texto-subtitulo: clamp(1.0625rem, 0.95rem + 0.6vw, 1.375rem);
+  --texto-corpo: clamp(1.0625rem, 1rem + 0.35vw, 1.25rem);
+  --texto-pequeno: clamp(0.875rem, 0.84rem + 0.2vw, 1rem);
+
+  /* Espaços */
+  --esp-1: 4px;
+  --esp-2: 8px;
+  --esp-3: 12px;
+  --esp-4: 16px;
+  --esp-5: 24px;
+  --esp-6: 32px;
+  --esp-7: 48px;
+  --esp-8: 72px;
+  --esp-9: 112px;
+  --margem: clamp(22px, 6vw, 56px);         /* respiro lateral do texto */
+  --coluna: 720px;                          /* largura máxima da folha no computador */
+
+  /* Áreas seguras (entalhe, barra de gestos) */
+  --seguro-topo: env(safe-area-inset-top, 0px);
+  --seguro-base: env(safe-area-inset-bottom, 0px);
+  --seguro-esq: env(safe-area-inset-left, 0px);
+  --seguro-dir: env(safe-area-inset-right, 0px);
+
+  /* Altura real da tela: 100dvh acompanha a barra do Safari; 100vh é a reserva. */
+  --tela: 100vh;
+
+  /* Curvas (as mesmas registradas na GSAP em js/nucleo/movimento.js) */
+  --curva-branco-entrar: cubic-bezier(0.16, 1, 0.3, 1);
+  --curva-branco-sair: cubic-bezier(0.5, 0, 0.75, 0.4);
+  --curva-branco-camera: cubic-bezier(0.6, 0, 0.2, 1);
+  --curva-branco-deriva: cubic-bezier(0.37, 0, 0.63, 1);
+  --curva-poppy-pulo: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --curva-poppy-cair: cubic-bezier(0.6, 0, 0.9, 0.5);
+  --curva-yn-tempo: cubic-bezier(0.37, 0, 0.63, 1);
+  --curva-yn-florescer: cubic-bezier(0.16, 1, 0.3, 1);
+  --curva-ui: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Durações da interface */
+  --dur-ui: 160ms;
+  --dur-ui-lenta: 320ms;
+
+  /* Camadas */
+  --z-mundo: 0;
+  --z-leve: 1;
+  --z-pergaminho: 20;
+  --z-palco: 30;
+  --z-mini: 40;
+  --z-topo: 50;
+
+  --raio: 14px;
+  --alvo: 44px;                             /* menor alvo de toque permitido */
+}
+
+@supports (height: 100dvh) {
+  :root { --tela: 100dvh; }
+}
+
+/* ---------------------------------------------------------------------------
+   Reset enxuto
+   ------------------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  height: 100%;
+  background: var(--branco);
+  color: var(--tinta);
+  font-family: var(--fonte-titulo);
+  font-size: 100%;
+  line-height: 1.6;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+
+body {
+  position: fixed;
+  inset: 0;
+  margin: 0;
+  overflow: hidden;
+  background: var(--branco);
+  caret-color: var(--fio);
+  accent-color: var(--fio);
+}
+
+h1, h2, h3, h4, p, figure, blockquote, ul, ol { margin: 0; padding: 0; }
+ul, ol { list-style: none; }
+h1, h2, h3, h4 { font-weight: 600; line-height: 1.25; text-wrap: balance; }
+p { text-wrap: pretty; }
+img, svg, video, canvas { display: block; max-width: 100%; }
+img, video { height: auto; }
+button, input, select, textarea { font: inherit; color: inherit; margin: 0; }
+button { background: none; border: 0; padding: 0; cursor: pointer; touch-action: manipulation; -webkit-appearance: none; appearance: none; }
+a { color: inherit; }
+[hidden] { display: none !important; }
+
+::selection { background: var(--rosa); color: var(--branco); }
+
+/* Foco visível só para teclado; o anel é o próprio fio. */
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--fio);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+
+/* Texto só para leitores de tela. */
+.so-leitor {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0; border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+   Camadas fixas
+   ------------------------------------------------------------------------- */
+#mundo, #mundo-leve {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%;
+  height: var(--tela);
+  display: block;
+}
+#mundo { z-index: var(--z-mundo); background: var(--branco); touch-action: none; }
+#mundo-leve { z-index: var(--z-leve); pointer-events: none; overflow: hidden; }
+
+#palco {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%;
+  height: var(--tela);
+  z-index: var(--z-palco);
+  pointer-events: none;                    /* o toque passa para o mundo; filhos religam */
+  /* No mundo branco, segurar o dedo não abre seleção de texto nem o menu do iPhone. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Frases do mundo branco (terço de cima)
+   ------------------------------------------------------------------------- */
+#frases {
+  position: absolute;
+  left: 0; right: 0;
+  top: 24%;
+  padding: 0 max(28px, var(--seguro-dir)) 0 max(28px, var(--seguro-esq));
+  text-align: center;
+  font-family: var(--fonte-titulo);
+  font-weight: 400;
+  font-size: var(--texto-frase);
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  color: var(--tinta);
+}
+.frase {
+  max-width: 16em;
+  margin: 0 auto;
+  text-wrap: balance;
+}
+
+/* Pedaços de texto animados (ver js/nucleo/movimento.js). */
+.pedacos { display: inline; }
+.palavra {
+  display: inline-block;
+  white-space: nowrap;
+  will-change: transform, opacity;
+}
+.letra { display: inline-block; white-space: pre; }
+
+/* ---------------------------------------------------------------------------
+   Dica do mundo branco (discreta, embaixo)
+   ------------------------------------------------------------------------- */
+#dica {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: calc(var(--seguro-base) + clamp(40px, 11vh, 96px));
+  padding: 0 var(--margem);
+  text-align: center;
+  font-family: var(--fonte-titulo);
+  font-size: var(--texto-pequeno);
+  letter-spacing: 0.14em;
+  color: var(--tinta-suave);
+}
+
+/* ---------------------------------------------------------------------------
+   Ações do mundo branco (botões das cenas)
+   ------------------------------------------------------------------------- */
+#acoes {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: calc(var(--seguro-base) + clamp(48px, 12vh, 112px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--esp-4);
+  padding: 0 var(--margem);
+}
+#acoes > * { pointer-events: auto; }
+#acoes > .alvo-carta { pointer-events: none; }
+
+/* Botão do mundo branco: texto em tinta sobre o branco, sublinhado pelo fio. */
+.botao {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--alvo);
+  min-width: var(--alvo);
+  padding: 10px 6px 12px;
+  font-family: var(--fonte-titulo);
+  font-size: var(--texto-subtitulo);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--tinta);
+  -webkit-user-select: none;
+  user-select: none;
+  transition: transform var(--dur-ui) var(--curva-ui), color var(--dur-ui) var(--curva-ui);
+}
+.botao::after {
+  content: "";
+  position: absolute;
+  left: 6px; right: 6px; bottom: 6px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--fio);
+  transform-origin: left center;
+  transition: transform var(--dur-ui-lenta) var(--curva-branco-entrar);
+}
+.botao:active { transform: scale(0.97); }
+@media (hover: hover) and (pointer: fine) {
+  .botao:hover { color: var(--rosa); }
+  .botao:hover::after { transform: scaleX(1.06); }
+}
+.botao[disabled] { opacity: 0.45; pointer-events: none; }
+
+/* Alvo invisível sobre a carta: dá foco de teclado e nome para leitores de tela.
+   O toque de verdade é medido contra a carta no mundo (env.acertou), por isso
+   este botão não intercepta o ponteiro. */
+.alvo-carta {
+  position: fixed;
+  left: 50%; top: 50%;
+  width: min(70vw, 420px);
+  height: min(48vh, 360px);
+  transform: translate(-50%, -50%);
+  border-radius: 18px;
+  pointer-events: none;
+  background: transparent;
+}
+
+/* ---------------------------------------------------------------------------
+   Movimento reduzido
+   O JS põe a classe "reduzido" no <html> quando o sistema pede menos movimento
+   (ou com ?reduzido=1). As cenas usam essa classe no CSS e amb.reduzido no JS:
+   a versão calma continua viva (pétalas poucas e lentas), nunca uma tela vazia.
+   Por isso não há aqui uma regra geral que mate todas as animações.
+   ------------------------------------------------------------------------- */
+html.reduzido { scroll-behavior: auto; }
+html.reduzido .botao,
+html.reduzido .botao::after { transition-duration: 0.01ms; }

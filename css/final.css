@@ -1,0 +1,31 @@
+/* ============================================================================
+   FINAL
+   A última folha vive dentro do mundo 3D (js/mundo/folha.js). Aqui fica só a
+   versão leve (sem WebGL): a folha em DOM, com a frase em Klee One.
+   Esqueleto: o mínimo para funcionar.
+   ========================================================================== */
+
+.folha-leve {
+  /* Largura da folha: cabe na tela em pé e também deitada (limite pela altura). */
+  --folha-l: min(78vw, 420px, calc((var(--tela) - 48px) * 0.75));
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--folha-l);
+  aspect-ratio: 3 / 4;
+  margin: calc(var(--folha-l) * -0.667) 0 0 calc(var(--folha-l) * -0.5);
+  display: grid;
+  place-items: center;
+  padding: calc(var(--folha-l) * 0.12);        /* em %, seria da largura da tela, não da folha */
+  background: var(--papel);
+  box-shadow: 0 0 0 1px var(--papel-linha), 0 24px 60px rgba(42, 27, 34, 0.12);
+  transform-origin: 50% 50%;
+}
+.folha-leve-texto {
+  font-family: var(--fonte-mao);
+  font-weight: 600;
+  font-size: clamp(0.9375rem, calc(var(--folha-l) * 0.076), 2rem);
+  line-height: 1.6;
+  text-align: center;
+  color: var(--tinta);
+}

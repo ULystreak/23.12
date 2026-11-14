@@ -1,0 +1,37 @@
+/* ============================================================================
+   MUNDO
+   O canvas do mundo branco e a versão leve (sem WebGL): pétalas em CSS.
+   (A carta leve leva os próprios estilos em js/mundo/envelope.js.)
+   Esqueleto: o mínimo para funcionar.
+   ========================================================================== */
+
+/* ---- pétalas em CSS (modo leve) ------------------------------------------- */
+.petalas-leve {
+  position: absolute;
+  inset: 0;
+  transition: opacity 2.4s var(--curva-branco-deriva);
+  will-change: transform, opacity;
+}
+.petala-leve {
+  position: absolute;
+  top: -8%;
+  left: var(--x, 50%);
+  width: var(--tam, 16px);
+  height: calc(var(--tam, 16px) * 1.25);
+  background: var(--rosa);
+  border-radius: 60% 60% 55% 55% / 85% 85% 35% 35%;
+  animation: petala-cai var(--dur, 12s) linear var(--atraso, 0s) infinite;
+  will-change: transform;
+}
+.petala-leve-perto { filter: blur(3px); }
+.petalas-leve.parada .petala-leve { animation-play-state: paused; }
+.petala-leve-solta {
+  position: fixed;
+  animation: none;
+  margin: calc(var(--tam, 16px) * -0.5) 0 0 calc(var(--tam, 16px) * -0.5);
+  z-index: 2;
+}
+@keyframes petala-cai {
+  from { transform: translate3d(0, 0, 0) rotate(0deg); }
+  to   { transform: translate3d(var(--deriva, 6vw), 118vh, 0) rotate(var(--giro, 320deg)); }
+}

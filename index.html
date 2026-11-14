@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Para você</title>
+
+  <!-- A página é particular: nada de buscadores, e a prévia do link não entrega a surpresa. -->
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="description" content="Para você">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Para você">
+  <meta property="og:description" content="Para você">
+  <meta property="og:image" content="https://ulystreak.github.io/23.12/assets/images/og-capa.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <meta name="theme-color" content="#ffffff">
+  <meta name="color-scheme" content="only light">
+  <meta name="format-detection" content="telephone=no">
+
+  <!-- Ícone embutido (uma pétala): evita o pedido de /favicon.ico. -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 3c7 5 10 11 8 18-1 5-4 8-8 8s-7-3-8-8C6 14 9 8 16 3z' fill='%23b3123a'/%3E%3C/svg%3E">
+
+  <!-- A fonte da primeira frase vem antes de tudo. -->
+  <link rel="preload" href="assets/fonts/shippori-mincho-400.woff2" as="font" type="font/woff2" crossorigin>
+
+  <!-- CSS crítico: só o que a primeira tela precisa (branco, a frase no terço de cima). -->
+  <style>
+    @font-face {
+      font-family: "Shippori Mincho";
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+      src: url("assets/fonts/shippori-mincho-400.woff2") format("woff2");
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    }
+    html, body { margin: 0; height: 100%; background: #ffffff; color: #2a1b22; overflow: hidden; }
+    body { position: fixed; inset: 0; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    #mundo, #mundo-leve { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; height: 100dvh; display: block; }
+    #palco { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; height: 100dvh; pointer-events: none; }
+    #frases {
+      position: absolute; left: 0; right: 0; top: 24%;
+      margin: 0; padding: 0 max(28px, env(safe-area-inset-right)) 0 max(28px, env(safe-area-inset-left));
+      text-align: center; font-family: "Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", Georgia, serif;
+      font-weight: 400; font-size: clamp(1.625rem, 6.6vw, 2.75rem); line-height: 1.5; letter-spacing: 0.02em;
+    }
+    [hidden] { display: none !important; }
+  </style>
+
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/mundo.css">
+  <link rel="stylesheet" href="css/musica.css">
+  <link rel="stylesheet" href="css/pergaminho.css">
+  <link rel="stylesheet" href="css/poppy.css">
+  <link rel="stylesheet" href="css/yourname.css">
+  <link rel="stylesheet" href="css/mao.css">
+  <link rel="stylesheet" href="css/final.css">
+  <link rel="stylesheet" href="lib/lenis.css">
+
+  <!-- O mundo 3D começa a baixar junto com a página, sem atrasar a primeira frase. -->
+  <link rel="modulepreload" href="lib/three.module.min.js">
+  <link rel="modulepreload" href="lib/three.core.min.js">
+
+  <!-- Conteúdo editável (textos, músicas, imagens) e bibliotecas locais. Nada vem de fora. -->
+  <script defer src="js/content.js"></script>
+  <script defer src="lib/gsap.min.js"></script>
+  <script defer src="lib/CustomEase.min.js"></script>
+  <script defer src="lib/ScrollTrigger.min.js"></script>
+  <script defer src="lib/SplitText.min.js"></script>
+  <script defer src="lib/DrawSVGPlugin.min.js"></script>
+  <script defer src="lib/lenis.min.js"></script>
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <!-- O mundo branco: um único canvas WebGL atrás de tudo. -->
+  <canvas id="mundo" aria-hidden="true"></canvas>
+
+  <!-- O mesmo mundo sem WebGL (pétalas em CSS, carta em SVG). Fica vazio quando o canvas funciona. -->
+  <div id="mundo-leve" aria-hidden="true"></div>
+
+  <!-- Tudo o que ela lê ou toca por cima do mundo: frases, a dica e os botões de cada cena. -->
+  <main id="palco">
+    <div id="frases" aria-live="polite"></div>
+    <p id="dica" hidden></p>
+    <div id="acoes"></div>
+  </main>
+
+  <!-- A folha: recebe o papel da carta, mostra as músicas e desenrola os capítulos. -->
+  <section id="pergaminho" hidden></section>
+
+  <!-- O mini seletor de música, fixo no canto depois que ela escolhe. -->
+  <aside id="mini" hidden></aside>
+
+  <noscript>
+    <style>
+      #mundo, #mundo-leve, #palco, #pergaminho, #mini { display: none; }
+      .sem-js {
+        position: fixed; inset: 0; display: grid; place-items: center; padding: 32px;
+        font-family: "Shippori Mincho", Georgia, serif; text-align: center; color: #2a1b22; background: #ffffff;
+      }
+      .sem-js p { max-width: 22em; margin: 0; font-size: 1.25rem; line-height: 1.7; }
+      .sem-js span { display: block; margin-top: 1.2em; font-size: 1rem; color: #6b5961; }
+    </style>
+    <div class="sem-js">
+      <p>
+        Esta carta precisa de JavaScript para se abrir.
+        <span>Ative o JavaScript no navegador e recarregue a página. Ela continua esperando por você.</span>
+      </p>
+    </div>
+  </noscript>
+</body>
+</html>

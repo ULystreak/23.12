@@ -63,14 +63,14 @@ js/mundo/folha.js        ← a última folha em 3D (desdobra + escrita à mão)
 js/pergaminho.js         ← a folha DOM: recebe o papel, desenrola, enrola, rolagem, fio de progresso
 js/capitulos/poppy.js    ← capítulo 1 (+ js/capitulos/poppy/*)
 js/capitulos/yourname.js ← capítulo 2 (+ js/capitulos/yourname/*)
-js/cenas/abertura.js     ← frases + caminhada
-js/cenas/carta.js        ← carta chega, espera o toque, abre, entrega o papel (usada 3×)
+js/cenas/abertura.js     ← as frases (a caminhada até a carta é de carta.js; ver seção 6)
+js/cenas/carta.js        ← caminha, a carta chega, espera o toque, abre, entrega o papel (usada 3×)
 js/cenas/mao.js          ← "Olha a sua mão." + seguir o fio
 js/cenas/final.js        ← última carta + folha + frase
 css/base.css  css/mundo.css  css/musica.css  css/pergaminho.css  css/poppy.css  css/yourname.css  css/mao.css  css/final.css
 lib/                     ← three, gsap (+ScrollTrigger, SplitText, DrawSVGPlugin, CustomEase), lenis
 assets/fonts  assets/images  assets/music
-_dev/                    ← este documento e as ferramentas de teste (não publicado)
+_dev/                    ← este documento e as ferramentas de teste: ver.mjs, robustez.mjs, lib.mjs (não publicado)
 ```
 
 ### 4.1 Contexto e diretor
@@ -89,7 +89,7 @@ O diretor publica o estado em `document.documentElement.dataset.cena` e `dataset
 - `final`: `carta-chegando` → `carta-espera` → `carta-abrindo` → `desdobrando` → `escrevendo` → `fim`
 
 Gancho de teste, sempre presente e invisível: `window.__carta = { ctx, etapa, cena, pronto (Promise) }`.
-Parâmetros de teste: `?rapido=N` (acelera GSAP, `espera()` e a caminhada N vezes), `?nivel=alto|medio|baixo`, `?webgl=0`, `?reduzido=1`, `?mudo=1`.
+Parâmetros de teste: `?rapido=N` (acelera GSAP, `espera()` e a caminhada N vezes), `?nivel=alto|medio|baixo`, `?webgl=0`, `?reduzido=1`, `?mudo=1`. Valor inválido em qualquer parâmetro (inclusive `?cena=`) é ignorado. Há ainda `?musica=N`, de uso interno (ver "Rede de segurança" na seção 6).
 
 ### 4.2 Ambiente (`amb`)
 
@@ -170,3 +170,40 @@ Música passa por `MediaElementSource → GainNode` (no iPhone `audio.volume` n�
 9. **Desempenho.** Animar `transform`/`opacity`; no WebGL, instanciar; DPR máximo 2 (1,5 no nível médio, 1 no baixo); pausar o que não está visível.
 10. **Contraste** de texto ≥ 4,5:1 sobre vidro e imagem. Alvos de toque ≥ 44 px. Foco visível.
 11. **Verifique olhando.** Depois de construir: `_dev/` tem a ferramenta de captura. 390×844 e 1440×900, Chromium e WebKit, sem erro no console. Captura parada não prova fluidez: meça quadros ou grave vídeo nas animações principais.
+
+## 6. Adendos do esqueleto
+
+O esqueleto andante já existe e segue a seção 4. Esta seção só registra o que ele acrescentou ou precisou decidir, para ninguém redescobrir. Nada aqui muda as assinaturas da seção 4.
+
+**Contexto.** Além dos nove campos, `ctx.recursos` (pré-carga; `await recursos.imagem(url)` → `HTMLImageElement | null`, `await recursos.elementoImagem(url, alt)` → `<img>` novo ou `null`; endereço vazio não faz pedido) e `ctx.estado` (objeto livre para uma cena deixar algo para a seguinte: `estado.envelope`, `estado.fio`, `estado.distanciaFinal`).
+
+**Tempo.** `espera(ms)` recebe **milissegundos**, respeita `?rapido` e **só conta o tempo com a aba visível** (se ela trocar de aplicativo, a carta espera; a GSAP e o laço do mundo também param com a aba oculta, e a música pausa e volta sozinha). Não use `setTimeout` direto para marcar o tempo de uma cena. A GSAP usa segundos e é acelerada pelo `timeScale` global. As curvas ficam em `curvas.branco|poppy|yourname|ui` (`js/nucleo/movimento.js`) e têm espelho em CSS (`--curva-*`). Os padrões da GSAP não foram alterados.
+
+**Ambiente no CSS.** `<html>` recebe as classes `toque`, `ios`, `reduzido`, `sem-webgl` e `data-nivel`. Movimento reduzido se trata com `html.reduzido` no CSS e `amb.reduzido` no JS (não há regra geral que mate animações: a versão calma continua viva). `amb` traz ainda `android`, `mudo`, `forcado` (nível travado por `?nivel=`) e `params`.
+
+**Diretor.** As cenas compostas (`inicio`, `poppy`, `carta2`, `yourname`) são montadas em `js/nucleo/diretor.js` a partir das peças; capítulos, `mao.js` e `final.js` entram por `import()` dinâmico. `voltarAoMundo(ctx)` (exportado do diretor) enrola o pergaminho, solta a folha e manda embora `estado.envelope`. Cena que lança exceção é registrada no console; o diretor devolve tudo ao ponto de partida de uma cena fria (descarta `estado.envelope`, solta o pergaminho, religa o mundo, esvazia `#frases`, `#acoes`, `#dica` e remove o que mais houver dentro de `#palco`) e a seguinte entra com `frio: true`. Por isso toda cena precisa funcionar com `frio: true` a partir do mundo branco vazio. `window.__carta` tem ainda `historico` (lista de `{ cena, etapa, t }`), `gpu` e `erro`.
+
+**Cenas.** `cenaAbertura(ctx)` publica só `frases`; a caminhada é toda de `cenaCarta`, para a câmera ter um movimento só. `cenaCarta(ctx, { lacre, amarracao, distancia, entregar = true, anunciarCaminhada = true })` devolve `{ env, papel, parar }`; com `entregar: false` ela para depois de `abrir()` (é o que a cena final usa). `cenaMao` deixa `estado.fio` e `estado.distanciaFinal` para `cenaFinal`.
+
+**Mundo.** Extras: `mundo.amb`, `mundo.canvas`, `mundo.tamanho { largura, altura, dpr }`, `mundo.aoRedimensionar(fn)`, `mundo.gpu`, `mundo.ligado`, `mundo.recipienteLeve`. `telaParaMundo(x, y, distancia)`: `distancia` é a profundidade ao longo do eixo da câmera. `retanguloParaPose(rect, obj, { distancia = 0.6 })` devolve `{ pai, posicao, quaternion, escala }` **no espaço da câmera**: faça `pose.pai.attach(obj)` e anime até os valores (assim o papel não treme com o balanço de passo). Há uma luz hemisférica e uma direcional na cena; a névoa é `mundo.cena.fog` (2,5 a 9,5 m). No modo leve, `THREE`, `renderer` e `camera` são `null`; `rig`, `cena` e os vetores são objetos simples (`objetoLeve()`, `vetorLeve()` em `js/nucleo/util.js`); envelope, fio e folha têm a variante leve no próprio arquivo, escolhida por `mundo.ok`.
+
+**Pergaminho.** Extras: `perg.esperarFechar()` (resolve quando o capítulo chama `api.fechar()`), `perg.estado` (`oculto` | `folha` | `aberto`), `rolagem.y`, `rolagem.irPara(y, { imediato })`, `aoRolar(fn(progresso, y))`. `api.recursos` existe. `capitulo.montar` pode ser `async`. O rolador é `api.rolagem.el` e já é o padrão de `ScrollTrigger.defaults`; Lenis só no computador. O pergaminho desliga o mundo quando cobre a tela e religa em `soltar()`.
+
+**Som.** `som.diagnostico()` (só para testes). Sem Web Audio, cai para `audio.volume`; com `?mudo=1` o estado muda igual, sem som.
+
+**Rede de segurança (já pronta no esqueleto; não reimplementar).**
+- *WebGL que morre.* O `mundo.js` trata a perda e a devolução do contexto (o laço para e volta sozinho). Se o contexto **não** voltar em ~4 s com o mundo branco à vista (aba visível, `mundo.ligado` e `perg.estado === 'oculto'`; durante a leitura de um capítulo nada é recarregado), o `main.js` recarrega a página na cena atual em modo leve: `?cena=<atual>&webgl=0&musica=<faixa que tocava>`, mantendo os outros parâmetros; a faixa volta no primeiro toque. O mesmo acontece (uma vez só) se o boot falhar com WebGL ligado. Consequência para as frentes: a variante leve de cada peça é o que ela vê nesse caso, e precisa estar completa.
+- *Ritmo do aparelho.* A qualidade adaptativa mede o ritmo natural nos primeiros quadros: iPhone em modo de pouca energia e telas de 30 Hz rodam a ~33 ms sem estar lentos, e nesses casos a qualidade **não** desce. O limite de "quadro lento" é `max(22 ms, 1,4 × ritmo)`.
+- *Ouvinte de quadro que quebra.* Uma função de `mundo.aoQuadro` que lança exceção é registrada no console e sai da lista; o mundo continua desenhando.
+- *Toques repetidos.* O fluxo inteiro foi martelado com toques e cliques duplos em todas as etapas: nenhuma etapa pula nem repete. Mantenha o padrão: ouvinte `once`, botão desligado no primeiro clique, e nada de ouvinte global que sobreviva à etapa. Na carta, toque é apertar e soltar no mesmo lugar (arrastar mais de 14 px para girar a carta não abre).
+- *Girar o aparelho.* O mundo refaz tamanho, proporção e FOV; o pergaminho liga ou desliga o mundo conforme passa a cobrir ou não a tela. Cada peça que guarda medidas de tela deve ouvir `mundo.aoRedimensionar`.
+- *Recurso que falta.* Campo vazio (`''`) não faz pedido e não deixa rastro. Arquivo citado no `content.js` que não existe vira `null` sem exceção e sem buraco, mas o navegador registra o 404 da rede no console por conta própria (não há como suprimir): é o único aviso aceito.
+- *Texto fora do `content.js`.* A única exceção é o aviso do `<noscript>` no `index.html` (sem JavaScript o `content.js` não roda) e o título/descrição neutros do `<head>`.
+
+**Ganchos de teste (não mudar).** `[data-acao="faixa"]`, `[data-acao="continuar"]`, `[data-acao="mini"]`, `[data-acao="mini-alternar"]`, `[data-acao="fechar-capitulo"]`, `[data-acao="seguir-fio"]`; na etapa `carta-espera`, um toque no centro da tela abre a carta.
+
+**Verificação.** `node _dev/ver.mjs --cena poppy --vp celular,desktop --motor chromium,webkit --rapido 6 --fotos` (capturas em `output/ver/`), `--fluxo` (a carta inteira), `--video`, `--quadros`, `--params "webgl=0&reduzido=1"`, `--ate etapa`. Robustez do núcleo: `node _dev/robustez.mjs` (todos os casos) ou `node _dev/robustez.mjs spam resize aba contexto params faltando teclado audio quebra qualidade`; rode `spam` e `resize` depois de mexer em qualquer cena. Para testes próprios: `import { abrir } from './_dev/lib.mjs'` (`esperarEtapa`, `foto`, `tocarCentro`, `acionar(seletor)`, `medirQuadros`, `erros`, `preparar(page)`).
+
+**Nomes que os arquivos congelados importam (não renomear).** `main.js`: `criarMundo` (`js/mundo/mundo.js`), `criarPergaminho`, `criarMusica`, `criarSom`. O `main.js` também lê `mundo.ok`, `mundo.canvas`, `mundo.ligado`, `mundo.gpu`, `perg.estado`, `som.estado.tocando`/`.indice`, `som.destravar()` e `som.tocar(i)`; o `diretor.js` usa `perg.receberPapel/desenrolar/esperarFechar/enrolar/soltar`, `musica.escolher/mostrarMini`, `mundo.ligar()`, `mundo.petalas.definirDensidade()`, `env.irEmbora()` e `env.dispose()`. `diretor.js`: `cenaAbertura`, `cenaCarta`, `cenaMao`, `cenaFinal` e `capitulo` (dos dois capítulos). Entre frentes: `final.js` usa `cenaCarta(..., { entregar: false, anunciarCaminhada: false })` e `criarFio`; envelope, fio e folha usam `mundo.amb`, `mundo.recipienteLeve`, `mundo.tamanho`, `mundo.aoRedimensionar` e `mundo.petalas.rajada`; `vetorLeve()` e `objetoLeve()` moram em `js/nucleo/util.js`. Convenção do modo leve: `telaParaMundo` devolve um vetor com `.px`/`.py` (px de tela) e `petalas.rajada` aceita `{ px, py }`. Os estilos da carta leve são aplicados pelo próprio `envelope.js`.
+
+**Bibliotecas.** three 0.185.0 (última versão que publica os `.min.js`), gsap 3.15.1, lenis 1.3.27; ver `lib/VERSOES.txt`. `Lenis`, `gsap`, `ScrollTrigger`, `SplitText`, `DrawSVGPlugin` e `CustomEase` são globais em `window`.
