@@ -474,5 +474,7 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
   .world.is-dim .world__cam { filter: none; }
 }
 
-/* a pose para a prévia do link: só a carta parada entre as pétalas */
-html[data-pose="og"] .approach { scale: 1.15; }
+/* a pose para a prévia do link: só a carta parada entre as pétalas, sem o anel e sem balançar */
+html[data-pose="og"] .approach { scale: 1.3; translate: 0 -2%; }
+html[data-pose="og"] .seal__ring, html[data-pose="og"] .hint { display: none; }
+html[data-pose="og"] .envelope__body, html[data-pose="og"] .envelope__front::after { animation: none !important; }
