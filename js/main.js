@@ -23,6 +23,8 @@
   const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   const click = (el) => new Promise((r) => el.addEventListener("click", r, { once: true }));
 
+  let onWalk = null; // quem quiser acompanhar a caminhada quadro a quadro (o fio, na última)
+
   /* ---------- o mundo branco ---------- */
 
   /* Frases que aparecem palavra por palavra e somem no fundo branco. */
@@ -91,6 +93,7 @@
         }
         window.Petals.advance((prevZ - z) * 0.3);
         prevZ = z;
+        if (onWalk) onWalk(1 / z);
 
         if (t < 1) return requestAnimationFrame(tick);
 
@@ -211,8 +214,23 @@
 
   /* ---------- a mão e o fio ---------- */
 
+  const trailNear = $("trail-near");
+  const trailFlow = $("trail-flow");
+
   function sizeTrail() {
     trail.setAttribute("viewBox", `0 0 ${window.innerWidth} ${window.innerHeight}`);
+  }
+
+  /* Tenta usar a foto da mão; sem arquivo (ou com erro), fica o desenho. */
+  function handPhoto() {
+    return new Promise((resolve) => {
+      const src = C.mao && C.mao.imagem;
+      if (!src) return resolve(false);
+      const img = $("hand-photo");
+      img.onload = () => { img.hidden = false; $("hand").classList.add("has-photo"); resolve(true); };
+      img.onerror = () => resolve(false);
+      img.src = src;
+    });
   }
 
   async function handScene() {
@@ -234,6 +252,7 @@
       kanji.style.setProperty("--i", 0);
       note.prepend(kanji);
     }
+    const photo = await handPhoto();
     hand.hidden = false;
     await frame();
     document.body.classList.add("is-looking"); // o olhar desce: as pétalas sobem na tela
@@ -247,28 +266,49 @@
     follow.disabled = true;
     window.SFX.unlock();
 
-    // o fio sai do laço no pulso e vai até onde a carta vai aparecer
+    // o fio sai do laço no pulso, cruza a tela e vai até onde a última carta vai parar
     sizeTrail();
-    const knot = hand.querySelector(".hand__knot").getBoundingClientRect();
-    const x0 = knot.left + knot.width * 0.2;
-    const y0 = knot.top + knot.height * 0.5;
+    let x0, y0;
+    if (photo) {
+      const r = $("hand-photo").getBoundingClientRect();
+      const [px, py] = C.mao.pulso || [50, 84];
+      x0 = r.left + (r.width * px) / 100;
+      y0 = r.top + (r.height * py) / 100;
+    } else {
+      const knot = hand.querySelector(".hand__knot").getBoundingClientRect();
+      x0 = knot.left + knot.width * 0.2;
+      y0 = knot.top + knot.height * 0.5;
+    }
     const cx = window.innerWidth / 2;
     const cy = window.innerHeight / 2;
     const below = window.innerHeight + 60;
-    trailPath.setAttribute(
-      "d",
-      `M ${x0 + 30} ${below} C ${x0 + 26} ${y0 + 170}, ${x0 - 12} ${y0 + 60}, ${x0} ${y0} ` +
-      `S ${cx - 110} ${cy + 120}, ${cx} ${cy}`
-    );
+    // a ponta do fio: no ponto de fuga enquanto a carta está longe, e na borda de baixo dela quando chega
+    const shape = (s) => {
+      const ey = cy + (envelope.offsetWidth / 3 + 2) * s;
+      return `M ${x0 + 30} ${below} C ${x0 + 26} ${y0 + 170}, ${x0 - 12} ${y0 + 60}, ${x0} ${y0} ` +
+        `S ${cx - 110} ${ey + 120}, ${cx} ${ey}`;
+    };
+    const d = shape(0);
+    for (const path of [trailPath, trailNear, trailFlow]) path.setAttribute("d", d);
+    onWalk = (s) => { for (const path of [trailPath, trailNear, trailFlow]) path.setAttribute("d", shape(s)); };
     const length = trailPath.getTotalLength();
-    trailPath.style.strokeDasharray = length;
-    trailPath.style.strokeDashoffset = length;
+    const near = length * 0.38;
+    trailPath.style.transition = "none";
+    trailNear.style.transition = "none";
+    trailPath.style.strokeDasharray = `${length}`;
+    trailPath.style.strokeDashoffset = `${length}`;
+    trailNear.style.strokeDasharray = `${near} ${length}`;
+    trailNear.style.strokeDashoffset = `${near}`;
     trail.classList.add("is-visible");
     await frame();
     window.SFX.whoosh(1.8);
-    trailPath.style.transition = `stroke-dashoffset ${reduce ? 0.3 : 2.2}s cubic-bezier(.77, 0, .175, 1)`;
-    trailPath.style.strokeDashoffset = 0;
+    const ease = "cubic-bezier(.77, 0, .175, 1)";
+    trailPath.style.transition = `stroke-dashoffset ${reduce ? 0.3 : 2.2}s ${ease}`;
+    trailNear.style.transition = `stroke-dashoffset ${reduce ? 0.3 : 0.9}s ${ease}`;
+    trailPath.style.strokeDashoffset = "0";
+    trailNear.style.strokeDashoffset = "0";
     await sleep(reduce ? 400 : 2300);
+    trailPath.style.strokeDasharray = "none"; // desenhado: a partir daqui a ponta pode se mover
 
     document.body.classList.remove("is-looking");
     hand.classList.remove("is-visible", "is-ready");
@@ -278,12 +318,24 @@
 
   /* ---------- a última carta ---------- */
 
+  /* Escreve letra por letra, como tinta que seca. Cada palavra fica inteira numa linha. */
   async function type(el, text) {
     el.setAttribute("aria-label", text);
-    for (const ch of text) {
-      el.textContent += ch;
-      if (ch.trim()) window.SFX.pen();
-      await sleep(reduce ? 0 : /[,.!?]/.test(ch) ? 480 : 55 + Math.random() * 70);
+    for (const word of text.split(" ")) {
+      if (el.childNodes.length) el.append(" ");
+      const box = document.createElement("span");
+      box.className = "final__word";
+      box.setAttribute("aria-hidden", "true");
+      el.append(box);
+      for (const ch of word) {
+        const span = document.createElement("span");
+        span.className = "final__ch";
+        span.textContent = ch;
+        box.append(span);
+        window.SFX.pen();
+        await sleep(reduce ? 0 : /[,.!?]/.test(ch) ? 480 : 55 + Math.random() * 70);
+      }
+      await sleep(reduce ? 0 : 90);
     }
   }
 
@@ -293,7 +345,8 @@
     final.hidden = false;
     await frame();
     final.classList.add("is-visible");
-    await sleep(reduce ? 300 : 2000);
+    window.SFX.paper(1.2);
+    await sleep(reduce ? 300 : 2200);
     await type($("final-text"), C.final.frase);
     if (C.final.assinatura) {
       const sign = $("final-sign");
@@ -350,7 +403,15 @@
     ["carta2", async () => { await walk("star"); await openEnvelope(); }],
     ["yourname", () => chapter(C.capitulo2)],
     ["mao", handScene],
-    ["final", async () => { await walk("none"); await openEnvelope(); await finale(); }],
+    ["final", async () => {
+      trail.classList.add("is-flowing"); // ela caminha seguindo o fio
+      await walk("none");
+      onWalk = null;
+      trail.classList.remove("is-flowing");
+      await openEnvelope();
+      trail.classList.remove("is-visible"); // o fio entra com a carta
+      await finale();
+    }],
   ];
 
   /* Uma pose parada da carta, para a imagem da prévia do link (?cena=og). */
