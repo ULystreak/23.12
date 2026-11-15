@@ -284,6 +284,7 @@ const FRAGMENTO = /* glsl */ `
   uniform vec3 uCorBordaB;
   uniform vec3 uCorLuz;       // a cor da pétala atravessada pela luz
   uniform vec3 uCorSombra;
+  uniform vec3 uNevoaCor;     // a cor da névoa (branco, ou a luz da alameda com a foto)
 
   varying vec2 vP;
   varying vec2 vQ;
@@ -365,8 +366,17 @@ const FRAGMENTO = /* glsl */ `
     cor = mix(cor, uCorLuz, veludo * veludo * 0.3);
     cor *= 0.9 + 0.2 * fract(forma * 9.1);
 
-    // Ao longe, some na névoa branca.
-    cor = mix(cor, vec3(1.0), vLuz.y * 0.8);
+    // Ao longe, some na névoa (branca; com a foto, a luz da alameda).
+    cor = mix(cor, uNevoaCor, vLuz.y * 0.8);
+
+    // Com a foto atrás, a pétala rente à lente é luz, não tinta: sobre o branco a
+    // mancha macia já lia como claridade; sobre a alameda, vermelha e densa, lia
+    // como sujeira na lente. Ela clareia e deixa a foto aparecer através dela.
+    // (foto: 0 com a névoa branca, 1 com a luz da alameda)
+    float foto = smoothstep(0.02, 0.4, length(vec3(1.0) - uNevoaCor));
+    float bokeh = foto * smoothstep(0.28, 0.62, s);
+    cor = mix(cor, mix(uCorLuz, vec3(1.0, 0.93, 0.95), 0.45), bokeh * 0.45);
+    alfa *= 1.0 - 0.5 * bokeh;
 
     #ifdef CHAO
     // Sombra de contato: uma mancha escura mínima, deslocada um nada.
@@ -411,6 +421,8 @@ export function criarPetalas(mundo, amb) {
     uCorBordaB: { value: new THREE.Color('#c9184a') },
     uCorLuz: { value: new THREE.Color('#e4486c') },
     uCorSombra: { value: new THREE.Color('#2a1b22') },
+    // o mesmo objeto da névoa da cena: acompanha a troca para a cor da foto
+    uNevoaCor: { value: cena.fog ? cena.fog.color : new THREE.Color(0xffffff) },
   };
 
   const material = (variante, uniformes) => new THREE.ShaderMaterial({

@@ -39,7 +39,7 @@ MUNDO (ctx.mundo; export async criarMundo({ amb, canvas, recipienteLeve }))
 - retanguloParaPose(rect, obj, { distancia=0.6 }) → { pai: camera, posicao: Vector3, quaternion, escala: Vector3, distancia } no espaço da câmera: pose.pai.attach(obj) e animar até os valores.
 - petalas.rajada(posMundo, n=12); petalas.definirDensidade(k 0..1); petalas.objeto. Extras: petalas.definirFoco(metros) (plano de foco, padrão 3 m), petalas.comecar() e petalas.protagonistas() (só a abertura). No leve existem como no-op ou versão CSS; chame com ?. por segurança.
 - aoMudarNivel(fn(nivel)) → cancelar; aoRedimensionar(fn(tamanho)) → cancelar.
-- cena.fog: névoa branca de 2,5 a 9,5 m. Luzes: uma HemisphereLight e uma DirectionalLight.
+- cena.fog: névoa de 2,5 a 9,5 m, branca; com a foto de fundo, vai para a cor da alameda (fundo.cor) e o canvas limpa transparente. Pétalas, fio e o uBranco do envelope usam o mesmo objeto de cor. mundo.fundo = { ativo, pronto, cor, caminhada(d), atualizar(), ligar(), desligar() } (DOM #mundo-fundo atrás do canvas; html.com-fundo quando a foto entrou). Luzes: uma HemisphereLight e uma DirectionalLight.
 - Modo leve (ok=false): THREE/renderer/camera null; rig e cena são objetoLeve(); telaParaMundo devolve vetorLeve com .px/.py; rajada aceita { px, py }; retanguloParaPose → null.
 
 ENVELOPE: criarEnvelope(mundo, { lacre:'coracao'|'estrela'|null, amarracao:'cordao'|'fio', chegada? }) → env
@@ -66,7 +66,7 @@ GANCHOS DE TESTE: [data-acao="faixa"], "continuar", "mini", "mini-alternar", "fe
 GLOBAIS: gsap, CustomEase, DrawSVGPlugin, Lenis, CONTEUDO. ScrollTrigger e SplitText ficam em lib/ mas o index.html não os carrega (nenhum capítulo usa, e o ScrollTrigger mantinha um rAF rodando a carta inteira): quem precisar carrega no próprio montar (ex.: injetar <script src="lib/ScrollTrigger.min.js"> e esperar o load) e registra. O núcleo (movimento.js, main.js) e o pergaminho funcionam sem eles; nunca use window.ScrollTrigger/SplitText sem checar.
 
 CONTENT.JS (window.CONTEUDO)
-- pagina { titulo }
+- pagina { titulo, fundo } (fundo: a foto atrás do mundo das cartas, js/mundo/fundo.js; '' volta ao mundo branco)
 - abertura { frases: string[], dicaCarta }
 - musica { titulo, continuar, volumeInicial, rotulos { abrir, pausar, tocar, volume, trocar, continuar }, faixas: [{ titulo, artista, arquivo, capa }] } (rotulos.continuar é o aria-label quando musica.continuar fica vazio)
 - poppy { titulo, subtitulo, fundo, fechar, blocos: [{ tipo:'texto', texto } | { tipo:'imagem', arquivo, alt, legenda } | { tipo:'cena', cena:'maos'|'fita'|'esteira', etiqueta?, data?, itens? }] }

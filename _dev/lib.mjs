@@ -27,6 +27,10 @@ const PW_PADRAO = 'C:/Users/uly/AppData/Local/Temp/claude/9d95b957e07facb6/b6211
 
 export const VIEWPORTS = {
   celular: { largura: 390, altura: 844, dpr: 3, toque: true },
+  // O aparelho dela: iPhone 13 Pro Max. Tela 428×926 pt, DPR 3; no Safari, com as barras
+  // de endereço e de baixo, a área útil fica perto de 428×746.
+  iphone: { largura: 428, altura: 926, dpr: 3, toque: true },
+  'iphone-safari': { largura: 428, altura: 746, dpr: 3, toque: true },
   desktop: { largura: 1440, altura: 900, dpr: 1, toque: false },
 };
 

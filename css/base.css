@@ -240,7 +240,9 @@ a { color: inherit; }
   height: var(--tela);
   display: block;
 }
-#mundo { z-index: var(--z-mundo); background: var(--branco); touch-action: none; }
+/* O canvas pinta o próprio branco (cor de limpeza opaca); com a foto da alameda
+   atrás (#mundo-fundo, em css/mundo.css) ele limpa transparente e deixa ela aparecer. */
+#mundo { z-index: var(--z-mundo); background: transparent; touch-action: none; }
 #mundo-leve { z-index: var(--z-leve); pointer-events: none; overflow: hidden; }
 
 #palco {

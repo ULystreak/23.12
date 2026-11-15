@@ -31,11 +31,17 @@ window.CONTEUDO = {
 
   /* --------------------------------------------------------------------------
      PÁGINA
-     O título que aparece na aba do navegador. Fica neutro de propósito, para
-     não entregar a surpresa na prévia do link.
+     O título que aparece na aba do navegador (neutro de propósito, para não
+     entregar a surpresa na prévia do link) e a foto do fundo do mundo.
      ------------------------------------------------------------------------ */
   pagina: {
     titulo: 'Para você',
+
+    // A foto atrás de tudo no mundo das cartas: as frases do começo, as
+    // caminhadas, a mão e a última carta (os capítulos não mudam). Quando ela
+    // anda, a foto se aproxima devagar, como quem caminha pela alameda.
+    // Deixe vazio ('') para voltar ao mundo todo branco.
+    fundo: 'assets/images/mundo-fundo.webp',
   },
 
   /* --------------------------------------------------------------------------

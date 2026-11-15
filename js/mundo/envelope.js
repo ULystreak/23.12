@@ -309,6 +309,7 @@ const GLSL_COMUM = /* glsl */ `
 #define FUNDO_RAIO ${f(FUNDO_RAIO)}
 uniform vec3 uLuzDir;
 uniform float uBranco;
+uniform vec3 uCorBranco;                   // de onde a carta nasce: o branco, ou a luz da alameda
 uniform float uLuz;
 const vec2 LUZ2 = vec2(-0.54, 0.84);
 
@@ -374,7 +375,15 @@ float caimento(vec2 p) {
 }
 
 vec3 acabar(vec3 cor) {
-  return mix(cor, vec3(1.0), uBranco);
+  return mix(cor, uCorBranco, uBranco);
+}
+
+// Com a foto atrás não existe mais um branco onde a carta nasce e some: além de
+// ir para a luz da alameda, ela fica transparente junto (senão nasceria como um
+// cartão chapado por cima da foto). Sem foto (névoa branca) isto vale 1.
+float presenca() {
+  float foto = smoothstep(0.02, 0.4, length(vec3(1.0) - uCorBranco));
+  return 1.0 - uBranco * foto;
 }
 `;
 
@@ -480,7 +489,7 @@ void main() {
   N = perturbar(vPosV, N, h * 0.00011);
   vec3 albedo = uCorPapel * (0.975 + 0.05 * (h - 0.5));
   vec3 cor = albedo * luzPapel(N, V) * caimento(p) * (1.0 - clamp(sombra, 0.0, 0.6)) + brilhoBorda;
-  gl_FragColor = vec4(acabar(cor), 1.0);
+  gl_FragColor = vec4(acabar(cor), presenca());
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
   #include <fog_fragment>
@@ -519,7 +528,7 @@ void main() {
     N = perturbar(vPosV, N, h * 0.00011);
     cor = uCorPapel * (0.975 + 0.05 * (h - 0.5)) * luzPapel(N, V);
   }
-  gl_FragColor = vec4(acabar(cor), 1.0);
+  gl_FragColor = vec4(acabar(cor), presenca());
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
   #include <fog_fragment>
@@ -630,7 +639,7 @@ void main() {
     float b = 1.0 - smoothstep(0.0, 0.0015, -d);
     cor = albedo * luzPapel(N, V) * 0.97 + vec3(0.1, 0.06, 0.06) * b;
   }
-  gl_FragColor = vec4(acabar(cor), 1.0);
+  gl_FragColor = vec4(acabar(cor), presenca());
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
   #include <fog_fragment>
@@ -753,7 +762,7 @@ void main() {
   float borda = pow(1.0 - max(dot(N, V), 0.0), 3.0) * 0.12;
   float faixa = exp(-pow((vL.x * 0.8 + vL.y * 0.6 - uBrilho) / 0.0035, 2.0));
   cor += vec3(1.0, 0.9, 0.88) * (esp * (1.0 + faixa * 2.5) + borda) + uCorCera * faixa * 0.35;
-  gl_FragColor = vec4(acabar(cor), uAlfa);
+  gl_FragColor = vec4(acabar(cor), uAlfa * presenca());
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
   #include <fog_fragment>
@@ -823,7 +832,7 @@ void main() {
   float faixa = exp(-pow((vL.x * 0.8 + vL.y * 0.6 - uBrilho) / 0.004, 2.0));
   faixa *= 1.0 - smoothstep(0.03, 0.05, length(vL.xy - uCentroLaco.xy));
   cor += vec3(1.0, 0.86, 0.84) * (esp + faixa * 0.32 * (1.0 - sulco));
-  gl_FragColor = vec4(acabar(cor), uAlfa);
+  gl_FragColor = vec4(acabar(cor), uAlfa * presenca());
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
   #include <fog_fragment>
@@ -861,9 +870,12 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao' }) {
   const texForro = textura(telaForro(baixo ? 128 : 256), true);
 
   const luzDir = new THREE.Vector3(-0.45, 0.7, 0.55).normalize();
+  // o mesmo objeto da névoa da cena: com a foto atrás, ela é a luz da alameda
+  const corNevoa = mundo.cena.fog ? mundo.cena.fog.color : new THREE.Color(0xffffff);
   const comum = {
     uLuzDir: { value: luzDir },
     uBranco: { value: 0 },
+    uCorBranco: { value: corNevoa },
     uLuz: { value: 1 },
   };
   const neblina = THREE.UniformsLib.fog;
@@ -912,6 +924,7 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao' }) {
       uLuzDir: comum.uLuzDir,
       uLuz: comum.uLuz,
       uBranco: { value: 0 },                 // o papel não some junto com o envelope
+      uCorBranco: comum.uCorBranco,
       uFibra: { value: texFibra },
       uCorPapel: { value: new THREE.Color(COR_CARTA) },
       uCorChapada: { value: new THREE.Color(corDoPapelCss()) },
@@ -961,6 +974,17 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao' }) {
   }
   const corpo = new THREE.Mesh(corpoGeo, matCorpo);
   interno.add(corpo);
+  // Papel opaco, a não ser enquanto some com a foto atrás: aí a transparência
+  // (presenca() no shader) precisa de mistura ligada. Fora disso continua opaco,
+  // para as pétalas que passam na frente dele não serem pintadas por cima.
+  corpo.onBeforeRender = () => {
+    const sumindo = comum.uBranco.value > 0.001 && corNevoa.r < 0.995;
+    if (matCorpo.transparent !== sumindo) {
+      matCorpo.transparent = sumindo;
+      matForro.transparent = sumindo;
+      matAba.transparent = sumindo;
+    }
+  };
 
   // forro (dentro) + frente do envelope (por fora, do outro lado)
   const forro = new THREE.Mesh(geo(new THREE.PlaneGeometry(W - 0.002, H - 0.002)), matForro);

@@ -25,6 +25,79 @@
   .frase-abertura { max-width: 16em; letter-spacing: 0.025em; }
 }
 
+/* ---- a foto da alameda (content.js → pagina.fundo; js/mundo/fundo.js) -------
+   Atrás do canvas e do mundo leve. A foto é pequena: um desfoque leve de
+   profundidade e uma névoa clara rosada por cima (manhã nublada) fazem dela um
+   cenário macio, nunca pixelado. O que se move é só o transform do quadro.     */
+#mundo-fundo {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%;
+  height: var(--tela);
+  z-index: var(--z-mundo);
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+  opacity: 0;
+  transition: opacity 1.8s linear;          /* nasce do branco */
+}
+#mundo-fundo.fundo-pronto { opacity: 1; }
+/* Troca de enquadramento (a foto aproximou demais e dissolve para uma cópia mais
+   de longe, no meio de uma caminhada): o desfoque a mais funde as duas. */
+#mundo-fundo.fundo-trocando .fundo-foto > img { filter: blur(2.6px) saturate(0.86) brightness(1.03); }
+.fundo-foto {
+  position: absolute;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+.fundo-foto > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  filter: blur(0.9px) saturate(0.86) brightness(1.03);
+  transition: filter 1.1s var(--curva-branco-deriva);
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* A luz: mais clara e mais densa lá no fundo do caminho (profundidade), um véu
+   leve no alto (as copas) e quase nada no chão, aos pés dela. */
+.fundo-nevoa,
+.fundo-veu {
+  position: absolute;
+  inset: 0;
+}
+.fundo-nevoa {
+  background:
+    radial-gradient(ellipse 58% 34% at var(--fundo-fuga-x, 50%) var(--fundo-fuga-y, 56%),
+      rgba(255, 248, 250, 0.62), rgba(255, 248, 250, 0.22) 55%, rgba(255, 248, 250, 0) 100%),
+    linear-gradient(to bottom,
+      rgba(253, 245, 248, 0.40) 0%,
+      rgba(251, 242, 246, 0.30) 44%,
+      rgba(250, 241, 243, 0.16) 78%,
+      rgba(250, 241, 243, 0.10) 100%);
+}
+/* Véus atrás do texto: uma clareira macia (sem caixa, sem borda) que só existe
+   enquanto há texto ali. A tinta fica acima de 4,5:1 sobre qualquer pedaço da foto. */
+.fundo-veu {
+  opacity: 0;
+  transition: opacity 1.4s var(--curva-branco-deriva);
+  inset: auto;
+  transform: translate(-50%, -50%);
+  /* uma clareira oval pintada uma vez num canvas pequeno (js/mundo/fundo.js) e
+     esticada: um gradiente radial grande custaria um quadro longo ao aparecer */
+  background: var(--fundo-veu, none) center / 100% 100% no-repeat;
+}
+.fundo-veu-alto { left: 50%; top: 31%; width: 184%; height: 48%; }
+.fundo-veu-baixo { left: 50%; top: 85%; width: 164%; height: 30%; }
+html:has(#frases:not(:empty)) .fundo-veu-alto,
+html:has(#acoes > :not(.alvo-carta)) .fundo-veu-baixo { opacity: 1; }
+@media (min-width: 900px) {
+  .fundo-veu-alto { width: 104%; height: 44%; }
+  .fundo-veu-baixo { width: 80%; }
+}
+html.reduzido #mundo-fundo { transition-duration: 1s; }
+
 /* ---- mundo leve (sem WebGL) ------------------------------------------------
    Três camadas: longe (pequenas e nítidas), meio e perto (grandes, já
    desenhadas macias: nenhum filtro de desfoque roda em tempo real).
@@ -133,3 +206,20 @@ html:is([data-etapa="frases"], [data-etapa="carta-espera"], [data-etapa="carta-a
 html.reduzido .leve-petala > b { animation: none; transform: rotate(var(--r0, -30deg)) scale(0.72, 1); }
 
 .leve-instante, .leve-instante * { transition: none !important; }
+
+/* Com a foto atrás, a dica fala na mesma tinta das frases e leva o próprio véu
+   (ela muda de lugar conforme a carta: embaixo dela, ou acima na última). */
+html.com-fundo #dica { color: var(--tinta); }
+html.com-fundo #dica::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  top: -1.4em;
+  bottom: -1.4em;
+  width: min(26em, 92%);
+  transform: translateX(-50%);
+  background: var(--fundo-veu, none) center / 100% 100% no-repeat;
+  opacity: 0.92;
+  pointer-events: none;
+}

@@ -22,6 +22,7 @@ import { clamp, lerp, amortecer, debounce } from '../nucleo/util.js';
 import { baixarNivel } from '../nucleo/ambiente.js';
 import { curvas } from '../nucleo/movimento.js';
 import { criarPetalas } from './petalas.js';
+import { criarFundo } from './fundo.js';
 
 export const ALTURA_OLHOS = 1.5;
 const FOV_EM_PE = 58;
@@ -131,11 +132,11 @@ export function criarPonteiro(amb) {
   return ponteiro;
 }
 
-async function cairParaLeve(opcoes) {
+async function cairParaLeve(opcoes, fundo) {
   opcoes.amb.webgl = false;
   document.documentElement.classList.add('sem-webgl');
   const { criarMundoLeve } = await import('./leve.js');
-  return criarMundoLeve(opcoes);
+  return criarMundoLeve({ ...opcoes, fundo });
 }
 
 /**
@@ -144,7 +145,9 @@ async function cairParaLeve(opcoes) {
  */
 export async function criarMundo(opcoes) {
   const { amb, canvas } = opcoes;
-  if (!amb.webgl) return cairParaLeve(opcoes);
+  // A foto da alameda (content.js → pagina.fundo) começa a baixar já, junto com o three.
+  const fundo = criarFundo({ amb, antesDe: canvas || opcoes.recipienteLeve });
+  if (!amb.webgl) return cairParaLeve(opcoes, fundo);
 
   let THREE;
   let renderer;
@@ -153,12 +156,12 @@ export async function criarMundo(opcoes) {
     renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: amb.nivel !== 'baixo',
-      alpha: false,
+      alpha: fundo.ativo,                     // com a foto atrás, o canvas deixa ela aparecer
       stencil: false,
       powerPreference: 'high-performance',
     });
   } catch {
-    return cairParaLeve(opcoes);
+    return cairParaLeve(opcoes, fundo);
   }
 
   const gsap = window.gsap;
@@ -167,6 +170,21 @@ export async function criarMundo(opcoes) {
   const cena = new THREE.Scene();
   cena.background = new THREE.Color(0xffffff);
   cena.fog = new THREE.Fog(0xffffff, 2.5, 9.5);
+
+  // Com a foto: a névoa vai para a cor da alameda no horizonte e o canvas fica
+  // transparente. A troca acompanha a foto entrando (ela nasce do branco).
+  const BRANCO = new THREE.Color(0xffffff);
+  fundo.pronto.then((ok) => {
+    if (!ok) return;
+    const cor = new THREE.Color(fundo.cor);
+    renderer.setClearColor(0xffffff, 0);
+    cena.background = null;
+    canvas.style.background = 'transparent';
+    const mistura = { k: 0 };
+    const pintar = () => cena.fog.color.copy(BRANCO).lerp(cor, mistura.k);
+    if (gsap) gsap.to(mistura, { k: 1, duration: 1.8, ease: 'none', onUpdate: pintar });
+    else { mistura.k = 1; pintar(); }
+  });
 
   const rig = new THREE.Group();
   rig.name = 'rig';
@@ -251,6 +269,25 @@ export async function criarMundo(opcoes) {
     );
   }
 
+  // ---- foto de fundo ----------------------------------------------------------------
+  // Depois dos ouvintes (a cena da mão inclina a câmera num deles): a foto segue
+  // para onde a câmera olha de fato. A translação do balanço chega atenuada,
+  // como a de algo a ~8 m; o giro, inteiro.
+  const dirAux = new THREE.Vector3();
+  function atualizarFundo() {
+    camera.updateWorldMatrix(true, false);
+    camera.getWorldDirection(dirAux);
+    const focal = (tamanho.altura / 2) / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    fundo.atualizar({
+      z: rig.position.z,
+      yaw: Math.atan2(-dirAux.x, -dirAux.z),
+      pitch: Math.asin(clamp(dirAux.y, -1, 1)),
+      roll: camera.rotation.z + rig.rotation.z,
+      dx: -camera.position.x * focal / 8,
+      dy: (camera.position.y - ALTURA_OLHOS) * focal / 8,
+    });
+  }
+
   // ---- laço -------------------------------------------------------------------
 
   const ouvintes = new Set();
@@ -333,6 +370,7 @@ export async function criarMundo(opcoes) {
       // Um ouvinte que quebra não pode parar o mundo: sai da lista e o quadro segue.
       try { fn(dt, tempo); } catch (erro) { ouvintes.delete(fn); console.error('[carta] aoQuadro falhou', erro); }
     }
+    if (fundo.ativo) atualizarFundo();
     renderer.render(cena, camera);
     medir(brutoMs, agora);
   }
@@ -378,6 +416,7 @@ export async function criarMundo(opcoes) {
 
       const z0 = rig.position.z;
       const estado = { p: 0 };
+      fundo.caminhada(distancia);
 
       if (amb.reduzido) {
         // Movimento reduzido: um avanço lento e contínuo, sem balanço. O grosso
@@ -506,10 +545,12 @@ export async function criarMundo(opcoes) {
     ligar() {
       ligado = true;
       canvas.style.visibility = '';
+      fundo.ligar();
       atualizarLaco();
     },
     desligar() {
       ligado = false;
+      fundo.desligar();
       atualizarLaco();
     },
     caminhar,
@@ -525,6 +566,7 @@ export async function criarMundo(opcoes) {
       return () => ouvintesTamanho.delete(fn);
     },
     petalas: null,
+    fundo,
   };
 
   aplicarTamanho(true);

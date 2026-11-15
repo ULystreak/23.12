@@ -447,7 +447,7 @@ function criarFio3D(mundo, opcoes) {
       uCorClara: { value: new THREE.Color('#ff8f8a') },
       uFase: { value: 0 },
       uTranca: { value: largura * 1.25 },
-      uNevoaCor: { value: new THREE.Color(0xffffff) },
+      uNevoaCor: { value: nevoa ? nevoa.color : new THREE.Color(0xffffff) },   // acompanha a névoa da cena
       uNevoaPerto: { value: perto },
       uNevoaLonge: { value: longe * 1.2 },      // o fio some um pouco depois de tudo: ele é o caminho
     },

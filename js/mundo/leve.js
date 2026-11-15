@@ -169,7 +169,7 @@ function prepararImagens() {
   return tipos;
 }
 
-export function criarMundoLeve({ amb, canvas, recipienteLeve }) {
+export function criarMundoLeve({ amb, canvas, recipienteLeve, fundo = null }) {
   const gsap = window.gsap;
   const recipiente = recipienteLeve || document.getElementById('mundo-leve');
   if (canvas) canvas.style.display = 'none';
@@ -420,6 +420,10 @@ export function criarMundoLeve({ amb, canvas, recipienteLeve }) {
     for (const fn of ouvintes) {
       try { fn(dt, tempo); } catch (erro) { ouvintes.delete(fn); console.error('[carta] aoQuadro falhou', erro); }
     }
+    // A foto da alameda: aproxima com o avanço e balança como algo a ~8 m.
+    if (fundo && fundo.ativo) {
+      fundo.atualizar({ z: rig.position.z, roll: (balanco.rol * Math.PI) / 180, dx: balanco.x / 8, dy: balanco.y / 8 });
+    }
   }
   function atualizarLaco() {
     cancelAnimationFrame(idQuadro);
@@ -433,6 +437,7 @@ export function criarMundoLeve({ amb, canvas, recipienteLeve }) {
 
   // ---- caminhada: as camadas avançam ---------------------------------------------------
   const rig = objetoLeve();
+  const balanco = { x: 0, y: 0, rol: 0 };              // o passo de agora, em px (a foto lê)
   let filaCaminhada = Promise.resolve();
   const degrau = (a, b, x) => { const t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); };
 
@@ -441,6 +446,7 @@ export function criarMundoLeve({ amb, canvas, recipienteLeve }) {
       if (!gsap || !(distancia > 0)) { rig.position.z -= Math.max(0, distancia); resolver(); return; }
       const z0 = rig.position.z;
       const estado = { p: 0 };
+      fundo?.caminhada(distancia);
       // Movimento reduzido: o mesmo avanço, bem mais curto e sem pressa (vira quase uma dissolvência).
       const alcance = distancia * (amb.reduzido ? 0.3 : 1);
       const fatores = pares.map((par) => Math.min(Math.exp(par.avanco * alcance), 5.5));
@@ -489,6 +495,7 @@ export function criarMundoLeve({ amb, canvas, recipienteLeve }) {
         onUpdate() {
           rig.position.z = z0 - distancia * estado.p;
           balancar(this.time(), estado.p);
+          balanco.x = passo.x; balanco.y = passo.y; balanco.rol = passo.rol;
           desenhar(estado.p);
         },
         onComplete() {
@@ -504,6 +511,7 @@ export function criarMundoLeve({ amb, canvas, recipienteLeve }) {
             antiga.style.opacity = '';
             antiga.classList.add('parada');
           }
+          balanco.x = 0; balanco.y = 0; balanco.rol = 0;
           resolver();
         },
       });
@@ -531,8 +539,8 @@ export function criarMundoLeve({ amb, canvas, recipienteLeve }) {
       ouvintes.add(fn);
       return () => ouvintes.delete(fn);
     },
-    ligar() { ligado = true; atualizarLaco(); },
-    desligar() { ligado = false; atualizarLaco(); },
+    ligar() { ligado = true; fundo?.ligar(); atualizarLaco(); },
+    desligar() { ligado = false; fundo?.desligar(); atualizarLaco(); },
     caminhar,
 
     telaParaMundo(xNdc, yNdc, distancia = 1) {
@@ -556,6 +564,7 @@ export function criarMundoLeve({ amb, canvas, recipienteLeve }) {
       return () => window.removeEventListener('resize', ouvir);
     },
     petalas,
+    fundo,
   };
 
   atualizarLaco();
