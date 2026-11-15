@@ -68,6 +68,10 @@ function emPalavras(p, texto) {
     if (/^\s+$/.test(parte)) { p.append(document.createTextNode(' ')); continue; }
     const s = document.createElement('span');
     s.className = 'yn-p';
+    // nasce escondida (o mesmo que gsap.set autoAlpha 0, sem o custo de uma
+    // animação da GSAP para cada uma das centenas de palavras na montagem)
+    s.style.opacity = '0';
+    s.style.visibility = 'hidden';
     s.textContent = parte;
     p.append(s);
     palavras.push(s);
@@ -551,8 +555,7 @@ export const capitulo = {
         iLinha++;
       }
     }
-    // Começam escondidos (sem piscar antes da primeira medida).
-    for (const v of versos) gsap.set(v.palavras, { autoAlpha: 0 });
+    // As palavras dos versos já nascem escondidas (emPalavras): sem piscar antes da primeira medida.
 
     // ---- laço ---------------------------------------------------------------------------
     let sujo = true;

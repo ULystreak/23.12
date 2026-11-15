@@ -269,10 +269,10 @@ window.CONTEUDO = {
     // A regra da carta é não copiar quadros, personagens nem logotipos do filme.
     // Troque por fotos de vocês ou céus e lugares parecidos; a capa pode ficar ''
     // (o capítulo abre só com o título e o céu). Prefira .webp ou .jpg: a capa em
-    // .png pesa mais que as outras imagens do capítulo somadas.
+    // .png pesava 302 kB; em .webp (qualidade 95) a mesma imagem tem 43 kB.
     // Tamanho das imagens do capítulo (capa, imagem-cheia, par): pelo menos
     // 1300 px de largura, porque o iPhone mostra em 3x (as de agora têm 533 e 860).
-    capa:'assets/images/yourname-capa.png',
+    capa:'assets/images/yourname-capa.webp',
 
     // Imagem de fundo do céu (opcional).
     // Quando existir: 'assets/images/yourname-fundo.webp'

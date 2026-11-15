@@ -837,11 +837,20 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
       som.efeito('desenrolar');
       // Pinta o capítulo uma vez, quase transparente, antes de o rolo sair: a primeira
       // rasterização (fontes, imagens, camadas do capítulo) não cai no meio do movimento.
+      // O rolo vai junto, no meio da folha e igualmente invisível: as camadas dele (os
+      // gradientes, a fibra dobrada) são pintadas pela primeira vez aqui, com tudo
+      // parado, e não no primeiro quadro em que ele começa a descer.
       if (!amb.reduzido) {
         camada.style.opacity = '0.002';
         revelar(null);
+        rolo.hidden = false;
+        rolo.style.opacity = '0.002';
+        rolo.style.transform = `translate3d(0,${Math.round(medida.altura / 2)}px,0)`;
         await quadro();
         await quadro();
+        rolo.hidden = true;
+        rolo.style.opacity = '';
+        rolo.style.transform = '';
         revelar(0);
         camada.style.opacity = '';
         if (g !== geracao) { avisarAberto(false); return; }

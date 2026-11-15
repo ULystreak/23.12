@@ -43,6 +43,15 @@ export function criarTitulo({ texto = '', subtitulo = '', amb, gsap, anima }) {
 
   const raiz = el('header', 'poppy-cabeca', [h2, sub]);
 
+  // O cursor pisca por relógio (530 ms aceso, 530 apagado), e não por animação de
+  // CSS: a animação infinita refazia o estilo a cada quadro com ela parada lendo.
+  const MEIO_PISCAR = 530;
+  let piscaId = 0;
+  function piscar(aceso = true) {
+    cursor.classList.toggle('apagado', !aceso);
+    piscaId = setTimeout(() => piscar(!aceso), MEIO_PISCAR);
+  }
+
   // ---- montagem das fileiras ---------------------------------------------------------
   let fileiras = [];          // [[bloco, bloco, ...], ...] de cima para baixo
   let larguraMontada = -1;
@@ -226,6 +235,8 @@ export function criarTitulo({ texto = '', subtitulo = '', amb, gsap, anima }) {
           },
           onComplete() {
             raiz.classList.add('digitado');
+            clearTimeout(piscaId);
+            piscar();
             ok();
           },
         }));
@@ -233,6 +244,7 @@ export function criarTitulo({ texto = '', subtitulo = '', amb, gsap, anima }) {
     },
 
     destruir() {
+      clearTimeout(piscaId);
       if (observador) observador.disconnect();
     },
   };

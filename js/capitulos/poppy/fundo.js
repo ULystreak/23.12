@@ -175,8 +175,129 @@ function chuviscoUrl() {
   return tela.toDataURL('image/png');
 }
 
+const OPCOES_GL = {
+  alpha: false, antialias: false, depth: false, stencil: false,
+  premultipliedAlpha: false, preserveDrawingBuffer: false, powerPreference: 'low-power',
+};
+
+function compilarEm(gl, tipo, codigo) {
+  const s = gl.createShader(tipo);
+  gl.shaderSource(s, codigo);
+  gl.compileShader(s);
+  return s;
+}
+
+/** Manda compilar e ligar o programa, sem perguntar o resultado (perguntar trava). */
+function mandarCompilar(gl) {
+  const programa = gl.createProgram();
+  gl.attachShader(programa, compilarEm(gl, gl.VERTEX_SHADER, VERTICE));
+  gl.attachShader(programa, compilarEm(gl, gl.FRAGMENT_SHADER, FRAGMENTO));
+  gl.linkProgram(programa);
+  return programa;
+}
+
+/** Cria o contexto no canvas e manda compilar. */
+function abrirGl(canvas) {
+  const gl = canvas.getContext('webgl', OPCOES_GL);
+  if (!gl) return null;
+  const paralelo = gl.getExtension('KHR_parallel_shader_compile');
+  return { gl, paralelo, programa: mandarCompilar(gl) };
+}
+
+// ---- aquecimento --------------------------------------------------------------------
+// Criar o contexto, compilar o programa, desenhar a fábrica e subir a textura custava
+// ~350 ms de CPU (celular simulado) no quadro em que o capítulo monta, logo antes do
+// rolo sair. `aquecerFundo()` faz tudo isso antes, em momentos ociosos (o capítulo
+// chama durante a música, com a folha parada); `criarFundo` adota o que estiver
+// pronto. Nada aparece: o canvas só entra na página quando o capítulo monta.
+let reserva = null;   // { canvas, gl, paralelo, programa, fonte, u, falhou }
+
+const ocioso = (fn, ms = 1500) => (window.requestIdleCallback
+  ? requestIdleCallback(fn, { timeout: ms })
+  : setTimeout(fn, 200));
+
+export function aquecerFundo() {
+  if (reserva) return;
+  reserva = { canvas: null, gl: null, falhou: false };
+  const r = reserva;
+  const passo = (fn) => ocioso(() => {
+    if (reserva !== r || r.falhou) return;
+    try { fn(); } catch { r.falhou = true; }
+  });
+  // um passo por vez, cada um num respiro diferente
+  passo(() => {
+    r.fonte = desenharFabrica();
+    passo(() => {
+      const canvas = el('canvas', { class: 'poppy-vhs', 'aria-hidden': 'true' });
+      const gl = canvas.getContext('webgl', OPCOES_GL);
+      if (!gl) { r.falhou = true; return; }
+      Object.assign(r, { canvas, gl, paralelo: gl.getExtension('KHR_parallel_shader_compile') });
+      passo(() => {
+        if (gl.isContextLost()) { r.falhou = true; return; }
+        r.programa = mandarCompilar(gl);
+        esperar();
+      });
+      const esperar = (n = 0) => passo(() => {
+        const { gl, paralelo, programa } = r;
+        if (gl.isContextLost()) { r.falhou = true; return; }
+        if (paralelo && !gl.getProgramParameter(programa, paralelo.COMPLETION_STATUS_KHR)) {
+          if (n < 40) esperar(n + 1);
+          return;
+        }
+        const u = prepararPrograma(gl, programa, r.fonte);
+        if (!u) { r.falhou = true; return; }
+        r.u = u;
+      });
+    });
+  });
+}
+
+/** Pega o que o aquecimento deixou (só serve para a fábrica desenhada). */
+function tomarReserva(serve = true) {
+  const r = reserva;
+  reserva = null;
+  if (!r || r.falhou || !r.fonte || !serve) {
+    try { r?.gl?.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* nada */ }
+    return null;
+  }
+  if (r.gl && r.gl.isContextLost()) { r.gl = null; r.canvas = null; r.u = null; }
+  return r;
+}
+
+/** Liga o programa, o triângulo e a textura; devolve os uniformes (ou null se não linkou). */
+function prepararPrograma(gl, programa, fonte) {
+  if (!gl.getProgramParameter(programa, gl.LINK_STATUS)) return null;
+  gl.useProgram(programa);
+
+  const quadrado = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, quadrado);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const aPos = gl.getAttribLocation(programa, 'aPos');
+  gl.enableVertexAttribArray(aPos);
+  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+  const textura = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, textura);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, fonte);
+
+  const u = {};
+  for (const nome of ['uTex', 'uRes', 'uCobrir', 'uFuga', 'uT', 'uQuadro', 'uVel', 'uDir', 'uZoom', 'uAzul', 'uClarao', 'uFalha', 'uFaixa', 'uVivo']) {
+    u[nome] = gl.getUniformLocation(programa, nome);
+  }
+  gl.uniform1i(u.uTex, 0);
+  gl.uniform2f(u.uFuga, FUGA.x, 1 - FUGA.y);
+  return u;
+}
+
 export function criarFundo({ recipiente, amb, imagem = null }) {
   const reduzido = !!amb.reduzido;
+  // O aquecimento só vale para a fábrica desenhada (a imagem do autor é outra textura).
+  const aquecido = tomarReserva(!imagem);
 
   // ---- camadas ---------------------------------------------------------------------
   const tubo = el('div', 'poppy-tubo');
@@ -190,7 +311,7 @@ export function criarFundo({ recipiente, amb, imagem = null }) {
     parada.draggable = false;
     parada.src = imagem.src;
   } else {
-    fonte = desenharFabrica();
+    fonte = aquecido?.fonte || desenharFabrica();
     parada = fonte;
   }
   parada.classList.add('poppy-parada');
@@ -199,7 +320,7 @@ export function criarFundo({ recipiente, amb, imagem = null }) {
   const larguraFonte = fonte.naturalWidth || fonte.width;
   const alturaFonte = fonte.naturalHeight || fonte.height;
 
-  const canvas = el('canvas', { class: 'poppy-vhs', 'aria-hidden': 'true' });
+  const canvas = aquecido?.canvas || el('canvas', { class: 'poppy-vhs', 'aria-hidden': 'true' });
   tubo.append(parada, canvas);
   recipiente.append(tubo);
 
@@ -218,35 +339,33 @@ export function criarFundo({ recipiente, amb, imagem = null }) {
   // ---- WebGL -------------------------------------------------------------------------
   let gl = null;
   let programa = null;
-  let textura = null;
   let u = null;
   let perdido = false;
   let pronto = false;           // o programa já compilou e está valendo
   let paralelo = null;          // KHR_parallel_shader_compile
   let esperados = 0;            // quadros esperando o programa (sem a extensão)
 
-  function compilar(tipo, codigo) {
-    const s = gl.createShader(tipo);
-    gl.shaderSource(s, codigo);
-    gl.compileShader(s);
-    return s;
-  }
-
   /** Cria o contexto e manda compilar; não pergunta o resultado (perguntar trava até acabar). */
   function iniciarGl() {
     try {
-      gl = canvas.getContext('webgl', {
-        alpha: false, antialias: false, depth: false, stencil: false,
-        premultipliedAlpha: false, preserveDrawingBuffer: false, powerPreference: 'low-power',
-      });
-      if (!gl) return false;
-      paralelo = gl.getExtension('KHR_parallel_shader_compile');
-      programa = gl.createProgram();
-      gl.attachShader(programa, compilar(gl.VERTEX_SHADER, VERTICE));
-      gl.attachShader(programa, compilar(gl.FRAGMENT_SHADER, FRAGMENTO));
-      gl.linkProgram(programa);
+      // o que o aquecimento já deixou pronto (uma vez só: depois de perder o contexto, refaz)
+      const r = aquecido && aquecido.gl
+        // (o aquecimento pode ter parado entre criar o contexto e mandar compilar)
+        ? { gl: aquecido.gl, paralelo: aquecido.paralelo, programa: aquecido.programa || mandarCompilar(aquecido.gl), u: aquecido.u }
+        : null;
+      if (aquecido) { aquecido.gl = null; aquecido.u = null; }
+      const aberto = r || abrirGl(canvas);
+      if (!aberto) return false;
+      gl = aberto.gl;
+      paralelo = aberto.paralelo;
+      programa = aberto.programa;
       pronto = false;
       esperados = 0;
+      if (r && r.u) {
+        u = r.u;
+        gl.uniform1f(u.uVivo, reduzido ? 0 : 1);
+        pronto = true;
+      }
       return true;
     } catch {
       return false;
@@ -263,31 +382,9 @@ export function criarFundo({ recipiente, amb, imagem = null }) {
   /** O resto da montagem, quando o programa ficou pronto. */
   function concluirGl() {
     try {
-      if (!gl.getProgramParameter(programa, gl.LINK_STATUS)) return false;
-      gl.useProgram(programa);
-
-      const quadrado = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, quadrado);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-      const aPos = gl.getAttribLocation(programa, 'aPos');
-      gl.enableVertexAttribArray(aPos);
-      gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
-
-      textura = gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, textura);
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, fonte);
-
-      u = {};
-      for (const nome of ['uTex', 'uRes', 'uCobrir', 'uFuga', 'uT', 'uQuadro', 'uVel', 'uDir', 'uZoom', 'uAzul', 'uClarao', 'uFalha', 'uFaixa', 'uVivo']) {
-        u[nome] = gl.getUniformLocation(programa, nome);
-      }
-      gl.uniform1i(u.uTex, 0);
-      gl.uniform2f(u.uFuga, FUGA.x, 1 - FUGA.y);
+      const uniformes = prepararPrograma(gl, programa, fonte);
+      if (!uniformes) return false;
+      u = uniformes;
       gl.uniform1f(u.uVivo, reduzido ? 0 : 1);
       pronto = true;
       return true;

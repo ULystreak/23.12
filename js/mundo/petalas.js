@@ -530,6 +530,7 @@ export function criarPetalas(mundo, amb) {
     tam: 0.06, tom: 0, forma: 0, extra: 1,
   }));
   let vivas = 0;
+  let preparo = null;                               // ver petalas.preparar()
 
   const objeto = new THREE.Group();
   objeto.name = 'petalas';
@@ -716,6 +717,21 @@ export function criarPetalas(mundo, amb) {
         p.extra = entre(1.4, 1.8) * (r.prof / 0.45);
       }
       malhaSoltas.visible = true;
+    },
+
+    /**
+     * Compila o programa das soltas (rajadas e protagonistas) antes do primeiro uso:
+     * a malha fica invisível até lá, e o three só compilaria no quadro em que ela
+     * aparece (~40 ms). Uma vez só; chamadas seguintes devolvem a mesma promessa.
+     */
+    preparar() {
+      if (!preparo) {
+        const r = mundo.renderer;
+        preparo = Promise.resolve().then(() => (r && r.compileAsync
+          ? r.compileAsync(malhaSoltas, camera, cena)
+          : r?.compile?.(malhaSoltas, camera, cena))).catch(() => {});
+      }
+      return preparo;
     },
 
     rajada(posMundo, n = 12) {

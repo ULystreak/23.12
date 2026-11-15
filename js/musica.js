@@ -20,7 +20,7 @@
 // volume (uma conta num fio). Muda de pele com a cena e se recolhe enquanto ela
 // rola um capítulo, para nunca ficar em cima do que ela está lendo.
 
-import { el, svg, espera, semente, clamp, debounce } from './nucleo/util.js';
+import { el, svg, espera, quadro, semente, clamp, debounce } from './nucleo/util.js';
 import { curvas, revelarPalavras } from './nucleo/movimento.js';
 
 // ---- desenhos (SVG; nada de glifo fazendo papel de ícone) -------------------------------
@@ -394,7 +394,7 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
     rotuloContinuar.append(sublinhado.no);
     limpar.push(sublinhado.soltar);
     continuar.disabled = true;
-    gsap.set(continuar, { autoAlpha: 0 });
+    // (o continuar fica escondido só depois da pintura de aquecimento, lá embaixo)
 
     // ---- as linhas ----
     const linhas = faixas.map((faixa, posicao) => {
@@ -583,37 +583,66 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
     }
 
     // ---- entra ----
+    // Antes de qualquer coisa se mexer, a folha inteira já no lugar final é pintada
+    // uma vez quase transparente (0,002: nada que se veja). A primeira pintura das
+    // capas, do disco, da fita e das letras (decodificar a capa, montar os gradientes,
+    // as sombras, o recorte) cai aqui, com a folha ainda em branco e parada, e não no
+    // meio da capa pousando. É o mesmo cuidado do pergaminho antes do rolo sair.
     folha.textContent = '';
+    titulo.textContent = dados.titulo || '';
+    painel.style.opacity = '0.002';
+    painel.style.pointerEvents = 'none';
     folha.append(painel);
     marcarRolagem();
-    // O foco que estava na carta sumiu com ela: vai para a primeira faixa (só se
-    // estava solto no body, para não tirar nada do lugar de ninguém).
-    // A carta pode sair um instante depois da folha chegar: confere de novo.
-    const focarPrimeira = () => {
-      const ativo = document.activeElement;
-      if (!viaTeclado || terminado || !painel.isConnected || (ativo && ativo !== document.body)) return;
-      try { linhas[0].botao.focus({ preventScroll: true }); } catch { /* segue */ }
-    };
-    focarPrimeira();
-    espera(700).then(focarPrimeira);
-    revelarPalavras(titulo, dados.titulo || '', { intervalo: 0.12, duracao: 1.2 });
+    entrar().catch((erro) => {
+      console.error(erro);
+      painel.style.opacity = '';
+      painel.style.pointerEvents = '';
+    });
 
-    if (calmo()) {
-      gsap.fromTo(linhas.map((l) => l.item), { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.8, stagger: 0.05, delay: 0.3, ease: 'none' });
-      return;
+    async function entrar() {
+      // quadro() resolve no rAF, antes da pintura: com dois, um quadro inteiro é pintado
+      // assim. (Pintar também o começo da entrada, em camadas próprias, foi medido e
+      // dobrou a espera sem tirar o último tranco: não vale.)
+      await quadro();
+      await quadro();
+      gsap.set(continuar, { autoAlpha: 0 });
+      painel.style.opacity = '';
+      painel.style.pointerEvents = '';
+      if (terminado || !painel.isConnected) return;
+      animarEntrada();
     }
-    if (unica) {
-      const [l] = linhas;
-      // A capa pousa na folha, a fita de papel prende, o disco escorrega para fora, o nome é escrito.
-      gsap.fromTo(l.moldura, { autoAlpha: 0, y: 26, scale: 1.05 }, { autoAlpha: 1, y: 0, scale: 1, duration: 1.5, delay: 0.3, ease: curvas.branco.entrar, clearProps: 'transform,opacity,visibility' });
-      gsap.fromTo(l.moldura.querySelector('.musica-fita'), { autoAlpha: 0, scaleX: 0.7 }, { autoAlpha: 1, scaleX: 1, duration: 0.7, delay: 1.0, ease: curvas.branco.entrar, clearProps: 'transform,opacity,visibility' });
-      if (l.disco) gsap.fromTo(l.disco.no, { autoAlpha: 0, xPercent: l.temCapa ? -24 : 0 }, { autoAlpha: 1, xPercent: 0, duration: 1.7, delay: 0.75, ease: curvas.branco.entrar, clearProps: 'transform,opacity,visibility' });
-      gsap.fromTo(l.nome, { clipPath: 'inset(-20% 100% -20% -6%)' }, { clipPath: 'inset(-20% -6% -20% -6%)', duration: 1.1, delay: 1.0, ease: 'power2.inOut', clearProps: 'clipPath' });
-      if (l.artista) gsap.fromTo(l.artista, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.9, delay: 1.7, ease: 'none', clearProps: 'opacity,visibility' });
-    } else {
-      // Linhas escalonadas; o toque já vale desde o primeiro quadro.
-      gsap.fromTo(linhas.map((l) => l.item), { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 1.0, stagger: 0.05, delay: 0.35, ease: curvas.branco.entrar, clearProps: 'transform,opacity' });
-      gsap.fromTo(linhas.map((l) => l.traco).filter(Boolean), { clipPath: 'inset(0% 100% 0% 0%)' }, { clipPath: 'inset(0% 0% 0% 0%)', duration: 0.9, stagger: 0.06, delay: 0.8, ease: 'power2.inOut', clearProps: 'clipPath' });
+
+    function animarEntrada() {
+      // O foco que estava na carta sumiu com ela: vai para a primeira faixa (só se
+      // estava solto no body, para não tirar nada do lugar de ninguém).
+      // A carta pode sair um instante depois da folha chegar: confere de novo.
+      const focarPrimeira = () => {
+        const ativo = document.activeElement;
+        if (!viaTeclado || terminado || !painel.isConnected || (ativo && ativo !== document.body)) return;
+        try { linhas[0].botao.focus({ preventScroll: true }); } catch { /* segue */ }
+      };
+      focarPrimeira();
+      espera(700).then(focarPrimeira);
+      revelarPalavras(titulo, dados.titulo || '', { intervalo: 0.12, duracao: 1.2 });
+
+      if (calmo()) {
+        gsap.fromTo(linhas.map((l) => l.item), { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.8, stagger: 0.05, delay: 0.3, ease: 'none' });
+        return;
+      }
+      if (unica) {
+        const [l] = linhas;
+        // A capa pousa na folha, a fita de papel prende, o disco escorrega para fora, o nome é escrito.
+        gsap.fromTo(l.moldura, { autoAlpha: 0, y: 26, scale: 1.05 }, { autoAlpha: 1, y: 0, scale: 1, duration: 1.5, delay: 0.3, ease: curvas.branco.entrar, clearProps: 'transform,opacity,visibility' });
+        gsap.fromTo(l.moldura.querySelector('.musica-fita'), { autoAlpha: 0, scaleX: 0.7 }, { autoAlpha: 1, scaleX: 1, duration: 0.7, delay: 1.0, ease: curvas.branco.entrar, clearProps: 'transform,opacity,visibility' });
+        if (l.disco) gsap.fromTo(l.disco.no, { autoAlpha: 0, xPercent: l.temCapa ? -24 : 0 }, { autoAlpha: 1, xPercent: 0, duration: 1.7, delay: 0.75, ease: curvas.branco.entrar, clearProps: 'transform,opacity,visibility' });
+        gsap.fromTo(l.nome, { clipPath: 'inset(-20% 100% -20% -6%)' }, { clipPath: 'inset(-20% -6% -20% -6%)', duration: 1.1, delay: 1.0, ease: 'power2.inOut', clearProps: 'clipPath' });
+        if (l.artista) gsap.fromTo(l.artista, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.9, delay: 1.7, ease: 'none', clearProps: 'opacity,visibility' });
+      } else {
+        // Linhas escalonadas; o toque já vale desde o primeiro quadro.
+        gsap.fromTo(linhas.map((l) => l.item), { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 1.0, stagger: 0.05, delay: 0.35, ease: curvas.branco.entrar, clearProps: 'transform,opacity' });
+        gsap.fromTo(linhas.map((l) => l.traco).filter(Boolean), { clipPath: 'inset(0% 100% 0% 0%)' }, { clipPath: 'inset(0% 0% 0% 0%)', duration: 0.9, stagger: 0.06, delay: 0.8, ease: 'power2.inOut', clearProps: 'clipPath' });
+      }
     }
   }
 

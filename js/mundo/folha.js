@@ -135,6 +135,24 @@ function criarEscrita({ amb, largura = 1024 }) {
   let T = 0;
   let ativo = false;
   let aoTerminar = null;
+  // Faixas de linhas do canvas que mudaram desde a última leitura (ver tirarFaixas()).
+  let faixas = [];
+  const marcarFaixa = (y0, y1) => {
+    y0 = Math.max(0, Math.floor(y0));
+    y1 = Math.min(tela.height, Math.ceil(y1));
+    if (y1 > y0) faixas.push([y0, y1]);
+  };
+  /** Junta faixas que se tocam; devolve a lista em ordem. */
+  const juntar = (lista) => {
+    lista.sort((a, b) => a[0] - b[0]);
+    const saida = [];
+    for (const f of lista) {
+      const u = saida[saida.length - 1];
+      if (u && f[0] <= u[1]) u[1] = Math.max(u[1], f[1]);
+      else saida.push([f[0], f[1]]);
+    }
+    return saida;
+  };
   let aoTraco = null;
   let ultimoTraco = -1;
 
@@ -427,17 +445,18 @@ function criarEscrita({ amb, largura = 1024 }) {
     return ordenada[Math.floor(ordenada.length / 2)];
   }
 
-  function planejar(texto) {
+  // Gerador: cede a vez depois de cada palavra lida (ver prepararAosPoucos).
+  function* planejar(texto) {
     const p = compor(texto);
     const { fs, tracos, sorte } = p;
 
     // espessura do traço desta letra, neste tamanho (para medir "quanta tinta")
     let espessura = fs * 0.075;
-    for (const t of tracos) lerTinta(t, fs, espessura);
+    for (const t of tracos) { lerTinta(t, fs, espessura); yield; }
     const todas = [];
     for (const t of tracos) for (const v of t.trechos) todas.push(v);
     espessura = Math.max(2, mediana(todas));
-    for (const t of tracos) lerTinta(t, fs, espessura);
+    for (const t of tracos) { lerTinta(t, fs, espessura); yield; }
 
     // ritmo: o esforço total vira tempo, na cadência média de quem escreve com calma
     const letras = p.texto.replace(/\s+/g, '').length;
@@ -632,8 +651,6 @@ function criarEscrita({ amb, largura = 1024 }) {
     T += Math.max(0, dt);
     const { tracos, fs } = plano;
     const molhadas = [];
-    let yMin = Infinity;
-    let yMax = -Infinity;
     let falta = false;
 
     for (const p of tracos) {
@@ -651,8 +668,6 @@ function criarEscrita({ amb, largura = 1024 }) {
       if (ate > p.seco) { gravar(p, p.seco, ate); p.seco = ate; }
       if (p.seco > p.x1) p.feito = true;
       molhadas.push(p);
-      yMin = Math.min(yMin, p.topo);
-      yMax = Math.max(yMax, p.base);
       falta = true;
     }
 
@@ -661,12 +676,18 @@ function criarEscrita({ amb, largura = 1024 }) {
       return false;
     }
 
-    // refaz só a faixa onde há tinta molhada
-    yMin = Math.max(0, Math.floor(yMin - 2));
-    yMax = Math.min(tela.height, Math.ceil(yMax + 2));
+    // refaz só as faixas das palavras com tinta molhada (uma por linha: quando a
+    // frase muda de linha, o espaço entre as duas não é tocado). Fora delas a tela
+    // é igual à seca. A folga de 1/4 de letra cobre a gota da ponta e o bico do recorte.
+    const folga = 2 + fs * 0.25;
     pincel.setTransform(1, 0, 0, 1, 0, 0);
-    pincel.clearRect(0, yMin, U, yMax - yMin);
-    pincel.drawImage(seca, 0, yMin, U, yMax - yMin, 0, yMin, U, yMax - yMin);
+    for (const [y0, y1] of juntar(molhadas.map((p) => [
+      Math.max(0, Math.floor(p.topo - folga)), Math.min(tela.height, Math.ceil(p.base + folga)),
+    ]))) {
+      pincel.clearRect(0, y0, U, y1 - y0);
+      pincel.drawImage(seca, 0, y0, U, y1 - y0, 0, y0, U, y1 - y0);
+      marcarFaixa(y0, y1);
+    }
     let ponta = null;
     for (const p of molhadas) {
       if (p.feito) continue;
@@ -702,6 +723,7 @@ function criarEscrita({ amb, largura = 1024 }) {
       if (!p.feito) { gravar(p, p.seco, p.x1 + 1); p.seco = p.x1 + 1; p.feito = true; }
     }
     pincel.drawImage(seca, 0, 0);
+    marcarFaixa(0, tela.height);
     ativo = false;
     if (aoTerminar) { const fn = aoTerminar; aoTerminar = null; fn(); }
   }
@@ -711,10 +733,37 @@ function criarEscrita({ amb, largura = 1024 }) {
     largura: U,
     get plano() { return plano; },
     get ativo() { return ativo; },
+    /** Devolve as faixas [y0, y1) de linhas que mudaram desde a última chamada (lista, talvez vazia) e zera. */
+    tirarFaixas() { const f = juntar(faixas); faixas = []; return f; },
 
     /** Compõe a frase (a fonte já deve estar carregada). Devolve o plano: { altura, topoFolha, fs, duracao }. */
     preparar(texto) {
-      plano = planejar(texto);
+      const g = planejar(texto);
+      let r = g.next();
+      while (!r.done) r = g.next();
+      plano = r.value;
+      T = 0;
+      ativo = false;
+      return plano;
+    },
+
+    /**
+     * O mesmo que preparar(), em fatias de ~6 ms: ler a tinta de cada palavra
+     * (getImageData) custava ~150 ms de uma vez num celular, no quadro em que a
+     * carta final começa a chegar. Mesmo plano, mesmo resultado.
+     */
+    async prepararAosPoucos(texto) {
+      const g = planejar(texto);
+      let inicio = performance.now();
+      let r = g.next();
+      while (!r.done) {
+        if (performance.now() - inicio > 6) {
+          await new Promise((ok) => setTimeout(ok, 0));
+          inicio = performance.now();
+        }
+        r = g.next();
+      }
+      plano = r.value;
       T = 0;
       ativo = false;
       return plano;
@@ -1172,7 +1221,65 @@ function criarFolha3D(mundo) {
     material.uniforms.uFaixa.value.set(0, 1 - plano.topoFolha / total - altura, 1, altura);
     material.uniforms.uTinta.value = textura;
     material.uniforms.uTemTinta.value = 1;
+    escrita.tirarFaixas();                 // a textura nova sobe inteira
   }
+
+  // Enquanto escreve, só mudam as linhas da palavra molhada (umas 150 de ~1100).
+  // Subir o canvas inteiro a cada quadro custava ~1,7 Mpx de cópia por quadro
+  // (mais os mipmaps); aqui sobem só essas faixas, com os mesmos pixelStorei que
+  // o three usa, e os mipmaps são refeitos. Na placa o resultado é idêntico ao da
+  // subida inteira. Qualquer dúvida cai na subida inteira.
+  const telasFaixa = new Map();          // altura → { tela, pincel } (altura em degraus de 32)
+  function subirTinta() {
+    const lista = escrita.tirarFaixas();
+    if (!lista.length) return;
+    const tela = escrita.tela;
+    const W = tela.width;
+    const H = tela.height;
+    const r = mundo.renderer;
+    const gl = r.getContext();
+    const props = r.properties.get(textura);
+    const total = lista.reduce((s, f) => s + f[1] - f[0], 0);
+    if (total > H * 0.5 || lista.length > 4 || W > r.capabilities.maxTextureSize || H > r.capabilities.maxTextureSize
+      || !props.__webglTexture || props.__version !== textura.version
+      || typeof WebGL2RenderingContext === 'undefined' || !(gl instanceof WebGL2RenderingContext)) {
+      textura.needsUpdate = true;
+      return;
+    }
+    try {
+      const st = r.state;
+      st.bindTexture(gl.TEXTURE_2D, props.__webglTexture);
+      st.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, textura.flipY);
+      st.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, textura.premultiplyAlpha);
+      st.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+      st.pixelStorei(gl.UNPACK_ALIGNMENT, textura.unpackAlignment);
+      for (const f of lista) {
+        // texSubImage2D com um canvas sobe o canvas inteiro: o auxiliar tem a altura exata da faixa
+        const h = Math.min(H, Math.ceil((f[1] - f[0]) / 32) * 32);
+        const y0 = Math.max(0, Math.min(f[0], H - h));
+        let aux = telasFaixa.get(h);
+        if (!aux || aux.tela.width !== W) {
+          const t = document.createElement('canvas');
+          t.width = W;
+          t.height = h;
+          aux = { tela: t, pincel: t.getContext('2d') };
+          aux.pincel.globalCompositeOperation = 'copy';
+          aux.pincel.imageSmoothingEnabled = false;
+          telasFaixa.set(h, aux);
+        }
+        aux.pincel.drawImage(tela, 0, y0, W, h, 0, 0, W, h);
+        // com FLIP_Y a linha 0 do canvas é a de cima da textura
+        const yTex = textura.flipY ? H - (y0 + h) : y0;
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, yTex, W, h, gl.RGBA, gl.UNSIGNED_BYTE, aux.tela);
+      }
+      if (textura.generateMipmaps && textura.minFilter !== THREE.LinearFilter && textura.minFilter !== THREE.NearestFilter) {
+        gl.generateMipmap(gl.TEXTURE_2D);
+      }
+    } catch (erro) {
+      textura.needsUpdate = true;
+    }
+  }
+
 
   async function preparar(texto) {
     const frase = String(texto ?? '');
@@ -1180,7 +1287,7 @@ function criarFolha3D(mundo) {
     if (preparando && preparando.frase === frase) { await preparando.promessa; return; }
     const promessa = (async () => {
       await fontePronta(frase);
-      const plano = escrita.preparar(frase);
+      const plano = await escrita.prepararAosPoucos(frase);
       ligarTextura(plano);
       textoPronto = frase;
     })();
@@ -1582,7 +1689,13 @@ function criarFolha3D(mundo) {
       if (escrita.ativo) {
         const mudou = escrita.avancar(dt * (amb.rapido || 1));
         quadro++;
-        if (mudou && textura && (!baixo || quadro % 2 === 0 || !escrita.ativo)) textura.needsUpdate = true;
+        if (mudou && textura && (!baixo || quadro % 2 === 0 || !escrita.ativo)) subirTinta();
+        if (!escrita.ativo && textura) {
+          // acabou: uma subida inteira (a placa fica igual ao canvas, sem depender das faixas)
+          escrita.tirarFaixas();
+          textura.needsUpdate = true;
+          telasFaixa.clear();
+        }
       }
     },
 
@@ -1902,7 +2015,7 @@ function criarFolhaLeve(mundo) {
     },
 
     atualizar(dt, t) {
-      if (escrita.ativo) escrita.avancar(dt * (amb.rapido || 1));
+      if (escrita.ativo) { escrita.avancar(dt * (amb.rapido || 1)); escrita.tirarFaixas(); }
       if (calmo || !assumiu) return;
       const f = flutua.forca;
       flutua.x = amortecer(flutua.x, mundo.ponteiro.x, 2.2, dt);

@@ -1016,7 +1016,8 @@ export async function cenaMao(ctx, { frio } = {}) {
       petalasChao.visible = false;
       fio.objeto.add(petalasChao);
     }
-    if (mundo.ok) await aquecer(mundo, [fio.objeto, env && env.grupo]);
+    // a carta pelo preparar() dela: compila também a variante translúcida (na névoa) e sobe as texturas
+    if (mundo.ok) await aquecer(mundo, [fio.objeto], env && env.preparar ? [env.preparar()] : [env && env.grupo]);
 
     const botao = el('button', { class: 'botao botao-fio', type: 'button', dataset: { acao: 'seguir-fio' } }, [
       el('span', { class: 'botao-fio-texto', texto: dados.botao || '' }),
@@ -1196,12 +1197,13 @@ function desenharMao(gsap, { pose, desenho, imagem, calmo }) {
  * (three compila na primeira vez que desenha, de forma síncrona: era o engasgo
  * do toque). Compila mesmo invisíveis. No máximo ~1,2 s de espera.
  */
-function aquecer(mundo, objetos) {
+function aquecer(mundo, objetos, extras = []) {
   const r = mundo.renderer;
   if (!r || typeof r.compileAsync !== 'function') return Promise.resolve();
   const lista = objetos.filter(Boolean).map((o) => {
     try { return r.compileAsync(o, mundo.camera, mundo.cena).catch(() => {}); } catch { return Promise.resolve(); }
   });
+  for (const e of extras) if (e) lista.push(typeof e.then === 'function' ? e : Promise.resolve().then(() => r.compileAsync(e, mundo.camera, mundo.cena)).catch(() => {}));
   return Promise.race([Promise.all(lista), espera(1200)]);
 }
 

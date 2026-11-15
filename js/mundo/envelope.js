@@ -1358,9 +1358,24 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao' }) {
         const { renderer } = mundo;
         preparo = Promise.resolve().then(() => {
           for (const tx of texturas) renderer.initTexture?.(tx);
-          if (renderer.compileAsync) return renderer.compileAsync(grupo, camera, mundo.cena);
-          renderer.compile?.(grupo, camera, mundo.cena);
-          return null;
+          // O papel do envelope alterna entre opaco e translúcido (na névoa, com a
+          // foto atrás) e o da carta fica translúcido ao voar: cada estado é um
+          // programa diferente para o three. Compila os dois agora; senão o que
+          // faltar compila no quadro em que a carta muda de estado (~40 ms).
+          const comMistura = [matCorpo, matForro, matAba, matCarta];
+          const compilar = () => (renderer.compileAsync
+            ? renderer.compileAsync(grupo, camera, mundo.cena)
+            : (renderer.compile?.(grupo, camera, mundo.cena), null));
+          const primeiro = compilar();
+          const antes = comMistura.map((m) => m.transparent);
+          let outro = null;
+          try {
+            comMistura.forEach((m, i) => { m.transparent = !antes[i]; });
+            outro = compilar();              // compile() lê os materiais agora, de forma síncrona
+          } finally {
+            comMistura.forEach((m, i) => { m.transparent = antes[i]; });
+          }
+          return Promise.all([primeiro, outro]);
         }).catch((erro) => { console.error('[carta] preparar envelope', erro); });
       }
       return preparo;

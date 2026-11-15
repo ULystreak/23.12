@@ -50,15 +50,18 @@ function criarAmostrador(seg, alvoCurva) {
   const pontos = new Float32Array((seg + 1) * 3);
   let controle = new Float32Array(0);
   let cordas = new Float32Array(0);
+  let raizes = new Float64Array(0);      // raizes[i] = raiz da distância entre os controles i e i + 1
   const alvo = alvoCurva || { x: 0, y: 0, z: 0, set(x, y, z) { this.x = x; this.y = y; this.z = z || 0; return this; } };
 
   // Catmull-Rom centrípeta entre o ponto b e o c (a e d são os vizinhos).
+  // Os nós (raiz da distância entre vizinhos) vêm prontos de deLista(): são os
+  // mesmos para todas as amostras de um trecho (antes eram refeitos a cada uma,
+  // ~1150 vezes por curva). Mesmas contas, na mesma ordem: resultado idêntico.
   function catmull(a, b, c, d, u, saida, o) {
-    const dist = (i, j) => Math.hypot(controle[i] - controle[j], controle[i + 1] - controle[j + 1], controle[i + 2] - controle[j + 2]);
-    const t12 = Math.sqrt(dist(b, c));
+    const t12 = raizes[b / 3];
     if (t12 < 1e-6) { saida[o] = controle[b]; saida[o + 1] = controle[b + 1]; saida[o + 2] = controle[b + 2]; return; }
-    let t01 = Math.sqrt(dist(a, b));
-    let t23 = Math.sqrt(dist(c, d));
+    let t01 = raizes[a / 3];
+    let t23 = raizes[c / 3];
     if (t01 < 1e-6) t01 = t12;
     if (t23 < 1e-6) t23 = t12;
     const t1 = t01;
@@ -78,7 +81,7 @@ function criarAmostrador(seg, alvoCurva) {
 
   function deLista(lista) {
     const n = lista.length;
-    if (controle.length < (n + 2) * 3) { controle = new Float32Array((n + 2) * 3); cordas = new Float32Array(n); }
+    if (controle.length < (n + 2) * 3) { controle = new Float32Array((n + 2) * 3); cordas = new Float32Array(n); raizes = new Float64Array(n + 1); }
     for (let i = 0; i < n; i++) {
       const p = lista[i];
       const o = (i + 1) * 3;
@@ -91,6 +94,11 @@ function criarAmostrador(seg, alvoCurva) {
     for (let k = 0; k < 3; k++) {
       controle[k] = 2 * controle[3 + k] - controle[6 + k];
       controle[fim + 3 + k] = 2 * controle[fim + k] - controle[fim - 3 + k];
+    }
+    // nós da centrípeta (ver catmull)
+    for (let i = 0; i <= n; i++) {
+      const a = i * 3; const b = a + 3;
+      raizes[i] = Math.sqrt(Math.hypot(controle[a] - controle[b], controle[a + 1] - controle[b + 1], controle[a + 2] - controle[b + 2]));
     }
     // Distribui as amostras pelo comprimento das cordas: trecho longo ganha mais amostras.
     let total = 0;

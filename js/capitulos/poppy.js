@@ -21,7 +21,7 @@
 // Gancho para os testes (não mudar): [data-acao="fechar-capitulo"].
 
 import { clamp, el, espera, svg } from '../nucleo/util.js';
-import { criarFundo } from './poppy/fundo.js';
+import { criarFundo, aquecerFundo } from './poppy/fundo.js';
 import { criarOsd } from './poppy/osd.js';
 import { criarTitulo } from './poppy/titulo.js';
 import { criarCartao, criarMonitor } from './poppy/cartao.js';
@@ -30,6 +30,25 @@ import { criarFita } from './poppy/fita.js';
 import { criarEsteira } from './poppy/esteira.js';
 
 const CENAS = { maos: criarMaos, fita: criarFita, esteira: criarEsteira };
+
+// Enquanto ela escolhe a música (a folha parada, logo antes deste capítulo), o
+// fundo da fita se prepara em momentos ociosos: contexto WebGL, shader, fábrica
+// desenhada e textura. Assim o quadro em que o capítulo monta fica leve.
+const pararVigia = (() => {
+  const html = document.documentElement;
+  if (html.classList.contains('sem-webgl') || window.CONTEUDO?.poppy?.fundo) return () => {};
+  let espera = 0;
+  const conferir = () => {
+    if (html.dataset.cena !== 'inicio' || html.dataset.etapa !== 'musica') return false;
+    observador.disconnect();
+    // depois que a folha da música assentou
+    espera = setTimeout(aquecerFundo, 1500);
+    return true;
+  };
+  const observador = new MutationObserver(conferir);
+  if (!conferir()) observador.observe(html, { attributes: true, attributeFilter: ['data-etapa', 'data-cena'] });
+  return () => { observador.disconnect(); clearTimeout(espera); };
+})();
 
 const ICONE_PARAR = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4.5" y="4.5" width="15" height="15" rx="2.2"/></svg>';
 
@@ -42,6 +61,7 @@ export const capitulo = {
     const blocos = Array.isArray(c.blocos) ? c.blocos : [];
     const rotulos = c.osd && typeof c.osd === 'object' ? c.osd : {};
 
+    pararVigia();
     let vivo = true;
     const limpezas = [];
     const animacoes = new Set();

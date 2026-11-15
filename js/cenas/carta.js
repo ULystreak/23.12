@@ -83,6 +83,8 @@ export async function cenaCarta(ctx, opcoes = {}) {
   // Programas e texturas da carta prontos antes de ela entrar em cena (se a abertura
   // já a aqueceu, isto resolve na hora): o primeiro passo não engasga compilando.
   let pronta = Promise.resolve();
+  // a rajada de pétalas do lacre: o programa dela já pronto (na carta inteira, a abertura já fez isto)
+  if (mundo.ok) mundo.petalas?.preparar?.();
   if (mundo.ok) {
     const alvo = poseParada(mundo, zOlhosFinal);
     if (reaproveitar) {

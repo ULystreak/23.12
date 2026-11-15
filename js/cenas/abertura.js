@@ -75,7 +75,10 @@ export async function cenaAbertura(ctx) {
   // No branco parado, a primeira carta é preparada (texturas, shaders): o primeiro
   // passo da caminhada não paga por isso. Um quadro antes, para o branco já estar na tela.
   const aquecer = new Promise((r) => requestAnimationFrame(r))
-    .then(() => aquecerEnvelope(mundo, { lacre: 'coracao', amarracao: 'cordao' }))
+    .then(() => Promise.all([
+      aquecerEnvelope(mundo, { lacre: 'coracao', amarracao: 'cordao' }),
+      petalas.preparar?.(),                  // as protagonistas, logo adiante, usam o programa das soltas
+    ]))
     .catch(() => {});
   await Promise.all([espera(SILENCIO), Promise.race([fonte, espera(1800)]), Promise.race([aquecer, espera(2400)])]);
 

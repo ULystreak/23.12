@@ -291,7 +291,7 @@ html.reduzido .poppy-leve-chuvisco { animation: none; opacity: 0.04; }
   background: currentColor;
 }
 .digitando .poppy-cursor { visibility: visible; }
-.digitado .poppy-cursor i { animation: poppy-piscar 1.06s steps(1) infinite; }
+.digitado .poppy-cursor.apagado i { opacity: 0; }   /* titulo.js pisca o cursor (530 ms / 530 ms) */
 html.reduzido .digitado .poppy-cursor { visibility: hidden; }
 
 /* ---- entrada das peças --------------------------------------------------------- */
@@ -854,7 +854,6 @@ html[data-nivel="baixo"] .poppy-vidro,
   50% { opacity: 1; transform: translateX(5px); }
   100% { opacity: 1; transform: none; }
 }
-@keyframes poppy-piscar { 50% { opacity: 0; } }
 @keyframes poppy-tremor {
   0% { transform: translate3d(-6px, 0, 0); }
   50% { transform: translate3d(8px, 1px, 0); }

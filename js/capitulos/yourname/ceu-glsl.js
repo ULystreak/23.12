@@ -267,11 +267,16 @@ void main() {
       vec3 tom = mix(vec3(0.74, 0.84, 1.0), vec3(1.0, 0.9, 0.8), h21(floor(ps * 43.0)));
 #if DETALHE > 1
       float b = dot(ps, vec2(0.8, -0.6)) + 0.03;
-      float nev = fbmCurto(ps * 2.4 + 5.0);
-      float via = exp(-b * b * 46.0) * (0.22 + nev);
-      via *= 1.0 - 0.62 * smoothstep(0.48, 0.7, fbmCurto(ps * 4.3 + 17.0));
-      vec3 corVia = mix(vec3(0.15, 0.25, 0.62), vec3(0.56, 0.3, 0.68), smoothstep(0.3, 0.7, ruido(ps * 1.7 + 2.0)));
-      cor += (corVia * via * 0.46 + vec3(0.78, 0.76, 0.92) * via * via * via * 0.22) * uEstrelas * baixo;
+      // longe da faixa a via some (exp < 1e-6): os 7 ruídos dela só onde ela aparece
+      float faixaVia = exp(-b * b * 46.0);
+      float via = 0.0;
+      if (faixaVia > 1e-6) {
+        float nev = fbmCurto(ps * 2.4 + 5.0);
+        via = faixaVia * (0.22 + nev);
+        via *= 1.0 - 0.62 * smoothstep(0.48, 0.7, fbmCurto(ps * 4.3 + 17.0));
+        vec3 corVia = mix(vec3(0.15, 0.25, 0.62), vec3(0.56, 0.3, 0.68), smoothstep(0.3, 0.7, ruido(ps * 1.7 + 2.0)));
+        cor += (corVia * via * 0.46 + vec3(0.78, 0.76, 0.92) * via * via * via * 0.22) * uEstrelas * baixo;
+      }
       e += estrela(ps * 170.0 + 3.0, min(0.85, 0.12 + via * 0.7), 0.13) * (0.35 + via);
 #endif
       cor += tom * e * uEstrelas * baixo;
@@ -303,11 +308,16 @@ void main() {
       float d = fbm(qd);
       float cob = uNuvem.x + (0.5 - massa) * 0.36 + (h - 0.42) * 0.2 * (1.0 - est) + abs(h - 0.3) * 0.34 * est;
       // borda em couve-flor: ruído fino só perto da borda, para o contorno ficar nítido e recortado
+      // (o ruído fino só é calculado onde entra na conta: perto da borda ou dentro da nuvem)
       float perto = 1.0 - smoothstep(0.0, 0.12, abs(d - cob - 0.02));
-      float fino = ruido(qd * 5.3 + vec2(uTempo * 0.012, 0.0)) * 0.6 + ruido(qd * 11.7 + 3.1) * 0.4;
-      d += (fino - 0.5) * 0.11 * perto * (1.0 - est * 0.6);
+      float fino = 0.5;
+      if (perto > 0.0) {
+        fino = ruido(qd * 5.3 + vec2(uTempo * 0.012, 0.0)) * 0.6 + ruido(qd * 11.7 + 3.1) * 0.4;
+        d += (fino - 0.5) * 0.11 * perto * (1.0 - est * 0.6);
+      }
       float a = smoothstep(cob, cob + mix(0.016, 0.07, est), d);
       if (a > 0.002) {
+        if (perto <= 0.0) fino = ruido(qd * 5.3 + vec2(uTempo * 0.012, 0.0)) * 0.6 + ruido(qd * 11.7 + 3.1) * 0.4;
         vec2 L = normalize(sol - p + vec2(0.0, 0.25));
         float d2 = fbmCurto(qd + L * 0.13);
         float dentro = smoothstep(0.0, 0.3, d - cob);
