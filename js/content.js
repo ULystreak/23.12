@@ -235,7 +235,8 @@ window.CONTEUDO = {
            um parágrafo seu.
 
        { tipo: 'cordao' }
-           o cordão trançado vermelho atravessando a tela (não tem texto).
+           o cordão trançado vermelho dá um nó ali (não tem texto). Se quiser
+           uma imagem no lugar do nó: { tipo: 'cordao', arquivo: '...' }.
 
        { tipo: 'imagem-cheia', arquivo: '...', alt: '...' }
            uma imagem de ponta a ponta da folha.
@@ -299,6 +300,11 @@ window.CONTEUDO = {
         dela: 'assets/images/yourname-visao-dela.webp',
         legendaDele: '[O que ele via.]',
         legendaDela: '[O que ela via.]',
+        // Onde a fita vermelha está em cada imagem, para o fio sair e chegar
+        // exatamente ali. x vai de 0 (borda esquerda) a 1 (borda direita); y vai
+        // de 0 (topo) a 1 (base). Se trocar as imagens, ajuste estes números.
+        fioDele: { x: 0.27, y: 0.86 },
+        fioDela: { x: 0.02, y: 0.81 },
       },
       {
         tipo: 'imagem',
@@ -314,6 +320,11 @@ window.CONTEUDO = {
     ],
 
     fechar: 'Fechar este capítulo',
+
+    // Só é usado se o texto de cima ficar vazio (''): aí o fecho vira só o fio
+    // sublinhado, e este nome é lido em voz alta por leitores de tela.
+    // [Fechar este capítulo]
+    rotuloFechar: 'Fechar este capítulo',
   },
 
   /* --------------------------------------------------------------------------

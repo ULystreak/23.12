@@ -1,134 +1,423 @@
 /* ============================================================================
    CAPÍTULO 2: O FILME
-   Um céu que passa do dia à noite com a rolagem: pêssego, rosa, crepúsculo,
-   noite. Shippori Mincho nos títulos, Klee One no texto.
-   Esqueleto: o mínimo para funcionar.
+   Um céu que passa do dia à noite com a rolagem. O céu é um shader (ou, sem
+   WebGL, camadas assadas em canvas) dentro de .perg-fundo; por cima dele vêm a
+   capa, os versos, o cordão trançado, o encontro, o par e o fecho.
+
+   Camadas dentro de .yn (de trás para a frente):
+     1  cordão que passa por trás        (.yn-cordao-tras)
+     2  blocos: capa, versos, imagens     (filhos diretos)
+     3  cordão que passa pela frente     (.yn-cordao-frente)
+     4  o fio que liga o par ao fecho    (.yn-fio)
    ========================================================================== */
 
-.yn-fundo { background-color: var(--yn-noite); }
+.yn-fundo { background-color: #1a63c9; }
 
-/* O céu é uma faixa com quatro telas de altura; o JS sobe a faixa conforme a rolagem. */
-.yn-ceu {
+/* Céu sem WebGL: camadas empilhadas, só transform e opacidade mudam. */
+.yn-ceu-leve { overflow: hidden; }
+.yn-leve-camada,
+.yn-leve-nuvens,
+.yn-leve-terra,
+.yn-leve-cometa {
   position: absolute;
   top: 0; left: 0;
   width: 100%;
-  height: 400%;
-  background-image: linear-gradient(
-    to bottom,
-    var(--yn-pessego) 0%,
-    var(--yn-rosa) 30%,
-    var(--yn-crepusculo) 58%,
-    var(--yn-noite) 82%,
-    var(--yn-noite) 100%
-  );
-  background-size: cover;
-  will-change: transform;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+.yn-leve-nuvens { height: 200%; will-change: transform; }
+.yn-leve-terra { overflow: visible; will-change: transform; }
+.yn-leve-cometa { overflow: visible; mix-blend-mode: screen; }
+.yn-leve-sol,
+.yn-leve-clarao {
+  position: absolute;
+  top: 0; left: 0;
+  width: 70vh; height: 70vh;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+.yn-leve-clarao {
+  width: 80vh; height: 80vh;
+  opacity: 0;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.95) 0%, rgba(255, 214, 236, 0.45) 12%, rgba(200, 160, 255, 0.12) 45%, rgba(200, 160, 255, 0) 100%);
+}
+
+.yn-ceu-tela,
+.yn-ceu-leve {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Placa opcional (imagem ou vídeo do autor) na parte de baixo, no crepúsculo. */
+.yn-placa {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  width: 100%;
+  height: 46%;
+  object-fit: cover;
+  object-position: center bottom;
+  opacity: 0;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 38%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 38%);
 }
 
 .yn {
-  display: flex;
-  flex-direction: column;
-  gap: var(--esp-8);
-  padding: 0 0 calc(var(--seguro-base) + var(--esp-8));
+  --yn-vh: 100vh;                       /* altura da janela do pergaminho, em px (o JS mede) */
+  --yn-lado: max(var(--margem), var(--seguro-esq), var(--seguro-dir));
+  --yn-tinta-dia: #0a1245;              /* título sobre o céu de dia */
+  --yn-veu-noite: 9, 12, 48;
+  --yn-veu-dia: 14, 44, 122;
+  isolation: isolate;
   font-family: var(--fonte-mao);
   font-size: var(--texto-corpo);
-  line-height: 1.8;
+  line-height: 1.95;
   color: var(--yn-texto);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 .yn ::selection { background: var(--yn-pessego); color: var(--yn-noite); }
 .yn :focus-visible { outline-color: var(--yn-pessego); }
+.yn > * { position: relative; z-index: 2; }
 
-.yn-cabeca {
-  display: grid;
-  gap: var(--esp-4);
-  padding: calc(var(--seguro-topo) + var(--esp-8)) max(var(--margem), var(--seguro-dir)) 0 max(var(--margem), var(--seguro-esq));
+/* ---------------------------------------------------------------------------
+   Capa: um quadro de filme com as quatro bordas se desfazendo no céu
+   ------------------------------------------------------------------------- */
+.yn-abre {
+  min-height: var(--yn-vh);
+  padding: calc(var(--seguro-topo) + clamp(88px, 14vh, 132px)) var(--yn-lado) 0;
 }
-.yn-capa { border-radius: 4px; overflow: hidden; box-shadow: 0 20px 60px rgba(9, 14, 51, 0.35); }
+.yn-capa {
+  max-width: 533px;                     /* o tamanho real da imagem: nunca esticar */
+  margin: 0 auto;
+  will-change: transform, opacity;
+  -webkit-mask-image:
+    linear-gradient(to right, transparent 0, rgba(0, 0, 0, 0.4) 4%, #000 11%, #000 89%, rgba(0, 0, 0, 0.4) 96%, transparent 100%),
+    linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.4) 6%, #000 16%, #000 84%, rgba(0, 0, 0, 0.4) 94%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent 0, rgba(0, 0, 0, 0.4) 4%, #000 11%, #000 89%, rgba(0, 0, 0, 0.4) 96%, transparent 100%),
+    linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.4) 6%, #000 16%, #000 84%, rgba(0, 0, 0, 0.4) 94%, transparent 100%);
+  mask-composite: intersect;
+}
 .yn-capa img { width: 100%; }
 
-/* Sobre o céu claro do começo, o texto precisa de um chão escuro para manter o contraste. */
-.yn-titulo,
-.yn-subtitulo,
-.yn-texto,
-.yn-imagem figcaption,
-.yn-par-lado figcaption {
-  background: rgba(9, 14, 51, 0.78);
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
+.yn-titulos {
+  max-width: 533px;
+  margin: clamp(18px, 3.4vh, 36px) auto 0;
+  will-change: transform, opacity;
 }
 .yn-titulo {
-  justify-self: start;
-  margin-top: var(--esp-4);
-  padding: 6px 14px;
   font-family: var(--fonte-titulo);
   font-weight: 600;
-  font-size: var(--texto-titulo);
+  font-size: clamp(2.1rem, 1.3rem + 5vw, 3.5rem);
+  line-height: 1.18;
+  letter-spacing: 0.01em;
+  color: var(--yn-tinta-dia);
 }
 .yn-subtitulo {
-  justify-self: start;
-  padding: 4px 14px;
+  margin-top: 0.7em;
+  max-width: 22em;
   font-family: var(--fonte-titulo);
   font-size: var(--texto-subtitulo);
-  color: var(--yn-pessego);
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+  color: var(--yn-tinta-dia);
+}
+
+/* ---------------------------------------------------------------------------
+   Versos: soltos no céu. Atrás de cada um, um véu sem contorno, de ponta a
+   ponta, que o JS acende conforme a hora (--a: quanto; --d: quanto de azul de
+   dia por cima do índigo). As variáveis ficam no próprio véu, que não tem
+   filhos: mudar uma não recalcula mais nada.
+   ------------------------------------------------------------------------- */
+.yn-verso {
+  margin-top: calc(var(--yn-vh) * 0.2);
+  padding: calc(var(--yn-vh) * 0.15) var(--yn-lado);
+}
+.yn-veu {
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: var(--a, 0.8);
+  background: linear-gradient(to bottom,
+    rgba(var(--yn-veu-noite), 0) 0%,
+    rgba(var(--yn-veu-noite), 0.1) 7%,
+    rgba(var(--yn-veu-noite), 0.36) 14%,
+    rgba(var(--yn-veu-noite), 0.72) 21%,
+    rgba(var(--yn-veu-noite), 0.94) 27%,
+    rgb(var(--yn-veu-noite)) 31%,
+    rgb(var(--yn-veu-noite)) 69%,
+    rgba(var(--yn-veu-noite), 0.94) 73%,
+    rgba(var(--yn-veu-noite), 0.72) 79%,
+    rgba(var(--yn-veu-noite), 0.36) 86%,
+    rgba(var(--yn-veu-noite), 0.1) 93%,
+    rgba(var(--yn-veu-noite), 0) 100%);
+}
+.yn-veu::before {
+  content: "";
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  opacity: var(--d, 1);
+  background: linear-gradient(to bottom,
+    rgba(var(--yn-veu-dia), 0) 0%,
+    rgba(var(--yn-veu-dia), 0.1) 7%,
+    rgba(var(--yn-veu-dia), 0.36) 14%,
+    rgba(var(--yn-veu-dia), 0.72) 21%,
+    rgba(var(--yn-veu-dia), 0.94) 27%,
+    rgb(var(--yn-veu-dia)) 31%,
+    rgb(var(--yn-veu-dia)) 69%,
+    rgba(var(--yn-veu-dia), 0.94) 73%,
+    rgba(var(--yn-veu-dia), 0.72) 79%,
+    rgba(var(--yn-veu-dia), 0.36) 86%,
+    rgba(var(--yn-veu-dia), 0.1) 93%,
+    rgba(var(--yn-veu-dia), 0) 100%);
 }
 .yn-texto {
-  max-width: 34em;
-  margin: 0 max(var(--margem), var(--seguro-dir)) 0 max(var(--margem), var(--seguro-esq));
-  padding: var(--esp-4) var(--esp-5);
-  border-radius: 6px;
+  max-width: 30em;
+  text-wrap: wrap;
+  text-shadow: 0 1px 16px rgba(5, 8, 38, 0.5);
+}
+/* Cada linha floresce: nasce apertada, desfocada e um pouco abaixo. */
+.yn-p { display: inline-block; }
+
+/* Halo escuro macio atrás de textos pequenos (legendas, fecho). */
+.yn-halo { position: relative; isolation: isolate; }
+.yn-halo::before {
+  content: "";
+  position: absolute;
+  top: -16px; bottom: -16px; left: -52px; right: -52px;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(closest-side, rgba(7, 10, 44, 0.86) 0%, rgba(7, 10, 44, 0.74) 46%, rgba(7, 10, 44, 0.3) 78%, rgba(7, 10, 44, 0) 100%);
 }
 
-.yn-cordao { width: 100%; }
-.yn-cordao svg { width: 100%; height: 44px; }
-
-.yn-imagem-cheia img { width: 100%; }
-
-.yn-imagem {
-  display: grid;
-  gap: var(--esp-3);
-  margin: 0 max(var(--margem), var(--seguro-dir)) 0 max(var(--margem), var(--seguro-esq));
+/* ---------------------------------------------------------------------------
+   O cordão trançado e o fio
+   ------------------------------------------------------------------------- */
+.yn-cordao,
+.yn-fio {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
 }
-.yn-imagem img { width: 100%; border-radius: 4px; }
-.yn-imagem figcaption,
-.yn-par-lado figcaption {
-  justify-self: start;
-  padding: 2px 10px;
-  font-size: var(--texto-pequeno);
-  border-radius: 4px;
+.yn > .yn-cordao-tras { position: absolute; z-index: 1; }
+.yn > .yn-cordao-frente { position: absolute; z-index: 3; }
+.yn > .yn-fio { position: absolute; z-index: 4; }
+.yn-cordao path,
+.yn-fio path { fill: none; }
+.yn-fio-linha {
+  stroke: var(--fio);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 0 2;
+  transition: stroke 600ms var(--curva-yn-florescer), stroke-width 600ms var(--curva-yn-florescer);
 }
+.yn-fio-sombra {
+  stroke: rgba(30, 2, 12, 0.42);
+  stroke-width: 4.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 0 2;
+}
+/* Ao tocar no fecho, o fio acende. */
+.yn-fechando .yn-fio-linha { stroke: #ff3b4e; stroke-width: 3; }
 
-.yn-par {
+/* Um pedaço do cordão (um período da trança) aparece quando a rolagem chega nele. */
+.yn-c {
+  opacity: 0;
+  transition: opacity 420ms var(--curva-yn-florescer);
+}
+.yn-c.v { opacity: 1; }
+
+/* O espaço de um nó decorativo (o nó em si é desenhado pelo cordão). */
+.yn-no { height: calc(var(--yn-vh) * 0.36); margin-top: calc(var(--yn-vh) * 0.1); }
+.yn-no img {
+  width: min(72%, 420px);
+  margin: 0 auto;
   position: relative;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* A luz que anda na ponta do cordão enquanto ele se desenha. */
+.yn > .yn-ponta {
+  position: absolute;
+  z-index: 3;
+  top: 0; left: 0;
+  width: 56px; height: 56px;
+  margin: -28px 0 0 -28px;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(closest-side, rgba(255, 236, 214, 0.95) 0%, rgba(255, 150, 120, 0.5) 22%, rgba(215, 25, 45, 0.16) 52%, rgba(215, 25, 45, 0) 100%);
+  will-change: transform, opacity;
+}
+
+/* ---------------------------------------------------------------------------
+   O encontro: de ponta a ponta
+   ------------------------------------------------------------------------- */
+.yn-encontro { margin-top: calc(var(--yn-vh) * 0.22); }
+.yn-encontro-janela {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.5) 6%, #000 15%, #000 85%, rgba(0, 0, 0, 0.5) 94%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.5) 6%, #000 15%, #000 85%, rgba(0, 0, 0, 0.5) 94%, transparent 100%);
+}
+.yn-encontro-janela img {
+  width: 100%;
+  will-change: transform;
+}
+.yn-encontro .yn-cordao-palco { display: none; }
+
+/* Celular em pé: a seção fica presa e a imagem atravessa a tela de lado. */
+.yn-encontro.pan {
+  height: calc(var(--yn-vh) + var(--yn-pan, 0px));
+  margin-top: calc(var(--yn-vh) * 0.08);
+}
+.yn-encontro.pan .yn-encontro-palco {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 0;
+  height: var(--yn-vh);
+  overflow: hidden;
+}
+.yn-encontro.pan .yn-encontro-janela {
+  position: absolute;
+  left: 0;
+  top: 22%;
+  height: 56%;
+  width: -webkit-max-content;
+  width: max-content;
+  overflow: visible;
+  will-change: transform;
+}
+.yn-encontro.pan .yn-encontro-janela img {
+  height: 100%;
+  width: auto;
+  max-width: none;
+  will-change: auto;
+}
+.yn-encontro.pan .yn-cordao-palco {
+  display: block;
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* O trecho de céu livre onde o cometa passa e se divide. */
+.yn-ceu-livre { height: calc(var(--yn-vh) * 1.6); }
+
+/* ---------------------------------------------------------------------------
+   Imagem simples: um postal
+   ------------------------------------------------------------------------- */
+.yn-postal {
+  display: grid;
+  justify-items: center;
+  gap: var(--esp-5);
+  margin-top: calc(var(--yn-vh) * 0.2);
+  padding: 0 var(--yn-lado);
+}
+.yn-postal-foto {
+  max-width: min(100%, 440px);
+  padding: 9px 9px 10px;
+  background: #fbf3e6;
+  transform: rotate(-1.6deg);
+  box-shadow: 0 2px 5px rgba(3, 4, 22, 0.28), 0 20px 44px rgba(3, 4, 22, 0.42);
+}
+.yn-postal-foto img { width: 100%; }
+.yn-postal figcaption,
+.yn-par figcaption {
+  font-size: var(--texto-pequeno);
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------------------
+   O par: duas imagens em pé, com uma fresta entre elas
+   ------------------------------------------------------------------------- */
+.yn-par {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--esp-5);
+  gap: clamp(8px, 2.4vw, 18px);
   align-items: start;
-  margin: 0 max(var(--margem), var(--seguro-dir)) 0 max(var(--margem), var(--seguro-esq));
+  margin-top: calc(var(--yn-vh) * 0.24);
+  padding: 0 clamp(14px, 4vw, 40px);
 }
-.yn-par-lado { display: grid; gap: var(--esp-3); }
-.yn-par-lado:last-child { margin-top: var(--esp-8); }
-.yn-par-lado img { width: 100%; border-radius: 4px; }
-/* O fio que liga uma imagem à outra. */
-.yn-par-fio {
-  position: absolute;
-  left: 22%; right: 22%;
-  top: 34%;
-  height: 56px;
-  pointer-events: none;
-  z-index: 1;
+.yn-par-lado { display: grid; justify-items: center; gap: var(--esp-4); will-change: transform, opacity; }
+.yn-par-b { margin-top: 16%; }
+.yn-par-quadro {
+  overflow: hidden;
+  border-radius: 3px;
+  box-shadow: 0 2px 6px rgba(3, 4, 22, 0.3), 0 24px 52px rgba(3, 4, 22, 0.5);
 }
-.yn-par-fio svg { width: 100%; height: 100%; overflow: visible; }
+.yn-par-quadro img { width: 100%; }
 
-.yn-rodape { display: grid; justify-items: center; padding-top: var(--esp-6); }
+/* ---------------------------------------------------------------------------
+   Fecho: texto com o fio por baixo
+   ------------------------------------------------------------------------- */
+.yn-fim {
+  display: grid;
+  place-items: center;
+  min-height: calc(var(--yn-vh) * 0.6);
+  margin-top: calc(var(--yn-vh) * 0.1);
+  padding: 0 var(--yn-lado) calc(var(--yn-vh) * 0.12);
+}
 .yn-fechar {
-  min-height: 52px;
-  padding: 12px 22px;
+  position: relative;
+  isolation: isolate;
+  min-width: 96px;
+  min-height: 56px;
+  padding: 14px 16px 22px;
   font-family: var(--fonte-titulo);
   font-weight: 600;
   font-size: var(--texto-subtitulo);
   letter-spacing: 0.06em;
   color: var(--yn-texto);
-  border-bottom: 2px solid var(--fio);
-  transition: transform var(--dur-ui) var(--curva-ui);
+  text-shadow: 0 1px 14px rgba(5, 8, 38, 0.6);
+  transition: transform var(--dur-ui) var(--curva-ui), color var(--dur-ui) var(--curva-ui), opacity var(--dur-ui-lenta) var(--curva-ui);
 }
 .yn-fechar:active { transform: scale(0.97); }
+.yn-fechar.so-fio { min-width: 140px; }
+.yn-fechar::before {
+  content: "";
+  position: absolute;
+  top: -10px; bottom: -10px; left: -44px; right: -44px;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(closest-side, rgba(7, 10, 44, 0.8) 0%, rgba(7, 10, 44, 0.6) 50%, rgba(7, 10, 44, 0) 100%);
+}
+.yn-fechando .yn-fechar-texto { opacity: 0.55; transition: opacity 900ms var(--curva-yn-florescer); }
+.yn-fechar[disabled] { opacity: 0.72; pointer-events: none; }
+@media (hover: hover) and (pointer: fine) {
+  .yn-fechar:hover { color: var(--yn-pessego); }
+}
+
+/* ---------------------------------------------------------------------------
+   Computador: a folha é uma coluna; os versos alternam de lado
+   ------------------------------------------------------------------------- */
+@media (min-width: 760px) {
+  .yn-verso:nth-of-type(even) .yn-texto { margin-left: auto; }
+  .yn-texto { max-width: 25em; }
+  .yn-par { padding: 0 var(--yn-lado); }
+}
+
+/* ---------------------------------------------------------------------------
+   Movimento reduzido: nada desliza; o céu continua mudando (é conteúdo)
+   ------------------------------------------------------------------------- */
+html.reduzido .yn-c { transition-duration: 0.01ms; }
+html.reduzido .yn-fechar { transition-duration: 0.01ms; }
+html.reduzido .yn-postal-foto { transform: none; }
