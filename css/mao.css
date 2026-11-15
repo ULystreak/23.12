@@ -1,28 +1,91 @@
 /* ============================================================================
    A MÃO
-   "Olha a sua mão.": a mão com o akai ito, por cima do mundo branco.
-   Esqueleto: o mínimo para funcionar.
+   "Olha a sua mão.": a mão dela, desenhada a nanquim, com o akai ito no pulso,
+   por cima do mundo branco. O antebraço entra por baixo e se dissolve antes do
+   botão; a parte branca da silhueta tapa as pétalas que passam atrás dela.
    ========================================================================== */
 
 .mao {
+  /* Tamanho pela altura da tela: as pontas dos dedos ficam abaixo do horizonte
+     (onde o fio vai sumir) e o pulso bem acima do botão. */
+  --mao-l: min(calc(var(--tela) * 0.335), 84vw, 400px);
   position: absolute;
-  left: 50%;
-  bottom: calc(var(--seguro-base) + clamp(120px, 24vh, 220px));
-  width: min(58vw, 260px);
-  margin-left: calc(min(58vw, 260px) * -0.5);
+  left: calc(43% - var(--mao-l) * 0.5);
+  top: calc(var(--tela) * 0.355);
+  width: var(--mao-l);
   pointer-events: none;
 }
-.mao svg,
-.mao img { width: 100%; height: auto; }
+.mao-corpo {
+  transform-origin: 50% 70%;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+.mao-desenho,
+.mao-corpo > img {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
 
-/* O fio no modo leve (sem WebGL): um traço que sobe do pé da tela. */
+/* Com a imagem do autor: nunca desce até o botão, qualquer que seja a proporção dela. */
+.mao-com-imagem .mao-corpo > img {
+  width: auto;
+  max-width: 100%;
+  max-height: calc(var(--tela) * 0.42);
+  margin: 0 auto;
+}
+
+/* ---- botão "Seguir o fio": o sublinhado é um pedaço de fio que se desenha -- */
+.botao-fio::after { display: none; }
+.botao-fio {
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 10px 8px;
+}
+.botao-fio-texto {
+  display: block;
+  opacity: 0;
+  transform: translate3d(0, 0.35em, 0);
+  transition: opacity 1.1s var(--curva-branco-entrar), transform 1.4s var(--curva-branco-entrar);
+}
+.botao-fio-linha {
+  display: block;
+  width: calc(100% + 8px);
+  height: 9px;
+  margin: 0 -4px;
+  overflow: visible;
+}
+.botao-fio-linha path {
+  fill: none;
+  stroke: var(--fio);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset 1.5s var(--curva-branco-camera) 0.35s;
+}
+.botao-fio-visivel .botao-fio-texto { opacity: 1; transform: none; }
+.botao-fio-visivel .botao-fio-linha path { stroke-dashoffset: 0; }
+@media (hover: hover) and (pointer: fine) {
+  .botao-fio:hover .botao-fio-linha path { stroke: var(--rosa); }
+}
+
+/* O fio no modo leve (sem WebGL): o mesmo caminho, projetado em SVG. */
 .fio-leve {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  overflow: visible;
 }
 
+html.reduzido .botao-fio-texto { transform: none; transition-duration: 0.6s; }
+html.reduzido .botao-fio-linha path { transition-duration: 0.6s; transition-delay: 0s; }
+
+/* Celular deitado: a mão menor e mais baixa, para caber entre a frase e o botão. */
 @media (orientation: landscape) and (max-height: 520px) {
-  .mao { width: min(24vw, 180px); margin-left: calc(min(24vw, 180px) * -0.5); bottom: calc(var(--seguro-base) + 84px); }
+  /* abaixo da frase (que ocupa o terço de cima) e à esquerda do botão */
+  .mao { --mao-l: min(calc(var(--tela) * 0.26), 30vw); left: calc(25% - var(--mao-l) * 0.5); top: calc(var(--tela) * 0.43); }
 }

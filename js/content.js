@@ -342,6 +342,7 @@ window.CONTEUDO = {
     // Em que ponto da imagem o fio está amarrado, para o caminho sair
     // exatamente dali. x vai de 0 (borda esquerda) a 1 (borda direita);
     // y vai de 0 (topo) a 1 (base). 0.5 e 0.5 é o centro da imagem.
+    // Só vale quando há imagem: a mão desenhada já sabe onde fica o nó.
     ancoraFio: { x: 0.5, y: 0.62 },
 
     botao: 'Seguir o fio',
