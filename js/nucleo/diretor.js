@@ -70,7 +70,8 @@ const cenas = {
     ctx.diretor.etapa('enrolando');
     if (frio) ctx.musica.mostrarMini();
     else await voltarAoMundo(ctx);
-    await cenaCarta(ctx, { lacre: 'estrela', amarracao: 'cordao', distancia: 9 });
+    // Mesma distância da primeira carta: com 9 m sobravam uns 4 s de mundo vazio antes dela nascer.
+    await cenaCarta(ctx, { lacre: 'estrela', amarracao: 'cordao', distancia: 7 });
   },
 
   yourname: (ctx, { frio }) => cenaCapitulo(ctx, 'yourname', frio),

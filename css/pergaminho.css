@@ -164,7 +164,7 @@
 .perg-conteudo {
   position: relative;
   min-height: 100%;
-  padding-bottom: var(--seguro-base);
+  /* Sem área segura aqui: a .perg-janela já a desconta por fora. */
 }
 /* O título recebe o foco quando o capítulo termina de abrir (leitores de tela
    começam por ele); não é um controle, então não ganha anel. */
@@ -201,7 +201,8 @@
   -webkit-clip-path: inset(0 0 100% 0);
   clip-path: inset(0 0 100% 0);
 }
-.perg-pontos path { fill: none; stroke-width: 1.7; stroke-linecap: round; }
+/* A mesma bitola do cordão do envelope e do fio do mundo: é um fio só. */
+.perg-pontos path { fill: none; stroke-width: 2.2; stroke-linecap: round; }
 .perg-ponto-sombra { stroke: rgba(var(--perg-sombra-cor), 0.2); }
 .perg-ponto-fio { stroke: var(--fio); }
 .perg-no { fill: var(--fio); }

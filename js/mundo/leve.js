@@ -324,6 +324,15 @@ export function criarMundoLeve({ amb, canvas, recipienteLeve }) {
     /** Sem lente não há foco para puxar; existe para as cenas chamarem sem testar o modo. */
     definirFoco() {},
 
+    /**
+     * As manchas de perto saem da frente do que ela está olhando. Sem lente o
+     * retângulo exato não importa: a camada de perto inteira recua (o CSS faz o
+     * mesmo sozinho nas etapas de foco, por html[data-etapa]).
+     */
+    protegerRetangulo(r) {
+      raiz.classList.toggle('leve-protege', !!r);
+    },
+
     /** Abertura: as pétalas deixam de estar no ar e entram por cima, aos poucos. */
     comecar() {
       raiz.classList.add('leve-zerar');

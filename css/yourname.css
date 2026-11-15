@@ -11,7 +11,7 @@
      4  o fio que liga o par ao fecho    (.yn-fio)
    ========================================================================== */
 
-.yn-fundo { background-color: #1a63c9; }
+.yn-fundo { background-color: #5a5aa8; }   /* o alto do céu de dia (paleta.js) */
 
 /* Céu sem WebGL: camadas empilhadas, só transform e opacidade mudam. */
 .yn-ceu-leve { overflow: hidden; }
@@ -26,7 +26,13 @@
   display: block;
   pointer-events: none;
 }
-.yn-leve-nuvens { height: 200%; will-change: transform; }
+.yn-leve-nuvens {
+  height: 200%;
+  will-change: transform;
+  /* o fim do canvas nunca aparece como uma linha reta */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+}
 .yn-leve-terra { overflow: visible; will-change: transform; }
 .yn-leve-cometa { overflow: visible; mix-blend-mode: screen; }
 .yn-leve-sol,
@@ -68,10 +74,10 @@
 
 .yn {
   --yn-vh: 100vh;                       /* altura da janela do pergaminho, em px (o JS mede) */
-  --yn-lado: max(var(--margem), var(--seguro-esq), var(--seguro-dir));
+  --yn-lado: var(--margem);             /* a janela do pergaminho já desconta a área segura */
   --yn-tinta-dia: #0a1245;              /* título sobre o céu de dia */
   --yn-veu-noite: 9, 12, 48;
-  --yn-veu-dia: 14, 44, 122;
+  --yn-veu-dia: 32, 28, 94;             /* índigo-lilás: o mesmo azul do céu de dia, mais fundo */
   isolation: isolate;
   font-family: var(--fonte-mao);
   font-size: var(--texto-corpo);
@@ -90,22 +96,33 @@
    ------------------------------------------------------------------------- */
 .yn-abre {
   min-height: var(--yn-vh);
-  padding: calc(var(--seguro-topo) + clamp(88px, 14vh, 132px)) var(--yn-lado) 0;
+  padding: clamp(88px, 14vh, 132px) var(--yn-lado) 0;
 }
 .yn-capa {
+  position: relative;
+  isolation: isolate;
   max-width: 533px;                     /* o tamanho real da imagem: nunca esticar */
   margin: 0 auto;
   will-change: transform, opacity;
-  -webkit-mask-image:
-    linear-gradient(to right, transparent 0, rgba(0, 0, 0, 0.4) 4%, #000 11%, #000 89%, rgba(0, 0, 0, 0.4) 96%, transparent 100%),
-    linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.4) 6%, #000 16%, #000 84%, rgba(0, 0, 0, 0.4) 94%, transparent 100%);
-  -webkit-mask-composite: source-in;
-  mask-image:
-    linear-gradient(to right, transparent 0, rgba(0, 0, 0, 0.4) 4%, #000 11%, #000 89%, rgba(0, 0, 0, 0.4) 96%, transparent 100%),
-    linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.4) 6%, #000 16%, #000 84%, rgba(0, 0, 0, 0.4) 94%, transparent 100%);
-  mask-composite: intersect;
+  /* Duotom da carta (crepúsculo → pêssego): a imagem vira lembrança, não pôster. */
+  background: var(--yn-pessego);
+  /* e se desfaz no céu numa elipse, sem bordas retas */
+  -webkit-mask-image: radial-gradient(closest-side, #000 48%, rgba(0, 0, 0, 0.55) 74%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 48%, rgba(0, 0, 0, 0.55) 74%, transparent 100%);
 }
-.yn-capa img { width: 100%; }
+.yn-capa img {
+  width: 100%;
+  filter: grayscale(1) contrast(1.08);
+  mix-blend-mode: multiply;
+}
+.yn-capa::after {
+  content: "";
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  background: var(--yn-crepusculo);
+  mix-blend-mode: lighten;
+  pointer-events: none;
+}
 
 .yn-titulos {
   max-width: 533px;
@@ -185,7 +202,8 @@
   text-shadow: 0 1px 16px rgba(5, 8, 38, 0.5);
 }
 /* Cada linha floresce: nasce apertada, desfocada e um pouco abaixo. */
-.yn-p { display: inline-block; }
+.yn-p { display: inline-block; max-width: 100%; overflow-wrap: anywhere; }
+.yn-texto { -webkit-hyphens: auto; hyphens: auto; }
 
 /* Halo escuro macio atrás de textos pequenos (legendas, fecho). */
 .yn-halo { position: relative; isolation: isolate; }
@@ -231,7 +249,7 @@
   stroke-dasharray: 0 2;
 }
 /* Ao tocar no fecho, o fio acende. */
-.yn-fechando .yn-fio-linha { stroke: #ff3b4e; stroke-width: 3; }
+.yn-fechando .yn-fio-linha { stroke: var(--fio); stroke-width: 2.8; }
 
 /* Um pedaço do cordão (um período da trança) aparece quando a rolagem chega nele. */
 .yn-c {
@@ -268,14 +286,40 @@
    O encontro: de ponta a ponta
    ------------------------------------------------------------------------- */
 .yn-encontro { margin-top: calc(var(--yn-vh) * 0.22); }
+.yn-encontro {
+  /* Quanto da largura da imagem aparece, a partir da esquerda: o resto (onde o
+     quadro traz letreiro e assinatura) fica de fora. O JS lê o mesmo valor. */
+  --yn-recorte: 0.7;
+}
 .yn-encontro-janela {
+  position: relative;
   overflow: hidden;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.5) 6%, #000 15%, #000 85%, rgba(0, 0, 0, 0.5) 94%, transparent 100%);
-  mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.5) 6%, #000 15%, #000 85%, rgba(0, 0, 0, 0.5) 94%, transparent 100%);
+  /* topo longo e lados macios: a imagem nasce do céu, sem faixa reta */
+  -webkit-mask-image:
+    linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.35) 14%, #000 36%, #000 84%, rgba(0, 0, 0, 0.5) 93%, transparent 100%),
+    linear-gradient(to right, transparent 0, #000 9%, #000 80%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.35) 14%, #000 36%, #000 84%, rgba(0, 0, 0, 0.5) 93%, transparent 100%),
+    linear-gradient(to right, transparent 0, #000 9%, #000 80%, transparent 100%);
+  mask-composite: intersect;
+}
+/* As cores puxadas para o céu da carta. */
+.yn-encontro-janela::after,
+.yn-par-quadro::after {
+  content: "";
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  background: var(--yn-crepusculo);
+  mix-blend-mode: color;
+  opacity: 0.5;
+  pointer-events: none;
 }
 .yn-encontro-janela img {
-  width: 100%;
+  width: calc(100% / var(--yn-recorte));
+  max-width: none;
   will-change: transform;
+  transform-origin: 0 50%;
 }
 .yn-encontro .yn-cordao-palco { display: none; }
 
@@ -296,9 +340,8 @@
   left: 0;
   top: 22%;
   height: 56%;
-  width: -webkit-max-content;
-  width: max-content;
-  overflow: visible;
+  width: var(--yn-janela, 100%);      /* o JS mede: só o recorte da imagem */
+  overflow: hidden;
   will-change: transform;
 }
 .yn-encontro.pan .yn-encontro-janela img {
@@ -360,9 +403,11 @@
 .yn-par-lado { display: grid; justify-items: center; gap: var(--esp-4); will-change: transform, opacity; }
 .yn-par-b { margin-top: 16%; }
 .yn-par-quadro {
+  position: relative;
+  isolation: isolate;
   overflow: hidden;
-  border-radius: 3px;
-  box-shadow: 0 2px 6px rgba(3, 4, 22, 0.3), 0 24px 52px rgba(3, 4, 22, 0.5);
+  /* uma borda de papel fina, como fotos presas pelo fio (sem raio, sem sombra de cartão) */
+  box-shadow: 0 0 0 6px #fbf7f0;
 }
 .yn-par-quadro img { width: 100%; }
 

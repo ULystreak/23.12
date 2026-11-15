@@ -42,7 +42,9 @@ const AFINA = 0.3;           // quanto o rolo afina até acabar de desenrolar
 const DURACAO_ABRIR = 1.6;   // s, do rolo nascer em cima até sumir embaixo
 const DURACAO_FECHAR = 1.35; // s
 const DURACAO_SOLTAR = 1.7;  // s
-const DURACAO_POUSO = 0.34;  // s, a folha DOM tomando o lugar do papel 3D
+// s, a folha DOM tomando o lugar do papel 3D: poucos quadros, só para as pétalas que
+// passavam na frente se desfazerem. Mais que isso vira um cruzamento de dois papéis.
+const DURACAO_POUSO = 0.12;
 const ESPERA_DICA = 3000;    // ms sem rolar até a dica aparecer
 const DICA_VISIVEL = 7200;   // ms: três pulsos da seta (a animação dura 2,4 s)
 const DICA_PAUSA = 9000;     // ms recolhida antes de voltar
@@ -543,7 +545,25 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
       titulo.setAttribute('tabindex', '-1');
       titulo.dataset.pergFoco = '';
     }
-    try { (titulo || rolagemEl).focus({ preventScroll: true }); } catch { /* sem foco, segue */ }
+    const focar = (no) => {
+      try { no.focus({ preventScroll: true }); } catch { /* sem foco, segue */ }
+      return document.activeElement === no;
+    };
+    // Um título que ainda não pode receber foco (os blocos do Poppy só caem depois)
+    // não deixa o foco solto no body: o rolador fica com ele, e as teclas já rolam.
+    if (titulo && focar(titulo)) return;
+    focar(rolagemEl);
+    if (!titulo) return;
+    // Quando o título ficar focável, ele assume (só se o foco ainda estiver no rolador).
+    const g = geracao;
+    (async () => {
+      for (let i = 0; i < 40; i++) {
+        await espera(100);
+        if (g !== geracao || estado !== 'aberto' || document.activeElement !== rolagemEl || rolagemEl.scrollTop > 2) return;
+        if (focar(titulo)) return;
+        focar(rolagemEl);
+      }
+    })();
   }
 
   // ---- tamanho da tela -------------------------------------------------------------------

@@ -9,7 +9,8 @@
 //
 // `curva`: lista de Vector3 (ou { x, y, z }), uma THREE.Curve, ou qualquer objeto
 // com getPoint(t, alvo). `largura` em metros; a fita nunca fica mais fina que
-// ~1,5 px na tela (aí ela clareia em vez de engrossar).
+// ~1,5 px na tela (aí ela clareia em vez de engrossar) nem mais grossa que ~4 px
+// (opção `maxPx`), para ter a mesma bitola do cordão do envelope.
 //
 // Opções a mais (todas opcionais; sem elas o fio tem a mesma largura de ponta a ponta):
 //   larguraInicio, larguraFim   largura nas duas pontas (m), para emendar num cordão mais fino
@@ -30,6 +31,9 @@ import { clamp, svg, objetoLeve } from '../nucleo/util.js';
 
 const SEGMENTOS = { alto: 384, medio: 320, baixo: 224 };
 const SEGMENTOS_LEVE = 120;
+// Largura máxima na tela (px CSS): o fio é um só do começo ao fim, com a bitola
+// do cordão do envelope (~3 a 4 px). Perto da câmera ele não vira uma fita chapada.
+const MAX_PX = 4;
 
 // =============================================================================
 // Amostragem: da curva dada para pontos igualmente espaçados, sem alocar
@@ -184,6 +188,7 @@ const VERTICE = /* glsl */ `
   attribute float aSolto;
 
   uniform float uMinPx;
+  uniform float uMaxPx;
   uniform float uMargemPx;
   uniform vec2 uTela;
   uniform float uTempo;
@@ -227,7 +232,7 @@ const VERTICE = /* glsl */ `
     float meiaPx = larguraEm(s) * 0.5 / metroPorPx;               // meia largura real, em px
     float minimo = uMinPx * 0.5;
     vFino = clamp(meiaPx / minimo, 0., 1.);                        // fino demais: clareia em vez de engrossar
-    meiaPx = max(meiaPx, minimo);
+    meiaPx = clamp(meiaPx, minimo, uMaxPx * 0.5);               // a mesma bitola do cordão da carta, perto ou longe
     mv.xyz += lado * aLado * (meiaPx + uMargemPx) * metroPorPx;   // a margem é o espaço da borda macia
 
     vec3 luz = normalize(mat3(viewMatrix) * uLuz);
@@ -430,6 +435,7 @@ function criarFio3D(mundo, opcoes) {
     uniforms: {
       ...comuns,
       uMinPx: { value: 1.5 },
+      uMaxPx: { value: opcoes.maxPx > 0 ? opcoes.maxPx : MAX_PX },
       uMargemPx: { value: 1 },
       uTela: { value: new THREE.Vector2(mundo.tamanho.largura, mundo.tamanho.altura) },
       uTempo: { value: 0 },
@@ -591,6 +597,7 @@ function criarFioLeve(mundo, opcoes) {
   // afinando para longe (é o que faz as vezes de perspectiva).
   let perfil = Array.isArray(opcoes.perfil) ? opcoes.perfil : [[0, 3], [0.28, 6.5], [1, 1.6]];
   let chao = Number.isFinite(opcoes.sombraDe) ? opcoes.sombraDe : 0.12;
+  const maxPx = opcoes.maxPx > 0 ? opcoes.maxPx : MAX_PX;
 
   function larguraEm(u) {
     for (let i = 1; i < perfil.length; i++) {
@@ -629,7 +636,7 @@ function criarFioLeve(mundo, opcoes) {
       // largura, com a ponta que se desenha afinando
       const atras = (ate - u) * total;
       const ponta = ate >= 0.9995 ? 1 : clamp(atras / 26);
-      const meia = larguraEm(u) * engrossar * 0.5 * (0.15 + 0.85 * ponta * (2 - ponta));
+      const meia = Math.min(larguraEm(u), maxPx) * engrossar * 0.5 * (0.15 + 0.85 * ponta * (2 - ponta));
       esquerda.push(`${(x - ty * meia + dx).toFixed(1)} ${(y + tx * meia + dy).toFixed(1)}`);
       direita.push(`${(x + ty * meia + dx).toFixed(1)} ${(y - tx * meia + dy).toFixed(1)}`);
     }

@@ -142,12 +142,16 @@ export const capitulo = {
     ]);
     rodape.classList.add('poppy-entra');
     corpo.append(rodape);
+    let rodapeEntrou = false;
     entradas.set(rodape, {
-      entrar() {
+      entrar({ imediato = false } = {}) {
+        if (rodapeEntrou) return;
+        rodapeEntrou = true;
         rodape.classList.remove('poppy-entra');
-        if (amb.reduzido) anima(gsap.fromTo(rodape, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5, ease: 'none' }));
+        if (imediato) { gsap.set(rodape, { opacity: 1 }); return; }
+        if (amb.reduzido) anima(gsap.fromTo(rodape, { opacity: 0 }, { opacity: 1, duration: 0.5, ease: 'none' }));
         else {
-          gsap.set(rodape, { autoAlpha: 1 });
+          gsap.set(rodape, { opacity: 1 });
           anima(gsap.fromTo(rodape, { y: -70, scale: 0.94 }, { y: 0, scale: 1, duration: 0.6, ease: 'back.out(2)' }));
         }
       },
@@ -171,7 +175,7 @@ export const capitulo = {
       const esqCorpo = caixaCorpo.left - caixaJanela.left;
       // o vidro tem respiro em volta do texto: o OSD pode passar pela borda
       const folga = 14;
-      leiturasPos = [...corpo.querySelectorAll('.poppy-cartao, .poppy-monitor-legenda, .poppy-subtitulo')].map((no) => {
+      leiturasPos = [...corpo.querySelectorAll('.poppy-cartao, .poppy-monitor-legenda, .poppy-subtitulo, .poppy-painel')].map((no) => {
         let topo = 0;
         let esq = 0;
         for (let n = no; n && n !== corpo; n = n.offsetParent) { topo += n.offsetTop; esq += n.offsetLeft; }
@@ -243,6 +247,19 @@ export const capitulo = {
     } else {
       for (const cena of cenas) cena.visivel = true;
     }
+    // O Tab ou o VoiceOver chegou num bloco antes da rolagem: ele aparece na
+    // hora e parado (um botão que cai debaixo do dedo perderia o toque).
+    const aoFocar = (evento) => {
+      for (const [alvo, peca] of entradas) {
+        if (!alvo.contains(evento.target)) continue;
+        observaEntradas?.unobserve(alvo);
+        peca.entrar({ imediato: true });
+        return;
+      }
+    };
+    corpo.addEventListener('focusin', aoFocar);
+    limpezas.push(() => corpo.removeEventListener('focusin', aoFocar));
+
     let entradasLigadas = false;
     function ligarEntradas() {
       if (entradasLigadas) return;
@@ -340,6 +357,7 @@ export const capitulo = {
         anima(gsap.to(mistura, { v: 0, duration: 0.7, ease: 'none', onUpdate: () => fundo.azul(mistura.v) }));
         await espera(500);
       } else {
+        fundo.clarao(45);
         falha(1, 220);
         await espera(70);
         fundo.azul(0);
@@ -387,25 +405,29 @@ export const capitulo = {
           anima(gsap.to([raiz, fundo.el], { autoAlpha: 0, duration: 0.7, ease: 'none', onComplete: ok }));
         });
       } else {
+        // Recorta e prepara o tubo já agora, com a rolagem presa: a nova pintura do
+        // capítulo cai durante o engasgo, onde um quadro mais lento não aparece,
+        // e não no primeiro instante do colapso. A inércia da rolagem para aqui.
+        try { rolagem.irPara(rolagem.y, { imediato: true }); } catch { /* sem rolagem suave */ }
+        const centroY = rolagem.y + alturaTela / 2;
+        const corteBaixo = Math.max(0, raiz.offsetHeight - rolagem.y - alturaTela);
+        gsap.set(raiz, {
+          transformOrigin: `50% ${centroY}px`,
+          clipPath: `inset(${rolagem.y}px 0px ${corteBaixo}px 0px)`,
+          webkitClipPath: `inset(${rolagem.y}px 0px ${corteBaixo}px 0px)`,
+          willChange: 'transform',
+        });
+        gsap.set(fundo.el, { transformOrigin: '50% 50%', willChange: 'transform' });
+        const ponto = el('i', { class: 'poppy-fosforo', 'aria-hidden': 'true' });
+        const brasa = el('i', { class: 'poppy-fosforo-ponto', 'aria-hidden': 'true' });
+        api.fundo.append(ponto, brasa);
+        limpezas.push(() => { ponto.remove(); brasa.remove(); });
+
         falha(0.7, 130);
         await espera(520);
         if (!vivo) return;
         parado = true;
         // tubo que desliga: a imagem inteira colapsa numa linha, a linha num ponto, o ponto apaga
-        const centroY = rolagem.y + alturaTela / 2;
-        const ponto = el('i', { class: 'poppy-fosforo', 'aria-hidden': 'true' });
-        const brasa = el('i', { class: 'poppy-fosforo-ponto', 'aria-hidden': 'true' });
-        api.fundo.append(ponto, brasa);
-        limpezas.push(() => { ponto.remove(); brasa.remove(); });
-        // só o que está na tela se achata: o resto do capítulo fica recortado fora
-        const alturaRaiz = raiz.offsetHeight;
-        const corteBaixo = Math.max(0, alturaRaiz - rolagem.y - alturaTela);
-        gsap.set(raiz, {
-          transformOrigin: `50% ${centroY}px`,
-          clipPath: `inset(${rolagem.y}px 0px ${corteBaixo}px 0px)`,
-          webkitClipPath: `inset(${rolagem.y}px 0px ${corteBaixo}px 0px)`,
-        });
-        gsap.set(fundo.el, { transformOrigin: '50% 50%' });
         gsap.set(ponto, { scaleX: 1, scaleY: 0.2, autoAlpha: 0 });
         gsap.set(brasa, { autoAlpha: 0, scale: 0.5 });
         await new Promise((ok) => {

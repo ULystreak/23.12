@@ -46,6 +46,18 @@ const saida = (t) => 1 - Math.pow(1 - clamp(t), 3);
 const FIO_DELE = { x: 0.27, y: 0.86 };
 const FIO_DELA = { x: 0.02, y: 0.81 };
 
+/**
+ * O texto inteiro num <span class="so-leitor"> (o leitor de tela lê a frase de
+ * uma vez, mesmo com as palavras ainda escondidas) e os pedaços animados num
+ * invólucro aria-hidden.
+ */
+function paraLeitor(p, texto) {
+  p.removeAttribute('aria-label');
+  if (p.getAttribute('role') === 'text') p.removeAttribute('role');
+  for (const filho of p.children) filho.setAttribute('aria-hidden', 'true');
+  p.prepend(el('span', 'so-leitor', String(texto).replace(/\s+/g, ' ').trim()));
+}
+
 /** Divide um texto em palavras (spans) para florescer; devolve as palavras. */
 function emPalavras(p, texto) {
   p.textContent = '';
@@ -60,6 +72,11 @@ function emPalavras(p, texto) {
     p.append(s);
     palavras.push(s);
   }
+  const pedacos = document.createElement('span');
+  pedacos.setAttribute('aria-hidden', 'true');
+  pedacos.append(...p.childNodes);
+  p.append(pedacos);
+  p.prepend(el('span', 'so-leitor', String(texto).replace(/\s+/g, ' ').trim()));
   return palavras;
 }
 
@@ -223,11 +240,16 @@ export const capitulo = {
 
     // ---- o céu ------------------------------------------------------------------------
     const placas = [];
+    // O céu WebGL só nasce numa hora calma: com a folha aberta e o título assentado.
+    let liberarCeu = null;
+    const quandoCeu = new Promise((r) => { liberarCeu = r; });
     const tempo = criarTempo({
       fundo: api.fundo,
       amb,
+      quando: quandoCeu,
       aoQuadro: (e) => acertarLuz(e),
       aoDividir: () => { try { som.efeito('brilho'); } catch { /* sem som */ } },
+      aoTrocar: (tipo) => { if (vivo) raiz.classList.toggle('yn-leve', tipo !== 'webgl'); },
     });
     raiz.classList.toggle('yn-leve', tempo.tipo !== 'webgl');
 
@@ -307,14 +329,17 @@ export const capitulo = {
         encontro.sec.classList.toggle('pan', pan);
         if (pan) {
           const alt = vh * 0.56;
-          const larg = alt * ((encontro.img.naturalWidth || 860) / (encontro.img.naturalHeight || 484));
+          const recorte = clamp(parseFloat(getComputedStyle(encontro.sec).getPropertyValue('--yn-recorte')) || 1, 0.3, 1);
+          const larg = alt * ((encontro.img.naturalWidth || 860) / (encontro.img.naturalHeight || 484)) * recorte;
           encontro.larguraImg = larg;
           encontro.desloc = Math.max(0, larg - w);
+          encontro.sec.style.setProperty('--yn-janela', `${Math.round(larg)}px`);
           encontro.dist = Math.round(encontro.desloc * 1.6);
           raiz.style.setProperty('--yn-pan', `${encontro.dist}px`);
           gsap.set(encontro.janela, { x: 0 });
         } else {
           raiz.style.removeProperty('--yn-pan');
+          encontro.sec.style.removeProperty('--yn-janela');
           gsap.set(encontro.janela, { clearProps: 'transform' });
         }
       }
@@ -679,8 +704,14 @@ export const capitulo = {
     id = requestAnimationFrame(laco);
 
     // O título floresce palavra por palavra enquanto a folha termina de desenrolar.
-    if (tituloEl) revelarPalavras(tituloEl, c.titulo, { duracao: 2, intervalo: 0.17, atraso: reduzido ? 0.4 : 1.1, subida: '0.3em', curva: curvas.yourname.florescer });
-    if (subEl) revelarPalavras(subEl, c.subtitulo, { duracao: 1.8, intervalo: 0.09, atraso: reduzido ? 0.8 : 1.9, subida: '0.25em', curva: curvas.yourname.florescer });
+    const revelacoes = [api.aberto || espera(1800)];
+    if (tituloEl) revelacoes.push(revelarPalavras(tituloEl, c.titulo, { duracao: 2, intervalo: 0.17, atraso: reduzido ? 0.4 : 1.1, subida: '0.3em', curva: curvas.yourname.florescer }));
+    if (subEl) {
+      revelacoes.push(revelarPalavras(subEl, c.subtitulo, { duracao: 1.8, intervalo: 0.09, atraso: reduzido ? 0.8 : 1.9, subida: '0.25em', curva: curvas.yourname.florescer }));
+      paraLeitor(subEl, c.subtitulo);
+    }
+    // Se ela já estiver rolando, o céu não espera o título: no máximo 5 s.
+    Promise.race([Promise.all(revelacoes), espera(5000)]).then(liberarCeu, liberarCeu);
 
     return {
       destruir() {

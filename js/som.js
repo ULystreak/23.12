@@ -100,6 +100,11 @@ export function criarSom(conteudo, amb) {
       return;
     }
 
+    // No iPhone, o Web Audio segue a categoria "ambient" e obedece à chave de
+    // silencioso: com ela ligada, a carta ficaria muda. "playback" toca como um
+    // vídeo (Safari 16.4+); nos outros navegadores a propriedade não existe.
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* segue */ }
+
     try {
       const Contexto = window.AudioContext || window.webkitAudioContext;
       if (!Contexto) return;

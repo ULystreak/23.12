@@ -902,10 +902,14 @@ export async function cenaMao(ctx, { frio } = {}) {
     const frase = el('p', 'frase');
     palcoFrases.append(frase);
     if (olharMao) gsap.to(cam, { inclinacao: olharMao, duration: 3.4, ease: curvas.branco.camera });
-    await revelarPalavras(frase, dados.frase || '', { intervalo: 0.24, duracao: 1.8 });
+    const fraseLida = revelarPalavras(frase, dados.frase || '', { intervalo: 0.24, duracao: 1.8 });
+    caberEmDuasLinhas(frase);
 
-    // 3. A mão sobe e se desenha.
-    const imagem = await recursos.elementoImagem(dados.imagem, '');
+    // 3. A mão sobe e se desenha, já enquanto a frase ainda assenta.
+    const [imagem] = await Promise.all([
+      recursos.elementoImagem(dados.imagem, ''),
+      espera(calmo ? 500 : 1000),
+    ]);
     const corpo = el('div', 'mao-corpo');
     const mao = el('div', { class: imagem ? 'mao mao-com-imagem' : 'mao', 'aria-hidden': 'true' }, corpo);
     let desenho = null;
@@ -915,6 +919,9 @@ export async function cenaMao(ctx, { frio } = {}) {
       corpo.append(desenho.raiz);
     }
     palco.append(mao);
+    // Frase longa (duas linhas grandes) não fica embaixo dos dedos: a mão desce um pouco.
+    const invade = frase.getBoundingClientRect().bottom + 14 - mao.getBoundingClientRect().top;
+    if (invade > 0) mao.style.top = `${mao.offsetTop + Math.min(invade, innerHeight * 0.14)}px`;
 
     // Pose da mão (aplicada por quadro) e onde está a ponta solta do fio, em px.
     const pose = { y: calmo ? 0 : 54, rot: calmo ? 0 : 1.6, opacidade: 0, respiro: calmo ? 0.25 : 1, balanco: 0, caudaKick: 0 };
@@ -978,16 +985,52 @@ export async function cenaMao(ctx, { frio } = {}) {
     });
     void tPose;
 
-    await desenharMao(gsap, { pose, desenho, imagem, calmo, mundo });
+    // O desenho e a frase correm juntos; o botão vem quando os dois assentaram.
+    await Promise.all([desenharMao(gsap, { pose, desenho, imagem, calmo, mundo }), fraseLida]);
 
-    // 4. O botão.
+    // 4. O botão. Antes dele, o caminho já existe, invisível: a última carta lá
+    // dentro do branco (só no 3D; além da névoa ela é só branco) e o fio com
+    // progresso 0. Os programas de shader compilam agora, não no toque.
     diretor.etapa('mao-espera');
+    let env = null;
+    const criarCarta = (chegada) => {
+      env = criarEnvelope(mundo, { lacre: null, amarracao: 'fio', chegada });
+      if (mundo.ok) {
+        env.grupo.position.set(x0, ALTURA_CARTA, z0 - S_CARTA);
+        mundo.cena.add(env.grupo);
+      }
+      estado.envelope = env;
+      cuidarDaCarta(ctx, env);
+    };
+    if (mundo.ok) criarCarta(2.4);
+
+    const seguidor = criarSeguidor(ctx, { z0, x0, pulsoPx, cam });
+    const fio = seguidor.criar();
+    estado.fio = fio;
+    estado.seguidorFio = { parar: () => seguidor.parar(), soltar: (d) => seguidor.soltar(d) };
+    // Uma caminhada só, até a carta: a cena final já começa na frente dela.
+    estado.distanciaFinal = 0;
+    let petalasChao = null;
+    if (mundo.ok && amb.nivel !== 'baixo') {
+      petalasChao = petalasNoChao(mundo, { z0, x0 });
+      petalasChao.visible = false;
+      fio.objeto.add(petalasChao);
+    }
+    if (mundo.ok) await aquecer(mundo, [fio.objeto, env && env.grupo]);
+
     const botao = el('button', { class: 'botao botao-fio', type: 'button', dataset: { acao: 'seguir-fio' } }, [
       el('span', { class: 'botao-fio-texto', texto: dados.botao || '' }),
       svg(SUBLINHADO),
     ]);
+    // Sem texto no content.js, o botão ainda precisa de nome para leitores de tela.
+    if (!dados.botao && dados.rotuloBotao) botao.setAttribute('aria-label', dados.rotuloBotao);
     acoes.append(botao);
     requestAnimationFrame(() => botao.classList.add('botao-fio-visivel'));
+    // Quem navega pelo teclado não fica perdido no body: o foco vai para a ação da etapa.
+    // (Só sem toque: no celular o anel de foco apareceria sobre o botão sem ninguém ter usado teclado.)
+    if (!amb.toque && (!document.activeElement || document.activeElement === document.body)) {
+      try { botao.focus({ preventScroll: true }); } catch { /* sem foco programático */ }
+    }
     await new Promise((ok) => botao.addEventListener('click', ok, { once: true }));
 
     // 5. O fio sai do pulso e vira o caminho.
@@ -997,32 +1040,12 @@ export async function cenaMao(ctx, { frio } = {}) {
     som.efeito('toque');
     gsap.to(botao, { autoAlpha: 0, duration: 0.5, ease: curvas.branco.sair, onComplete: () => botao.remove() });
     ocultarPalavras(frase).then(() => frase.remove());
-
-    // A última carta já está lá, dentro do branco, onde a cena final a espera.
-    let env = null;
-    let pararEnv = () => {};
-    const criarCarta = () => {
-      env = criarEnvelope(mundo, { lacre: null, amarracao: 'fio', chegada: 2.4 });
-      if (mundo.ok) {
-        env.grupo.position.set(x0, ALTURA_CARTA, z0 - S_CARTA);
-        mundo.cena.add(env.grupo);
-      }
-      estado.envelope = env;
-      pararEnv = cuidarDaCarta(ctx, env);
-    };
-    if (mundo.ok) criarCarta();
-
-    const seguidor = criarSeguidor(ctx, { z0, x0, pulsoPx, cam });
-    const fio = seguidor.criar();
-    estado.fio = fio;
-    estado.seguidorFio = { parar: () => seguidor.parar(), soltar: (d) => seguidor.soltar(d) };
-    estado.distanciaFinal = RESTO;
-    if (mundo.ok && amb.nivel !== 'baixo') fio.objeto.add(petalasNoChao(mundo, { z0, x0 }));
+    if (petalasChao) petalasChao.visible = true;
 
     // O nó dá um puxão: a ponta solta estica antes do fio correr.
     if (desenho && !calmo) {
       gsap.timeline()
-        .to(pose, { caudaKick: -9, duration: 0.22, ease: curvas.ui.resposta })
+        .to(pose, { caudaKick: -9, duration: 0.22, ease: curvas.ui.resposta, overwrite: 'auto' })
         .to(pose, { caudaKick: 0, duration: 1.6, ease: curvas.branco.entrar });
     }
     // Dois tempos: o fio escorre da ponta solta até o chão, ao lado da mão; depois
@@ -1041,8 +1064,8 @@ export async function cenaMao(ctx, { frio } = {}) {
     // A câmera acompanha a corrida do fio, um pouco mais para o chão.
     if (!calmo) gsap.to(cam, { inclinacao: olharMao * 1.1, duration: 1.8, ease: curvas.branco.camera });
 
-    // A mão fica enquanto o fio corre ao lado dela (o caminho abre à direita da silhueta).
-    await espera(calmo ? 900 : 1150);
+    // A mão fica um instante enquanto o fio corre ao lado dela (o caminho abre à direita da silhueta).
+    await espera(calmo ? 600 : 900);
     // A mão desce e sai do quadro (o começo do fio desce junto).
     gsap.to(pose, { respiro: 0, duration: 1.0, ease: 'none' });
     const saida = calmo
@@ -1052,30 +1075,34 @@ export async function cenaMao(ctx, { frio } = {}) {
       : gsap.timeline()
         .to(pose, { y: caixa.height * 1.15 + 80, rot: -2.5, duration: 1.8, ease: curvas.branco.camera }, 0)
         .to(pose, { opacidade: 0, duration: 0.45, ease: 'none' }, 1.35);
-    await espera(calmo ? 300 : 1300);
-
-    // 6. Ela caminha seguindo o fio.
+    // 6. Ela caminha seguindo o fio, de uma vez só, até parar na frente da carta
+    // (começa enquanto a mão ainda desce: a câmera sai devagar, sem degrau).
+    await espera(calmo ? 200 : 400);
     cam.guiar = !calmo;
+    const DURACAO = 8.0;
     if (!calmo) {
       gsap.timeline()
-        .to(cam, { inclinacao: olharMao * 0.45, duration: 2.6, ease: curvas.branco.camera })
-        .to(cam, { inclinacao: 0, duration: 2.8, ease: curvas.branco.camera }, 5.0);
+        .to(cam, { inclinacao: olharMao * 0.45, duration: 2.6, ease: curvas.branco.camera, overwrite: 'auto' })
+        .to(cam, { inclinacao: 0, duration: 3.0, ease: curvas.branco.camera }, DURACAO - 3.4);
     } else {
       cam.inclinacao = 0;
     }
-    const DURACAO = 8.2;
-    const andar = mundo.caminhar({ distancia: CAMINHADA, duracao: DURACAO });
+    const andar = mundo.caminhar({ distancia: CAMINHADA + RESTO, duracao: DURACAO });
+    // A câmera assenta no eixo da carta durante o fim da própria caminhada.
+    const ALINHAR = calmo ? 0.3 : 1.8;
+    const alinhada = espera((DURACAO - ALINHAR) * 1000).then(() => new Promise((ok) => {
+      cam.guiar = false;
+      gsap.to(cam, { x: 0, guinada: 0, duration: ALINHAR, ease: curvas.branco.camera, onComplete: ok });
+    }));
     if (!mundo.ok) {
-      await espera(DURACAO * 1000 * (calmo ? 0.1 : 0.55));
-      criarCarta();
+      // Leve: a carta nasce do branco perto do fim e pousa quando ela para.
+      await espera(DURACAO * 1000 * (calmo ? 0.1 : 0.72));
+      criarCarta(calmo ? 1.2 : 3.6);
     }
-    await Promise.all([andar, extensao]);
+    await Promise.all([andar, extensao, alinhada]);
     await new Promise((ok) => (saida.progress() >= 1 ? ok() : saida.eventCallback('onComplete', ok)));
-
-    // A câmera assenta exatamente no eixo da carta: a cena final começa daqui.
     cam.guiar = false;
-    await new Promise((ok) => gsap.to(cam, { x: 0, guinada: 0, inclinacao: 0, duration: calmo ? 0.3 : 1.1, ease: curvas.branco.entrar, onComplete: ok }));
-    void pararEnv;
+    cam.x = 0; cam.guinada = 0; cam.inclinacao = 0;
 
     pararPose();
     pararMedida();
@@ -1144,7 +1171,7 @@ function desenharMao(gsap, { pose, desenho, imagem, calmo }) {
     detalhes.forEach((traco) => {
       const d = clamp(traco.comprimento / (VEL * 0.85), 0.28, 0.75);
       desenhar(traco, t2, d, curvas.branco.entrar);
-      t2 += d * 0.5;
+      t2 += d * 0.35;
     });
     vincos.forEach((traco, i) => desenhar(traco, t2 - 0.2 + i * 0.035, 0.22, curvas.branco.entrar));
     const tCordao = t2 + vincos.length * 0.035 + 0.05;
@@ -1155,10 +1182,41 @@ function desenharMao(gsap, { pose, desenho, imagem, calmo }) {
     }, tCordao + 0.72);
     desenhar(cordao.curta, tCordao + 0.82, 0.35, curvas.branco.entrar);
     desenhar(cordao.longa, tCordao + 0.86, 0.7, curvas.branco.entrar);
+    // O botão não espera a ponta parar de balançar: a promessa resolve logo
+    // depois do nó, e o assentar da cauda continua por baixo dele.
     tl.fromTo(pose, { caudaKick: 14 }, { caudaKick: 0, duration: 2.4, ease: curvas.branco.entrar }, tCordao + 0.9)
       .to(pose, { balanco: 1, duration: 2, ease: 'none' }, tCordao + 1.2)
-      .add(() => {}, tCordao + 1.8);
+      .call(resolver, null, tCordao + 1.0);
   });
+}
+
+/**
+ * Compila os programas de shader destes objetos antes de eles aparecerem
+ * (three compila na primeira vez que desenha, de forma síncrona: era o engasgo
+ * do toque). Compila mesmo invisíveis. No máximo ~1,2 s de espera.
+ */
+function aquecer(mundo, objetos) {
+  const r = mundo.renderer;
+  if (!r || typeof r.compileAsync !== 'function') return Promise.resolve();
+  const lista = objetos.filter(Boolean).map((o) => {
+    try { return r.compileAsync(o, mundo.camera, mundo.cena).catch(() => {}); } catch { return Promise.resolve(); }
+  });
+  return Promise.race([Promise.all(lista), espera(1200)]);
+}
+
+/**
+ * A frase da mão cabe em no máximo duas linhas (uma frase longa no content.js
+ * desceria até o desenho): se passar, a letra diminui um pouco de cada vez.
+ */
+function caberEmDuasLinhas(frase) {
+  frase.style.fontSize = '';
+  for (let i = 0; i < 8; i++) {
+    const estilo = getComputedStyle(frase);
+    const tamanho = parseFloat(estilo.fontSize) || 16;
+    const linha = parseFloat(estilo.lineHeight) || tamanho * 1.25;
+    if (frase.offsetHeight <= linha * 2.3 || tamanho <= 19) return;
+    frase.style.fontSize = `${(tamanho * 0.9).toFixed(2)}px`;
+  }
 }
 
 /**

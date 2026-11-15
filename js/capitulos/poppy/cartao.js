@@ -1,23 +1,24 @@
-// Os textos do capítulo: cartões de vidro fosco escuro, cada um preso à
-// "tela" com uma coisa de brinquedo diferente, e o monitor antigo das imagens.
+// Os textos do capítulo e o monitor antigo das imagens. Cada texto vive num
+// objeto diferente da fábrica, com a física desse objeto:
 //
-//   criarCartao({ texto, indice, amb, gsap, anima }) → { el, entrar() }
-//   criarMonitor({ img, legenda, indice, amb, gsap, anima }) → { el, entrar() }
+//   faixa     legenda de fita, de ponta a ponta, numa tarja escura: entra em corte de vídeo
+//   etiqueta  etiqueta de papel pendurada no fio vermelho: cai e balança no fio
+//   placa     chapa de vidro aparafusada (a única "placa"): cai com mola, os parafusos estalam
+//   visor     o mostrador de um videocassete, em âmbar: liga numa linha que abre em degraus
+//   legenda   legenda fechada, linha a linha, encostada à direita: escreve da esquerda em degraus
 //
-// Nenhum cartão repete largura, lado, inclinação e enfeite do vizinho. Eles
-// entram caindo e assentam com mola (com movimento reduzido, só aparecem).
+//   criarCartao({ texto, indice, amb, gsap, anima }) → { el, entrar({ imediato }) }
+//   criarMonitor({ img, legenda, indice, amb, gsap, anima }) → { el, entrar({ imediato }) }
+//   (imediato: aparece já parado, quando o foco chegou antes da rolagem)
+//
+// Com movimento reduzido, tudo só aparece. O texto existe para o leitor de tela
+// desde o começo (a entrada esconde só com opacidade).
 
 import { el, svg } from '../../nucleo/util.js';
 import { curvas } from '../../nucleo/movimento.js';
 
-// largura (fração da coluna), lado, inclinação em graus e o enfeite de cada cartão
-const VARIANTES = [
-  { enfeite: 'fita', largura: 0.93, lado: 'esq', giro: -0.9 },
-  { enfeite: 'parafusos', largura: 0.86, lado: 'dir', giro: 0.8 },
-  { enfeite: 'etiqueta', largura: 0.96, lado: 'esq', giro: 0.5 },
-  { enfeite: 'ima', largura: 0.84, lado: 'meio', giro: -1.2 },
-  { enfeite: 'pregador', largura: 0.9, lado: 'dir', giro: 1.1 },
-];
+const SUPORTES = ['faixa', 'etiqueta', 'placa', 'visor', 'legenda'];
+const GIRO = { faixa: 0, etiqueta: -2.4, placa: 0.8, visor: 0, legenda: 0 };
 
 const parafuso = (giro) => `
   <svg class="poppy-parafuso" viewBox="0 0 16 16">
@@ -27,93 +28,108 @@ const parafuso = (giro) => `
     <path d="M3.6 8h8.8" stroke="#2c393d" stroke-width="1.7" stroke-linecap="round" transform="rotate(${giro} 8 8)"/>
   </svg>`;
 
-const ENFEITES = {
-  // duas tiras de fita adesiva colorida, rasgadas à mão
-  fita: () => [el('i', 'poppy-adesiva a'), el('i', 'poppy-adesiva b')],
+// o pedaço do fio vermelho que segura a etiqueta: sobe do furo e some no alto
+const CORDAO = `
+  <svg class="poppy-cordao" viewBox="0 0 40 120" preserveAspectRatio="none">
+    <path d="M20 118c0-14 7-22 4-38s-9-24-4-44S23 8 22 0" fill="none" stroke="var(--fio)" stroke-width="3.2" stroke-linecap="round"/>
+    <path d="M20 118c0-14 7-22 4-38s-9-24-4-44S23 8 22 0" fill="none" stroke="var(--fio-escuro)" stroke-width="3.2" stroke-dasharray="2.5 5.5"/>
+  </svg>`;
 
-  // uma chapa aparafusada pelos quatro cantos
-  parafusos: () => [34, -52, 78, 12].map((giro, i) => {
-    const s = svg(parafuso(giro));
-    s.classList.add(`p${i}`);
-    return s;
-  }),
-
-  // uma etiqueta de papel pendurada num pedaço do fio vermelho
-  etiqueta: () => [svg(`
-    <svg class="poppy-etiqueta" viewBox="0 0 46 74">
-      <circle cx="23" cy="6" r="4.6" fill="#03090d"/>
-      <circle cx="23" cy="6" r="4.6" fill="none" stroke="#8fa09f" stroke-width="1.6"/>
-      <g class="pendulo">
-        <path d="M23 6c-3 7 3 10 0 17" fill="none" stroke="var(--fio)" stroke-width="2.2" stroke-linecap="round"/>
-        <path d="M11 32 23 20l12 12v34a4 4 0 0 1-4 4H15a4 4 0 0 1-4-4z" fill="#e9dec4"/>
-        <path d="M11 32 23 20l12 12v5H11z" fill="#d9ccae"/>
-        <circle cx="23" cy="29" r="3" fill="#0b1c27"/>
-        <path d="M16.5 46h13M16.5 53h13M16.5 60h8" stroke="#2a1b22" stroke-opacity=".34" stroke-width="2" stroke-linecap="round"/>
-      </g>
-    </svg>`)],
-
-  // um ímã redondo de geladeira
-  ima: () => [svg(`
-    <svg class="poppy-ima" viewBox="0 0 36 38">
-      <ellipse cx="18" cy="22" rx="15" ry="14" fill="#02080c" opacity=".5"/>
-      <circle cx="18" cy="18" r="15" fill="#1f6aa8"/>
-      <circle cx="18" cy="16.5" r="14.2" fill="#2f8fd8"/>
-      <circle cx="18" cy="16.5" r="8.6" fill="#256fb0"/>
-      <circle cx="18" cy="16" r="7.4" fill="#3d9ee6"/>
-      <path d="M9.5 10.5c2.4-3.6 6.6-5.4 10.6-4.8" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="2.2" stroke-linecap="round"/>
-    </svg>`)],
-
-  // um pregador de plástico
-  pregador: () => [svg(`
-    <svg class="poppy-pregador" viewBox="0 0 24 56">
-      <rect x="3" y="5" width="18" height="50" rx="5" fill="#02080c" opacity=".45"/>
-      <rect x="3" y="2" width="18" height="50" rx="5" fill="#2d8a50"/>
-      <rect x="3" y="2" width="12" height="50" rx="5" fill="#3fb86b"/>
-      <path d="M12 6v42" stroke="#1f6b3c" stroke-width="1.6"/>
-      <rect x="1" y="21" width="22" height="7" rx="3" fill="#b9c4c0"/>
-      <rect x="1" y="21" width="22" height="3" rx="1.5" fill="#e3eae6"/>
-      <path d="M6.5 8.5v9" stroke="#fff" stroke-opacity=".45" stroke-width="2" stroke-linecap="round"/>
-    </svg>`)],
-};
-
-/** Queda com mola, comum aos cartões e aos monitores. Devolve a linha do tempo. */
+/** Queda com mola, comum à placa e aos monitores. Devolve a linha do tempo. */
 function cair(alvo, giro, lado, { gsap, anima }) {
-  gsap.set(alvo, { y: -120, rotation: giro + lado * 7, scale: 0.95, autoAlpha: 1 });
+  gsap.set(alvo, { y: -120, rotation: giro + lado * 7, scale: 0.95, opacity: 1 });
   const tl = anima(gsap.timeline());
   tl.to(alvo, { y: 0, scale: 1, duration: 0.6, ease: curvas.poppy.pulo }, 0);
   tl.to(alvo, { rotation: giro, duration: 1.25, ease: curvas.poppy.mola }, 0.04);
   return tl;
 }
 
+function montar(suporte, texto) {
+  const p = el('p', null, texto);
+  if (suporte === 'faixa') return { corpo: el('div', 'poppy-tarja', p), enfeites: [] };
+  if (suporte === 'etiqueta') {
+    const cordao = svg(CORDAO);
+    return { corpo: el('div', 'poppy-papel', [el('i', 'poppy-papel-furo'), p]), enfeites: [cordao] };
+  }
+  if (suporte === 'placa') {
+    const parafusos = [34, -52, 78, 12].map((giro, i) => {
+      const s = svg(parafuso(giro));
+      s.classList.add(`p${i}`);
+      return s;
+    });
+    return { corpo: el('div', 'poppy-vidro', p), enfeites: parafusos };
+  }
+  if (suporte === 'visor') {
+    return { corpo: el('div', 'poppy-visor', [el('i', 'poppy-visor-grade'), p]), enfeites: [] };
+  }
+  // legenda fechada: cada linha com a própria tarja
+  return { corpo: el('p', 'poppy-cc', el('span', null, texto)), enfeites: [] };
+}
+
 export function criarCartao({ texto, indice, amb, gsap, anima }) {
-  const v = VARIANTES[indice % VARIANTES.length];
-  const enfeites = ENFEITES[v.enfeite]();
+  const suporte = SUPORTES[indice % SUPORTES.length];
+  const giro = GIRO[suporte];
+  const { corpo, enfeites } = montar(suporte, texto);
   for (const e of enfeites) e.setAttribute('aria-hidden', 'true');
-  const vidro = el('div', 'poppy-vidro', el('p', null, texto));
   const cartao = el('article', {
     class: 'poppy-cartao poppy-entra',
-    dataset: { enfeite: v.enfeite, lado: v.lado },
-  }, [vidro, ...enfeites]);
-  cartao.style.setProperty('--larg', `${v.largura * 100}%`);
-  gsap.set(cartao, { rotation: v.giro });
+    dataset: { suporte },
+  }, [...(suporte === 'etiqueta' ? enfeites : []), corpo, ...(suporte === 'etiqueta' ? [] : enfeites)]);
+  if (giro) gsap.set(cartao, { rotation: giro });
 
   let entrou = false;
   return {
     el: cartao,
-    entrar() {
+    entrar({ imediato = false } = {}) {
       if (entrou) return;
       entrou = true;
       cartao.classList.remove('poppy-entra');
+      if (imediato) { gsap.set(cartao, { opacity: 1 }); return; }
       if (amb.reduzido) {
-        anima(gsap.fromTo(cartao, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.55, ease: 'none' }));
+        anima(gsap.fromTo(cartao, { opacity: 0 }, { opacity: 1, duration: 0.55, ease: 'none' }));
         return;
       }
-      const tl = cair(cartao, v.giro, indice % 2 ? 1 : -1, { gsap, anima });
-      // o enfeite é o que segura o cartão: chega um instante depois, de estalo
-      tl.fromTo(enfeites, { scale: 1.7, autoAlpha: 0 },
-        { scale: 1, autoAlpha: 1, duration: 0.3, ease: 'back.out(3)', stagger: 0.06 }, 0.34);
-      const pendulo = cartao.querySelector('.pendulo');
-      if (pendulo) tl.fromTo(pendulo, { rotation: -26, svgOrigin: '23 6' }, { rotation: 0, duration: 1.6, ease: 'elastic.out(1.2, 0.28)' }, 0.4);
+
+      if (suporte === 'faixa') {
+        // a tarja abre numa linha, em degraus, e o texto ainda procura o tracking
+        gsap.set(cartao, { opacity: 1 });
+        const tl = anima(gsap.timeline());
+        tl.fromTo(corpo, { clipPath: 'inset(48% 0% 48% 0%)' },
+          { clipPath: 'inset(0% 0% 0% 0%)', duration: 0.26, ease: 'steps(4)', clearProps: 'clipPath' }, 0);
+        tl.fromTo(corpo.firstChild, { x: 14, opacity: 0.4 }, { x: 0, opacity: 1, duration: 0.3, ease: 'steps(3)' }, 0.2);
+        return;
+      }
+
+      if (suporte === 'etiqueta') {
+        // cai pendurada no fio e balança em volta do furo até parar
+        gsap.set(cartao, { opacity: 1, transformOrigin: '50% 0%' });
+        const tl = anima(gsap.timeline());
+        tl.fromTo(cartao, { y: -150 }, { y: 0, duration: 0.55, ease: curvas.poppy.pulo }, 0);
+        tl.fromTo(cartao, { rotation: giro + 16 }, { rotation: giro, duration: 2.2, ease: 'elastic.out(1, 0.22)' }, 0.18);
+        return;
+      }
+
+      if (suporte === 'visor') {
+        // o mostrador liga: uma linha âmbar que abre em degraus
+        gsap.set(cartao, { opacity: 1 });
+        const tl = anima(gsap.timeline());
+        tl.fromTo(corpo, { scaleY: 0.03, scaleX: 0.86 }, { scaleY: 1, scaleX: 1, duration: 0.28, ease: 'steps(5)' }, 0);
+        tl.fromTo(corpo.lastChild, { opacity: 0 }, { opacity: 1, duration: 0.24, ease: 'steps(3)' }, 0.28);
+        return;
+      }
+
+      if (suporte === 'legenda') {
+        // a legenda fechada escreve da esquerda, em blocos, como num aparelho antigo
+        gsap.set(cartao, { opacity: 1 });
+        anima(gsap.fromTo(corpo, { clipPath: 'inset(0% 100% 0% 0%)' },
+          { clipPath: 'inset(0% 0% 0% 0%)', duration: 0.6, ease: 'steps(9)', clearProps: 'clipPath' }));
+        return;
+      }
+
+      // a placa: cai com mola e os parafusos chegam de estalo
+      const tl = cair(cartao, giro, indice % 2 ? 1 : -1, { gsap, anima });
+      tl.fromTo(enfeites, { scale: 1.7, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 0.3, ease: 'back.out(3)', stagger: 0.06 }, 0.34);
     },
   };
 }
@@ -141,25 +157,26 @@ export function criarMonitor({ img, legenda, indice, amb, gsap, anima }) {
   let entrou = false;
   return {
     el: fig,
-    entrar() {
+    entrar({ imediato = false } = {}) {
       if (entrou) return;
       entrou = true;
       fig.classList.remove('poppy-entra');
+      if (imediato) { fig.classList.add('ligado'); gsap.set(fig, { opacity: 1 }); return; }
       if (amb.reduzido) {
         fig.classList.add('ligado');
-        anima(gsap.fromTo(fig, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.55, ease: 'none' }));
+        anima(gsap.fromTo(fig, { opacity: 0 }, { opacity: 1, duration: 0.55, ease: 'none' }));
         return;
       }
-      gsap.set(img, { autoAlpha: 0 });
-      if (legendaEl) gsap.set(legendaEl, { autoAlpha: 0 });
+      gsap.set(img, { opacity: 0 });
+      if (legendaEl) gsap.set(legendaEl, { opacity: 0 });
       const tl = cair(fig, giro, indice % 2 ? -1 : 1, { gsap, anima });
       // a tela liga: uma linha que abre, em degraus, e a imagem ainda procura o tracking
       tl.add(() => fig.classList.add('ligado'), 0.5);
-      tl.set(img, { autoAlpha: 1, scaleY: 0.012, scaleX: 0.72 }, 0.52);
+      tl.set(img, { opacity: 1, scaleY: 0.012, scaleX: 0.72 }, 0.52);
       tl.to(img, { scaleY: 1, scaleX: 1, duration: 0.3, ease: 'steps(5)' }, 0.52);
       tl.fromTo(img, { x: 16 }, { x: 0, duration: 0.26, ease: 'steps(4)' }, 0.82);
       tl.fromTo(img, { opacity: 0.55 }, { opacity: 1, duration: 0.3, ease: 'steps(3)' }, 0.82);
-      if (legendaEl) tl.set(legendaEl, { autoAlpha: 1 }, 1.12);
+      if (legendaEl) tl.set(legendaEl, { opacity: 1 }, 1.12);
     },
   };
 }

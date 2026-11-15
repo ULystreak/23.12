@@ -11,6 +11,7 @@
 
 import { el, espera } from '../nucleo/util.js';
 import { curvas, revelarPalavras } from '../nucleo/movimento.js';
+import { aquecerEnvelope } from '../mundo/envelope.js';
 
 const SILENCIO = 1000;          // ms de branco puro antes de tudo
 const FOCO_DO_COMECO = 1.1;     // m: as primeiras pétalas nascem fora de foco...
@@ -71,7 +72,12 @@ export async function cenaAbertura(ctx) {
   const fonte = document.fonts && document.fonts.load
     ? document.fonts.load('400 32px "Shippori Mincho"', frases[0] || 'a').catch(() => {})
     : null;
-  await Promise.all([espera(SILENCIO), Promise.race([fonte, espera(1800)])]);
+  // No branco parado, a primeira carta é preparada (texturas, shaders): o primeiro
+  // passo da caminhada não paga por isso. Um quadro antes, para o branco já estar na tela.
+  const aquecer = new Promise((r) => requestAnimationFrame(r))
+    .then(() => aquecerEnvelope(mundo, { lacre: 'coracao', amarracao: 'cordao' }))
+    .catch(() => {});
+  await Promise.all([espera(SILENCIO), Promise.race([fonte, espera(1800)]), Promise.race([aquecer, espera(2400)])]);
 
   // As pétalas começam, poucas, entrando por cima; o resto do site baixa em segundo plano.
   // No movimento reduzido elas não descem do alto da tela (lentas como estão, a

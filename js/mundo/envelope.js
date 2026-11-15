@@ -59,7 +59,34 @@ const COR_CORDAO = '#d7192d';
 const COR_CERA = '#9c0d2b';
 
 export function criarEnvelope(mundo, opcoes = {}) {
-  return mundo.ok ? criarEnvelope3D(mundo, opcoes) : criarEnvelopeLeve(mundo, opcoes);
+  if (!mundo.ok) return criarEnvelopeLeve(mundo, opcoes);
+  // uma carta igual já preparada (aquecerEnvelope) é entregue no lugar de uma nova
+  const chave = chaveDe(opcoes);
+  const i = aquecidos.findIndex((a) => a.chave === chave && a.mundo === mundo && !a.env.descartado);
+  if (i >= 0) return aquecidos.splice(i, 1)[0].env;
+  return criarEnvelope3D(mundo, opcoes);
+}
+
+const aquecidos = [];
+const chaveDe = ({ lacre = 'coracao', amarracao = 'cordao' } = {}) => `${lacre}|${amarracao}`;
+
+/**
+ * Extra: prepara de antemão a próxima carta (texturas geradas, shaders compilados
+ * e texturas na GPU) num momento parado, para o primeiro passo da caminhada não
+ * engasgar. O próximo criarEnvelope com as mesmas opções a recebe pronta.
+ */
+export function aquecerEnvelope(mundo, opcoes = {}) {
+  if (!mundo?.ok) return Promise.resolve();
+  const chave = chaveDe(opcoes);
+  if (aquecidos.some((a) => a.chave === chave && a.mundo === mundo)) return Promise.resolve();
+  try {
+    const env = criarEnvelope3D(mundo, opcoes);
+    aquecidos.push({ chave, mundo, env });
+    return env.preparar();
+  } catch (erro) {
+    console.error('[carta] aquecer envelope', erro);
+    return Promise.resolve();
+  }
 }
 
 /** Promise que resolve quando a animação termina (ou é morta). */
@@ -133,7 +160,8 @@ function telaFibra(tam) {
   return tela(`fibra${tam}`, () => {
     const c = document.createElement('canvas');
     c.width = c.height = tam;
-    const g = c.getContext('2d');
+    // o grão é lido de volta (getImageData): canvas na CPU, sem ida e volta à GPU
+    const g = c.getContext('2d', { willReadFrequently: true });
     g.fillStyle = 'rgb(128,128,128)';
     g.fillRect(0, 0, tam, tam);
     const rnd = semente(23);
@@ -733,6 +761,10 @@ void main() {
 `;
 
 const VERT_CORDAO = /* glsl */ `
+#define W ${f(W)}
+#define H ${f(H)}
+uniform float uSolta;     // 0 justo no envelope, 1 frouxo: a volta cede como corda
+uniform float uLado;      // para que lado esta volta escorrega
 varying vec2 vUv;
 varying vec3 vL;
 varying vec3 vN;
@@ -741,8 +773,20 @@ varying vec3 vPosV;
 void main() {
   vUv = uv;
   vL = position;
+  vec3 p = position;
+  if (uSolta > 0.0) {
+    // Solto, o trecho horizontal barriga para baixo (as pontas ainda presas nas
+    // bordas), o vertical arqueia para o lado e tudo ondula um pouco: corda, não vareta.
+    float u = clamp(position.x / (W * 0.5), -1.0, 1.0);
+    float v = clamp(position.y / (H * 0.5), -1.0, 1.0);
+    float barriga = 1.0 - u * u;
+    float arco = 1.0 - v * v;
+    p.y -= uSolta * (0.05 * barriga + 0.006 * sin(position.x * 48.0 + uLado * 1.7));
+    p.x += uSolta * uLado * (0.032 * arco + 0.005 * sin(position.y * 55.0 + 0.8));
+    p.z += uSolta * (0.018 * barriga * arco + 0.004 * sin(position.x * 37.0 + position.y * 29.0));
+  }
   vN = normalize(normalMatrix * normal);
-  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+  vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);
   vPosV = mvPosition.xyz;
   gl_Position = projectionMatrix * mvPosition;
   #include <fog_vertex>
@@ -953,14 +997,22 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao' }) {
   const segTubo = baixo ? 0.6 : 1;
   const radiais = baixo ? 5 : 8;
 
-  function tubo(pontos, { fechado = false, pai = amarra, raio = raioFio } = {}) {
+  // cada volta tem o próprio material (mesmo programa): ela cede no seu tempo, para o seu lado
+  const matVolta = (lado) => shader({
+    uniforms: { ...matCordao.uniforms, ...uniformesComuns(), uSolta: { value: 0 }, uLado: { value: lado } },
+    vertexShader: VERT_CORDAO,
+    fragmentShader: FRAG_CORDAO,
+    transparent: true,
+  });
+
+  function tubo(pontos, { fechado = false, pai = amarra, raio = raioFio, mat = matCordao } = {}) {
     const curva = new THREE.CatmullRomCurve3(pontos, fechado, 'centripetal');
     const comp = curva.getLength();
     const segs = Math.max(12, Math.round((comp / 0.0012) * segTubo));
     const g = geo(new THREE.TubeGeometry(curva, segs, raio, radiais, fechado));
     const uv = g.attributes.uv;
     for (let i = 0; i < uv.count; i++) uv.setX(i, (uv.getX(i) * comp) / passoTorcao);
-    const m = new THREE.Mesh(g, matCordao);
+    const m = new THREE.Mesh(g, mat);
     pai.add(m);
     if (!fechado) {
       // pontas arrematadas (sem o tubo oco aparecendo)
@@ -1020,13 +1072,21 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao' }) {
 
   // cada volta num grupo próprio: ao soltar, elas se separam em vez de cair como uma cruz rígida
   const voltas = [];
-  const novaVolta = () => { const g = new THREE.Group(); amarra.add(g); voltas.push(g); return g; };
+  const novaVolta = () => {
+    const g = new THREE.Group();
+    amarra.add(g);
+    g.userData.mat = matVolta(voltas.length % 2 ? 1 : -1);
+    voltas.push(g);
+    return g;
+  };
+
+  const naVolta = () => { const g = novaVolta(); return { pai: g, mat: g.userData.mat }; };
 
   if (amarracao === 'fio') {
     // duas voltas finas, quase paralelas, que se cruzam; laço simples no meio
     const incl = 0.028;
-    tubo(voltaHorizontal(() => LACRE_Y + 0.0026), { fechado: true, pai: novaVolta() });
-    tubo(voltaHorizontal((x) => LACRE_Y - 0.0024 + x * incl, raioFio * 1.2), { fechado: true, pai: novaVolta() });
+    tubo(voltaHorizontal(() => LACRE_Y + 0.0026), { fechado: true, ...naVolta() });
+    tubo(voltaHorizontal((x) => LACRE_Y - 0.0024 + x * incl, raioFio * 1.2), { fechado: true, ...naVolta() });
     linhas[0].set(0, 1, -(LACRE_Y + 0.0026), raioFio);
     const n = Math.hypot(incl, 1);
     linhas[1].set(-incl / n, 1 / n, (LACRE_Y - 0.0024) * (-1 / n), raioFio);
@@ -1048,8 +1108,8 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao' }) {
     laco.add(no);
   } else {
     // cordão em cruz, passando sob o lacre, com um laço pequeno que escapa por baixo dele
-    tubo(voltaHorizontal(() => LACRE_Y), { fechado: true, pai: novaVolta() });
-    tubo(voltaVertical(0), { fechado: true, pai: novaVolta() });
+    tubo(voltaHorizontal(() => LACRE_Y), { fechado: true, ...naVolta() });
+    tubo(voltaVertical(0), { fechado: true, ...naVolta() });
     linhas[0].set(0, 1, -LACRE_Y, raioFio);
     linhas[1].set(1, 0, 0, raioFio);
     const y = LACRE_Y;
@@ -1138,6 +1198,7 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao' }) {
   let tempoBrilho = 0;
   let papelSolto = false;
   let descartado = false;
+  let preparo = null;
   const vAux = new THREE.Vector3();
   const vAux2 = new THREE.Vector3();
   const gravidade = 3.4;
@@ -1244,6 +1305,22 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao' }) {
       return { left, top, right, bottom, width: right - left, height: bottom - top };
     },
 
+    /** Compila os programas e sobe as texturas antes de a carta entrar em cena (uma vez só). */
+    preparar() {
+      if (!preparo) {
+        const { renderer } = mundo;
+        preparo = Promise.resolve().then(() => {
+          for (const tx of texturas) renderer.initTexture?.(tx);
+          if (renderer.compileAsync) return renderer.compileAsync(grupo, camera, mundo.cena);
+          renderer.compile?.(grupo, camera, mundo.cena);
+          return null;
+        }).catch((erro) => { console.error('[carta] preparar envelope', erro); });
+      }
+      return preparo;
+    },
+
+    get descartado() { return descartado; },
+
     get ancoraFio() {
       grupo.updateWorldMatrix(true, true);
       return ponta.getWorldPosition(new THREE.Vector3());
@@ -1315,13 +1392,16 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao' }) {
           // um lado, com um pequeno atraso entre elas (corda solta, não uma peça só)
           .to(laco.scale, { x: 0.02, y: 0.05, duration: 0.3, ease: 'power2.in' }, tLaco + 0.34)
           .add(() => { laco.visible = false; }, tLaco + 0.64)
-          .to(uAlfaFio, { value: 0, duration: 0.3, ease: 'none' }, tLaco + 1.12)
-          .add(() => { amarra.visible = false; }, tLaco + 1.44);
+          .to(uAlfaFio, { value: 0, duration: 0.4, ease: 'power1.in' }, tLaco + 0.78)
+          .add(() => { amarra.visible = false; }, tLaco + 1.2);
+        // Cada volta afrouxa primeiro (cede, barriga, arqueia) e só então escorrega
+        // para baixo e para o seu lado, quase sem girar: uma corda solta, não uma peça.
         voltas.forEach((g, i) => {
           const lado = i % 2 ? 1 : -1;
-          const t0 = tLaco + 0.5 + i * 0.1;
-          tl.to(g.position, { y: -0.34 - i * 0.03, x: lado * 0.025, duration: 0.85, ease: 'power2.in' }, t0)
-            .to(g.rotation, { z: lado * -0.42, x: -0.35 - i * 0.3, duration: 0.85, ease: 'power1.in' }, t0);
+          const t0 = tLaco + 0.34 + i * 0.08;
+          tl.to(g.userData.mat.uniforms.uSolta, { value: 1, duration: 0.5, ease: 'power2.out' }, t0)
+            .to(g.position, { y: -0.2 - i * 0.03, x: lado * 0.03, duration: 0.8, ease: 'power2.in' }, t0 + 0.12)
+            .to(g.rotation, { z: lado * -0.12, x: -0.1 - i * 0.08, duration: 0.8, ease: 'power1.in' }, t0 + 0.12);
         });
       }
 
@@ -1365,6 +1445,13 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao' }) {
       papelSolto = true;
       papel.visible = true;
       const pose3 = mundo.retanguloParaPose(alvo, papel);
+      // Quando a folha cobre a tela (celular), o papel pousa passando ~2 px de cada
+      // borda: nenhuma lasca do mundo aparece no quadro da troca.
+      if (alvo && alvo.width >= innerWidth - 2) {
+        const sobra = 1 + 4 / Math.max(1, alvo.width);
+        pose3.escala.x *= sobra;
+        pose3.escala.y *= 1 + 4 / Math.max(1, alvo.height);
+      }
       pose3.pai.attach(papel);                             // agora no espaço da câmera: não treme com o passo
       papel.renderOrder = 20;
       matCarta.depthTest = false;                          // passa na frente de tudo enquanto cresce
@@ -1398,7 +1485,9 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao' }) {
         .to(u.uDobra, { value: 0, duration: dur * 0.7, ease: 'power2.inOut' }, 0.12)
         .to(u.uOnda, { value: 0.006, duration: dur * 0.35, ease: 'power2.out' }, 0.1)
         .to(u.uOnda, { value: 0, duration: dur * 0.5, ease: 'power2.inOut' }, 0.1 + dur * 0.35)
-        .to(u.uPlano, { value: 1, duration: dur * 0.42, ease: 'power2.inOut' }, dur * 0.58)
+        // a luz sai do papel enquanto ele ainda voa: os três terços que se desdobram
+        // param de ter tons diferentes e ele chega já na cor exata da folha DOM
+        .to(u.uPlano, { value: 1, duration: dur * 0.5, ease: 'power1.inOut' }, dur * 0.3)
         // o envelope cai para trás e se dissolve no branco
         .to(pose, { z: -0.32, y: -0.16, rx: -1.1, duration: dur * 0.9, ease: curvas.branco.sair }, 0.05)
         .to(comum.uBranco, { value: 1, duration: dur * 0.75, ease: 'power1.in' }, 0.15)

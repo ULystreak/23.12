@@ -2,7 +2,9 @@
 // tem a mesma hora, o mesmo sol, as nuvens, as estrelas com a via láctea, as
 // serras com o lago e a cidadezinha, e o cometa que se divide.
 //
-//   const pintor = criarPintorLeve(recipiente, amb)
+//   const pintor = criarPintorLeve(recipiente, amb, { provisorio })
+//     provisorio  sem nuvens nem estrelas assadas (o canvas 2D custa GPU): é o céu
+//                 de enquanto o WebGL compila, e some antes de anoitecer
 //   pintor.desenhar(estado)   estado de paleta.js (o mesmo do WebGL)
 //   pintor.redimensionar() / pintor.destruir()
 //
@@ -10,7 +12,7 @@
 // recoloridas só quando a hora anda); o resto é degradê CSS, SVG e transform.
 
 import { css } from './paleta.js';
-import { clamp, semente } from '../../nucleo/util.js';
+import { clamp, semente, suave } from '../../nucleo/util.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const no = (tag, attrs = {}) => {
@@ -20,7 +22,7 @@ const no = (tag, attrs = {}) => {
 };
 const f1 = (v) => (Math.round(v * 10) / 10).toString();
 
-export function criarPintorLeve(recipiente, amb = {}) {
+export function criarPintorLeve(recipiente, amb = {}, { provisorio = false } = {}) {
   const raiz = document.createElement('div');
   raiz.className = 'yn-ceu-leve';
   raiz.setAttribute('aria-hidden', 'true');
@@ -87,7 +89,8 @@ export function criarPintorLeve(recipiente, amb = {}) {
   const pA = pedaco(gradA);
   const pB = pedaco(gradB);
 
-  raiz.append(grad, estrelas, sol, nuvens, clarao, cometaSvg, terra);
+  if (provisorio) raiz.append(grad, sol, clarao, cometaSvg, terra);
+  else raiz.append(grad, estrelas, sol, nuvens, clarao, cometaSvg, terra);
   recipiente.append(raiz);
 
   let W = 1;
@@ -290,8 +293,10 @@ export function criarPintorLeve(recipiente, amb = {}) {
     const h = Math.max(2, Math.round(recipiente.clientHeight || 1));
     if (w === W && h === H) return;
     W = w; H = h;
-    assarEstrelas();
-    assarNuvens();
+    if (!provisorio) {
+      assarEstrelas();
+      assarNuvens();
+    }
     montarTerra();
     horaGrad = -1;
     ultimoComet = '';
@@ -344,6 +349,7 @@ export function criarPintorLeve(recipiente, amb = {}) {
 
   return {
     tipo: 'leve',
+    tela: raiz,
     get aspecto() { return W / H; },
     redimensionar: ajustar,
     baixar() { return false; },
@@ -364,7 +370,8 @@ export function criarPintorLeve(recipiente, amb = {}) {
         lagoB.setAttribute('stop-color', css(tom(e.c2, e.c3, 0.4, 0.66)));
         brilhos.setAttribute('fill', css(tom(e.c0, [1, 1, 1], 0.45, 1)));
         for (const g of luzes.children) g.setAttribute('opacity', clamp((h - Number(g.dataset.acende)) / 0.03).toFixed(2));
-        nuvens.style.opacity = (0.92 - e.estrelas * 0.66).toFixed(3);
+        // À noite as nuvens quase somem: sobra um véu fino, não um bloco por cima das estrelas.
+        nuvens.style.opacity = (0.92 * (1 - 0.92 * suave(e.estrelas))).toFixed(3);
       }
       if (Math.abs(h - horaNuvem) > 0.02) { horaNuvem = h; pintarNuvens(e); }
       // o sol desce; as nuvens sobem com a rolagem; a terra sobe com a hora

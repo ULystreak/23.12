@@ -42,14 +42,16 @@ const COR_TINTA = [42, 27, 34];       // --tinta, depois de seca
 const COR_MOLHADA = [15, 5, 10];      // recém-escrita: mais escura
 const FONTE = '"Klee One", "Shippori Mincho", Georgia, serif';
 const PESO = 600;
-const INCLINACAO = 0.1;               // a mão inclina a letra para a direita (~6°), cada letra um pouco diferente
+// Quase nada de inclinação comum (senão vira "itálico de fonte"): o que faz a mão
+// é a diferença de uma letra para a outra e a linha de base que oscila.
+const INCLINACAO = 0.02;
 const APERTO = -0.045;                // a Klee One é espaçada de fôrma: a mão aproxima as letras (em tamanhos de letra)
 // Cada letra sai um nada diferente da outra (nunca o mesmo carimbo): altura,
 // giro, tamanho e inclinação variam pouco, e devagar ao longo da palavra.
-const VARIA = { altura: 0.034, giro: 0.055, tamanho: 0.05, inclinacao: 0.055 };
-const ENTRELINHA = 1.74;
-const MARGEM_ESQ = 0.155;             // em larguras de folha
-const LARGURA_UTIL = 0.715;
+const VARIA = { altura: 0.06, giro: 0.055, tamanho: 0.055, inclinacao: 0.03 };
+const ENTRELINHA = 1.6;
+const MARGEM_ESQ = 0.11;              // em larguras de folha (margem curta: o corpo da letra vem antes)
+const LARGURA_UTIL = 0.79;
 const CADENCIA = 0.122;               // segundos por letra, em média (o ritmo real vem da tinta de cada letra)
 const SECAGEM = 1.5;                  // segundos até a tinta ficar da cor final
 const GORDURA = 0.0065;               // quanto a tinta molhada é mais cheia (em tamanhos de letra, por lado)
@@ -65,12 +67,20 @@ function comoPromise(animacao) {
   });
 }
 
-function espelhoParaLeitor(texto) {
+function espelhoParaLeitor() {
   // A frase inteira para leitores de tela, anunciada uma vez (a tinta é só imagem).
+  // A região viva nasce VAZIA, junto com a folha: uma região que já entra com o
+  // texto costuma não ser anunciada. O texto chega depois, em anunciar().
   const p = el('p', { class: 'so-leitor', 'aria-live': 'polite' });
   (document.getElementById('palco') || document.body).append(p);
-  p.textContent = texto;
   return p;
+}
+
+/** Escreve a frase na região viva um quadro depois (assim a mudança é anunciada). */
+function anunciar(p, texto) {
+  if (!p) return;
+  if (!p.isConnected) (document.getElementById('palco') || document.body).append(p);
+  requestAnimationFrame(() => requestAnimationFrame(() => { p.textContent = texto; }));
 }
 
 /** Espera a fonte manuscrita (no máximo ~1,5 s; se faltar, o navegador usa a reserva). */
@@ -231,7 +241,9 @@ function criarEscrita({ amb, largura = 1024 }) {
     // muito longa pode atravessar os vincos e, só então, diminui mais.
     const maximo = U * LARGURA_UTIL;
     const terco = (2 * U) / 3;
-    let fs = Math.round(U * 0.074);
+    // Corpo de clímax: ~28–34 px na tela do celular e do computador (a folha
+    // ocupa ~300 px de largura ali), maior que as frases de abertura.
+    let fs = Math.round(U * 0.1);
     let linhas = [];
     let larguras = [];
     let espaco = 0;
@@ -242,7 +254,7 @@ function criarEscrita({ amb, largura = 1024 }) {
       linhas = quebrarEquilibrado(palavras, larguras, espaco, maximo);
       // altura que se vê: das hastes da primeira linha às pernas da última
       const alturaBloco = (linhas.length - 1) * fs * ENTRELINHA + fs * 1.15;
-      const cabe = fs > U * 0.039 ? alturaBloco <= terco * 0.8 : alturaBloco <= 2 * U * 0.72;
+      const cabe = fs > U * 0.039 ? alturaBloco <= terco * 0.9 : alturaBloco <= 2 * U * 0.72;
       if (cabe || fs <= U * 0.028) break;
       fs = Math.max(Math.round(fs * 0.94), Math.round(U * 0.028));
     }
@@ -1137,7 +1149,7 @@ function criarFolha3D(mundo) {
   let textura = null;
   let textoPronto = null;
   let preparando = null;
-  let espelho = null;
+  let espelho = espelhoParaLeitor();       // vazio até escrever(): ver anunciar()
   let quadro = 0;
 
   function ligarTextura(plano) {
@@ -1425,8 +1437,8 @@ function criarFolha3D(mundo) {
 
     async escrever(texto, opcoes = {}) {
       const frase = String(texto ?? '');
-      if (!espelho) espelho = espelhoParaLeitor(frase);
-      else espelho.textContent = frase;
+      if (!espelho) espelho = espelhoParaLeitor();
+      anunciar(espelho, frase);
       try {
         await preparar(frase);
       } catch (erro) {
@@ -1653,7 +1665,7 @@ function criarFolhaLeve(mundo) {
   corpo.append(escrita.tela);
 
   let textoPronto = null;
-  let espelho = null;
+  let espelho = espelhoParaLeitor();       // vazio até escrever(): ver anunciar()
   let assumiu = false;
   let descartada = false;
   let vivendo = false;
@@ -1836,8 +1848,8 @@ function criarFolhaLeve(mundo) {
     async escrever(texto, opcoes = {}) {
       const frase = String(texto ?? '');
       // #mundo-leve é aria-hidden: quem lê em voz alta recebe o espelho.
-      if (!espelho) espelho = espelhoParaLeitor(frase);
-      else espelho.textContent = frase;
+      if (!espelho) espelho = espelhoParaLeitor();
+      anunciar(espelho, frase);
       try {
         await preparar(frase);
       } catch (erro) {

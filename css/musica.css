@@ -593,6 +593,54 @@
   transition-timing-function: var(--curva-ui), linear, linear, linear;
 }
 
+/* No mundo branco do fim (a mão, a última carta): o disco de vinil volta a ser
+   disco, com os sulcos à mostra e a capa pequena e sem cor no rótulo. Nada ali
+   compete com o branco e com o fio. Um toque ou o foco trazem a cor de volta. */
+.disco-mini .disco-rotulo {
+  transition: transform 700ms var(--curva-branco-entrar);
+}
+.disco-mini .disco-gira img {
+  transition: filter 700ms linear, opacity 700ms linear;
+}
+#mini[data-longe] .mini-visual {
+  transform: scale(0.84);
+  opacity: 0.88;
+}
+#mini[data-longe] .disco-mini .disco-rotulo {
+  transform: translateZ(0) scale(0.47);
+}
+#mini[data-longe] .disco-mini .disco-gira img {
+  filter: grayscale(1) sepia(0.18) contrast(0.92);
+  opacity: 0.86;
+}
+#mini[data-longe][data-aberto] .mini-visual,
+#mini[data-longe] .mini-botao:focus-visible .mini-visual { transform: none; opacity: 1; }
+#mini[data-longe][data-aberto] .disco-mini .disco-rotulo { transform: translateZ(0); }
+#mini[data-longe][data-aberto] .disco-mini .disco-gira img { filter: none; opacity: 1; }
+
+/* Celular com a folha à vista: o disco encosta no canto do papel, um pouco menor,
+   em cima da margem da costura (que começa logo abaixo dele, ver pergaminho.js).
+   Só o desenho anda e encolhe; o alvo de toque continua com 48 px. */
+@media (max-width: 759.98px) {
+  #mini {
+    transition: transform 460ms var(--curva-branco-entrar);
+  }
+  #pergaminho[data-estado] ~ #mini {
+    transform: translate(10px, calc(max(var(--perg-margem, 10px), var(--seguro-topo)) - var(--seguro-topo) - 18px));
+  }
+  #pergaminho[data-estado] ~ #mini .mini-visual {
+    transform: scale(0.834);
+  }
+  /* Recolhido, vira uma conta na própria margem da costura (não sai da tela). */
+  #pergaminho[data-estado] ~ #mini[data-quieto] .mini-visual {
+    transform: translate(0, 2px) scale(0.36);
+  }
+  #pergaminho[data-estado] ~ #mini[data-aberto] .mini-visual { transform: none; }
+  /* O painel acompanha o disco sem passar da borda da tela. */
+  #pergaminho[data-estado] ~ #mini .mini-painel { right: -2px; }
+}
+html.reduzido #mini { transition: none; }
+
 /* ---- aberto: o painel nasce do disco ---- */
 .mini-painel {
   position: absolute;

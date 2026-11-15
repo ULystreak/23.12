@@ -34,6 +34,15 @@ const RAIO_ANEL = 22.6;          // raio do fio de progresso em volta do disco (
 const VOLTA_ANEL = 2 * Math.PI * RAIO_ANEL;
 
 const n2 = (v) => Math.round(v * 100) / 100;
+const FIM_SEM_BOTAO = new Set(['desdobrando', 'escrevendo', 'fim']);   // etapas da cena final sem o mini
+
+// Quem abriu a carta pelo teclado ganha o foco na primeira faixa; quem tocou, não
+// (senão o anel de foco aparece no iPhone como se a faixa já estivesse escolhida).
+let viaTeclado = false;
+if (typeof window !== 'undefined') {
+  window.addEventListener('keydown', () => { viaTeclado = true; }, true);
+  window.addEventListener('pointerdown', () => { viaTeclado = false; }, true);
+}
 
 /** Curva suave (Catmull-Rom → Bézier) passando por todos os pontos. */
 function caminhoSuave(p) {
@@ -371,6 +380,8 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
     const continuar = el('button', {
       class: 'musica-continuar', type: 'button', dataset: { acao: 'continuar' },
     }, [rotuloContinuar, svg(ICONE_SETA)]);
+    // Sem texto visível, a seta sozinha precisa de um nome para o leitor de tela.
+    if (!dados.continuar && rotulos.continuar) continuar.setAttribute('aria-label', rotulos.continuar);
     // Poucas faixas: linhas largas, capas maiores. De cinco em diante, linhas mais juntas (seis ainda cabem
     // na tela do celular); passando disso, a lista rola dentro da folha.
     const folga = faixas.length <= 3 ? 'larga' : faixas.length <= 4 ? 'media' : 'justa';
@@ -575,6 +586,16 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
     folha.textContent = '';
     folha.append(painel);
     marcarRolagem();
+    // O foco que estava na carta sumiu com ela: vai para a primeira faixa (só se
+    // estava solto no body, para não tirar nada do lugar de ninguém).
+    // A carta pode sair um instante depois da folha chegar: confere de novo.
+    const focarPrimeira = () => {
+      const ativo = document.activeElement;
+      if (!viaTeclado || terminado || !painel.isConnected || (ativo && ativo !== document.body)) return;
+      try { linhas[0].botao.focus({ preventScroll: true }); } catch { /* segue */ }
+    };
+    focarPrimeira();
+    espera(700).then(focarPrimeira);
     revelarPalavras(titulo, dados.titulo || '', { intervalo: 0.12, duracao: 1.2 });
 
     if (calmo()) {
@@ -838,6 +859,12 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
       // Enquanto o capítulo ainda está enrolando, o mini continua com a pele dele.
       else if (etapa && etapa !== 'enrolando') pele = 'papel';
       if (mini.dataset.pele !== pele) mini.dataset.pele = pele;
+      // No mundo branco do fim (a mão, a última carta) o disco se recolhe ao canto,
+      // pequeno e sem cor: o branco e o fio vermelho são o que importa ali.
+      const longe = (cena === 'mao' && etapa !== 'enrolando') || cena === 'final';
+      mini.toggleAttribute('data-longe', longe);
+      // A última folha é sem botão: o disco vai embora e a música continua.
+      if (cena === 'final' && FIM_SEM_BOTAO.has(etapa)) api.esconderMini();
       // Cena nova, canto novo: confere de novo se há algo para ler embaixo do disco.
       assentar();
     };

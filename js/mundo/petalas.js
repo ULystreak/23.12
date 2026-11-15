@@ -7,6 +7,11 @@
 //                                   tivessem começado a cair agora (sem isso, já estão no ar)
 //   petalas.protagonistas()         só a abertura usa: algumas pétalas enormes e bem
 //                                   desfocadas cruzam devagar rente à lente
+//   petalas.protegerRetangulo(r)    r = { left, top, right, bottom } em px (ou função que o
+//                                   devolve a cada quadro), ou null: as pétalas desfocadas
+//                                   entre a lente e esse retângulo quase somem. Nas etapas de
+//                                   foco (carta-espera, mao-espera, desdobrando, escrevendo,
+//                                   fim...) vale sozinho, com o miolo da tela como retângulo.
 //   petalas.atualizar(dt, t)        chamado pelo mundo a cada quadro
 //   petalas.objeto                  Object3D (já está na cena)
 //   petalas.dispose()
@@ -43,6 +48,8 @@ const FOCO_PADRAO = 3;               // metros
 const ALTURA_CAIXA = 5.6;
 const FUNDO_CAIXA = 9;
 const LARGURA_MINIMA = 5;
+// Etapas em que ela está olhando algo no meio da tela: nada desfocado passa na frente.
+const ETAPAS_FOCO = new Set(['carta-espera', 'carta-abrindo', 'mao-espera', 'desdobrando', 'escrevendo', 'fim']);
 const SOPRO = { velocidade: 0.5, calma: 2.2 };   // o primeiro sopro da abertura: m/s a mais, e em quantos segundos passa
 
 const VERTICE = /* glsl */ `
@@ -54,6 +61,8 @@ const VERTICE = /* glsl */ `
   uniform vec2 uPerto;        // rente à lente a pétala some (antes de cortar no plano próximo)
   uniform vec3 uLuzDir;       // de onde vem a luz (mundo)
   uniform float uConcha;      // quão funda é a concha
+  uniform vec4 uProtege;      // retângulo protegido em NDC (x0, y0, x1, y1)
+  uniform float uProtegeK;    // 0..1, quanto a zona protegida vale agora
 
   varying vec2 vP;            // coordenada na pétala (a silhueta cabe em ±0,8)
   varying vec2 vQ;            // coordenada no quadrado (±1)
@@ -77,11 +86,31 @@ const VERTICE = /* glsl */ `
 
     // Círculo de confusão: cresce com a distância ao plano de foco.
     float abertura = prof < uFoco ? uAbertura.x : uAbertura.y;
-    float s = min(abertura * abs(prof - uFoco) / uFoco * extra / unidade, 2.2);
+    float sLuz = abertura * abs(prof - uFoco) / uFoco * extra / unidade;
+    // A forma tem teto baixo (a rampa da borda nunca passa do raio da pétala): rente
+    // à lente ela continua pétala, macia e clara, não
+    // bolha. Só as protagonistas da abertura (desfoque extra > 1,2) viram mancha.
+    float s = min(sLuz, extra > 1.2 ? 2.2 : 0.62);
 
     float nev = smoothstep(uNevoa.x, uNevoa.y, prof);
     float a = alfa * smoothstep(uPerto.x, uPerto.y, prof) * (1.0 - nev);
-    a *= max(1.0 / (1.0 + 1.5 * s * s), 0.15);            // a luz se espalha: quanto maior, mais fraca
+    a *= max(1.0 / (1.0 + 1.5 * sLuz * sLuz), 0.15);      // a luz se espalha: quanto maior, mais fraca
+
+    #ifndef CHAO
+    // Zona protegida (a carta, a mão, a folha): a pétala desfocada que passa entre a
+    // lente e o que ela está olhando quase some; as nítidas e as de trás continuam.
+    if (uProtegeK > 0.001 && extra <= 1.2 && prof < uFoco) {
+      vec4 clipC = projectionMatrix * mvC;
+      vec2 ndc = clipC.xy / max(clipC.w, 1e-4);
+      vec2 raio = vec2(projectionMatrix[0][0], projectionMatrix[1][1]) * unidade * (0.86 + s) / max(prof, 0.05);
+      vec2 fora = max(max(uProtege.xy - ndc, ndc - uProtege.zw), 0.0) / max(raio, vec2(1e-3));
+      float dentro = 1.0 - smoothstep(0.35, 1.0, length(fora));
+      float borrada = smoothstep(0.45, 0.85, sLuz);
+      // e, com a folha perto (foco curto), as que estão bem à frente dela também
+      float rente = (1.0 - smoothstep(0.35, 0.6, prof / uFoco)) * smoothstep(2.0, 1.2, uFoco);
+      a *= 1.0 - 0.92 * uProtegeK * borrada * max(dentro, rente);
+    }
+    #endif
 
     if (a < 0.004) { sumir(); return; }
 
@@ -361,6 +390,8 @@ export function criarPetalas(mundo, amb) {
     uPerto: { value: amb.reduzido ? new THREE.Vector2(0.6, 1.1) : new THREE.Vector2(0.16, 0.38) },
     uLuzDir: { value: new THREE.Vector3(-0.3, 1, 0.45).normalize() },
     uConcha: { value: 0.55 },
+    uProtege: { value: new THREE.Vector4(-0.8, -0.62, 0.8, 0.7) },
+    uProtegeK: { value: 0 },
     uCorBaseA: { value: new THREE.Color('#6d0a22') },
     uCorBordaA: { value: new THREE.Color('#b3123a') },
     uCorBaseB: { value: new THREE.Color('#7d0c28') },
@@ -489,6 +520,26 @@ export function criarPetalas(mundo, amb) {
   let focoAlvo = FOCO_PADRAO;
   let desde = 1e5;                                  // tempo desde comecar(); enorme = já estavam no ar
   const posCamera = new THREE.Vector3();
+  let protegido = null;                             // retângulo (ou função) pedido por uma cena
+  const MIOLO = [-0.8, -0.62, 0.8, 0.7];            // sem retângulo pedido: o miolo da tela
+
+  function atualizarProtecao(dt) {
+    const raiz = document.documentElement;
+    let r = null;
+    try { r = typeof protegido === 'function' ? protegido() : protegido; } catch { r = null; }
+    const pedido = !!(r && r.right > r.left && r.bottom > r.top);
+    const foco = ETAPAS_FOCO.has(raiz.dataset.etapa);
+    const u = comuns.uProtege.value;
+    if (pedido) {
+      const L = Math.max(1, mundo.tamanho?.largura || innerWidth);
+      const A = Math.max(1, mundo.tamanho?.altura || innerHeight);
+      u.set((r.left / L) * 2 - 1, 1 - (r.bottom / A) * 2, (r.right / L) * 2 - 1, 1 - (r.top / A) * 2);
+    } else if (foco) {
+      u.set(MIOLO[0], MIOLO[1], MIOLO[2], MIOLO[3]);
+    }
+    const alvo = pedido || foco ? 1 : 0;
+    comuns.uProtegeK.value = amortecer(comuns.uProtegeK.value, alvo, alvo ? 3 : 1.2, dt);
+  }
 
   function ajustarQuantidade() {
     const q = QUANTIDADE[amb.nivel] || QUANTIDADE.medio;
@@ -599,6 +650,10 @@ export function criarPetalas(mundo, amb) {
       focoAlvo = Number.isFinite(d) && d > 0 ? clamp(d, 0.4, 30) : FOCO_PADRAO;
     },
 
+    protegerRetangulo(r) {
+      protegido = r || null;
+    },
+
     comecar() {
       desde = 0;
       matChuva.uniforms.uDesde.value = 0;
@@ -693,6 +748,7 @@ export function criarPetalas(mundo, amb) {
       uh.uCentro.value.set(rig.position.x, 0, rig.position.z - (FUNDO_CAIXA + 1) * 0.46);
 
       comuns.uFoco.value = amortecer(comuns.uFoco.value, focoAlvo, 2.2, dt);
+      atualizarProtecao(dt);
 
       if (vivas) atualizarSoltas(passo);
       else if (malhaSoltas.visible) malhaSoltas.visible = false;

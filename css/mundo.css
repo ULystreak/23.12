@@ -121,6 +121,14 @@
   pointer-events: none;
 }
 
+/* Zona protegida: quando ela está lendo ou olhando algo no meio da tela, as
+   manchas de perto (desfocadas) recuam; as nítidas e as de trás continuam. */
+.leve-frente:not(.leve-soltas) { transition: opacity 1.2s linear; }
+.leve-protege .leve-frente:not(.leve-soltas),
+html:is([data-etapa="frases"], [data-etapa="carta-espera"], [data-etapa="carta-abrindo"],
+  [data-etapa="mao-espera"], [data-etapa="desdobrando"], [data-etapa="escrevendo"],
+  [data-etapa="fim"]) .leve-frente:not(.leve-soltas) { opacity: 0.1; }
+
 /* Movimento reduzido: sem tombo (só a queda lenta), nada cruza a tela. */
 html.reduzido .leve-petala > b { animation: none; transform: rotate(var(--r0, -30deg)) scale(0.72, 1); }
 

@@ -18,17 +18,20 @@
 
 import { clamp, suave } from '../../nucleo/util.js';
 
-const PERIODO = 27;        // px de cordão para uma volta completa da trança
-const AMPLITUDE = 3.9;     // quanto cada fio se afasta da linha central
-const ESPESSURA = 4.1;     // largura de cada fio
+// A bitola é a do fio da carta: a trança inteira mede ~5 px (o cordão do
+// envelope tem ~2,5), para ela reconhecer que é o mesmo fio.
+const PERIODO = 15;        // px de cordão para uma volta completa da trança
+const AMPLITUDE = 1.75;    // quanto cada fio se afasta da linha central
+const ESPESSURA = 2.3;     // largura de cada fio
 const PASSO = 2;           // px entre amostras da linha central
 const DOIS_PI = Math.PI * 2;
 const MEIO_PI = Math.PI / 2;
 
+// Os três fios são o mesmo vermelho (--fio #d7192d); só a luz muda de um para outro.
 const FIOS = [
-  { cima: '#de1f33', baixo: '#a31226' },   // o vermelho do fio
-  { cima: '#f26a35', baixo: '#b9431c' },   // vermelho-alaranjado
-  { cima: '#b8143f', baixo: '#84092b' },   // rosa profundo
+  { cima: '#d7192d', baixo: '#a80f22' },
+  { cima: '#e2303d', baixo: '#8f0b1d' },
+  { cima: '#c3152a', baixo: '#8f0b1d' },
 ];
 const CASCA = 'rgba(48, 3, 18, 0.66)';
 
@@ -179,7 +182,7 @@ export function criarCordao({ tras, frente, palco }) {
           const sobra = porCima ? 0.35 : 0.9;
           const ini = Math.max(0, a - sobra);
           const ate = Math.min(L, b + sobra);
-          const passos = Math.max(2, Math.ceil((ate - ini) / 2.2));
+          const passos = Math.max(2, Math.ceil((ate - ini) / 1.4));
           let d = '';
           for (let q = 0; q <= passos; q++) {
             ponto(ini + ((ate - ini) * q) / passos, fase, tmp);
@@ -192,7 +195,7 @@ export function criarCordao({ tras, frente, palco }) {
 
       let g = '<g class="yn-c">';
       for (let j = 0; j < 3; j++) if (baixo[j]) g += `<path stroke="${FIOS[j].baixo}" d="${baixo[j]}"/>`;
-      if (casca) g += `<path stroke="${CASCA}" stroke-width="${ESPESSURA + 1.7}" d="${casca}"/>`;
+      if (casca) g += `<path stroke="${CASCA}" stroke-width="${ESPESSURA + 1.1}" d="${casca}"/>`;
       for (let j = 0; j < 3; j++) if (cima[j]) g += `<path stroke="${FIOS[j].cima}" d="${cima[j]}"/>`;
       g += '</g>';
       html[camada] += g;

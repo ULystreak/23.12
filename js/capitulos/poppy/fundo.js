@@ -3,7 +3,8 @@
 //   const fundo = criarFundo({ recipiente, amb, imagem });
 //   fundo.el                     o "tubo": tudo o que é imagem de fundo (a cena o achata ao desligar a TV)
 //   fundo.webgl                  true quando o shader está valendo
-//   fundo.azul(v)                1 = tela azul de vídeo, 0 = a fita
+//   fundo.azul(v)                1 = tela de espera da fita (petróleo com chuvisco), 0 = a fita
+//   fundo.clarao(ms)             o azul de vídeo num relance (1 ou 2 quadros, em degrau)
 //   fundo.falha(forca, ms)       um engasgo de tracking (0..1) que dura `ms`
 //   fundo.rolar(progresso, velocidade, sentido)   chamado a cada quadro pelo capítulo
 //   fundo.quadro(dt)             desenha (ou não: em repouso roda a 30 quadros, como fita)
@@ -14,6 +15,11 @@
 // A textura é `imagem` (conteudo.poppy.fundo) quando existir; senão, a fábrica
 // desenhada em fabrica.js. Embaixo do canvas WebGL fica sempre a mesma imagem,
 // parada: é o que aparece sem WebGL, ou se o contexto morrer no meio.
+//
+// O shader compila sem travar a página: com KHR_parallel_shader_compile o
+// programa fica pronto em segundo plano e a cena consulta a cada quadro; até
+// lá vale a imagem parada (ou o petróleo da tela de espera). Com o WebGL
+// valendo, a imagem parada sai da pintura (não vira mais uma camada de tela cheia).
 
 import { clamp, el, suave } from '../../nucleo/util.js';
 import { desenharFabrica, FUGA } from './fabrica.js';
@@ -42,7 +48,8 @@ uniform float uQuadro;  // quadro de fita (30 por segundo): o ruído muda por qu
 uniform float uVel;     // 0..1: velocidade da rolagem (avanço de fita)
 uniform float uDir;     // sentido da rolagem
 uniform float uZoom;
-uniform float uAzul;    // 1 = tela azul
+uniform float uAzul;    // 1 = tela de espera (petróleo)
+uniform float uClarao;  // 1 = o azul de vídeo, num relance
 uniform float uFalha;   // 0..1: engasgo de tracking
 uniform float uFaixa;   // altura da faixa de tracking (-1 = sem faixa)
 uniform float uVivo;    // 0 com movimento reduzido
@@ -116,9 +123,11 @@ void main() {
   vec2 iq = (c0.yz + c1.yz * 1.2 + c2.yz * 1.1 + c3.yz * 0.5) / 3.8;
   vec3 cor = paraRgb(vec3(y, iq * 1.22));
 
-  // tela azul de vídeo
-  vec3 azul = vec3(0.06, 0.1, 0.8) * (0.94 + 0.06 * sin(uv.y * 3.1 + 0.6));
-  cor = mix(cor, azul, uAzul);
+  // tela de espera: o petróleo do capítulo, com o chuvisco e a faixa por cima
+  vec3 espera = vec3(0.051, 0.145, 0.204) * (0.9 + 0.1 * sin(uv.y * 3.1 + 0.6));
+  cor = mix(cor, espera, uAzul);
+  // o azul de vídeo só passa num relance, quando a fita pega
+  cor = mix(cor, vec3(0.08, 0.12, 0.72), uClarao);
 
   // chuvisco
   float gr = h21(vec2(floor(uv.x * uRes.x), lin) + vec2(q * 7.13, q * 3.71)) - 0.5;
@@ -201,6 +210,7 @@ export function criarFundo({ recipiente, amb, imagem = null }) {
     faixa: -1, faixaEspera: 5 + Math.random() * 4,
     zoom: 1, vel: 0, dir: 1,
     t: Math.random() * 40,
+    clarao: 0,
     quadroDesenhado: -1,
     sujo: true,
   };
@@ -211,28 +221,48 @@ export function criarFundo({ recipiente, amb, imagem = null }) {
   let textura = null;
   let u = null;
   let perdido = false;
+  let pronto = false;           // o programa já compilou e está valendo
+  let paralelo = null;          // KHR_parallel_shader_compile
+  let esperados = 0;            // quadros esperando o programa (sem a extensão)
 
   function compilar(tipo, codigo) {
     const s = gl.createShader(tipo);
     gl.shaderSource(s, codigo);
     gl.compileShader(s);
-    return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : null;
+    return s;
   }
 
-  function montarGl() {
+  /** Cria o contexto e manda compilar; não pergunta o resultado (perguntar trava até acabar). */
+  function iniciarGl() {
     try {
       gl = canvas.getContext('webgl', {
         alpha: false, antialias: false, depth: false, stencil: false,
         premultipliedAlpha: false, preserveDrawingBuffer: false, powerPreference: 'low-power',
       });
       if (!gl) return false;
-      const v = compilar(gl.VERTEX_SHADER, VERTICE);
-      const f = compilar(gl.FRAGMENT_SHADER, FRAGMENTO);
-      if (!v || !f) return false;
+      paralelo = gl.getExtension('KHR_parallel_shader_compile');
       programa = gl.createProgram();
-      gl.attachShader(programa, v);
-      gl.attachShader(programa, f);
+      gl.attachShader(programa, compilar(gl.VERTEX_SHADER, VERTICE));
+      gl.attachShader(programa, compilar(gl.FRAGMENT_SHADER, FRAGMENTO));
       gl.linkProgram(programa);
+      pronto = false;
+      esperados = 0;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** O programa já terminou de compilar? (sem a extensão, espera dois quadros e assume) */
+  function compilou() {
+    if (paralelo) return !!gl.getProgramParameter(programa, paralelo.COMPLETION_STATUS_KHR);
+    esperados += 1;
+    return esperados > 2;
+  }
+
+  /** O resto da montagem, quando o programa ficou pronto. */
+  function concluirGl() {
+    try {
       if (!gl.getProgramParameter(programa, gl.LINK_STATUS)) return false;
       gl.useProgram(programa);
 
@@ -253,24 +283,46 @@ export function criarFundo({ recipiente, amb, imagem = null }) {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, fonte);
 
       u = {};
-      for (const nome of ['uTex', 'uRes', 'uCobrir', 'uFuga', 'uT', 'uQuadro', 'uVel', 'uDir', 'uZoom', 'uAzul', 'uFalha', 'uFaixa', 'uVivo']) {
+      for (const nome of ['uTex', 'uRes', 'uCobrir', 'uFuga', 'uT', 'uQuadro', 'uVel', 'uDir', 'uZoom', 'uAzul', 'uClarao', 'uFalha', 'uFaixa', 'uVivo']) {
         u[nome] = gl.getUniformLocation(programa, nome);
       }
       gl.uniform1i(u.uTex, 0);
       gl.uniform2f(u.uFuga, FUGA.x, 1 - FUGA.y);
       gl.uniform1f(u.uVivo, reduzido ? 0 : 1);
+      pronto = true;
       return true;
     } catch {
       return false;
     }
   }
 
-  let webgl = amb.webgl !== false && montarGl();
+  let webgl = amb.webgl !== false && iniciarGl();
   if (!webgl) {
     gl = null;
     canvas.remove();
   }
   recipiente.classList.toggle('sem-vhs', !webgl);
+
+  /**
+   * Quem aparece: com o WebGL valendo, só o canvas; esperando o programa, o
+   * petróleo do tubo enquanto a tela de espera estiver no ar (depois, a imagem
+   * parada); sem WebGL ou com o contexto perdido, a imagem parada e o CSS.
+   */
+  function atualizarCamadas() {
+    const valendo = webgl && pronto && !perdido;
+    const esperando = webgl && !pronto && !perdido;
+    parada.style.visibility = valendo || (esperando && estado.azul > 0.5) ? 'hidden' : '';
+    canvas.style.visibility = valendo ? '' : 'hidden';
+  }
+
+  function desistirDoGl() {
+    webgl = false;
+    gl = null;
+    canvas.remove();
+    recipiente.classList.add('sem-vhs');
+    montarLeve();
+    atualizarCamadas();
+  }
 
   // Sem WebGL: tela azul, chuvisco e faixa de tracking em CSS.
   let azulEl = null;
@@ -278,7 +330,7 @@ export function criarFundo({ recipiente, amb, imagem = null }) {
   let chuviscoEl = null;
   function montarLeve() {
     if (azulEl) return;
-    azulEl = el('div', 'poppy-leve-azul');
+    azulEl = el('div', { class: 'poppy-leve-azul', 'aria-hidden': 'true' });
     faixaEl = el('div', 'poppy-leve-faixa');
     chuviscoEl = el('div', 'poppy-leve-chuvisco');
     try { chuviscoEl.style.backgroundImage = `url("${chuviscoUrl()}")`; } catch { /* sem chuvisco */ }
@@ -292,16 +344,19 @@ export function criarFundo({ recipiente, amb, imagem = null }) {
     evento.preventDefault();
     perdido = true;
     // A imagem parada de baixo assume, com os efeitos em CSS.
-    canvas.style.visibility = 'hidden';
     recipiente.classList.add('sem-vhs');
     montarLeve();
+    atualizarCamadas();
   };
   const aoVoltar = () => {
-    if (!montarGl()) return;
+    // aqui a página já está de pé: pode montar de uma vez
+    if (!iniciarGl() || !concluirGl()) return;
     perdido = false;
-    canvas.style.visibility = '';
     recipiente.classList.remove('sem-vhs');
+    if (azulEl) azulEl.style.opacity = '0';
+    if (faixaEl) faixaEl.style.opacity = '0';
     medir();
+    atualizarCamadas();
   };
   if (webgl) {
     canvas.addEventListener('webglcontextlost', aoPerder);
@@ -315,7 +370,7 @@ export function criarFundo({ recipiente, amb, imagem = null }) {
     largura = recipiente.clientWidth;
     altura = recipiente.clientHeight;
     if (!largura || !altura) return;
-    if (webgl && gl && !perdido) {
+    if (webgl && gl && pronto && !perdido) {
       const linhas = amb.nivel === 'baixo' ? 400 : amb.nivel === 'medio' ? 500 : 580;
       const escala = Math.min(linhas / altura, Math.min(window.devicePixelRatio || 1, 1.5));
       const w = Math.max(2, Math.round(largura * escala));
@@ -342,13 +397,14 @@ export function criarFundo({ recipiente, amb, imagem = null }) {
 
   // ---- desenho -----------------------------------------------------------------------
   function desenhar() {
-    if (!webgl || !gl || perdido || !largura) return;
+    if (!webgl || !gl || !pronto || perdido || !largura) return;
     gl.uniform1f(u.uT, estado.t % 600);
     gl.uniform1f(u.uQuadro, reduzido ? 7 : Math.floor(estado.t * 30) % 997);
     gl.uniform1f(u.uVel, estado.vel);
     gl.uniform1f(u.uDir, estado.dir);
     gl.uniform1f(u.uZoom, estado.zoom);
     gl.uniform1f(u.uAzul, estado.azul);
+    gl.uniform1f(u.uClarao, estado.clarao > 0 ? 1 : 0);
     gl.uniform1f(u.uFalha, estado.falha);
     gl.uniform1f(u.uFaixa, estado.faixa);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -356,7 +412,7 @@ export function criarFundo({ recipiente, amb, imagem = null }) {
 
   const fundo = {
     el: tubo,
-    get webgl() { return webgl && !perdido; },
+    get webgl() { return webgl && pronto && !perdido; },
     get faixa() { return estado.faixa; },
     get nivelFalha() { return estado.falha; },
 
@@ -364,6 +420,14 @@ export function criarFundo({ recipiente, amb, imagem = null }) {
       estado.azul = clamp(v);
       if (azulEl) azulEl.style.opacity = String(estado.azul);
       estado.sujo = true;
+      atualizarCamadas();
+    },
+
+    clarao(ms = 50) {
+      if (reduzido) return;
+      estado.clarao = Math.max(estado.clarao, ms / 1000);
+      estado.sujo = true;
+      if (azulEl) azulEl.classList.add('clarao');
     },
 
     falha(forca = 1, ms = 140) {
@@ -388,6 +452,22 @@ export function criarFundo({ recipiente, amb, imagem = null }) {
 
     quadro(dt) {
       estado.t += dt;
+
+      // o programa compila em segundo plano: confere uma vez por quadro
+      if (webgl && !pronto && !perdido && gl && compilou()) {
+        if (concluirGl()) {
+          medir();
+          atualizarCamadas();
+        } else {
+          desistirDoGl();
+        }
+      }
+
+      if (estado.clarao > 0) {
+        estado.clarao -= dt;
+        estado.sujo = true;
+        if (estado.clarao <= 0 && azulEl) azulEl.classList.remove('clarao');
+      }
 
       // engasgo: cai em degraus, como vídeo
       if (estado.falhaResta > 0) {
@@ -452,6 +532,7 @@ export function criarFundo({ recipiente, amb, imagem = null }) {
     },
   };
 
+  atualizarCamadas();
   fundo.quadro(0);
   return fundo;
 }

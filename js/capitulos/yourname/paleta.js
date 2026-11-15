@@ -22,15 +22,17 @@ const cor = (hex) => [
 const QUADROS = [
   {
     t: 0.05,
-    c0: cor('#c4e9fb'), c1: cor('#7cc3f3'), c2: cor('#3391e8'), c3: cor('#115cc4'),
-    luz: cor('#ffffff'), sombra: cor('#86aee6'), borda: cor('#ffffff'),
+    // O dia nasce da paleta da carta: papel morno no horizonte, um azul-lilás
+    // no alto que já aponta para o #4a398c do crepúsculo.
+    c0: cor('#fbf1e6'), c1: cor('#d9dff0'), c2: cor('#9fb0dc'), c3: cor('#5a5aa8'),
+    luz: cor('#ffffff'), sombra: cor('#aeb1d8'), borda: cor('#ffffff'),
     sol: cor('#fff6dc'), solForca: 0.85,
-    longe: cor('#86b6e2'), perto: cor('#4f88c4'),
+    longe: cor('#aab2da'), perto: cor('#7274b0'),
     cobertura: 0.47, estica: 0, estrelas: 0, veu: 0.68,
   },
   {
     t: 0.27,
-    c0: cor('#ffe1aa'), c1: cor('#f5a88c'), c2: cor('#7c84cd'), c3: cor('#25429a'),
+    c0: cor('#ffe1aa'), c1: cor('#f5a88c'), c2: cor('#7c84cd'), c3: cor('#2f3790'),
     luz: cor('#ffe9c8'), sombra: cor('#8468ac'), borda: cor('#fff3cf'),
     sol: cor('#ffd08c'), solForca: 1,
     longe: cor('#9079b2'), perto: cor('#4a396e'),

@@ -252,7 +252,13 @@ window.CONTEUDO = {
     subtitulo: '[Dois lugares, o mesmo céu.]',
 
     // A imagem que abre o capítulo.
-    capa: 'assets/images/yourname-capa.png',
+    // ATENÇÃO: a capa, o encontro e o par de agora são quadros do filme (com os
+    // personagens; o encontro traz até o logotipo e a assinatura de outro artista).
+    // A regra da carta é não copiar quadros, personagens nem logotipos do filme.
+    // Troque por fotos de vocês ou céus e lugares parecidos; a capa pode ficar ''
+    // (o capítulo abre só com o título e o céu). Prefira .webp ou .jpg: a capa em
+    // .png pesa mais que as outras imagens do capítulo somadas.
+    capa:'assets/images/yourname-capa.png',
 
     // Imagem de fundo do céu (opcional).
     // Quando existir: 'assets/images/yourname-fundo.webp'
@@ -333,7 +339,8 @@ window.CONTEUDO = {
      pulso. O botão faz o fio virar o caminho até a última carta.
      ------------------------------------------------------------------------ */
   mao: {
-    frase: 'Olha a sua mão.',
+    // Frase curta, de uma linha: uma frase longa desce até o desenho da mão.
+    frase:'Olha a sua mão.',
 
     // Imagem da mão com o fio (opcional; sem ela, o site desenha uma).
     // Quando existir: 'assets/images/mao-akai-ito.webp'

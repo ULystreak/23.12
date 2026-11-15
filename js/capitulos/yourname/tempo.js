@@ -1,7 +1,9 @@
 // O relógio do capítulo 2: escolhe quem pinta o céu (WebGL ou leve), amortece a
 // hora e o cometa no tempo e desenha a cada quadro.
 //
-//   const tempo = criarTempo({ fundo, amb, aoQuadro, aoDividir })
+//   const tempo = criarTempo({ fundo, amb, aoQuadro, aoDividir, quando, aoTrocar })
+//     quando    Promise: a hora calma para trocar o céu leve pelo WebGL
+//     aoTrocar  fn(tipo) quando quem pinta muda
 //   tempo.definir({ hora, k, rol })   alvos vindos da rolagem (hora 0..1, k 0..2)
 //   tempo.encerrar()                  o céu acaba de anoitecer (ao fechar)
 //   tempo.redimensionar()
@@ -16,9 +18,16 @@ import { novoEstado, misturar, cometa } from './paleta.js';
 import { criarPintorWebGL } from './ceu.js';
 import { criarPintorLeve } from './ceu-leve.js';
 
-export function criarTempo({ fundo, amb, aoQuadro, aoDividir }) {
-  let pintor = amb.webgl ? criarPintorWebGL(fundo, amb) : null;
-  if (!pintor) pintor = criarPintorLeve(fundo, amb);
+// O céu começa sempre pelo pintor leve (montar fica barato e a folha desenrola
+// sem engasgo). Com WebGL, o contexto e o shader são criados depois, numa hora
+// calma (`quando`), compilados sem segurar a thread principal, e o canvas entra
+// por cima do céu leve com uma dissolvência; aí o leve sai.
+const DISSOLVER = 0.9;   // s
+
+export function criarTempo({ fundo, amb, aoQuadro, aoDividir, quando, aoTrocar }) {
+  let pintor = criarPintorLeve(fundo, amb, { provisorio: !!amb.webgl });
+  let entrando = null;          // o pintor WebGL enquanto se dissolve por cima
+  let dissolve = 0;
 
   const e = novoEstado();
   const alvo = { hora: 0, k: 0, rol: 0 };
@@ -65,7 +74,7 @@ export function criarTempo({ fundo, amb, aoQuadro, aoDividir }) {
     const mexendo = Math.abs(alvo.hora - hora) > 0.0004 || Math.abs(alvo.k - k) > 0.0004
       || Math.abs(alvo.rol - rol) > 0.002 || e.clarao > 0.003 || encerrando;
     parado = mexendo ? 0 : parado + 1;
-    if (parado > 12 && parado % 2 === 1 && !primeira) { e.tempo += dt * (amb.reduzido ? 0.4 : 1); return; }
+    if (parado > 12 && parado % 2 === 1 && !primeira && !entrando) { e.tempo += dt * (amb.reduzido ? 0.4 : 1); return; }
 
     if (primeira) {
       hora = alvo.hora; k = alvo.k; rol = alvo.rol;
@@ -94,6 +103,7 @@ export function criarTempo({ fundo, amb, aoQuadro, aoDividir }) {
     misturar(horaCeu, e);
     cometa(k, pintor.aspecto || 1, e.cometa);
     pintor.desenhar(e);
+    if (entrando) dissolver(dt);
 
     if (aoQuadro && Math.abs(horaCeu - horaAvisada) > 0.002) {
       horaAvisada = horaCeu;
@@ -101,6 +111,45 @@ export function criarTempo({ fundo, amb, aoQuadro, aoDividir }) {
     }
     medirRitmo(dt);
   }
+  // Por cima do leve, o WebGL vai de transparente a opaco; o leve sai no fim.
+  function dissolver(dt) {
+    entrando.desenhar(e);
+    dissolve = amb.reduzido ? 1 : Math.min(1, dissolve + dt / DISSOLVER);
+    entrando.tela.style.opacity = suave(dissolve).toFixed(3);
+    if (dissolve < 1) return;
+    entrando.tela.style.opacity = '';
+    const velho = pintor;
+    pintor = entrando;
+    entrando = null;
+    velho.destruir();
+    soma = 0; conta = 0; mediaAntes = 0; desistiu = amb.forcado;
+    if (aoTrocar) { try { aoTrocar(pintor.tipo); } catch (erro) { console.error(erro); } }
+  }
+
+  async function trazerWebGL() {
+    try { await quando; } catch { /* segue */ }
+    // Mais um respiro: o contexto novo espera a GPU, que não pode estar ocupada.
+    await new Promise((r) => (window.requestIdleCallback ? requestIdleCallback(() => r(), { timeout: 600 }) : setTimeout(r, 120)));
+    if (!vivo) return;
+    let novo = criarPintorWebGL(fundo, amb);
+    if (novo) {
+      novo.tela.style.opacity = '0';
+      const ok = await novo.pronto;
+      if (!ok) { novo.destruir(); novo = null; }
+    }
+    if (!vivo) { novo?.destruir(); return; }
+    // Sem WebGL afinal: o céu leve completo (com nuvens e estrelas) entra do mesmo jeito.
+    if (!novo) {
+      novo = criarPintorLeve(fundo, amb);
+      novo.tela.style.opacity = '0';
+    }
+    novo.desenhar(e);
+    entrando = novo;
+    dissolve = 0;
+    parado = 0;
+  }
+  if (amb.webgl) trazerWebGL();
+
   id = requestAnimationFrame(quadro);
 
   return {
@@ -118,12 +167,13 @@ export function criarTempo({ fundo, amb, aoQuadro, aoDividir }) {
 
     encerrar() { encerrando = true; },
 
-    redimensionar() { pintor.redimensionar(); },
+    redimensionar() { pintor.redimensionar(); entrando?.redimensionar(); },
 
     destruir() {
       vivo = false;
       cancelAnimationFrame(id);
       pintor.destruir();
+      if (entrando) { entrando.destruir(); entrando = null; }
     },
   };
 }

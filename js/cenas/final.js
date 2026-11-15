@@ -64,9 +64,12 @@ export async function cenaFinal(ctx, { frio } = {}) {
 
   // A folha nasce agora (invisível) e já compõe a frase: nada engasga depois do toque.
   const folha = criarFolha(mundo);
-  const pronta = (folha.preparar ? folha.preparar(frase) : Promise.resolve()).catch((erro) => {
-    console.error('[carta] não consegui compor a frase', erro);
-  });
+  const pronta = (folha.preparar ? folha.preparar(frase) : Promise.resolve())
+    // os programas da folha compilam agora, invisíveis, e não no primeiro quadro em que ela aparece
+    .then(() => aquecer(mundo, folha.grupo))
+    .catch((erro) => {
+      console.error('[carta] não consegui compor a frase', erro);
+    });
 
   const { env, papel, parar } = await cenaCarta(ctx, {
     lacre: null,
@@ -79,6 +82,8 @@ export async function cenaFinal(ctx, { frio } = {}) {
   // A folha toma o lugar do papel, na mesma pose, e vem até a frente dela.
   diretor.etapa('desdobrando');
   som.efeito('papel');
+  // A folha final não tem botão nenhum: o mini seletor sai de cena (a música continua).
+  musica.esconderMini();
   if (folha.assumir) folha.assumir(papel);
   else if (papel) papel.visible = false;
   const pararFolha = mundo.aoQuadro((dt, t) => folha.atualizar(dt, t));
@@ -124,6 +129,15 @@ export async function cenaFinal(ctx, { frio } = {}) {
   estado.pararFolha = pararFolha;
   if (folha.viver) folha.viver();
   await new Promise(() => {});                           // fica aqui, com as pétalas
+}
+
+/** Compila os shaders de um objeto (mesmo invisível) antes do primeiro quadro dele; no máximo ~1,2 s. */
+function aquecer(mundo, objeto) {
+  const r = mundo.renderer;
+  if (!mundo.ok || !objeto || !r || typeof r.compileAsync !== 'function') return Promise.resolve();
+  let compilando;
+  try { compilando = r.compileAsync(objeto, mundo.camera, mundo.cena).catch(() => {}); } catch { return Promise.resolve(); }
+  return Promise.race([compilando, espera(1200)]);
 }
 
 /** O fio do caminho no modo leve: acompanha a carta a cada quadro até ela abrir. */

@@ -32,6 +32,12 @@ const ALTURA_CARTA = 0.16;
 const ESPERA_DICA = 4000;          // ms sem toque até a dica aparecer
 const LONGE = 2.6;                 // metros além do ponto de parada de onde a carta vem
 
+// Ela já usou o teclado? (só então o foco é levado até a carta; um toque nunca vê anel)
+let usouTeclado = false;
+if (typeof window !== 'undefined') {
+  window.addEventListener('keydown', () => { usouTeclado = true; }, { once: true, capture: true });
+}
+
 /** Distância (m) em que a carta para: ~72% da largura no celular em pé, ~28% no computador. */
 export function distanciaDaCarta(mundo) {
   const camera = mundo.camera;
@@ -74,31 +80,40 @@ export async function cenaCarta(ctx, opcoes = {}) {
 
   // Para onde ela anda e onde a carta para.
   const zOlhosFinal = mundo.rig.position.z - Math.max(0, distancia || 0);
+  // Programas e texturas da carta prontos antes de ela entrar em cena (se a abertura
+  // já a aqueceu, isto resolve na hora): o primeiro passo não engasga compilando.
+  let pronta = Promise.resolve();
   if (mundo.ok) {
     const alvo = poseParada(mundo, zOlhosFinal);
     if (reaproveitar) {
       gsap.to(env.grupo.position, { x: alvo.x, y: alvo.y, z: alvo.z, duration: Math.max(1.6, duracao), ease: curvas.branco.camera });
     } else {
       env.grupo.position.set(alvo.x, alvo.y, alvo.z);
-      mundo.cena.add(env.grupo);
+      pronta = Promise.resolve(env.preparar?.()).then(() => {
+        if (!env.descartado && !env.grupo.parent) mundo.cena.add(env.grupo);
+      });
     }
   }
   const parar = mundo.aoQuadro((dt, t) => env.atualizar(dt, t));
 
   if (distancia > 0) {
     diretor.etapa(anunciarCaminhada ? 'caminhada' : 'carta-chegando');
+    // Com uma frase ainda saindo (a primeira carta), a carta nasce da névoa na segunda
+    // metade da caminhada; com o mundo vazio ela aparece bem antes, como um ponto ao longe.
+    const vazio = !document.querySelector('#frases > *');
     const andar = mundo.caminhar({ distancia, duracao });
-    // A carta nasce da névoa na segunda metade da caminhada e pousa logo depois dela parar.
-    const inicio = anunciarCaminhada ? duracao * 0.5 : duracao * 0.25;
+    const inicio = anunciarCaminhada ? duracao * (vazio ? 0.28 : 0.5) : duracao * 0.25;
     if (!reaproveitar) env.chegar({ duracao: duracao - inicio + 0.8, distancia: LONGE, atraso: inicio });
     if (anunciarCaminhada) {
       await espera(inicio * 1000);
       diretor.etapa('carta-chegando');
     }
     await andar;
+    await pronta;
     await espera(500);
   } else {
     diretor.etapa('carta-chegando');
+    await pronta;
     if (!reaproveitar) await env.chegar({ duracao: 2.6, distancia: LONGE + 1 });
     else await espera(1200);
   }
@@ -108,6 +123,7 @@ export async function cenaCarta(ctx, opcoes = {}) {
 
   diretor.etapa('carta-abrindo');
   const { papel } = await env.abrir();
+  mundo.petalas.protegerRetangulo?.(null);
 
   if (!entregar) return { env, papel, parar };
 
@@ -139,6 +155,21 @@ function esperarToque(ctx, env) {
       class: 'alvo-carta', type: 'button', 'aria-label': textoDica, dataset: { acao: 'abrir-carta' },
     });
     acoes.append(alvo);
+    // Quem lê a tela ouve o nome do alvo; a dica visível não repete a frase.
+    dica.setAttribute('aria-hidden', 'true');
+    // Teclado: se o foco tinha ficado solto (no body), ele já cai na carta.
+    if (usouTeclado && (!document.activeElement || document.activeElement === document.body)) {
+      try { alvo.focus({ preventScroll: true }); } catch { /* sem foco programático */ }
+    }
+
+    // Nada desfocado passa entre a lente e a carta enquanto ela olha e abre
+    // (a caixa sobe para cobrir também o papel que sai de dentro).
+    mundo.petalas.protegerRetangulo?.(() => {
+      const c = env.caixaTela?.();
+      if (!c || !(c.width > 0)) return null;
+      const mx = c.width * 0.18;
+      return { left: c.left - mx, right: c.right + mx, top: c.top - c.height * 1.4, bottom: c.bottom + c.height * 0.25 };
+    });
 
     const posicionar = () => {
       const caixa = env.caixaTela?.();
@@ -194,10 +225,11 @@ function esperarToque(ctx, env) {
       if (!dica.hidden) {
         gsap.to(dica, {
           autoAlpha: 0, duration: 0.4, ease: 'none',
-          onComplete: () => { dica.hidden = true; dica.textContent = ''; dica.removeAttribute('style'); },
+          onComplete: () => { dica.hidden = true; dica.textContent = ''; dica.removeAttribute('style'); dica.removeAttribute('aria-hidden'); },
         });
       } else {
         dica.removeAttribute('style');
+        dica.removeAttribute('aria-hidden');
       }
       resolver();
     };

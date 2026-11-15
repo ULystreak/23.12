@@ -12,8 +12,9 @@
   --pp-plastico: #e9dfc8;
   --pp-metal: #a9b6b2;
   --pp-chassi: #141d22;
-  --pp-lateral: max(var(--margem), var(--seguro-esq));
-  --pp-lateral-dir: max(var(--margem), var(--seguro-dir));
+  /* a janela do pergaminho já desconta as áreas seguras: aqui dentro basta a margem */
+  --pp-lateral: var(--margem);
+  --pp-lateral-dir: var(--margem);
   position: relative;
   font-family: var(--fonte-brinquedo);
   font-weight: 500;
@@ -31,8 +32,10 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background: #0a1a24;
-  will-change: transform;
+  background: var(--poppy-fundo);
+  /* contexto próprio de empilhamento (sem camada de GPU): as camadas do modo
+     leve, com z-index, ficam presas aqui dentro, por baixo do texto */
+  isolation: isolate;
 }
 .poppy-parada,
 .poppy-vhs {
@@ -58,9 +61,12 @@
   position: absolute;
   inset: 0;
   z-index: 3;
-  background: #0f1acc;
+  background: var(--poppy-fundo);
+  pointer-events: none;
   transition: opacity 200ms steps(3);
 }
+/* o azul de vídeo num relance, quando a fita pega */
+.poppy-leve-azul.clarao { background: #1420b8; transition: none; }
 .poppy-leve-chuvisco {
   position: absolute;
   inset: -96px;
@@ -153,7 +159,7 @@ html.reduzido .poppy-leve-chuvisco { animation: none; opacity: 0.04; }
   visibility: hidden;
 }
 .poppy-osd-modo {
-  top: calc(var(--seguro-topo) + 18px);
+  top: 18px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -171,10 +177,10 @@ html.reduzido .poppy-leve-chuvisco { animation: none; opacity: 0.04; }
 .poppy-osd-modo,
 .poppy-contador { transition: opacity 160ms steps(2); }
 .poppy-osd-modo.sob-texto,
-.poppy-contador.sob-texto { opacity: 0.16; }
+.poppy-contador.sob-texto { opacity: 0; }
 .poppy-osd-modo[data-modo="parar"] .poppy-osd-icone svg { height: 0.56em; }
 .poppy-contador {
-  bottom: calc(var(--seguro-base) + 18px);
+  bottom: 18px;
   font-size: clamp(1.625rem, 1.4rem + 1vw, 2.125rem);
 }
 .poppy-contador.visivel { visibility: visible; animation: poppy-corte 220ms steps(2) backwards; }
@@ -187,12 +193,15 @@ html.reduzido .poppy-leve-chuvisco { animation: none; opacity: 0.04; }
   flex-direction: column;
   gap: clamp(64px, 12vh, 112px);
   padding:
-    calc(var(--seguro-topo) + 72px)
+    72px
     var(--pp-lateral-dir)
-    calc(var(--seguro-base) + 96px)
+    96px
     var(--pp-lateral);
 }
+/* enquanto a fita não pega, nada do corpo está lá, menos o título: ele já
+   precisa receber o foco quando a folha abre (os blocos se escondem sozinhos) */
 .poppy.aguardando .poppy-corpo { visibility: hidden; }
+.poppy.aguardando .poppy-titulo { visibility: visible; }
 
 /* ---- título em blocos -------------------------------------------------------- */
 .poppy-cabeca {
@@ -229,7 +238,6 @@ html.reduzido .poppy-leve-chuvisco { animation: none; opacity: 0.04; }
   opacity: 0;
   visibility: hidden;
   transform-origin: 50% 100%;
-  will-change: transform;
 }
 .poppy-bloco > span {
   position: relative;
@@ -250,7 +258,7 @@ html.reduzido .poppy-leve-chuvisco { animation: none; opacity: 0.04; }
 }
 .poppy-bloco.estreito { width: calc(var(--lado) * 0.5); }
 .poppy-bloco.estreito::after { display: none; }
-.poppy-bloco[data-cor="vermelho"] { --cor: #d93a31; --letra: #fff4e0; }
+.poppy-bloco[data-cor="vermelho"] { --cor: #c4302a; --letra: #fff4e0; }
 .poppy-bloco[data-cor="vermelho"] > span { text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25); }
 .poppy-bloco[data-cor="amarelo"] { --cor: var(--poppy-amarelo); }
 .poppy-bloco[data-cor="azul"] { --cor: #3a95da; }
@@ -287,39 +295,86 @@ html.reduzido .poppy-leve-chuvisco { animation: none; opacity: 0.04; }
 html.reduzido .digitado .poppy-cursor { visibility: hidden; }
 
 /* ---- entrada das peças --------------------------------------------------------- */
-.poppy-entra { opacity: 0; visibility: hidden; }
+/* só some à vista: o texto existe para o leitor de tela e para o Tab desde o começo */
+.poppy-entra { opacity: 0; }
 
-/* ---- cartões de vidro ------------------------------------------------------------ */
+/* ---- os textos: cada um num objeto da fábrica ------------------------------------ */
 .poppy-cartao {
   position: relative;
-  width: var(--larg, 92%);
-  max-width: 36em;
   align-self: flex-start;
-  will-change: transform;
+  max-width: 36em;
 }
-.poppy-cartao[data-lado="dir"] { align-self: flex-end; }
-.poppy-cartao[data-lado="meio"] { align-self: center; }
+.poppy-cartao p { margin: 0; text-wrap: pretty; }
+
+/* (a) legenda de fita: tarja escura de ponta a ponta, sem borda nem raio */
+.poppy-cartao[data-suporte="faixa"] {
+  align-self: stretch;
+  max-width: none;
+  margin-left: calc(-1 * var(--pp-lateral));
+  margin-right: calc(-1 * var(--pp-lateral-dir));
+}
+.poppy-tarja {
+  padding: clamp(18px, 4.6vw, 28px) var(--pp-lateral-dir) clamp(18px, 4.6vw, 28px) var(--pp-lateral);
+  background: rgba(4, 12, 18, 0.74);
+}
+.poppy-tarja p {
+  max-width: 30em;
+  font-family: var(--fonte-fita);
+  font-size: clamp(1.5rem, 1.3rem + 0.9vw, 1.875rem);
+  line-height: 1.22;
+  letter-spacing: 0.02em;
+  color: #f4f8ec;
+  text-shadow: -1px 0 rgba(226, 51, 47, 0.45), 1px 0 rgba(47, 143, 216, 0.45);
+}
+
+/* (b) etiqueta de papel pendurada no fio vermelho */
+.poppy-cartao[data-suporte="etiqueta"] {
+  align-self: flex-end;
+  width: 74%;
+  margin-top: 64px;                       /* o fio sobe até aqui */
+}
+.poppy-papel {
+  position: relative;
+  padding: 42px clamp(20px, 5vw, 30px) clamp(22px, 5vw, 28px);
+  border-radius: 20px 20px 5px 5px;
+  background: #ede3cb;
+  color: #1f1519;
+  box-shadow: inset 0 -3px 0 rgba(120, 96, 60, 0.18), 0 14px 26px rgba(2, 8, 12, 0.5);
+}
+.poppy-papel-furo {
+  position: absolute;
+  left: 50%;
+  top: 14px;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  border-radius: 50%;
+  background: var(--poppy-fundo);
+  box-shadow: 0 0 0 3px #d6c9aa;
+}
+.poppy-cordao {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  bottom: calc(100% - 23px);
+  width: 22px;
+  height: 92px;
+  margin-left: -11px;
+  overflow: visible;
+}
+
+/* (c) a única placa: vidro escuro aparafusado */
+.poppy-cartao[data-suporte="placa"] { width: 88%; }
 .poppy-vidro {
   position: relative;
-  padding: clamp(22px, 5.6vw, 34px) clamp(22px, 5.6vw, 36px);
-  border-radius: 14px;
+  padding: clamp(24px, 5.6vw, 34px) clamp(30px, 7vw, 44px);
+  border-radius: 8px;
   background: var(--pp-vidro);
   -webkit-backdrop-filter: blur(7px) saturate(1.1);
   backdrop-filter: blur(7px) saturate(1.1);
-  border: 1px solid rgba(242, 234, 216, 0.1);
+  border: 1px solid rgba(169, 182, 178, 0.26);
   box-shadow: 0 18px 38px rgba(2, 8, 12, 0.42), inset 0 1px 0 rgba(242, 234, 216, 0.08);
 }
-.poppy-vidro p { margin: 0; text-wrap: pretty; }
-/* cada cartão é preso de um jeito, e o vidro acompanha o enfeite */
-.poppy-cartao[data-enfeite="fita"] .poppy-vidro { border-radius: 4px; }
-.poppy-cartao[data-enfeite="parafusos"] .poppy-vidro {
-  border-radius: 8px;
-  border-color: rgba(169, 182, 178, 0.26);
-  padding-inline: clamp(30px, 7vw, 44px);
-}
-.poppy-cartao[data-enfeite="etiqueta"] .poppy-vidro { border-radius: 18px 18px 18px 4px; padding-right: clamp(52px, 13vw, 66px); }
-.poppy-cartao[data-enfeite="ima"] .poppy-vidro { border-radius: 22px; padding-top: clamp(30px, 7vw, 40px); }
-.poppy-cartao[data-enfeite="pregador"] .poppy-vidro { border-radius: 10px 10px 16px 16px; }
 html[data-nivel="baixo"] .poppy-vidro,
 .sem-vhs ~ .perg-rolagem .poppy-vidro {
   -webkit-backdrop-filter: none;
@@ -327,27 +382,59 @@ html[data-nivel="baixo"] .poppy-vidro,
   background: rgba(8, 22, 32, 0.9);
 }
 
-.poppy-adesiva {
-  position: absolute;
-  z-index: 2;
-  width: 86px;
-  height: 26px;
-  opacity: 0.9;
-  /* bordas rasgadas à mão */
-  clip-path: polygon(0 8%, 6% 0, 12% 10%, 20% 2%, 100% 0, 96% 22%, 100% 46%, 95% 70%, 100% 100%, 82% 92%, 70% 100%, 0 100%, 4% 72%, 0 50%, 5% 28%);
+/* (d) o mostrador de um videocassete, em âmbar */
+.poppy-cartao[data-suporte="visor"] { align-self: center; width: min(70%, 30em); }
+.poppy-visor {
+  position: relative;
+  padding: 30px clamp(18px, 4.6vw, 26px) clamp(18px, 4.6vw, 24px);
+  border-radius: 6px;
+  background: #070d0c;
+  box-shadow:
+    inset 0 0 0 2px #1b2427,
+    inset 0 0 24px rgba(246, 193, 45, 0.06),
+    0 0 0 6px var(--pp-chassi),
+    0 16px 30px rgba(2, 8, 12, 0.55);
+  transform-origin: 50% 50%;
 }
-.poppy-adesiva.a { top: -12px; left: 16px; background: rgba(246, 193, 45, 0.86); transform: rotate(-6deg); }
-.poppy-adesiva.b { bottom: -11px; right: 22px; width: 70px; background: rgba(63, 184, 107, 0.82); transform: rotate(4deg); }
+.poppy-visor p {
+  font-family: var(--fonte-fita);
+  font-size: clamp(1.375rem, 1.2rem + 0.8vw, 1.75rem);
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  color: var(--poppy-amarelo);
+  text-shadow: 0 0 8px rgba(246, 193, 45, 0.35);
+}
+/* os segmentos apagados do mostrador, em cima */
+.poppy-visor-grade {
+  position: absolute;
+  left: clamp(18px, 4.6vw, 26px);
+  right: clamp(18px, 4.6vw, 26px);
+  top: 12px;
+  height: 6px;
+  background: repeating-linear-gradient(90deg, rgba(246, 193, 45, 0.16) 0 14px, transparent 14px 20px);
+}
+
+/* (e) legenda fechada: cada linha com a própria tarja, encostada à direita */
+.poppy-cartao[data-suporte="legenda"] { align-self: flex-end; width: 82%; text-align: right; }
+.poppy-cc {
+  font-family: var(--fonte-fita);
+  font-size: clamp(1.5rem, 1.3rem + 0.9vw, 1.875rem);
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  color: #f4f8ec;
+}
+.poppy-cc span {
+  padding: 0.06em 0.36em;
+  background: rgba(3, 8, 11, 0.9);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
 
 .poppy-parafuso { position: absolute; z-index: 2; width: 16px; height: 16px; }
 .poppy-parafuso.p0 { top: 9px; left: 9px; }
 .poppy-parafuso.p1 { top: 9px; right: 9px; }
 .poppy-parafuso.p2 { bottom: 9px; right: 9px; }
 .poppy-parafuso.p3 { bottom: 9px; left: 9px; }
-
-.poppy-etiqueta { position: absolute; z-index: 2; top: -7px; right: 12px; width: 36px; height: 58px; overflow: visible; }
-.poppy-ima { position: absolute; z-index: 2; top: -15px; left: 50%; width: 36px; height: 38px; margin-left: -18px; }
-.poppy-pregador { position: absolute; z-index: 2; top: -26px; left: 30px; width: 22px; height: 52px; transform: rotate(5deg); }
 
 /* ---- monitor (imagens) ------------------------------------------------------------ */
 .poppy-monitor {
@@ -362,7 +449,6 @@ html[data-nivel="baixo"] .poppy-vidro,
     inset 0 2px 0 rgba(255, 255, 255, 0.07),
     inset 0 -6px 0 rgba(0, 0, 0, 0.3),
     0 22px 40px rgba(2, 8, 12, 0.5);
-  will-change: transform;
 }
 .poppy-monitor[data-lado="dir"] { align-self: flex-end; }
 .poppy-monitor-tela {

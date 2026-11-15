@@ -1,6 +1,7 @@
 // O céu em WebGL puro: um canvas, um quad, um programa.
 //
 //   const pintor = criarPintorWebGL(recipiente, amb)   → null se o aparelho não der conta
+//   await pintor.pronto          true quando o shader compilou (false se falhou)
 //   pintor.desenhar(estado)      estado vem de paleta.js (novoEstado + misturar + cometa)
 //   pintor.redimensionar()       relê o tamanho do recipiente
 //   pintor.baixar() → bool       desce um degrau de resolução (qualidade adaptativa)
@@ -8,6 +9,12 @@
 //
 // Sem three.js de propósito: é um shader só, e o mundo 3D da carta já tem o
 // contexto dele.
+//
+// Nada aqui segura a thread principal esperando a GPU: o shader é mandado
+// compilar e o estado só é lido quando a compilação terminou (com
+// KHR_parallel_shader_compile, consultando COMPLETION_STATUS_KHR a cada quadro;
+// sem ela, um quadro depois). O canvas só entra no recipiente pronto e
+// desenhado; quem cria decide quando mostrá-lo (tempo.js faz a dissolvência).
 
 import { VERTICE, fragmento } from './ceu-glsl.js';
 
@@ -15,12 +22,15 @@ const OITAVAS = { alto: 4, medio: 3, baixo: 2 };
 const DETALHE = { alto: 2, medio: 1, baixo: 0 };
 const DPR_MAX = { alto: 1.5, medio: 1.25, baixo: 1 };
 const ESCALAS = [1, 0.8, 0.62];
+const ESPERA_MAX = 240;           // quadros esperando a compilação antes de desistir
 
 const UNIFORMES = [
   'uRes', 'uTempo', 'uHora', 'uRol', 'uC0', 'uC1', 'uC2', 'uC3', 'uLuz', 'uSombra', 'uBorda',
   'uSolCor', 'uSol', 'uLonge', 'uPerto', 'uNuvem', 'uEstrelas', 'uTerra',
   'uCometa', 'uCometaAB', 'uCometaO', 'uClarao',
 ];
+
+const proximoQuadro = () => new Promise((r) => requestAnimationFrame(() => r()));
 
 export function criarPintorWebGL(recipiente, amb) {
   const tela = document.createElement('canvas');
@@ -38,46 +48,62 @@ export function criarPintorWebGL(recipiente, amb) {
   if (!gl) return null;
 
   const nivel = OITAVAS[amb.nivel] ? amb.nivel : 'medio';
+  const paralelo = gl.getExtension('KHR_parallel_shader_compile');
   let programa = null;
+  let pendente = null;            // programa mandado compilar, ainda sem resposta
   let locais = {};
   let buffer = null;
   let perdido = false;
+  let vivo = true;
   let escala = 0;
   let largura = 0;
   let altura = 0;
   let ultimo = null;
   let pintor = null;
+  let geracao = 0;
 
-  function compilar(tipo, fonte) {
-    const s = gl.createShader(tipo);
-    gl.shaderSource(s, fonte);
-    gl.compileShader(s);
-    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-      const registro = gl.getShaderInfoLog(s);
-      gl.deleteShader(s);
-      throw new Error(registro || 'shader');
-    }
-    return s;
-  }
-
-  function montar() {
+  /** Manda compilar e ligar sem perguntar o resultado (isso é que bloqueia). */
+  function mandarCompilar() {
     let fonte = fragmento({ oitavas: OITAVAS[nivel], detalhe: DETALHE[nivel] });
     // Aparelho sem highp no fragmento (raro): cai para mediump em vez de falhar.
     const alta = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT);
     if (!alta || alta.precision === 0) fonte = fonte.replace('precision highp float;', 'precision mediump float;');
 
-    const v = compilar(gl.VERTEX_SHADER, VERTICE);
-    const f = compilar(gl.FRAGMENT_SHADER, fonte);
-    programa = gl.createProgram();
-    gl.attachShader(programa, v);
-    gl.attachShader(programa, f);
-    gl.bindAttribLocation(programa, 0, 'aPos');
-    gl.linkProgram(programa);
-    gl.deleteShader(v);
-    gl.deleteShader(f);
-    if (!gl.getProgramParameter(programa, gl.LINK_STATUS)) {
-      throw new Error(gl.getProgramInfoLog(programa) || 'programa');
+    const v = gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(v, VERTICE);
+    gl.compileShader(v);
+    const f = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(f, fonte);
+    gl.compileShader(f);
+    const p = gl.createProgram();
+    gl.attachShader(p, v);
+    gl.attachShader(p, f);
+    gl.bindAttribLocation(p, 0, 'aPos');
+    gl.linkProgram(p);
+    return { p, v, f };
+  }
+
+  /** Espera a compilação sem bloquear; devolve true se o programa ficou bom. */
+  async function esperarCompilar(alvo, g) {
+    if (paralelo) {
+      for (let i = 0; i < ESPERA_MAX; i++) {
+        if (!vivo || g !== geracao || gl.isContextLost()) return false;
+        if (gl.getProgramParameter(alvo.p, paralelo.COMPLETION_STATUS_KHR)) break;
+        await proximoQuadro();
+      }
+    } else {
+      await proximoQuadro();
     }
+    if (!vivo || g !== geracao || gl.isContextLost()) return false;
+    const ok = !!gl.getProgramParameter(alvo.p, gl.LINK_STATUS);
+    gl.deleteShader(alvo.v);
+    gl.deleteShader(alvo.f);
+    if (!ok) { gl.deleteProgram(alvo.p); return false; }
+    return true;
+  }
+
+  function ligar(p) {
+    programa = p;
     gl.useProgram(programa);
     locais = {};
     for (const nome of UNIFORMES) locais[nome] = gl.getUniformLocation(programa, nome);
@@ -92,16 +118,24 @@ export function criarPintorWebGL(recipiente, amb) {
     gl.disable(gl.BLEND);
   }
 
-  try {
-    montar();
-  } catch {
-    try { gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* nada */ }
-    return null;
+  async function preparar() {
+    const g = ++geracao;
+    programa = null;
+    let alvo;
+    try { alvo = mandarCompilar(); } catch { return false; }
+    pendente = alvo;
+    const ok = await esperarCompilar(alvo, g);
+    pendente = null;
+    if (!ok) return false;
+    try { ligar(alvo.p); } catch { return false; }
+    largura = 0; altura = 0;
+    ajustar();
+    return true;
   }
 
-  const aoPerder = (evento) => { evento.preventDefault(); perdido = true; };
+  const aoPerder = (evento) => { evento.preventDefault(); perdido = true; programa = null; };
   const aoVoltar = () => {
-    try { montar(); perdido = false; ajustar(); } catch { perdido = true; }
+    preparar().then((ok) => { perdido = !ok; if (ok && ultimo) pintor?.desenhar(ultimo); });
   };
   tela.addEventListener('webglcontextlost', aoPerder);
   tela.addEventListener('webglcontextrestored', aoVoltar);
@@ -120,21 +154,23 @@ export function criarPintorWebGL(recipiente, amb) {
     if (ultimo && pintor) pintor.desenhar(ultimo);
   }
 
-  recipiente.append(tela);
-  ajustar();
-
   pintor = {
     tipo: 'webgl',
     tela,
-    get aspecto() { return largura / altura; },
+    get aspecto() {
+      const l = largura || recipiente.clientWidth || 1;
+      const a = altura || recipiente.clientHeight || 1;
+      return l / a;
+    },
+    pronto: null,
 
-    redimensionar: ajustar,
+    redimensionar() { if (programa) ajustar(); },
 
     /** Desce um degrau de resolução. Devolve false quando já está no menor. */
     baixar() {
       if (escala >= ESCALAS.length - 1) return false;
       escala++;
-      ajustar();
+      if (programa) ajustar();
       return true;
     },
 
@@ -169,16 +205,28 @@ export function criarPintorWebGL(recipiente, amb) {
     },
 
     destruir() {
+      vivo = false;
+      geracao++;
       tela.removeEventListener('webglcontextlost', aoPerder);
       tela.removeEventListener('webglcontextrestored', aoVoltar);
       try {
         if (buffer) gl.deleteBuffer(buffer);
         if (programa) gl.deleteProgram(programa);
+        if (pendente) gl.deleteProgram(pendente.p);
         gl.getExtension('WEBGL_lose_context')?.loseContext();
       } catch { /* o contexto já pode ter ido embora */ }
       tela.remove();
       programa = null;
     },
   };
+
+  // O canvas só entra no recipiente compilado e com o primeiro quadro pintado.
+  pintor.pronto = preparar().then((ok) => {
+    if (!ok || !vivo) return false;
+    recipiente.append(tela);
+    ajustar();
+    if (ultimo) pintor.desenhar(ultimo);
+    return true;
+  }, () => false);
   return pintor;
 }

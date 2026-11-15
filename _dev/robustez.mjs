@@ -334,7 +334,9 @@ const casos = {
     await s.page.keyboard.press('Enter');
     await s.esperarEtapa('inicio:musica', 20000);
     await pausa(800);
-    await s.page.keyboard.press('Tab');
+    // A música já leva o foco à primeira faixa sozinha; só tabula se não levou.
+    const jaNaFaixa = await s.page.evaluate(() => document.activeElement?.dataset?.acao === 'faixa');
+    if (!jaNaFaixa) await s.page.keyboard.press('Tab');
     const foco2 = await s.page.evaluate(() => document.activeElement?.dataset?.acao);
     await s.page.keyboard.press('Enter');
     await pausa(500);
