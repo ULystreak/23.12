@@ -224,9 +224,10 @@ const VERTICE = /* glsl */ `
     // Perto da ponta luminosa do fio o ar gira: a pétala contorna a luz e segue.
     if (uMagia.w > 0.001) {
       vec3 dm = p - uMagia.xyz;
-      float km = uMagia.w * exp(-dot(dm, dm) / 0.28);
-      p.xz += vec2(-dm.z, dm.x) * km * 0.9 + normalize(dm.xz + 1e-4) * km * 0.07;
-      p.y += km * 0.06;
+      float km = uMagia.w * exp(-dot(dm, dm) / 0.4);
+      // contornam a luz (giro em volta dela) e o ar as segura: sobem um nada, como se parassem
+      p.xz += vec2(-dm.z, dm.x) * km * 1.1 + normalize(dm.xz + 1e-4) * km * 0.08;
+      p.y += km * 0.09;
     }
 
     float a = presenca(p);
@@ -269,8 +270,8 @@ const VERTICE = /* glsl */ `
     float ergue = 0.0;
     if (uMagia.w > 0.001) {
       vec2 dm = p.xz - uMagia.xz;
-      ergue = uMagia.w * exp(-dot(dm, dm) / 0.22) * (1.0 - smoothstep(0.12, 0.5, uMagia.y));
-      p.y += ergue * (0.03 + 0.04 * aR1.w);
+      ergue = uMagia.w * exp(-dot(dm, dm) / 0.36) * (1.0 - smoothstep(0.15, 0.6, uMagia.y));
+      p.y += ergue * (0.04 + 0.06 * aR1.w);
     }
 
     // Deitada, com rotação qualquer; metade caiu de barriga para baixo.
@@ -563,6 +564,8 @@ export function criarPetalas(mundo, amb) {
   let tempoAlvo = 1;                                // definirTempo(): o tempo do mundo quase para
   let tempoAgora = 1;
   let magiaAlvo = 0;
+  let aberturaAlvo = 1;
+  let abertura = 1;
   let densidadeAlvo = 1;
   let focoAlvo = FOCO_PADRAO;
   let desde = 1e5;                                  // tempo desde comecar(); enorme = já estavam no ar
@@ -785,6 +788,15 @@ export function criarPetalas(mundo, amb) {
       malhaSoltas.visible = true;
     },
 
+    /**
+     * Quanto as pétalas entre a lente e o foco desfocam (1 normal). O mergulho no
+     * pulso abre a lente: as da frente viram luz macia e o olhar vai para o nó.
+     */
+    definirAbertura(k) {
+      const v = Number(k);
+      aberturaAlvo = Number.isFinite(v) ? clamp(v, 0.5, 4) : 1;
+    },
+
     /** Quão depressa o tempo das pétalas passa (1 normal; 0,3 quase parado). Muda devagar. */
     definirTempo(k) {
       const v = Number(k);
@@ -827,6 +839,10 @@ export function criarPetalas(mundo, amb) {
       uh.uCentro.value.set(rig.position.x, 0, rig.position.z - (FUNDO_CAIXA + 1) * 0.46);
 
       comuns.uFoco.value = amortecer(comuns.uFoco.value, focoAlvo, 2.2, dt);
+      if (abertura !== aberturaAlvo) {
+        abertura = Math.abs(abertura - aberturaAlvo) < 0.002 ? aberturaAlvo : amortecer(abertura, aberturaAlvo, 1.8, dt);
+        comuns.uAbertura.value.x = 0.04 * abertura;
+      }
       atualizarProtecao(dt);
 
       if (vivas) atualizarSoltas(passo);

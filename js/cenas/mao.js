@@ -711,6 +711,30 @@ function criarSeguidor(ctx, { z0, x0, pulsoPx, cam }) {
   let parado = false;
   let alcance = 0;          // quanto do caminho já existe à frente (m); a extensão revela por progresso
 
+  // O voo: quando a estrela nasce, o fio é desenhado no ar, numa curva larga que
+  // sobe e desce sobre o caminho; depois assenta no chão, de perto para longe.
+  //   ar.k        0..1, quanto do voo existe
+  //   ar.assentar 0..1, a frente que assenta (0: tudo no ar; 1: tudo no chão)
+  const ar = { k: 0, assentar: 0 };
+  let pontaS = null;        // a ponta, em metros de caminho desde a partida (null: quem manda é progresso())
+  const sDe = new Float32Array(MAX);
+  const acum = new Float32Array(MAX);
+
+  function vooEm(s) {
+    if (ar.k <= 0.0005) return 0;
+    const frente = ar.assentar * (S_CARTA + 8) - 4;
+    return ar.k * (1 - suave((frente - s) / 4));
+  }
+  // altura do voo e quanto ele abre para o lado, a `s` metros (some ao longe)
+  function alturaAr(s) {
+    const longe = 1 - suave((s - 6.5) / 4.5);
+    return (0.98 + 0.4 * Math.sin((s - 1.2) * 0.9)) * longe;
+  }
+  function ladoAr(s) {
+    const longe = 1 - suave((s - 7) / 4);
+    return 0.26 * Math.sin((s - 1.2) * 0.62 + 0.2) * longe;
+  }
+
   function definirPonto(i, x, y, z) {
     const p = pontos[i];
     p.x = x; p.y = y; p.z = z;
@@ -741,17 +765,21 @@ function criarSeguidor(ctx, { z0, x0, pulsoPx, cam }) {
     // Começo: o pulso, em px de tela, levado ao mundo.
     const ponta = pulsoPx();
     if (ok) {
-      const ndcX = (ponta.x / mundo.tamanho.largura) * 2 - 1;
-      const ndcY = -((ponta.y / mundo.tamanho.altura) * 2 - 1);
+      const ndcX = clamp((ponta.x / mundo.tamanho.largura) * 2 - 1, -1.6, 1.6);
+      // (a mão saindo de quadro no mergulho leva o pulso muito abaixo da tela: o fio não entra no chão)
+      const ndcY = Math.max(-((ponta.y / mundo.tamanho.altura) * 2 - 1), -1.4);
       inicio.copy(mundo.telaParaMundo(ndcX, ndcY, PROF_PULSO));
     } else {
       leve.desprojetar(ponta.x, ponta.y, PROF_PULSO, inicio);
     }
 
     // Queda: vertical no pulso, deitada no chão (horizontal no toque).
-    const tx = x0 + desvio(sT);
+    // No voo, o "toque" fica no ar: o fio sai do pulso quase reto, para a frente.
+    const vT = ok ? vooEm(sT) : 0;
+    const tx = x0 + desvio(sT) + vT * ladoAr(sT);
     const tz = z0 - sT;
-    const altura = Math.max(0.05, inicio.y - 0.02);
+    const yT = 0.02 + vT * alturaAr(sT);
+    const altura = inicio.y - yT;
     // No plano do chão, uma curva de Bézier cujo fim já vem na direção do caminho:
     // o fio pousa sem quina e segue.
     const dS = 0.05;
@@ -766,19 +794,24 @@ function criarSeguidor(ctx, { z0, x0, pulsoPx, cam }) {
     for (let i = 0; i < QUEDA; i++) {
       const u = i / QUEDA;
       const h = Math.pow(u, 0.95);
-      const y = 0.02 + altura * Math.pow(1 - u, 1.8);
+      const y = yT + altura * Math.pow(1 - u, 1.8);
       const a = (1 - h) * (1 - h);
       const b = 2 * (1 - h) * h;
       const c = h * h;
+      sDe[n] = sCam + (sT - sCam) * u;
       definirPonto(n++, a * inicio.x + b * cx + c * tx, y, a * inicio.z + b * cz + c * tz);
     }
 
     // Chão: pontos fixos no mundo a cada 0,5 m (não tremem enquanto ela anda).
     const fimChao = S_CARTA - 0.95;
-    definirPonto(n++, tx, 0.02, tz);
+    sDe[n] = sT;
+    definirPonto(n++, tx, yT, tz);
     for (let s = Math.ceil((sT + 0.25) / 0.5) * 0.5; s < fimChao && n < MAX - 6; s += 0.5) {
-      definirPonto(n++, x0 + desvio(s), 0.02, z0 - s);
+      const v = ok ? vooEm(s) : 0;
+      sDe[n] = s;
+      definirPonto(n++, x0 + desvio(s) + v * ladoAr(s), 0.02 + v * alturaAr(s), z0 - s);
     }
+    const nChao = n;
 
     // Subida até a carta (ou deitado, quando solto).
     const tem = lerAncora();
@@ -812,6 +845,27 @@ function criarSeguidor(ctx, { z0, x0, pulsoPx, cam }) {
       for (let i = 0; i < n; i++) lista.push(pontos[i]);
       fio.definirCurva(lista);
       if (fio.fase) fio.fase(alcance - queda);
+      if (pontaS !== null) {
+        // A ponta anda em metros de caminho, não em fração do fio (o fio muda de
+        // tamanho enquanto a câmera anda e enquanto ele assenta): a fração sai do
+        // comprimento da polilinha até ali.
+        for (let i = nChao; i < n; i++) sDe[i] = fimChao + (i - nChao + 1) * ((S_CARTA - fimChao) / Math.max(1, n - nChao));
+        acum[0] = 0;
+        for (let i = 1; i < n; i++) acum[i] = acum[i - 1] + pontos[i].distanceTo(pontos[i - 1]);
+        const total = acum[n - 1] || 1;
+        let f = 1;
+        if (pontaS <= sDe[0]) f = 0;
+        else {
+          for (let i = 1; i < n; i++) {
+            if (sDe[i] >= pontaS) {
+              const r = clamp((pontaS - sDe[i - 1]) / Math.max(1e-5, sDe[i] - sDe[i - 1]));
+              f = (acum[i - 1] + (acum[i] - acum[i - 1]) * r) / total;
+              break;
+            }
+          }
+        }
+        fio.progresso(f);
+      }
       return;
     }
 
@@ -914,7 +968,14 @@ function criarSeguidor(ctx, { z0, x0, pulsoPx, cam }) {
     pararDiretor();
   }
 
-  return { criar, soltar, parar, get fio() { return fio; }, get alcance() { return alcance; } };
+  return {
+    criar, soltar, parar, ar,
+    get fio() { return fio; },
+    get alcance() { return alcance; },
+    /** A ponta em metros de caminho desde a partida (null devolve o controle a fio.progresso). */
+    ponta(s) { pontaS = s === null || s === undefined ? null : Number(s) || 0; },
+    get pontaS() { return pontaS; },
+  };
 }
 
 // =============================================================================
@@ -931,7 +992,8 @@ function petalasNoChao(mundo, { z0, x0 }) {
   forma.bezierCurveTo(-0.016, 0.01, -0.013, -0.012, 0, -0.018);
   const geometria = new THREE.ShapeGeometry(forma, 6);
   geometria.rotateX(-Math.PI / 2);
-  const material = new THREE.MeshBasicMaterial({ color: '#b3123a', side: THREE.DoubleSide, transparent: true, opacity: 0.92 });
+  // (sem névoa: no entardecer a névoa escura as deixava cinzentas, como riscos sobre o fio)
+  const material = new THREE.MeshBasicMaterial({ color: '#b3123a', side: THREE.DoubleSide, transparent: true, opacity: 0.9, fog: false });
   const aleat = semente(23);
   const quantas = 9;
   const malha = new THREE.InstancedMesh(geometria, material, quantas);
@@ -975,7 +1037,9 @@ export async function cenaMao(ctx, { frio } = {}) {
   const calmo = amb.reduzido;
 
   // ---- câmera: inclinação e o andar que segue a curva ------------------------
-  const cam = { inclinacao: 0, guinada: 0, x: 0, guiar: false };
+  const cam = { inclinacao: 0, guinada: 0, x: 0, y: 0, guiar: false };
+  // O olhar que acompanha a estrela (só no mergulho): k mistura com a câmera de sempre.
+  const olhar = { k: 0, guinada: 0, inclinacao: 0 };
   let x0 = mundo.rig.position.x;
   let z0 = mundo.rig.position.z;
   const pararCamera = mundo.aoQuadro((dt) => {
@@ -988,8 +1052,9 @@ export async function cenaMao(ctx, { frio } = {}) {
     }
     if (!mundo.ok) return;
     mundo.rig.position.x = x0 + cam.x;
-    mundo.rig.rotation.y = cam.guinada;
-    mundo.camera.rotation.x += cam.inclinacao;
+    mundo.rig.position.y = cam.y;
+    mundo.rig.rotation.y = lerp(cam.guinada, olhar.guinada, olhar.k);
+    mundo.camera.rotation.x += lerp(cam.inclinacao, olhar.inclinacao, olhar.k);
   });
 
   // Inclinação conforme a tela: deitada, o campo vertical é menor e precisa olhar mais para baixo.
@@ -998,6 +1063,7 @@ export async function cenaMao(ctx, { frio } = {}) {
 
   let pararPose = () => {};
   let pararMagia = () => {};
+  let clarear = null;                   // a tarde que clareia pela metade na caminhada
   try {
     // 1. O capítulo fecha e a carta vai embora.
     diretor.etapa('enrolando');
@@ -1057,8 +1123,8 @@ export async function cenaMao(ctx, { frio } = {}) {
       foto.width = (imagem && imagem.offsetWidth) || caixa.width;
       foto.height = (imagem && imagem.offsetHeight) || caixa.height;
       // o centro do véu: o ponto para onde o zoom vai (perto do laço)
-      veu.style.setProperty('--vx', `${(caixa.left + caixa.width * 0.6).toFixed(0)}px`);   // = ORIGEM_X
-      veu.style.setProperty('--vy', `${(caixa.top + caixa.height * 0.7).toFixed(0)}px`);  // = ORIGEM_Y
+      veu.style.setProperty('--vx', `${(caixa.left + caixa.width * 0.69).toFixed(0)}px`);   // = ORIGEM_X
+      veu.style.setProperty('--vy', `${(caixa.top + caixa.height * 0.69).toFixed(0)}px`);  // = ORIGEM_Y
     };
     const foto = { left: 0, top: 0, width: 1, height: 1 };
     medir();
@@ -1070,8 +1136,8 @@ export async function cenaMao(ctx, { frio } = {}) {
     const ponta = { x: 0, y: 0 };
     let anguloCauda = 0;
     let tPose = 0;
-    const ORIGEM_X = 0.6;                // = transform-origin do .mao-corpo (css/mao.css)
-    const ORIGEM_Y = 0.7;
+    const ORIGEM_X = 0.69;                // = transform-origin do .mao-corpo (css/mao.css)
+    const ORIGEM_Y = 0.69;
     function pulsoPx() {
       let vx; let vy;
       if (desenho) {
@@ -1180,21 +1246,25 @@ export async function cenaMao(ctx, { frio } = {}) {
     gsap.to(botao, { autoAlpha: 0, duration: 0.5, ease: curvas.branco.sair, onComplete: () => botao.remove() });
     ocultarPalavras(frase).then(() => frase.remove());
     if (petalasChao) petalasChao.visible = true;
-    // o tempo volta a andar e o foco volta para longe
-    mundo.petalas.definirTempo?.(1);
-    mundo.petalas.definirFoco?.();
     if (desenho) desenho.brasas.taxa = 0;
-    // a luz do nó escorre para o fio: ela vira a ponta luminosa que desenha o caminho
-    gsap.to(pose, { luz: 0, duration: 1.6, ease: 'power1.in' });
-    // o véu sai enquanto o fio nasce: o caminho é na luz do dia
-    gsap.to(veu, { opacity: 0, duration: 1.8, ease: 'sine.inOut', onComplete: () => veu.remove() });
     const magico = !calmo && mundo.ok;
-    fio.rastro?.(calmo ? 0 : 1);
-    fio.estrela?.(0, 16);
-    if (!calmo) {
-      const nasce = { k: 0 };
-      gsap.to(nasce, { k: 1, duration: 0.5, ease: curvas.branco.entrar, onUpdate: () => fio.estrela?.(nasce.k) });
+    if (!magico) {
+      // o tempo volta a andar e o foco volta para longe
+      mundo.petalas.definirTempo?.(1);
+      mundo.petalas.definirFoco?.();
     }
+
+    // O entardecer: a alameda escurece e esfria um pouco (a foto, não o fio), e a
+    // luz do fio passa a ler como luz. O véu da mão sai: quem escurece agora é o mundo.
+    entardecer(ctx, true, calmo ? 1.6 : 2.8);
+    gsap.to(veu, { opacity: 0, duration: 2.4, ease: 'sine.inOut', onComplete: () => veu.remove() });
+    const luzFio = { halo: 0 };
+    gsap.to(luzFio, { halo: calmo ? 0.6 : 0.55, duration: 2.6, ease: 'sine.inOut', onUpdate: () => fio.halo?.(luzFio.halo) });
+    // a luz do nó escorre para o fio: ela vira a estrela que desenha o caminho
+    gsap.to(pose, { luz: 0, duration: magico ? 2.4 : 1.6, delay: magico ? 0.9 : 0, ease: 'power1.in' });
+    fio.rastro?.(calmo ? 0 : 1);
+    fio.estrela?.(0, magico ? 30 : 16, 1);
+
     const pontaFio = mundo.ok ? new mundo.THREE.Vector3() : null;
     pararMagia = mundo.aoQuadro((dt) => {
       if (!magico || !fio.pontoEm) return;
@@ -1202,66 +1272,82 @@ export async function cenaMao(ctx, { frio } = {}) {
       if (k <= 0.001 || k >= 0.999) return;
       fio.pontoEm(k, pontaFio);
       mundo.petalas.magia?.(pontaFio, 1);
-      if (!cam.guiar) {
-        // a câmera procura a ponta, com antecipação (só enquanto ela ainda não anda)
-        const dx = pontaFio.x - mundo.rig.position.x;
-        const dz = mundo.rig.position.z - pontaFio.z;
-        const alvo = clamp(-Math.atan2(dx, Math.max(0.5, dz)) * 0.32, -0.16, 0.16);
-        cam.guinada = amortecer(cam.guinada, alvo, 1.6, dt);
+      if (olhar.k > 0.001) {
+        // o olhar acompanha a estrela de perto, com ela um pouco abaixo do centro
+        const r = mundo.rig.position;
+        const dx = pontaFio.x - r.x;
+        const dy = pontaFio.y - (r.y + ALTURA_OLHOS);
+        const dz = Math.max(0.35, r.z - pontaFio.z);
+        const guinada = clamp(-Math.atan2(dx, dz), -0.6, 0.6);
+        const inclinacao = clamp(Math.atan2(dy, Math.hypot(dx, dz)) * 0.9 + 0.07, -0.62, 0.12);
+        olhar.guinada = amortecer(olhar.guinada, guinada, 3.4, dt);
+        olhar.inclinacao = amortecer(olhar.inclinacao, inclinacao, 3.4, dt);
       }
     });
 
-    // O nó dá um puxão: a ponta solta estica antes do fio correr.
-    if (desenho && !calmo) {
-      gsap.timeline()
-        .to(pose, { caudaKick: -9, duration: 0.22, ease: curvas.ui.resposta, overwrite: 'auto' })
-        .to(pose, { caudaKick: 0, duration: 1.6, ease: curvas.branco.entrar });
+    let andado = 0;                     // o que a câmera já avançou antes da caminhada
+    let saida;
+    let extensao;
+    if (magico) {
+      // O mergulho: o olhar chega ao pulso, a estrela nasce do nó e desenha o fio
+      // no ar; a câmera vai atrás dela; depois recua e sobe, e o fio inteiro
+      // aparece serpenteando pela alameda até sumir na névoa, com a luz correndo nele.
+      saida = mergulhar(gsap, { pose, caixa, cam, olhar, fio, seguidor, mundo, som, olharMao, z0 });
+      await saida.pronto;
+      andado = Math.max(0, z0 - mundo.rig.position.z);
+      extensao = Promise.resolve();
+    } else {
+      if (!calmo) {
+        const nasce = { k: 0 };
+        gsap.to(nasce, { k: 1, duration: 0.5, ease: curvas.branco.entrar, onUpdate: () => fio.estrela?.(nasce.k) });
+      }
+      // O nó dá um puxão: a ponta solta estica antes do fio correr.
+      if (desenho && !calmo) {
+        gsap.timeline()
+          .to(pose, { caudaKick: -9, duration: 0.22, ease: curvas.ui.resposta, overwrite: 'auto' })
+          .to(pose, { caudaKick: 0, duration: 1.6, ease: curvas.branco.entrar });
+      }
+      // Dois tempos: o fio escorre da ponta solta até o chão, ao lado da mão; depois
+      // corre pelo chão para longe, rápido no começo e assentando devagar.
+      const queda = clamp(1.9 / Math.max(1, fio.comprimento), 0.08, 0.3);
+      const revelar = { p: 0 };
+      extensao = new Promise((ok) => {
+        const tl = gsap.timeline({ onComplete: ok, onUpdate: () => fio.progresso(revelar.p) });
+        if (calmo) tl.to(revelar, { p: 1, duration: 1.6, ease: curvas.branco.deriva });
+        else {
+          tl.to(revelar, { p: queda, duration: 1.1, ease: curvas.branco.camera })
+            .to(revelar, { p: 1, duration: 5.2, ease: 'power2.out' }, 1.0);
+        }
+      }).then(() => {
+        const o = { k: 1 };
+        gsap.to(o, { k: 0, duration: 1.2, ease: 'power1.out', onUpdate: () => { fio.estrela?.(o.k); fio.rastro?.(calmo ? 0 : o.k); } });
+      });
+      if (!calmo) gsap.to(cam, { inclinacao: olharMao * 1.1, duration: 1.8, ease: curvas.branco.camera });
+      await espera(calmo ? 600 : 900);
+      gsap.to(pose, { respiro: 0, duration: 1.0, ease: 'none' });
+      saida = calmo
+        // sem deslocamento: some por opacidade e, já invisível, o pulso sai de quadro
+        ? gsap.to(pose, { opacidade: 0, duration: 1.0, ease: 'none', onComplete: () => { pose.y = caixa.height * 1.15 + 80; } })
+        : gsap.timeline()
+          .to(pose, { y: caixa.height * 1.15 + 80, rot: -2.5, duration: 1.8, ease: curvas.branco.camera }, 0)
+          .to(pose, { opacidade: 0, duration: 0.45, ease: 'none' }, 1.35);
+      await espera(calmo ? 200 : 400);
     }
-    // Dois tempos: o fio escorre da ponta solta até o chão, ao lado da mão; depois
-    // corre pelo chão para longe, rápido no começo e assentando devagar, enquanto
-    // a mão desce e abre o caminho.
-    const queda = clamp(1.9 / Math.max(1, fio.comprimento), 0.08, 0.3);
-    const revelar = { p: 0 };
-    const extensao = new Promise((ok) => {
-      const tl = gsap.timeline({ onComplete: ok, onUpdate: () => fio.progresso(revelar.p) });
-      if (calmo) tl.to(revelar, { p: 1, duration: 1.6, ease: curvas.branco.deriva });
-      else {
-        tl.to(revelar, { p: queda, duration: 1.1, ease: curvas.branco.camera })
-          .to(revelar, { p: 1, duration: 5.2, ease: 'power2.out' }, 1.0);
-      }
-    }).then(() => {
-      // a ponta some na névoa, longe; o rastro apaga
-      const o = { k: 1 };
-      gsap.to(o, { k: 0, duration: 1.2, ease: 'power1.out', onUpdate: () => { fio.estrela?.(o.k); fio.rastro?.(calmo ? 0 : o.k); } });
-      mundo.petalas.magia?.(null);
-    });
-    // A câmera acompanha a corrida do fio, um pouco mais para o chão.
-    if (!calmo) gsap.to(cam, { inclinacao: olharMao * 1.1, duration: 1.8, ease: curvas.branco.camera });
 
-    // A mão fica um instante enquanto o fio corre ao lado dela (o caminho abre à direita da silhueta).
-    await espera(calmo ? 600 : 900);
-    // A mão desce e sai do quadro (o começo do fio desce junto).
-    gsap.to(pose, { respiro: 0, duration: 1.0, ease: 'none' });
-    const saida = calmo
-      // sem deslocamento: some por opacidade e, já invisível, o pulso sai de quadro
-      // (o começo do fio passa a vir de baixo da tela, como no caminho normal)
-      ? gsap.to(pose, { opacidade: 0, duration: 1.0, ease: 'none', onComplete: () => { pose.y = caixa.height * 1.15 + 80; } })
-      : gsap.timeline()
-        .to(pose, { y: caixa.height * 1.15 + 80, rot: -2.5, duration: 1.8, ease: curvas.branco.camera }, 0)
-        .to(pose, { opacidade: 0, duration: 0.45, ease: 'none' }, 1.35);
-    // 6. Ela caminha seguindo o fio, de uma vez só, até parar na frente da carta
-    // (começa enquanto a mão ainda desce: a câmera sai devagar, sem degrau).
-    await espera(calmo ? 200 : 400);
+    // 6. Ela caminha seguindo o fio, de uma vez só, até parar na frente da carta.
     cam.guiar = !calmo;
-    const DURACAO = 8.0;
+    const DURACAO = magico ? 7.4 : 8.0;
     if (!calmo) {
       gsap.timeline()
-        .to(cam, { inclinacao: olharMao * 0.45, duration: 2.6, ease: curvas.branco.camera, overwrite: 'auto' })
+        .to(cam, { inclinacao: olharMao * 0.45, y: 0, duration: 2.6, ease: curvas.branco.camera, overwrite: 'auto' })
         .to(cam, { inclinacao: 0, duration: 3.0, ease: curvas.branco.camera }, DURACAO - 3.4);
     } else {
       cam.inclinacao = 0;
     }
-    const andar = mundo.caminhar({ distancia: CAMINHADA + RESTO, duracao: DURACAO });
+    const andar = mundo.caminhar({ distancia: Math.max(0.5, CAMINHADA + RESTO - andado), duracao: DURACAO });
+    // Andando, a tarde clareia pela metade: a alameda volta a ter cor (o rosa das
+    // cerejeiras não fica cinza a caminhada inteira) e o fio ainda lê como luz.
+    if (magico) clarear = gsap.delayedCall(1.4, () => entardecer(ctx, 0.5, 4.2));
     // A câmera assenta no eixo da carta durante o fim da própria caminhada.
     const ALINHAR = calmo ? 0.3 : 1.8;
     const alinhada = espera((DURACAO - ALINHAR) * 1000).then(() => new Promise((ok) => {
@@ -1274,27 +1360,33 @@ export async function cenaMao(ctx, { frio } = {}) {
       criarCarta(calmo ? 1.2 : 3.6);
     }
     await Promise.all([andar, extensao, alinhada]);
-    await new Promise((ok) => (saida.progress() >= 1 ? ok() : saida.eventCallback('onComplete', ok)));
+    if (saida && saida.progress) await new Promise((ok) => (saida.progress() >= 1 ? ok() : saida.eventCallback('onComplete', ok)));
     pararMagia();
     mundo.petalas.magia?.(null);
     cam.guiar = false;
-    cam.x = 0; cam.guinada = 0; cam.inclinacao = 0;
+    cam.x = 0; cam.guinada = 0; cam.inclinacao = 0; cam.y = 0;
+    olhar.k = 0;
 
-    // 7. Chegada: a luz corre pelo fio uma última vez e chega ao laço da carta, que acende.
+    // 7. Chegada: a luz corre pelo fio inteiro até o laço da carta, que acende; e a luz do dia volta.
     const cartaAqui = estado.envelope;
     if (fio.pulso) {
-      const chegou = fio.pulso({ de: mundo.ok ? 0.5 : 0, ate: 1.02, duracao: calmo ? 1.4 : 2.2, forca: 1, brasas: 18, curva: 'power1.inOut' });
-      await espera(calmo ? 500 : 1650);
-      cartaAqui?.brilharLaco?.(0.75, calmo ? 0.6 : 1.1);
+      const chegou = fio.pulso({ de: 0, ate: 1.02, duracao: calmo ? 1.6 : 2.8, forca: 1.15, largura: 0.8, brasas: 20, curva: 'power1.inOut' });
+      await espera(calmo ? 700 : 2200);
+      cartaAqui?.brilharLaco?.(0.85, calmo ? 0.6 : 1.1);
       som.efeito('brilho');
       await chegou;
     }
+    entardecer(ctx, false, calmo ? 1.6 : 3.2);
+    gsap.to(luzFio, { halo: 0.12, duration: 3, ease: 'sine.inOut', onUpdate: () => fio.halo?.(luzFio.halo) });
 
     pararPose();
     pararMedida();
     window.removeEventListener('resize', ouvirJanela);
     mao.remove();
   } finally {
+    clarear?.kill();
+    entardecer(ctx, false, 1.2);
+    olhar.k = 0;
     pararPose();
     pararMagia();
     pararCamera();
@@ -1302,9 +1394,111 @@ export async function cenaMao(ctx, { frio } = {}) {
     mundo.petalas.magia?.(null);
     if (mundo.ok) {
       mundo.rig.position.x = x0;
+      mundo.rig.position.y = 0;
       mundo.rig.rotation.y = 0;
     }
   }
+}
+
+// =============================================================================
+// O entardecer: enquanto o fio está acordado, a alameda escurece e esfria um
+// pouco (uma camada sobre a foto, em css/mao.css, só opacidade) e a névoa do 3D
+// vai junto, para o fio ao longe sumir numa névoa da mesma cor. O fio e a luz
+// dele ficam por cima, intactos: a magia se lê por contraste de luz.
+// =============================================================================
+
+const NEVOA_TARDE = '#8d7f95';
+const tarde = { k: 0, alvo: 0, base: null, tween: null };
+
+function entardecer(ctx, ligar, duracao = 2.6) {
+  const raiz = document.documentElement;
+  // ligar: true (1), false (0) ou um nível 0..1 (na caminhada a tarde clareia pela metade)
+  const alvo = typeof ligar === 'number' ? clamp(ligar, 0, 1) : (ligar ? 1 : 0);
+  if (tarde.alvo === alvo) return;
+  tarde.alvo = alvo;
+  const rapido = Math.max(0.1, ctx.amb.rapido || 1);
+  raiz.style.setProperty('--entardecer-dur', `${(duracao / rapido).toFixed(2)}s`);
+  raiz.style.setProperty('--entardecer-k', String(alvo));
+  raiz.classList.toggle('entardecer', alvo > 0);
+  const { mundo } = ctx;
+  const gsap = window.gsap;
+  if (!mundo.ok || !mundo.cena.fog || !gsap) return;
+  if (!raiz.classList.contains('com-fundo')) return;      // sem a foto o mundo é branco: só o fio acende
+  const nevoa = mundo.cena.fog.color;
+  if (!tarde.base) tarde.base = nevoa.clone();
+  const escura = new mundo.THREE.Color(NEVOA_TARDE);
+  if (tarde.tween) tarde.tween.kill();
+  tarde.tween = gsap.to(tarde, {
+    k: alvo,
+    duration: duracao,
+    ease: 'sine.inOut',
+    onUpdate: () => { if (tarde.base) nevoa.copy(tarde.base).lerp(escura, tarde.k); },
+    onComplete: () => { if (!alvo) tarde.base = null; },
+  });
+}
+
+/**
+ * O mergulho (só com WebGL e sem movimento reduzido). Devolve a timeline com
+ * `.pronto` (Promise): resolve quando o plano aberto terminou e a caminhada pode começar.
+ *   0,0  o olhar mergulha no pulso: a mão cresce em volta do nó, a lente abre
+ *        (as pétalas da frente viram luz macia)
+ *   0,9  a estrela nasce do nó, num clarão que assenta
+ *   1,1  ela desenha o fio no ar, numa curva larga; o olhar vai atrás dela, de perto,
+ *        e a mão fica para trás
+ *   4,4  a câmera recua e sobe; o fio assenta no chão de perto para longe e a
+ *        estrela corre até sumir na névoa; um pulso de luz percorre o fio inteiro
+ */
+function mergulhar(gsap, { pose, caixa, cam, olhar, fio, seguidor, mundo, som, olharMao, z0 }) {
+  const rig = mundo.rig.position;
+  const petalas = mundo.petalas;
+  const ar = seguidor.ar;
+  const ponta = { s: 0 };
+  const estrela = { k: 0, escala: 2.8 };
+  const aplicarEstrela = () => fio.estrela?.(estrela.k, undefined, estrela.escala);
+  const aplicarPonta = () => seguidor.ponta(ponta.s);
+  seguidor.ponta(0);
+  ar.k = 1;
+  ar.assentar = 0;
+  olhar.guinada = cam.guinada;
+  olhar.inclinacao = cam.inclinacao;
+  olhar.k = 0;
+  petalas.definirFoco?.(0.9);
+  petalas.definirAbertura?.(3.2);
+
+  const tl = gsap.timeline();
+  // 1. o mergulho no pulso
+  tl.to(pose, { zoom: 2.5, duration: 2.6, ease: 'power2.inOut' }, 0)
+    .to(cam, { inclinacao: olharMao * 1.4, duration: 2.6, ease: curvas.branco.camera, overwrite: 'auto' }, 0)
+    .to(pose, { caudaKick: -12, duration: 0.5, ease: 'sine.inOut' }, 0.45)
+    .to(pose, { caudaKick: 0, duration: 1.8, ease: curvas.branco.entrar }, 0.95)
+    // 2. a estrela nasce do nó
+    .add(() => som.efeito('brilho'), 0.8)
+    .to(estrela, { k: 1, duration: 0.5, ease: curvas.branco.entrar, onUpdate: aplicarEstrela }, 0.9)
+    .to(estrela, { escala: 1.15, duration: 1.8, ease: 'sine.inOut', onUpdate: aplicarEstrela }, 1.15)
+    // 3. ela desenha o fio no ar; o olhar vai atrás
+    .to(ponta, { s: 4.6, duration: 3.8, ease: 'sine.inOut', onUpdate: aplicarPonta }, 1.1)
+    .to(olhar, { k: 1, duration: 1.8, ease: 'sine.inOut' }, 1.3)
+    .to(pose, { respiro: 0, duration: 1.0, ease: 'none' }, 1.8)
+    .to(pose, { y: caixa.height * 1.3 + 120, zoom: 3.1, rot: -3, duration: 1.7, ease: 'power2.in' }, 2.0)
+    .to(pose, { opacidade: 0, duration: 0.2, ease: 'none' }, 3.6)
+    .to(rig, { z: z0 - 2.3, duration: 3.6, ease: 'power2.inOut' }, 1.6)
+    // 4. o plano aberto: recua e sobe, e o fio inteiro aparece
+    .to(olhar, { k: 0, duration: 2.8, ease: 'sine.inOut' }, 4.5)
+    .to(cam, { guinada: 0, inclinacao: -0.12, y: 0.42, duration: 3.6, ease: 'power2.inOut', overwrite: 'auto' }, 4.4)
+    .to(rig, { z: z0 - 1.5, duration: 3.6, ease: 'power2.inOut' }, 4.4)
+    .add(() => { petalas.definirFoco?.(); petalas.definirAbertura?.(1); petalas.definirTempo?.(1); }, 4.6)
+    .to(ar, { assentar: 1, duration: 4.2, ease: 'sine.inOut' }, 4.7)
+    .to(ponta, { s: S_CARTA + 1, duration: 3.8, ease: 'power1.inOut', onUpdate: aplicarPonta }, 4.9)
+    .add(() => { fio.pulso?.({ de: 0, ate: 1, duracao: 3.6, forca: 1.25, largura: 0.9, brasas: 26 }); }, 5.9)
+    .to(estrela, { k: 0, escala: 0.8, duration: 1.2, ease: 'power1.out', onUpdate: aplicarEstrela }, 8.1)
+    .add(() => {
+      seguidor.ponta(null);
+      fio.progresso(1);
+      fio.rastro?.(0);
+      ar.k = 0;
+    }, 9.3);
+  tl.pronto = new Promise((ok) => tl.eventCallback('onComplete', ok));
+  return tl;
 }
 
 /**

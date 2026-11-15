@@ -77,7 +77,7 @@ export async function cenaFinal(ctx, { frio } = {}) {
     if (cenaAgora !== 'final' || etapa !== 'carta-abrindo') return;
     try {
       const a = estado.envelope && estado.envelope.ancoraFio;
-      if (mundo.ok && a && estado.fio && estado.fio.faiscar) estado.fio.faiscar(a, 30);
+      if (mundo.ok && a && estado.fio && estado.fio.faiscar) estado.fio.faiscar(a, 44);
     } catch { /* carta descartada no meio: sem faísca */ }
   });
 

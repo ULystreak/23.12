@@ -25,8 +25,26 @@
   background: radial-gradient(ellipse 72% 58% at var(--vx, 50%) var(--vy, 62%),
     rgba(70, 14, 34, 0) 0%, rgba(70, 14, 34, 0) 40%, rgba(70, 14, 34, 0.12) 72%, rgba(52, 10, 26, 0.3) 100%);
 }
+/* O entardecer (js/cenas/mao.js): enquanto o fio está acordado, a foto da
+   alameda escurece e esfria um pouco, com as bordas mais fundas. Fica dentro
+   de #mundo-fundo, atrás do canvas: o fio e a luz dele continuam inteiros por
+   cima. Pintada uma vez; só a opacidade anda. Vale com e sem WebGL. */
+#mundo-fundo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    radial-gradient(ellipse 92% 74% at 50% 56%, rgba(26, 14, 40, 0) 34%, rgba(24, 12, 38, 0.32) 76%, rgba(16, 8, 28, 0.62) 100%),
+    linear-gradient(rgba(44, 30, 68, 0.4), rgba(44, 30, 68, 0.4));
+  transition: opacity var(--entardecer-dur, 2.6s) cubic-bezier(0.45, 0, 0.35, 1);
+  will-change: opacity;
+}
+html.entardecer #mundo-fundo::after { opacity: var(--entardecer-k, 1); }
+
 .mao-corpo {
-  transform-origin: 60% 70%;          /* = ORIGEM_X/ORIGEM_Y em js/cenas/mao.js: o zoom chega perto do laço */
+  transform-origin: 69% 69%;          /* = ORIGEM_X/ORIGEM_Y (o nó do laço) em js/cenas/mao.js: o zoom chega perto do laço */
   opacity: 0;
   will-change: transform, opacity;
 }

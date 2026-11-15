@@ -195,14 +195,23 @@ const COMUM = /* glsl */ `
   uniform float uPulsoK;    // força do pulso
   uniform float uPulsoL;    // comprimento do pulso (m)
   uniform float uRastro;    // rastro que a ponta deixa enquanto se desenha
+  uniform float uRastroL;   // quanto do fio a ponta percorre em ~1 s (m): o trecho ainda incandescente
 
   // Quanto o fio brilha por dentro a "s" metros do começo.
   float brilhoEm(float s) {
     float d = (s - uPulsoS) / uPulsoL;
     float pulso = uPulsoK * exp(-d * d);
     float atras = uProgresso * uComprimento - s;
-    float rastro = uRastro * exp(-max(atras, 0.) / 1.6) * step(-0.02, atras);
+    float rastro = uRastro * exp(-max(atras, 0.) / (uRastroL * 2.2 + 0.4)) * step(-0.02, atras);
     return clamp(uAceso + pulso + rastro, 0., 1.5);
+  }
+
+  // Logo atrás da estrela o fio nasce incandescente (quase branco) e esfria para
+  // o vermelho em ~1 s: o comprimento do trecho quente acompanha a velocidade da ponta.
+  float calorEm(float s) {
+    float atras = uProgresso * uComprimento - s;
+    // (nasce um palmo depois do pulso: rente ao laço desenhado o fio é só vermelho)
+    return uRastro * exp(-max(atras, 0.) / max(uRastroL, 0.05)) * step(-0.02, atras) * step(uProgresso, 0.9995) * smoothstep(0.08, 0.4, s);
   }
 
   // Largura do fio (m) a "s" metros do começo, já com a ponta que se desenha afinando.
@@ -244,6 +253,7 @@ const VERTICE = /* glsl */ `
   varying float vBrilho;
   varying float vExtraPx;
   varying float vPerto;
+  varying float vCalor;
 
   // Vento: só mexe no que está no ar (aSolto vai de 0, no chão ou preso, a 1).
   vec3 balanco(vec3 p, float s, float solto) {
@@ -276,6 +286,9 @@ const VERTICE = /* glsl */ `
     vPerto = smoothstep(0.55, 1.1, meiaPx / (uMaxPx * 0.5));
     meiaPx = clamp(meiaPx, minimo, uMaxPx * 0.5);               // a mesma bitola do cordão da carta, perto ou longe
     vBrilho = brilhoEm(s);
+    vCalor = calorEm(s);
+    // o trecho incandescente é um nada mais grosso (a luz o alarga)
+    meiaPx += vCalor * 0.7;
     // espaço além da borda: a penugem (de perto) e o halo quando o fio acende
     vExtraPx = uFuzzPx * vPerto + uHaloPx * min(vBrilho, 1.);
     mv.xyz += lado * aLado * (meiaPx + uMargemPx + vExtraPx) * metroPorPx;   // a margem é o espaço da borda macia
@@ -311,6 +324,7 @@ const FRAGMENTO = /* glsl */ `
   uniform vec3 uCorQuente;    // a luz de dentro (ouro morno)
   uniform vec3 uCorHalo;      // o halo em volta (rosa-ouro)
   uniform vec3 uCorTrans;     // vermelho atravessado pela luz (bordas contra a luz)
+  uniform vec3 uCorBrasa;     // o fio recém-nascido: incandescente, quase branco
 
   varying float vS;
   varying float vLado;
@@ -322,6 +336,7 @@ const FRAGMENTO = /* glsl */ `
   varying float vBrilho;
   varying float vExtraPx;
   varying float vPerto;
+  varying float vCalor;
 
   float acaso(float n) { return fract(sin(n * 12.9898) * 43758.5453); }
 
@@ -395,6 +410,10 @@ const FRAGMENTO = /* glsl */ `
     // (o vermelho do fio fica luminoso, não laranja: num mundo claro a luz vermelha é que se lê)
     cor = mix(cor, uCorQuente, b * (0.35 + 0.35 * altura));
     cor += vec3(1., 0.88, 0.8) * b * 0.4 * pow(altura, 8.);
+    // incandescente: branco-quente no miolo, laranja na borda, e esfria para o vermelho
+    float calor = clamp(vCalor, 0., 1.);
+    vec3 brasa = mix(vec3(1., 0.42, 0.2), uCorBrasa, smoothstep(0.35, 0.95, calor) * (0.45 + 0.55 * altura));
+    cor = mix(cor, brasa, smoothstep(0.02, 0.6, calor));
 
     float nevoa = smoothstep(uNevoaPerto, uNevoaLonge, vProf);
     float aCor = cobertura * mix(0.5, 1., vFino);
@@ -410,6 +429,110 @@ const FRAGMENTO = /* glsl */ `
 `;
 
 // =============================================================================
+// Halo (bloom falso): a mesma fita, larga e muito transparente, por baixo do fio.
+// Sai em alfa pré-multiplicado com o alfa reduzido (uAditivo): a luz SOMA sobre o
+// que está atrás (a foto escurecida no entardecer), em vez de cobrir. É assim que
+// luz se lê sobre um fundo claro: contraste de luz, não mais partículas.
+// =============================================================================
+
+const VERTICE_HALO = /* glsl */ `
+  attribute vec3 aAnterior;
+  attribute vec3 aProximo;
+  attribute float aLado;
+  attribute float aU;
+  attribute float aSolto;
+
+  uniform vec2 uTela;
+  uniform float uTempo;
+  uniform float uVento;
+  uniform float uPasso;
+  uniform float uHaloLargo;   // meia largura do halo perto (px)
+  uniform float uHalo;        // brilho de fundo do fio inteiro (0..1)
+  ${COMUM}
+
+  varying float vS;
+  varying float vLado;
+  varying float vK;
+  varying float vProf;
+  varying float vQuente;
+
+  vec3 balanco(vec3 p, float s, float solto) {
+    float a = uVento * solto;
+    p.x += (sin(uTempo * 1.13 + s * 2.1) * 0.016 + sin(uTempo * 0.47 + s * 0.9) * 0.014) * a;
+    p.y += sin(uTempo * 0.83 + s * 2.9 + 1.7) * 0.006 * a;
+    p.z += cos(uTempo * 0.97 + s * 1.6) * 0.010 * a;
+    return p;
+  }
+
+  void main() {
+    float s = aU * uComprimento;
+    vec4 mv = modelViewMatrix * vec4(balanco(position, s, aSolto), 1.);
+    vec3 antes = (modelViewMatrix * vec4(balanco(aAnterior, s - uPasso, aSolto), 1.)).xyz;
+    vec3 depois = (modelViewMatrix * vec4(balanco(aProximo, s + uPasso, aSolto), 1.)).xyz;
+    vec3 lado = cross(depois - antes, mv.xyz);
+    float tamanho = length(lado);
+    lado = tamanho > 1e-7 ? lado / tamanho : vec3(1., 0., 0.);
+    float prof = max(-mv.z, 0.05);
+    float metroPorPx = prof * 2. / (projectionMatrix[1][1] * uTela.y);
+    float calor = calorEm(s);
+    float k = uHalo + brilhoEm(s) + calor * 0.8;
+    // largo de perto, mais estreito ao longe (mas nunca some: é ele que faz o fio ler longe)
+    float meia = uHaloLargo * mix(1., 0.42, smoothstep(1.5, 9., prof)) * (0.65 + 0.35 * min(k, 1.5));
+    mv.xyz += lado * aLado * meia * metroPorPx;
+    vS = s;
+    vLado = aLado;
+    vK = k;
+    vProf = prof;
+    vQuente = calor;
+    gl_Position = projectionMatrix * mv;
+  }
+`;
+
+const FRAGMENTO_HALO = /* glsl */ `
+  uniform vec3 uCorHaloA;     // a luz vermelha em volta
+  uniform vec3 uCorHaloB;     // o miolo morno
+  uniform float uOpacidade;
+  uniform float uProgresso;
+  uniform float uComprimento;
+  uniform float uNevoaPerto;
+  uniform float uNevoaLonge;
+  uniform float uAditivo;
+
+  varying float vS;
+  varying float vLado;
+  varying float vK;
+  varying float vProf;
+  varying float vQuente;
+
+  void main() {
+    if (vS > uProgresso * uComprimento || vK < 0.004) discard;
+    float l2 = vLado * vLado;
+    float largo = exp(-l2 * 4.2);
+    float miolo = exp(-l2 * 34.);
+    float k = min(vK, 1.6);
+    float a = k * (0.46 * largo + 0.5 * miolo);
+    a *= (1. - smoothstep(uNevoaPerto, uNevoaLonge, vProf) * 0.7) * uOpacidade;
+    if (a < 0.003) discard;
+    vec3 cor = mix(uCorHaloA, uCorHaloB, clamp(miolo * (0.4 + 0.6 * min(k, 1.)) + vQuente * 0.5, 0., 1.));
+    gl_FragColor = vec4(cor, 1.);
+    #include <colorspace_fragment>
+    gl_FragColor = vec4(gl_FragColor.rgb * a, a * uAditivo);
+  }
+`;
+
+/** Mistura das luzes: alfa pré-multiplicado (soma de luz quando o alfa vem reduzido). */
+function misturaDeLuz(THREE, material) {
+  material.blending = THREE.CustomBlending;
+  material.blendEquation = THREE.AddEquation;
+  material.blendSrc = THREE.OneFactor;
+  material.blendDst = THREE.OneMinusSrcAlphaFactor;
+  material.blendSrcAlpha = THREE.OneFactor;
+  material.blendDstAlpha = THREE.OneMinusSrcAlphaFactor;
+  material.premultipliedAlpha = true;
+  return material;
+}
+
+// =============================================================================
 // Luzes do fio: a estrela que desenha a ponta e a poeira de luz (brasas) que
 // se solta dele. Um único THREE.Points (uma chamada de desenho), simulado na CPU.
 // =============================================================================
@@ -419,13 +542,15 @@ const VERTICE_LUZ = /* glsl */ `
   uniform vec2 uTela;
   uniform float uDpr;
   uniform vec2 uNevoa;
+  uniform float uEstrelaMin;
   varying vec4 vD;
   void main() {
     vec4 mv = modelViewMatrix * vec4(position, 1.);
     float prof = max(-mv.z, 0.05);
     float px = aDados.x * projectionMatrix[1][1] * uTela.y * 0.5 / prof;
-    px = aDados.z > 0.5 ? clamp(px, 44., 120.) : clamp(px, 5., 12.);
-    float a = aDados.y * (1. - smoothstep(uNevoa.x, uNevoa.y, prof));
+    // a estrela tem tamanho mínimo na tela: longe, ela nunca vira um ponto perdido
+    px = aDados.z > 0.5 ? clamp(px, uEstrelaMin, uEstrelaMin * 2.8) : clamp(px, 4., 13.);
+    float a = aDados.y * (1. - smoothstep(uNevoa.x, uNevoa.y, prof) * (aDados.z > 0.5 ? 0.35 : 1.));
     vD = vec4(px, a, aDados.z, aDados.w);
     if (a < 0.003) { gl_Position = vec4(2., 2., 2., 1.); gl_PointSize = 0.; return; }
     gl_PointSize = px * uDpr;
@@ -437,32 +562,42 @@ const FRAGMENTO_LUZ = /* glsl */ `
   uniform vec3 uOuro;
   uniform vec3 uRosa;
   uniform vec3 uBranco;
+  uniform float uGiro;        // os raios da estrela giram devagar
+  uniform float uAditivo;
   varying vec4 vD;
   void main() {
     vec2 q = gl_PointCoord * 2. - 1.;
     float r2 = dot(q, q);
+    float r = sqrt(r2);
     vec3 tom = mix(uRosa, uOuro, vD.w);
     float a; vec3 cor;
     if (vD.z > 0.5) {
-      // estrela: miolo branco-quente, halo e quatro raios finos (dois maiores)
-      float miolo = exp(-r2 * 60.);
-      float halo = exp(-r2 * 5.) * 0.62 + exp(-r2 * 1.8) * 0.26;
-      float raios = exp(-abs(q.x) * 34.) * exp(-q.y * q.y * 2.2) + exp(-abs(q.y) * 34.) * exp(-q.x * q.x * 4.) * 0.75;
-      vec2 d = vec2(q.x + q.y, q.x - q.y) * 0.7071;
-      raios += (exp(-abs(d.x) * 44.) * exp(-d.y * d.y * 12.) + exp(-abs(d.y) * 44.) * exp(-d.x * d.x * 12.)) * 0.35;
-      raios *= 1. - smoothstep(0.6, 1., sqrt(r2));
-      a = clamp(miolo + halo + raios, 0., 1.) * (1. - smoothstep(0.75, 1., sqrt(r2)));
-      cor = mix(tom, uBranco, clamp(miolo * 1.6 + raios * 0.55 + halo * 0.3, 0., 1.));
+      // estrela: miolo branco-quente, uma coroa morna, um halo vermelho largo e
+      // quatro raios finos que vão até a borda (dois maiores), com quatro curtos na diagonal
+      float c = cos(uGiro), s = sin(uGiro);
+      vec2 p = vec2(c * q.x - s * q.y, s * q.x + c * q.y);
+      float miolo = exp(-r2 * 140.);
+      float coroa = exp(-r2 * 26.) * 0.85;
+      float halo = exp(-r2 * 7.) * 0.42 + exp(-r2 * 2.4) * 0.2;
+      float fim = 1. - smoothstep(0.55, 1., r);
+      float raios = (exp(-abs(p.x) * 70.) * exp(-p.y * p.y * 1.6) + exp(-abs(p.y) * 70.) * exp(-p.x * p.x * 3.2) * 0.7) * fim;
+      vec2 d = vec2(p.x + p.y, p.x - p.y) * 0.7071;
+      raios += (exp(-abs(d.x) * 90.) * exp(-d.y * d.y * 16.) + exp(-abs(d.y) * 90.) * exp(-d.x * d.x * 16.)) * 0.45;
+      a = clamp(miolo + coroa + halo + raios * 0.9, 0., 1.) * (1. - smoothstep(0.82, 1., r));
+      vec3 morno = mix(uRosa, uOuro, 0.55);
+      cor = mix(uRosa, morno, clamp(coroa * 1.4, 0., 1.));
+      cor = mix(cor, uBranco, clamp(miolo * 2. + raios * 0.8 + coroa * 0.35, 0., 1.));
     } else {
-      // um ponto macio e cheio (sem miolo branco: no papel claro ele virava um anel)
-      float miolo = exp(-r2 * 14.);
-      a = min(1., exp(-r2 * 5.) * 1.25) * (1. - smoothstep(0.8, 1., sqrt(r2)));
-      cor = mix(tom, mix(tom, uBranco, 0.45), miolo);
+      // poeira de luz: um grão quente com um miolo claro (pega a luz)
+      float miolo = exp(-r2 * 22.);
+      a = min(1., exp(-r2 * 6.) * 1.2) * (1. - smoothstep(0.8, 1., r));
+      cor = mix(tom, uBranco, miolo * 0.7);
     }
     a *= vD.y;
     if (a < 0.004) discard;
-    gl_FragColor = vec4(cor, a);
+    gl_FragColor = vec4(cor, 1.);
     #include <colorspace_fragment>
+    gl_FragColor = vec4(gl_FragColor.rgb * a, a * uAditivo);
   }
 `;
 
@@ -477,6 +612,7 @@ function criarLuzes(mundo, amostrador, comuns) {
   const vida = new Float32Array(N);
   const idade = new Float32Array(N);
   const base = new Float32Array(N);                    // tamanho de nascença
+  const peso = new Float32Array(N);                    // > 0 cai (pólen, brasa da ponta); < 0 sobe (a do pulso)
   const geo = new THREE.BufferGeometry();
   const atribPos = new THREE.BufferAttribute(pos, 3).setUsage(THREE.DynamicDrawUsage);
   const atribDados = new THREE.BufferAttribute(dados, 4).setUsage(THREE.DynamicDrawUsage);
@@ -491,12 +627,16 @@ function criarLuzes(mundo, amostrador, comuns) {
       uDpr: { value: mundo.tamanho.dpr || 1 },
       uNevoa: { value: new THREE.Vector2(nevoa ? nevoa.near + 1 : 3.5, nevoa ? nevoa.far * 1.15 : 11) },
       uOuro: { value: new THREE.Color('#ffb04a') },
-      uRosa: { value: new THREE.Color('#ff3352') },
-      uBranco: { value: new THREE.Color('#fff6e4') },
+      uRosa: { value: new THREE.Color('#ff2a3e') },
+      uBranco: { value: new THREE.Color('#fff8ec') },
+      uGiro: { value: 0 },
+      uAditivo: { value: 0.5 },
+      uEstrelaMin: { value: 54 },
     },
     transparent: true,
     depthWrite: false,
   });
+  misturaDeLuz(THREE, mat);
   const pontos = new THREE.Points(geo, mat);
   pontos.name = 'fio-luzes';
   pontos.frustumCulled = false;
@@ -505,8 +645,9 @@ function criarLuzes(mundo, amostrador, comuns) {
 
   let vivas = 0;
   let proxima = 1;
-  const estado = { estrela: 0, taxaPonta: 0, taxaPulso: 0, acumPonta: 0, acumPulso: 0, t: 0 };
+  const estado = { estrela: 0, escala: 1, taxaPonta: 0, taxaPulso: 0, acumPonta: 0, acumPulso: 0, t: 0 };
   const aux = { x: 0, y: 0, z: 0 };
+  const antes = { x: 0, y: 0, z: 0, ok: false };
 
   function pontoEm(s, saida) {
     const total = amostrador.comprimento;
@@ -522,24 +663,29 @@ function criarLuzes(mundo, amostrador, comuns) {
     return saida;
   }
 
-  function soltar(x, y, z, forca = 1) {
+  /**
+   * Um grão de luz. `cair`: o pólen que a estrela deixa para trás (desce devagar,
+   * balança e pisca quando pega a luz); sem ele, sobe (a luz do pulso, o laço que se desfaz).
+   */
+  function soltar(x, y, z, forca = 1, cair = false) {
     if (amb.reduzido) return;
     const i = proxima;
     proxima = proxima + 1 >= N ? 1 : proxima + 1;
     if (vida[i] <= 0) vivas++;
     const ang = Math.random() * Math.PI * 2;
-    const v = (0.03 + Math.random() * 0.1) * forca;
-    pos[i * 3] = x + (Math.random() - 0.5) * 0.01;
-    pos[i * 3 + 1] = y + (Math.random() - 0.5) * 0.01;
-    pos[i * 3 + 2] = z + (Math.random() - 0.5) * 0.01;
+    const v = (cair ? 0.02 + Math.random() * 0.05 : 0.03 + Math.random() * 0.1) * forca;
+    pos[i * 3] = x + (Math.random() - 0.5) * 0.02;
+    pos[i * 3 + 1] = y + (Math.random() - 0.5) * 0.02;
+    pos[i * 3 + 2] = z + (Math.random() - 0.5) * 0.02;
     vel[i * 3] = Math.cos(ang) * v;
-    vel[i * 3 + 1] = 0.05 + Math.random() * 0.12 * forca;
+    vel[i * 3 + 1] = cair ? -0.01 + Math.random() * 0.05 : 0.05 + Math.random() * 0.12 * forca;
     vel[i * 3 + 2] = Math.sin(ang) * v;
-    vida[i] = 1.4 + Math.random() * 1.8;
+    vida[i] = cair ? 2.2 + Math.random() * 2.4 : 1.4 + Math.random() * 1.8;
     idade[i] = 0;
-    base[i] = 0.006 + Math.random() * 0.008;
+    peso[i] = cair ? 0.05 + Math.random() * 0.04 : -0.06;
+    base[i] = cair ? 0.007 + Math.random() * 0.01 : 0.006 + Math.random() * 0.008;
     dados[i * 4 + 2] = 0;
-    dados[i * 4 + 3] = Math.random() < 0.35 ? 1 : Math.random() * 0.35;
+    dados[i * 4 + 3] = Math.random() < 0.4 ? 1 : Math.random() * 0.35;
     pontos.visible = true;
   }
 
@@ -551,13 +697,22 @@ function criarLuzes(mundo, amostrador, comuns) {
       const sPonta = comuns.uProgresso.value * total;
       pontoEm(sPonta, aux);
       pos[0] = aux.x; pos[1] = aux.y + 0.004; pos[2] = aux.z;
-      const cintila = 0.86 + 0.14 * Math.sin(t * 9.3) * Math.sin(t * 5.1 + 1);
-      dados[0] = 0.09 * cintila; dados[1] = estado.estrela * comuns.uOpacidade.value; dados[2] = 1; dados[3] = 0.3;
+      const cintila = 0.88 + 0.12 * Math.sin(t * 9.3) * Math.sin(t * 5.1 + 1);
+      dados[0] = 0.13 * cintila * estado.escala; dados[1] = estado.estrela * comuns.uOpacidade.value; dados[2] = 1; dados[3] = 0.3;
+      mat.uniforms.uGiro.value = t * 0.35;
+      mat.uniforms.uEstrelaMin.value = 54 * Math.max(0.6, estado.escala);
+      // o pólen se solta ao longo do trecho que a ponta acabou de percorrer (sem montinhos)
       estado.acumPonta += dt * estado.taxaPonta * estado.estrela;
-      while (estado.acumPonta >= 1) { estado.acumPonta -= 1; soltar(aux.x, aux.y, aux.z, 1); }
+      while (estado.acumPonta >= 1) {
+        estado.acumPonta -= 1;
+        const r = antes.ok ? Math.random() : 1;
+        soltar(antes.x + (aux.x - antes.x) * r, antes.y + (aux.y - antes.y) * r, antes.z + (aux.z - antes.z) * r, 1, true);
+      }
+      antes.x = aux.x; antes.y = aux.y; antes.z = aux.z; antes.ok = true;
       pontos.visible = true;
     } else {
       dados[1] = 0;
+      antes.ok = false;
     }
     // brasas que se soltam do pulso de luz
     if (comuns.uPulsoK.value > 0.05 && estado.taxaPulso > 0 && total > 0) {
@@ -578,14 +733,18 @@ function criarLuzes(mundo, amostrador, comuns) {
         if (k >= 1) { vida[i] = 0; dados[i * 4 + 1] = 0; continue; }
         restam++;
         const o = i * 3;
-        // sobem devagar, o ar segura, e um sopro leve as faz ondular
-        vel[o] = vel[o] * amortece + Math.sin(t * 1.7 + i) * 0.02 * dt;
-        vel[o + 1] = vel[o + 1] * amortece + 0.06 * dt;
-        vel[o + 2] = vel[o + 2] * amortece + Math.cos(t * 1.3 + i * 0.7) * 0.02 * dt;
+        // o ar segura; um sopro leve as faz ondular. As da ponta descem como pólen,
+        // as do pulso sobem como faísca.
+        vel[o] = vel[o] * amortece + Math.sin(t * 1.7 + i) * 0.03 * dt;
+        vel[o + 1] = vel[o + 1] * amortece - peso[i] * dt;
+        vel[o + 2] = vel[o + 2] * amortece + Math.cos(t * 1.3 + i * 0.7) * 0.03 * dt;
         pos[o] += vel[o] * dt; pos[o + 1] += vel[o + 1] * dt; pos[o + 2] += vel[o + 2] * dt;
-        const piscar = 0.75 + 0.25 * Math.sin(t * (6 + (i % 5)) + i);
-        dados[i * 4] = base[i] * (1 - k * 0.5);
-        dados[i * 4 + 1] = Math.min(1, idade[i] / 0.18) * (1 - k * k) * piscar * comuns.uOpacidade.value;
+        if (pos[o + 1] < 0.01) { pos[o + 1] = 0.01; vel[o + 1] = 0; }
+        // pega a luz: de vez em quando um grão acende de cheio e passa
+        const onda = Math.sin(t * (2.2 + (i % 7) * 0.4) + i * 1.7);
+        const piscar = 0.62 + 0.25 * Math.sin(t * (6 + (i % 5)) + i) + 0.5 * Math.pow(Math.max(0, onda), 14);
+        dados[i * 4] = base[i] * (1 - k * 0.45);
+        dados[i * 4 + 1] = Math.min(1, idade[i] / 0.25) * (1 - k * k) * piscar * comuns.uOpacidade.value;
       }
       vivas = restam;
     }
@@ -739,6 +898,8 @@ function criarFio3D(mundo, opcoes) {
     uPulsoK: { value: 0 },
     uPulsoL: { value: 0.5 },
     uRastro: { value: 0 },
+    uRastroL: { value: 0.4 },
+    uHalo: { value: 0 },
   };
   const baixo = mundo.amb.nivel === 'baixo';
 
@@ -768,6 +929,7 @@ function criarFio3D(mundo, opcoes) {
       uCorQuente: { value: new THREE.Color('#ff4a4e') },
       uCorHalo: { value: new THREE.Color('#ff3d55') },
       uCorTrans: { value: new THREE.Color('#ff5b46') },
+      uCorBrasa: { value: new THREE.Color('#fff3e2') },
     },
     transparent: true,
     side: THREE.DoubleSide,
@@ -778,9 +940,35 @@ function criarFio3D(mundo, opcoes) {
   fita.frustumCulled = false;
   fita.renderOrder = 4;
 
+  // O halo largo (bloom falso), por baixo da fita, dividindo a mesma geometria.
+  const materialHalo = misturaDeLuz(THREE, new THREE.ShaderMaterial({
+    vertexShader: VERTICE_HALO,
+    fragmentShader: FRAGMENTO_HALO,
+    uniforms: {
+      ...comuns,
+      uTela: material.uniforms.uTela,
+      uTempo: material.uniforms.uTempo,
+      uVento: material.uniforms.uVento,
+      uPasso: material.uniforms.uPasso,
+      uHaloLargo: { value: baixo ? 13 : 19 },
+      uCorHaloA: { value: new THREE.Color('#ff1f3a') },
+      uCorHaloB: { value: new THREE.Color('#ffb070') },
+      uNevoaPerto: { value: perto },
+      uNevoaLonge: { value: longe * 1.25 },
+      uAditivo: { value: 0.3 },
+    },
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  }));
+  const halo = new THREE.Mesh(geometria, materialHalo);
+  halo.name = 'fio-halo';
+  halo.frustumCulled = false;
+  halo.renderOrder = 3.5;
+
   const objeto = new THREE.Group();
   objeto.name = 'fio';
-  objeto.add(fita);
+  objeto.add(halo, fita);
 
   let materialSombra = null;
   if (opcoes.sombra !== false) {
@@ -824,8 +1012,18 @@ function criarFio3D(mundo, opcoes) {
   let respiroDesde = 0;
 
   // O relógio do vento vem do mundo, sem ninguém precisar chamar atualizar().
+  // Velocidade da ponta: o trecho incandescente é o que ela percorreu no último ~1 s.
+  let sAnterior = -1;
+  let velocidade = 0;
   const pararQuadro = mundo.aoQuadro((dt, t) => {
     material.uniforms.uTempo.value = t;
+    if (comuns.uRastro.value > 0.001 && dt > 0) {
+      const sAgora = comuns.uProgresso.value * amostrador.comprimento;
+      const v = sAnterior >= 0 ? Math.max(0, (sAgora - sAnterior) / dt) : 0;
+      sAnterior = sAgora;
+      velocidade += (Math.min(v, 12) - velocidade) * (1 - Math.exp(-3 * dt));
+      comuns.uRastroL.value = clamp(velocidade * 0.9, 0.12, 1.5);
+    } else sAnterior = -1;
     if (respiro) {
       const c = ((t - respiroDesde) % 7.5) / 7.5;
       const onda = Math.pow(Math.sin(Math.PI * c), 4);
@@ -911,12 +1109,18 @@ function criarFio3D(mundo, opcoes) {
       if (v !== undefined) comuns.uRastro.value = clamp(Number(v) || 0);
       return comuns.uRastro.value;
     },
-    /** A estrela na ponta que se desenha (0..1) e quantas brasas ela solta por segundo. */
-    estrela(v, taxa) {
+    /** A estrela na ponta que se desenha (0..1), quantas brasas ela solta por segundo e o tamanho (1 normal). */
+    estrela(v, taxa, escala) {
       if (!luzes) return 0;
       if (v !== undefined) luzes.estado.estrela = clamp(Number(v) || 0);
-      if (taxa !== undefined) luzes.estado.taxaPonta = Math.max(0, Number(taxa) || 0);
+      if (taxa !== undefined && taxa !== null) luzes.estado.taxaPonta = Math.max(0, Number(taxa) || 0);
+      if (escala !== undefined) luzes.estado.escala = Math.max(0.1, Number(escala) || 1);
       return luzes.estado.estrela;
+    },
+    /** Halo largo em volta do fio inteiro (0..1): a luz que ele tem no entardecer. */
+    halo(v) {
+      if (v !== undefined) comuns.uHalo.value = clamp(Number(v) || 0);
+      return comuns.uHalo.value;
     },
     /**
      * Um pulso de luz quente corre pelo fio de `de` a `ate` (frações do comprimento).
@@ -971,6 +1175,7 @@ function criarFio3D(mundo, opcoes) {
       if (objeto.parent) objeto.parent.remove(objeto);
       geometria.dispose();
       material.dispose();
+      materialHalo.dispose();
       if (materialSombra) materialSombra.dispose();
       if (luzes) luzes.dispose();
     },
@@ -993,24 +1198,32 @@ function criarFioLeve(mundo, opcoes) {
           <rect width="1.15" height="3.2" fill="#8f0b1d" fill-opacity="0.5"/>
           <rect x="1.6" width="0.55" height="3.2" fill="#ff8f8a" fill-opacity="0.45"/>
         </pattern>
+        <filter id="${id}-brilho" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="3.2"/>
+        </filter>
       </defs>
-      <path class="fio-leve-halo"/>
+      <path class="fio-leve-halo" filter="url(#${id}-brilho)"/>
       <path class="fio-leve-sombra"/>
       <path class="fio-leve-fita"/>
       <path class="fio-leve-torcao"/>
-      <circle class="fio-leve-estrela" r="0"/>
+      <g class="fio-leve-estrela-g" opacity="0">
+        <circle class="fio-leve-coroa" r="14" fill="#ff5a3c" fill-opacity="0.28" filter="url(#${id}-brilho)"/>
+        <path class="fio-leve-raios" d="M-22 0L0 -0.9L22 0L0 0.9ZM0 -15L0.8 0L0 15L-0.8 0Z" fill="#fff4e2"/>
+        <circle class="fio-leve-estrela" r="3.2"/>
+      </g>
     </svg>`);
   const halo = desenho.querySelector('.fio-leve-halo');
   const sombra = desenho.querySelector('.fio-leve-sombra');
   const fita = desenho.querySelector('.fio-leve-fita');
   const torcao = desenho.querySelector('.fio-leve-torcao');
   const estrelaEl = desenho.querySelector('.fio-leve-estrela');
+  const estrelaG = desenho.querySelector('.fio-leve-estrela-g');
   // Estilo no próprio elemento: o fio precisa aparecer mesmo se o CSS da cena não tiver carregado.
   fita.setAttribute('fill', '#d7192d');
   torcao.setAttribute('fill', `url(#${id})`);
   sombra.setAttribute('fill', '#2a1b22');
   sombra.setAttribute('fill-opacity', '0.1');
-  halo.setAttribute('fill', '#ffb27a');
+  halo.setAttribute('fill', '#ff4a3a');
   halo.setAttribute('fill-opacity', '0');
   estrelaEl.setAttribute('fill', '#fff3dc');
   estrelaEl.setAttribute('stroke', '#ffb04a');
@@ -1018,11 +1231,13 @@ function criarFioLeve(mundo, opcoes) {
   estrelaEl.setAttribute('stroke-width', '3');
   mundo.recipienteLeve.append(desenho);
   let brilho = 0;
+  let haloBase = 0;
   let estrelaK = 0;
   let respiro = 0;
   let pararRespiro = null;
   const gsapLeve = window.gsap;
-  const aplicarBrilho = () => { halo.setAttribute('fill-opacity', (Math.min(1, brilho) * 0.5).toFixed(3)); };
+  const luzLeve = () => Math.min(1, Math.max(brilho, haloBase));
+  const aplicarBrilho = () => { halo.setAttribute('fill-opacity', (luzLeve() * 0.55).toFixed(3)); };
 
   const seg = SEGMENTOS_LEVE;
   const amostrador = criarAmostrador(seg);
@@ -1085,23 +1300,21 @@ function criarFioLeve(mundo, opcoes) {
       torcao.setAttribute('d', '');
       sombra.setAttribute('d', '');
       halo.setAttribute('d', '');
-      estrelaEl.setAttribute('r', '0');
+      estrelaG.setAttribute('opacity', '0');
       return;
     }
     const d = contorno(0, atual, 1, 0, 0);
     fita.setAttribute('d', d);
     torcao.setAttribute('d', d);
     sombra.setAttribute('d', atual > chao ? contorno(chao, atual, 2.6, 2, 3) : '');
-    halo.setAttribute('d', brilho > 0.01 ? contorno(0, atual, 3.4, 0, 0) : '');
+    halo.setAttribute('d', luzLeve() > 0.01 ? contorno(0, atual, 4.2, 0, 0) : '');
     if (estrelaK > 0.01) {
       const p = amostrador.pontos;
       const k = Math.min(seg, Math.round(atual * seg)) * 3;
-      estrelaEl.setAttribute('cx', p[k].toFixed(1));
-      estrelaEl.setAttribute('cy', p[k + 1].toFixed(1));
-      estrelaEl.setAttribute('r', (3.2 * estrelaK).toFixed(2));
-      estrelaEl.setAttribute('opacity', estrelaK.toFixed(2));
+      estrelaG.setAttribute('transform', `translate(${p[k].toFixed(1)} ${p[k + 1].toFixed(1)}) scale(${(0.6 + 0.4 * estrelaK).toFixed(3)})`);
+      estrelaG.setAttribute('opacity', estrelaK.toFixed(2));
     } else {
-      estrelaEl.setAttribute('r', '0');
+      estrelaG.setAttribute('opacity', '0');
     }
   }
 
@@ -1165,6 +1378,10 @@ function criarFioLeve(mundo, opcoes) {
       });
     },
     rastro() { return 0; },
+    halo(v) {
+      if (v !== undefined) { haloBase = clamp(Number(v) || 0); aplicarBrilho(); desenhar(); }
+      return haloBase;
+    },
     estrela(v) {
       if (v !== undefined && !mundo.amb.reduzido) { estrelaK = clamp(Number(v) || 0); desenhar(); }
       return estrelaK;
