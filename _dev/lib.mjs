@@ -203,7 +203,9 @@ export async function abrir({ cena, vp = 'celular', motor = 'chromium', params =
   for (const [chave, valor] of Object.entries(params)) {
     if (valor !== undefined && valor !== null && valor !== false) consulta.set(chave, String(valor));
   }
-  const endereco = `${servidor.url}/index.html${consulta.size ? `?${consulta}` : ''}`;
+  // CARTA_BASE=https://ulystreak.github.io/23.12 testa o site publicado em vez do servidor local.
+  const base = (process.env.CARTA_BASE || servidor.url).replace(/\/$/, '');
+  const endereco = `${base}/index.html${consulta.size ? `?${consulta}` : ''}`;
 
   if (preparar) await preparar(page);
   await page.goto(endereco, { waitUntil: 'load' });
