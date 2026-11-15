@@ -79,7 +79,8 @@ const DESENHO_AGULHA = `
  * cruzam a borda são repetidas do outro lado, para o ladrilho emendar sem costura.
  */
 function desenharFibra() {
-  const escala = 2;
+  // Tela comum não precisa do ladrilho em dobro (é 4x menos para desenhar, codificar e pintar).
+  const escala = (window.devicePixelRatio || 1) > 1.25 ? 2 : 1;
   const tela = document.createElement('canvas');
   tela.width = LADRILHO * escala;
   tela.height = LADRILHO * escala;
@@ -150,7 +151,11 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
   const costura = el('div', { class: 'perg-costura', ...oculto });
   const dica = el('div', { class: 'perg-dica', ...oculto }, svg(SETA));
   const janela = el('div', 'perg-janela', [vista, costura, dica]);
-  const camada = el('div', { class: 'perg-camada', hidden: true }, [el('div', { class: 'perg-fibra', ...oculto }), janela]);
+  // O capítulo aparece de cima para baixo por duas translações que se anulam (a
+  // camada desce, o miolo sobe o mesmo tanto) dentro de um overflow: hidden: só
+  // transform muda, e nada embaixo (a folha com a fibra) precisa ser repintado.
+  const miolo = el('div', 'perg-camada-miolo', [el('div', { class: 'perg-fibra', ...oculto }), janela]);
+  const camada = el('div', { class: 'perg-camada', hidden: true }, miolo);
 
   const fibraRolo = el('div', 'perg-rolo-fibra');
   const corpoRolo = el('div', 'perg-rolo-corpo', [fibraRolo, el('div', 'perg-rolo-luz')]);
@@ -186,6 +191,18 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
     no.style.webkitClipPath = valor;
     no.style.clipPath = valor;
   };
+  /** Quanto do capítulo aparece, de cima: px, 0 (nada) ou null (tudo, sem transform nenhum). */
+  const revelar = (visivel, altura = medida.altura) => {
+    if (visivel === null) {
+      camada.style.transform = '';
+      miolo.style.transform = '';
+      return;
+    }
+    const sobe = visivel <= 0 ? '-100%' : `${(Math.min(visivel, altura) - altura).toFixed(2)}px`;
+    const desce = visivel <= 0 ? '100%' : `${(altura - Math.min(visivel, altura)).toFixed(2)}px`;
+    camada.style.transform = `translate3d(0,${sobe},0)`;
+    miolo.style.transform = `translate3d(0,${desce},0)`;
+  };
 
   // ---- a fibra do papel -----------------------------------------------------------
   // Gerada uma vez, num canvas pequeno, e usada como fundo ladrilhado (folha, margens
@@ -197,7 +214,15 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
     try {
       const tela = desenharFibra();
       if (!tela) return;
-      const aplicar = (endereco) => raiz.style.setProperty('--perg-fibra', `url("${endereco}")`);
+      // A imagem é decodificada antes de entrar no CSS: a primeira pintura do papel
+      // não para para decodificar (no iPhone isso caía no começo do desenrolar).
+      const usar = (endereco) => raiz.style.setProperty('--perg-fibra', `url("${endereco}")`);
+      const aplicar = (endereco) => {
+        const img = new Image();
+        img.src = endereco;
+        if (img.decode) img.decode().then(() => usar(endereco), () => usar(endereco));
+        else usar(endereco);
+      };
       if (tela.toBlob && window.URL && URL.createObjectURL) {
         tela.toBlob((blob) => { if (blob) aplicar(URL.createObjectURL(blob)); }, 'image/png');
       } else {
@@ -444,7 +469,7 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
       const giro = ((eixo % LADRILHO) + LADRILHO) % LADRILHO;
       fibraRolo.style.transform = `translate3d(0,${giro.toFixed(2)}px,0)`;
     }
-    recortar(camada, `inset(0px 0px ${Math.max(0, H - eixo).toFixed(2)}px 0px)`);
+    revelar(Math.max(0, eixo), H);
   }
 
   // A curva é a da câmera do mundo branco (demora a sair, desliza até parar), cortada
@@ -519,7 +544,7 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
     gsap.killTweensOf(camada);
     camada.hidden = true;
     gsap.set(camada, { clearProps: 'transform,opacity,visibility' });
-    recortar(camada, '');
+    revelar(null);
     rolagemEl.scrollTop = 0;
     rolagemEl.removeAttribute('role');
     rolagemEl.removeAttribute('aria-labelledby');
@@ -679,7 +704,7 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
       rolagemEl.scrollTop = 0;
       rolou = false;
       camada.hidden = false;
-      recortar(camada, 'inset(0px 0px 100% 0px)');
+      revelar(0);
       raiz.dataset.capitulo = capitulo.id || '';
       publicar('abrindo');
       medir();
@@ -709,10 +734,10 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
       // rasterização (fontes, imagens, camadas do capítulo) não cai no meio do movimento.
       if (!amb.reduzido) {
         camada.style.opacity = '0.002';
-        recortar(camada, '');
+        revelar(null);
         await quadro();
         await quadro();
-        recortar(camada, 'inset(0px 0px 100% 0px)');
+        revelar(0);
         camada.style.opacity = '';
         if (g !== geracao) { avisarAberto(false); return; }
       }
@@ -720,7 +745,7 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
       if (folha.firstChild) gsap.to(folha, { autoAlpha: 0, duration: 0.3, ease: 'none' });
       if (amb.reduzido) {
         // Sem rolo viajando: o capítulo assenta com uma dissolvência curta.
-        recortar(camada, '');
+        revelar(null);
         await comoPromise((fim) => gsap.fromTo(camada,
           { autoAlpha: 0, y: 10 },
           { autoAlpha: 1, y: 0, duration: 0.8, ease: curvas.branco.entrar, ...fim }));
@@ -730,7 +755,7 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
       if (g !== geracao) { avisarAberto(false); return; }
 
       guardarRolo();
-      recortar(camada, '');
+      revelar(null);
       gsap.set(camada, { clearProps: 'transform,opacity,visibility' });
       folha.textContent = '';
       gsap.set(folha, { clearProps: 'opacity,visibility' });

@@ -82,6 +82,16 @@ const VERTICE = /* glsl */ `
   void montar(vec3 centro, mat3 R, float tamanho, float rolagem, float extra, float alfa, float tom, float forma) {
     vec4 mvC = viewMatrix * vec4(centro, 1.0);
     float prof = -mvC.z;
+    #ifndef CHAO
+    // Com a folha perto (foco curto), a pétala que passa à frente dela tem teto de
+    // tamanho na tela (~5% da altura, menos que uma palavra): continua passando, mas
+    // nunca vira uma mancha sobre a frase. As de trás da folha ficam como são.
+    if (uProtegeK > 0.001 && extra <= 1.2) {
+      float teto = 0.1 * prof / projectionMatrix[1][1];
+      float k = uProtegeK * smoothstep(2.0, 1.2, uFoco) * (1.0 - smoothstep(0.85, 1.0, prof / uFoco));
+      tamanho = mix(tamanho, min(tamanho, teto), k);
+    }
+    #endif
     float unidade = tamanho / 1.62;                       // metros por unidade da pétala
 
     // Círculo de confusão: cresce com a distância ao plano de foco.
@@ -106,9 +116,12 @@ const VERTICE = /* glsl */ `
       vec2 fora = max(max(uProtege.xy - ndc, ndc - uProtege.zw), 0.0) / max(raio, vec2(1e-3));
       float dentro = 1.0 - smoothstep(0.35, 1.0, length(fora));
       float borrada = smoothstep(0.45, 0.85, sLuz);
-      // e, com a folha perto (foco curto), as que estão bem à frente dela também
-      float rente = (1.0 - smoothstep(0.35, 0.6, prof / uFoco)) * smoothstep(2.0, 1.2, uFoco);
-      a *= 1.0 - 0.92 * uProtegeK * borrada * max(dentro, rente);
+      a *= 1.0 - 0.92 * uProtegeK * borrada * dentro;
+      // Com a folha perto (foco curto), as que estão bem à frente dela somem pela
+      // profundidade, borradas ou não: rente à lente até uma pétala pouco desfocada
+      // é grande o bastante para tapar uma frase inteira. As de trás seguem passando.
+      float rente = (1.0 - smoothstep(0.4, 0.6, prof / uFoco)) * smoothstep(2.0, 1.2, uFoco);
+      a *= 1.0 - uProtegeK * rente;
     }
     #endif
 

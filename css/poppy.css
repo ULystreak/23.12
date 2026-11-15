@@ -779,6 +779,9 @@ html[data-nivel="baixo"] .poppy-vidro,
 
 /* ---- o botão de parar ---------------------------------------------------------- */
 .poppy-rodape { display: grid; justify-items: center; padding-top: var(--esp-6); }
+/* ainda invisível ou caindo no lugar: não aceita o toque */
+.poppy-rodape.poppy-entra,
+.poppy-rodape.chegando { pointer-events: none; }
 .poppy-painel {
   display: flex;
   align-items: center;

@@ -68,14 +68,14 @@ js/cenas/carta.js        ← caminha, a carta chega, espera o toque, abre, entre
 js/cenas/mao.js          ← "Olha a sua mão." + seguir o fio
 js/cenas/final.js        ← última carta + folha + frase
 css/base.css  css/mundo.css  css/musica.css  css/pergaminho.css  css/poppy.css  css/yourname.css  css/mao.css  css/final.css
-lib/                     ← three, gsap (+ScrollTrigger, SplitText, DrawSVGPlugin, CustomEase), lenis
+lib/                     ← three, gsap (+DrawSVGPlugin, CustomEase; ScrollTrigger e SplitText estão aqui mas não são carregados), lenis
 assets/fonts  assets/images  assets/music
 _dev/                    ← este documento e as ferramentas de teste: ver.mjs, robustez.mjs, lib.mjs (não publicado)
 ```
 
 ### 4.1 Contexto e diretor
 
-`main.js` monta `ctx = { conteudo, amb, mundo, som, musica, pergaminho, diretor, gsap, ScrollTrigger }` e chama `diretor.rodar(ctx, cenaInicial)`.
+`main.js` monta `ctx = { conteudo, amb, mundo, som, musica, pergaminho, diretor, gsap, ScrollTrigger }` e chama `diretor.rodar(ctx, cenaInicial)`. `ctx.ScrollTrigger` hoje chega `undefined` (ver "Bibliotecas" na seção 6).
 
 Cenas, na ordem: `inicio`, `poppy`, `carta2`, `yourname`, `mao`, `final`. Cada uma é `async function(ctx, { frio })` que resolve quando a próxima deve começar. `frio: true` quando se entrou direto por `?cena=`: a cena monta sozinha as pré-condições (mundo branco parado, pergaminho aberto etc.). `final` nunca resolve.
 
@@ -144,7 +144,7 @@ perg.soltar() → Promise                   // a folha vai embora e o mundo volt
 perg.rolagem → { el, progresso, aoRolar(fn), irPara(y) }
 ```
 
-Capítulo: `export const capitulo = { id, montar(raiz, api) → { destruir() } }` com `api = { conteudo, amb, som, rolagem, fundo (elemento fixo atrás do conteúdo), gsap, ScrollTrigger, fechar() }`. O capítulo chama `api.fechar()` no botão final. O fio de progresso na borda do pergaminho é do pergaminho, não do capítulo.
+Capítulo: `export const capitulo = { id, montar(raiz, api) → { destruir() } }` com `api = { conteudo, amb, som, rolagem, fundo (elemento fixo atrás do conteúdo), gsap, ScrollTrigger, fechar() }` (`api.ScrollTrigger` pode chegar `undefined`; ver seção 6). O capítulo chama `api.fechar()` no botão final. O fio de progresso na borda do pergaminho é do pergaminho, não do capítulo.
 
 ### 4.6 Som e música
 
@@ -187,7 +187,7 @@ O esqueleto andante já existe e segue a seção 4. Esta seção só registra o 
 
 **Mundo.** Extras: `mundo.amb`, `mundo.canvas`, `mundo.tamanho { largura, altura, dpr }`, `mundo.aoRedimensionar(fn)`, `mundo.gpu`, `mundo.ligado`, `mundo.recipienteLeve`. `telaParaMundo(x, y, distancia)`: `distancia` é a profundidade ao longo do eixo da câmera. `retanguloParaPose(rect, obj, { distancia = 0.6 })` devolve `{ pai, posicao, quaternion, escala }` **no espaço da câmera**: faça `pose.pai.attach(obj)` e anime até os valores (assim o papel não treme com o balanço de passo). Há uma luz hemisférica e uma direcional na cena; a névoa é `mundo.cena.fog` (2,5 a 9,5 m). No modo leve, `THREE`, `renderer` e `camera` são `null`; `rig`, `cena` e os vetores são objetos simples (`objetoLeve()`, `vetorLeve()` em `js/nucleo/util.js`); envelope, fio e folha têm a variante leve no próprio arquivo, escolhida por `mundo.ok`.
 
-**Pergaminho.** Extras: `perg.esperarFechar()` (resolve quando o capítulo chama `api.fechar()`), `perg.estado` (`oculto` | `folha` | `aberto`), `rolagem.y`, `rolagem.irPara(y, { imediato })`, `aoRolar(fn(progresso, y))`. `api.recursos` existe. `capitulo.montar` pode ser `async`. O rolador é `api.rolagem.el` e já é o padrão de `ScrollTrigger.defaults`; Lenis só no computador. O pergaminho desliga o mundo quando cobre a tela e religa em `soltar()`.
+**Pergaminho.** Extras: `perg.esperarFechar()` (resolve quando o capítulo chama `api.fechar()`), `perg.estado` (`oculto` | `folha` | `aberto`), `rolagem.y`, `rolagem.irPara(y, { imediato })`, `aoRolar(fn(progresso, y))`. `api.recursos` existe. `capitulo.montar` pode ser `async`. O rolador é `api.rolagem.el`; o pergaminho só o torna padrão de `ScrollTrigger.defaults` se o plugin já estiver em `window` quando ele é criado (hoje não está), então quem usar ScrollTrigger passa `scroller: api.rolagem.el` à mão. Lenis só no computador. O pergaminho desliga o mundo quando cobre a tela e religa em `soltar()`. Para o CSS, `#pergaminho[data-estado="folha|abrindo|aberto|fechando|saindo"]` (sem o atributo, oculto).
 
 **Som.** `som.diagnostico()` (só para testes). Sem Web Audio, cai para `audio.volume`; com `?mudo=1` o estado muda igual, sem som.
 
@@ -206,4 +206,14 @@ O esqueleto andante já existe e segue a seção 4. Esta seção só registra o 
 
 **Nomes que os arquivos congelados importam (não renomear).** `main.js`: `criarMundo` (`js/mundo/mundo.js`), `criarPergaminho`, `criarMusica`, `criarSom`. O `main.js` também lê `mundo.ok`, `mundo.canvas`, `mundo.ligado`, `mundo.gpu`, `perg.estado`, `som.estado.tocando`/`.indice`, `som.destravar()` e `som.tocar(i)`; o `diretor.js` usa `perg.receberPapel/desenrolar/esperarFechar/enrolar/soltar`, `musica.escolher/mostrarMini`, `mundo.ligar()`, `mundo.petalas.definirDensidade()`, `env.irEmbora()` e `env.dispose()`. `diretor.js`: `cenaAbertura`, `cenaCarta`, `cenaMao`, `cenaFinal` e `capitulo` (dos dois capítulos). Entre frentes: `final.js` usa `cenaCarta(..., { entregar: false, anunciarCaminhada: false })` e `criarFio`; envelope, fio e folha usam `mundo.amb`, `mundo.recipienteLeve`, `mundo.tamanho`, `mundo.aoRedimensionar` e `mundo.petalas.rajada`; `vetorLeve()` e `objetoLeve()` moram em `js/nucleo/util.js`. Convenção do modo leve: `telaParaMundo` devolve um vetor com `.px`/`.py` (px de tela) e `petalas.rajada` aceita `{ px, py }`. Os estilos da carta leve são aplicados pelo próprio `envelope.js`.
 
-**Bibliotecas.** three 0.185.0 (última versão que publica os `.min.js`), gsap 3.15.1, lenis 1.3.27; ver `lib/VERSOES.txt`. `Lenis`, `gsap`, `ScrollTrigger`, `SplitText`, `DrawSVGPlugin` e `CustomEase` são globais em `window`.
+**Bibliotecas.** three 0.185.0 (última versão que publica os `.min.js`), gsap 3.15.1, lenis 1.3.27; ver `lib/VERSOES.txt`. `Lenis`, `gsap`, `DrawSVGPlugin` e `CustomEase` são globais em `window`. `ScrollTrigger` e `SplitText` ficam em `lib/` mas o `index.html` **não os carrega** (nenhum capítulo usa, e o ScrollTrigger mantinha um `requestAnimationFrame` rodando a carta inteira): `window.ScrollTrigger`, `window.SplitText`, `ctx.ScrollTrigger` e `api.ScrollTrigger` chegam `undefined`. Quem precisar carrega o arquivo no próprio `montar` (ex.: injetar `<script src="lib/ScrollTrigger.min.js">` e esperar o `load`), registra com `gsap.registerPlugin` e desfaz em `destruir()`. O núcleo (`movimento.js` registra só o que existir) e o pergaminho já funcionam sem eles; nunca use os dois sem checar.
+
+**Extras de API das frentes (em uso; não renomear).**
+- *Pétalas* (`js/mundo/petalas.js`, leve em `js/mundo/leve.js`): `mundo.petalas.definirFoco(metros)` (plano de foco, padrão 3 m, muda devagar; abertura e folha final), `petalas.comecar()` (só a abertura: as pétalas entram por cima) e `petalas.protagonistas()` (só a abertura: pétalas enormes e desfocadas cruzam rente à lente). Há ainda `petalas.protegerRetangulo(r)`. Chame com `?.`.
+- *Envelope* (`js/mundo/envelope.js`, as duas variantes): `env.chegar({ duracao, distancia, atraso }) → Promise` (nasce da névoa ao longe e pousa), `env.aoMarco = fn(nome)` (avisado em `'lacre'` e `'papel'`; `carta.js` usa para o som), além de `env.pressionar(bool)`, `env.caixaTela()`, `env.lacre`, `env.amarracao`, `env.aberto`.
+- *Mão → final* (`js/cenas/mao.js`): `ctx.estado.seguidorFio = { parar(), soltar(duracao?) }`, o seguidor que mantém o fio preso ao pulso e à `estado.envelope.ancoraFio` durante a caminhada e o solta sozinho em `final:carta-abrindo`; quem quiser assumir o fio chama `parar()`.
+- *Folha final* (`js/mundo/folha.js`, as duas variantes; `final.js` chama com checagem): `folha.assumir(papel)` (aparece dobrada onde está o papel que saiu da carta), `folha.repousarFio() → Promise` (o fio solto repousa no canto de baixo da folha), `folha.viver()` (de tempos em tempos uma pétala pousa num canto e escorrega).
+- *Som* (`js/som.js`): `som.progresso()` → 0..1 da faixa; `som.aoTempo(fn(progresso, segundos, duracao)) → cancelar` (algumas vezes por segundo enquanto a faixa anda; o anel do mini usa).
+- *Mini* (`js/musica.js`, para o CSS): `#mini[data-pele="papel|poppy|yourname"]` acompanha a cena; `#mini[data-quieto]` quando ele se recolhe à margem durante a rolagem de um capítulo; `#mini[data-longe]` na mão e no final.
+- *Pergaminho* (para o CSS): `#pergaminho[data-estado="folha|abrindo|aberto|fechando|saindo"]`; sem o atributo, oculto.
+- *Conteúdo*: `musica.rotulos.continuar` e `mao.rotuloBotao` são os nomes lidos por leitores de tela quando `musica.continuar` ou `mao.botao` ficam vazios.

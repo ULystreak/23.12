@@ -328,7 +328,9 @@ const casos = {
   async teclado() {
     const s = await abrir({ vp: 'desktop', params: { rapido: 6 } });
     await s.esperarEtapa('inicio:carta-espera');
-    await s.page.keyboard.press('Tab');
+    // A carta já leva o foco ao alvo sozinha (foco solto no body); só tabula se não levou.
+    const jaNaCarta = await s.page.evaluate(() => document.activeElement?.dataset?.acao === 'abrir-carta');
+    if (!jaNaCarta) await s.page.keyboard.press('Tab');
     const foco = await s.page.evaluate(() => document.activeElement?.dataset?.acao || document.activeElement?.tagName);
     ok(foco === 'abrir-carta', `Tab foca o alvo da carta (${foco})`);
     await s.page.keyboard.press('Enter');

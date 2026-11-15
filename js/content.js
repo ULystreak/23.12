@@ -78,6 +78,10 @@ window.CONTEUDO = {
       volume: 'Volume',
       // Nome da lista de músicas dentro do mini seletor (só aparece com duas ou mais).
       trocar: 'Trocar de música',
+      // Só é usado se o texto do botão "continuar" lá de cima ficar vazio (''):
+      // aí o botão vira só o desenho, e este nome é lido em voz alta por
+      // leitores de tela.
+      continuar: 'Continuar',
     },
 
     // As músicas, na ordem em que aparecem.
@@ -339,7 +343,8 @@ window.CONTEUDO = {
      pulso. O botão faz o fio virar o caminho até a última carta.
      ------------------------------------------------------------------------ */
   mao: {
-    // Frase curta, de uma linha: uma frase longa desce até o desenho da mão.
+    // A frase funciona melhor curta, em uma linha só: uma frase longa quebra
+    // em várias linhas e desce até cobrir o desenho da mão.
     frase:'Olha a sua mão.',
 
     // Imagem da mão com o fio (opcional; sem ela, o site desenha uma).
@@ -352,7 +357,12 @@ window.CONTEUDO = {
     // Só vale quando há imagem: a mão desenhada já sabe onde fica o nó.
     ancoraFio: { x: 0.5, y: 0.62 },
 
+    // Texto do botão que aparece embaixo da mão.
     botao: 'Seguir o fio',
+
+    // Só é usado se o texto de cima ficar vazio (''): aí o botão vira só o
+    // desenho, e este nome é lido em voz alta por leitores de tela.
+    rotuloBotao: 'Seguir o fio',
   },
 
   /* --------------------------------------------------------------------------

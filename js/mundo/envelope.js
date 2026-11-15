@@ -1445,12 +1445,11 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao' }) {
       papelSolto = true;
       papel.visible = true;
       const pose3 = mundo.retanguloParaPose(alvo, papel);
-      // Quando a folha cobre a tela (celular), o papel pousa passando ~2 px de cada
-      // borda: nenhuma lasca do mundo aparece no quadro da troca.
+      // Quando a folha cobre a tela (celular), o papel pousa ~1,5% maior (no mínimo
+      // ~2 px além de cada borda): nenhuma lasca do mundo nem pétala aparece no quadro da troca.
       if (alvo && alvo.width >= innerWidth - 2) {
-        const sobra = 1 + 4 / Math.max(1, alvo.width);
-        pose3.escala.x *= sobra;
-        pose3.escala.y *= 1 + 4 / Math.max(1, alvo.height);
+        pose3.escala.x *= Math.max(1.015, 1 + 4 / Math.max(1, alvo.width));
+        pose3.escala.y *= Math.max(1.015, 1 + 4 / Math.max(1, alvo.height));
       }
       pose3.pai.attach(papel);                             // agora no espaço da câmera: não treme com o passo
       papel.renderOrder = 20;
@@ -1484,7 +1483,8 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao' }) {
         .to(giro, { p: 1, duration: dur * 0.85, ease: 'power3.inOut', onUpdate: () => papel.quaternion.slerpQuaternions(deQ, pose3.quaternion, giro.p) }, 0)
         .to(u.uDobra, { value: 0, duration: dur * 0.7, ease: 'power2.inOut' }, 0.12)
         .to(u.uOnda, { value: 0.006, duration: dur * 0.35, ease: 'power2.out' }, 0.1)
-        .to(u.uOnda, { value: 0, duration: dur * 0.5, ease: 'power2.inOut' }, 0.1 + dur * 0.35)
+        // a onda acaba antes do último quarto: o papel pousa plano
+        .to(u.uOnda, { value: 0, duration: dur * 0.38, ease: 'power2.inOut' }, 0.1 + dur * 0.35)
         // a luz sai do papel enquanto ele ainda voa: os três terços que se desdobram
         // param de ter tons diferentes e ele chega já na cor exata da folha DOM
         .to(u.uPlano, { value: 1, duration: dur * 0.5, ease: 'power1.inOut' }, dur * 0.3)

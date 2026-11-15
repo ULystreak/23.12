@@ -151,8 +151,15 @@ export const capitulo = {
         if (imediato) { gsap.set(rodape, { opacity: 1 }); return; }
         if (amb.reduzido) anima(gsap.fromTo(rodape, { opacity: 0 }, { opacity: 1, duration: 0.5, ease: 'none' }));
         else {
+          // enquanto cai, o botão não recebe o toque: um dedo que pousa nele
+          // não pode soltar já fora dele (o click iria para o painel)
+          rodape.classList.add('chegando');
           gsap.set(rodape, { opacity: 1 });
-          anima(gsap.fromTo(rodape, { y: -70, scale: 0.94 }, { y: 0, scale: 1, duration: 0.6, ease: 'back.out(2)' }));
+          anima(gsap.fromTo(rodape, { y: -70, scale: 0.94 }, {
+            y: 0, scale: 1, duration: 0.6, ease: 'back.out(2)',
+            onComplete: () => rodape.classList.remove('chegando'),
+            onInterrupt: () => rodape.classList.remove('chegando'),
+          }));
         }
       },
     });

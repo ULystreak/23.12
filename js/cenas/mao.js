@@ -1022,8 +1022,9 @@ export async function cenaMao(ctx, { frio } = {}) {
       el('span', { class: 'botao-fio-texto', texto: dados.botao || '' }),
       svg(SUBLINHADO),
     ]);
-    // Sem texto no content.js, o botão ainda precisa de nome para leitores de tela.
-    if (!dados.botao && dados.rotuloBotao) botao.setAttribute('aria-label', dados.rotuloBotao);
+    // Nome para leitores de tela: o texto do botão ou, sem ele, o rótulo do content.js.
+    const rotulo = dados.botao || dados.rotuloBotao;
+    if (rotulo) botao.setAttribute('aria-label', rotulo);
     acoes.append(botao);
     requestAnimationFrame(() => botao.classList.add('botao-fio-visivel'));
     // Quem navega pelo teclado não fica perdido no body: o foco vai para a ação da etapa.

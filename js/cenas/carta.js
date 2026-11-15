@@ -32,7 +32,7 @@ const ALTURA_CARTA = 0.16;
 const ESPERA_DICA = 4000;          // ms sem toque até a dica aparecer
 const LONGE = 2.6;                 // metros além do ponto de parada de onde a carta vem
 
-// Ela já usou o teclado? (só então o foco é levado até a carta; um toque nunca vê anel)
+// Ela já usou o teclado? (só então o foco levado até a carta pede o anel; um toque nunca o vê)
 let usouTeclado = false;
 if (typeof window !== 'undefined') {
   window.addEventListener('keydown', () => { usouTeclado = true; }, { once: true, capture: true });
@@ -157,9 +157,10 @@ function esperarToque(ctx, env) {
     acoes.append(alvo);
     // Quem lê a tela ouve o nome do alvo; a dica visível não repete a frase.
     dica.setAttribute('aria-hidden', 'true');
-    // Teclado: se o foco tinha ficado solto (no body), ele já cai na carta.
-    if (usouTeclado && (!document.activeElement || document.activeElement === document.body)) {
-      try { alvo.focus({ preventScroll: true }); } catch { /* sem foco programático */ }
+    // Se o foco tinha ficado solto (no body), ele cai na carta: o leitor de tela anuncia
+    // a carta e o teclado já a abre. O anel só aparece com :focus-visible (nunca num toque).
+    if (!document.activeElement || document.activeElement === document.body) {
+      try { alvo.focus({ preventScroll: true, focusVisible: usouTeclado }); } catch { /* sem foco programático */ }
     }
 
     // Nada desfocado passa entre a lente e a carta enquanto ela olha e abre

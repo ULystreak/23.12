@@ -800,6 +800,8 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
     // pequeno na margem (um toque naquele canto abre do mesmo jeito).
     let quieto = false;
     let rolador = null;
+    // Na mão (olha, mao-espera) o disco fica recolhido de propósito: a cena é da mão e do fio.
+    let naMao = false;
     const folhaRaiz = document.getElementById('pergaminho');
     function recolher(sim) {
       if (quieto === sim) return;
@@ -831,7 +833,7 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
     }
     const assentar = debounce(() => {
       if (aberto || mini.hidden) return;
-      recolher(!cantoLivre());
+      recolher(naMao || !cantoLivre());
     }, 1000);
     document.addEventListener('scroll', (e) => {
       if (mini.hidden) return;
@@ -863,6 +865,14 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
       // pequeno e sem cor: o branco e o fio vermelho são o que importa ali.
       const longe = (cena === 'mao' && etapa !== 'enrolando') || cena === 'final';
       mini.toggleAttribute('data-longe', longe);
+      // Enquanto ela olha a mão e decide seguir o fio, o disco vira a conta recolhida.
+      const eraNaMao = naMao;
+      naMao = cena === 'mao' && (etapa === 'olha' || etapa === 'mao-espera');
+      if (naMao && !eraNaMao) {
+        assentar.cancelar();
+        if (aberto) abrir(false);
+        recolher(true);
+      }
       // A última folha é sem botão: o disco vai embora e a música continua.
       if (cena === 'final' && FIM_SEM_BOTAO.has(etapa)) api.esconderMini();
       // Cena nova, canto novo: confere de novo se há algo para ler embaixo do disco.

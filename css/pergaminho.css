@@ -109,6 +109,14 @@
   position: absolute;
   inset: 0;
   z-index: 2;
+  overflow: hidden;
+  background: var(--papel);
+}
+/* Desenrolando, a camada desce e o miolo sobe o mesmo tanto (só transform, ver
+   pergaminho.js): o capítulo fica parado na tela e a borda de baixo anda. */
+.perg-camada-miolo {
+  position: absolute;
+  inset: 0;
   background: var(--papel);
 }
 

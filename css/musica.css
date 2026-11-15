@@ -613,6 +613,11 @@
   filter: grayscale(1) sepia(0.18) contrast(0.92);
   opacity: 0.86;
 }
+/* Na mão (olha, mao-espera) o recolhido vale também no mundo branco: só a conta. */
+#mini[data-longe][data-quieto] .mini-visual {
+  transform: translate(9px, -3px) scale(0.36);
+  opacity: 0.66;
+}
 #mini[data-longe][data-aberto] .mini-visual,
 #mini[data-longe] .mini-botao:focus-visible .mini-visual { transform: none; opacity: 1; }
 #mini[data-longe][data-aberto] .disco-mini .disco-rotulo { transform: translateZ(0); }
