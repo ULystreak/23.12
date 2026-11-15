@@ -1,133 +1,860 @@
 /* ============================================================================
    MÚSICA
-   O seletor na folha e o mini seletor fixo no canto.
-   Esqueleto: o mínimo para funcionar.
+   Na folha: o encarte de uma fita gravada para ela (uma faixa = a capa de um
+   compacto com o disco saindo; duas ou mais = a lista escrita à mão).
+   No canto: o disco pequeno que fica com ela até o fim (o mini seletor).
    ========================================================================== */
 
-/* ---- seletor na folha ------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+   O disco (usado na folha, no voo até o canto e no mini)
+   Os sulcos e o reflexo ficam parados; só o rótulo com a capa gira.
+   ------------------------------------------------------------------------- */
+.disco {
+  position: relative;
+  display: block;
+  border-radius: 50%;
+}
+.disco-sulcos {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    /* o reflexo da luz, em dois leques opostos */
+    conic-gradient(from 28deg,
+      rgba(255, 255, 255, 0) 0deg, rgba(255, 255, 255, 0.3) 18deg, rgba(255, 255, 255, 0) 50deg,
+      rgba(255, 255, 255, 0) 180deg, rgba(255, 255, 255, 0.2) 200deg, rgba(255, 255, 255, 0) 232deg,
+      rgba(255, 255, 255, 0) 360deg),
+    /* as faixas do disco: três anéis mais claros */
+    radial-gradient(circle closest-side,
+      rgba(255, 255, 255, 0) 55.4%, rgba(255, 255, 255, 0.1) 56%, rgba(255, 255, 255, 0) 57%,
+      rgba(255, 255, 255, 0) 69.4%, rgba(255, 255, 255, 0.08) 70%, rgba(255, 255, 255, 0) 71%,
+      rgba(255, 255, 255, 0) 83.4%, rgba(255, 255, 255, 0.07) 84%, rgba(255, 255, 255, 0) 85%),
+    /* os sulcos, bem de leve */
+    repeating-radial-gradient(circle closest-side,
+      rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0) 1.1%, rgba(255, 255, 255, 0.045) 2.2%),
+    /* o vinil: mais claro perto do rótulo, um filete de luz na borda */
+    radial-gradient(circle closest-side, #3b2832 0%, #2a1b22 44%, #24171d 94%, #4d3944 96.6%, #150d11 99%);
+  box-shadow: 0 1px 2px rgba(42, 27, 34, 0.3), 0 8px 18px -6px rgba(42, 27, 34, 0.36);
+}
+.disco-rotulo {
+  position: absolute;
+  inset: 30%;                              /* o rótulo ocupa 40% do disco */
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--fio);
+  box-shadow: 0 0 0 1px rgba(21, 13, 17, 0.5);
+  /* o Safari precisa disto para recortar em círculo o que gira lá dentro */
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  transform: translateZ(0);
+}
+.disco-gira {
+  position: absolute;
+  inset: 0;
+  display: block;
+  will-change: transform;
+}
+.disco-gira img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* Sem capa: o rótulo é do vermelho do fio, com um anel de papel. */
+.disco.sem-capa .disco-gira {
+  background:
+    radial-gradient(circle closest-side, rgba(251, 247, 240, 0) 56%, rgba(251, 247, 240, 0.55) 58%, rgba(251, 247, 240, 0.55) 62%, rgba(251, 247, 240, 0) 64%),
+    var(--fio);
+}
+.disco-furo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4.2%;
+  height: 4.2%;
+  min-width: 3px;
+  min-height: 3px;
+  border-radius: 50%;
+  background: var(--papel);
+  box-shadow: 0 0 0 1px rgba(21, 13, 17, 0.45);
+  transform: translate(-50%, -50%);
+}
+/* No mini quase tudo é capa: sobra só uma borda de vinil. */
+.disco-mini .disco-rotulo { inset: 5%; }
+.disco-mini .disco-sulcos { box-shadow: none; }
+.disco-mini .disco-furo { width: 8%; height: 8%; background: var(--mini-aro, var(--papel)); transition: background-color 600ms linear; }
+
+/* ---------------------------------------------------------------------------
+   O fio que se desenha (o laço em volta da escolhida, o sublinhado do continuar)
+   ------------------------------------------------------------------------- */
+.musica-laco,
+.musica-sublinhado {
+  position: absolute;
+  max-width: none;
+  overflow: visible;
+  pointer-events: none;
+}
+.fio-linha,
+.fio-sombra {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.fio-linha { stroke: var(--fio); stroke-width: 2.1; }
+/* a sombra que o fio deixa no papel */
+.fio-sombra {
+  stroke: rgba(42, 27, 34, 0.15);
+  stroke-width: 2.7;
+  transform: translate(0.9px, 1.9px);
+}
+
+/* ---------------------------------------------------------------------------
+   Seletor na folha
+   ------------------------------------------------------------------------- */
 .musica {
+  --lado: clamp(150px, min(58vw, calc(var(--tela) * 0.32)), 300px);   /* a capa do compacto */
+  --capa: 72px;                                                         /* a capa numa linha da lista */
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--esp-6);
   width: 100%;
-  text-align: center;
+  max-width: 30rem;
+  min-height: 0;
+  max-height: 100%;
+  margin-inline: auto;
+  color: var(--tinta);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
+.musica[data-folga="larga"] { --capa: 88px; }
+.musica[data-folga="justa"] { --capa: 60px; }
+
 .musica-titulo {
+  flex: none;
+  max-width: 11em;
+  margin-bottom: clamp(26px, calc(var(--tela) * 0.05), 48px);
   font-family: var(--fonte-titulo);
   font-weight: 400;
   font-size: var(--texto-titulo);
-  letter-spacing: 0.02em;
+  line-height: 1.32;
+  letter-spacing: 0.01em;
+  text-align: center;
+  text-wrap: balance;
 }
-.musica-lista {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--esp-5);
-  width: 100%;
-}
-.musica-faixa {
-  display: grid;
-  justify-items: center;
-  gap: var(--esp-2);
-  min-width: var(--alvo);
-  padding: var(--esp-3);
-  border-radius: var(--raio);
-  font-family: var(--fonte-mao);
-  color: var(--tinta);
-  transition: transform var(--dur-ui) var(--curva-ui);
-}
-.musica-faixa:active { transform: scale(0.97); }
-.musica-capa {
-  display: block;
-  width: min(56vw, 240px);
-  aspect-ratio: 1;
-  border-radius: 6px;
-  overflow: hidden;
-  background: var(--papel-sombra);
-  box-shadow: 0 14px 36px rgba(42, 27, 34, 0.18);
-  outline: 2px solid transparent;
-  outline-offset: 5px;
-  transition: outline-color var(--dur-ui-lenta) var(--curva-ui);
-}
-.musica-lista[data-quantas="1"] .musica-capa { width: min(62vw, 280px); }
-.musica-capa img { width: 100%; height: 100%; object-fit: cover; }
-.musica-capa.sem-capa { box-shadow: inset 0 0 0 1px var(--papel-linha); }
-.musica-faixa[aria-pressed="true"] .musica-capa { outline-color: var(--fio); }
-.musica-nome { margin-top: var(--esp-3); font-size: var(--texto-subtitulo); font-weight: 600; }
-.musica-artista { font-size: var(--texto-pequeno); color: var(--tinta-suave); }
-@media (hover: hover) and (pointer: fine) {
-  .musica-faixa:hover .musica-capa { outline-color: var(--papel-linha); }
-  .musica-faixa[aria-pressed="true"]:hover .musica-capa { outline-color: var(--fio); }
+.musica[data-modo="lista"] .musica-titulo {
+  align-self: flex-start;
+  max-width: 100%;
+  margin-bottom: clamp(18px, calc(var(--tela) * 0.035), 34px);
+  text-align: left;
 }
 
-/* ---- mini seletor ----------------------------------------------------------- */
+.musica-lista {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+.musica[data-modo="lista"] .musica-lista {
+  flex: 0 1 auto;
+  align-items: stretch;
+  min-height: 0;
+  /* o respiro deixa caber a fita, a capa torta e o laço sem cortar; as margens negativas devolvem o alinhamento */
+  margin: -14px -10px -6px -12px;
+  padding: 14px 10px 6px 12px;
+  width: calc(100% + 22px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--papel-linha) transparent;
+}
+/* Lista que não cabe: o fim se desfaz no papel, e sobra espaço para a última linha sair dali. */
+.musica[data-modo="lista"] .musica-lista[data-rola] {
+  padding-bottom: 44px;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 52px), rgba(0, 0, 0, 0) 100%);
+  mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 52px), rgba(0, 0, 0, 0) 100%);
+}
+
+.musica-item { position: relative; }
+
+.musica-faixa {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(22px, calc(var(--tela) * 0.036), 34px);
+  padding: 6px 14px 16px;
+  color: inherit;
+  text-align: center;
+  border-radius: 10px;
+  transition: transform var(--dur-ui) var(--curva-ui);
+}
+.musica-faixa:active { transform: scale(0.985); }
+.musica-faixa:disabled { cursor: default; }
+.musica[data-modo="lista"] .musica-faixa {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 24px;
+  width: 100%;
+  min-height: 64px;
+  padding: 8px 8px 8px calc(2px + var(--dx, 0px));
+  text-align: left;
+}
+.musica[data-modo="lista"] .musica-item.sem-capa .musica-faixa {
+  grid-template-columns: minmax(0, 1fr);
+  padding-left: calc(22px + var(--dx, 0px));
+}
+/* Se as outras linhas têm capa, a que não tem escreve na mesma coluna dos nomes. */
+.musica[data-modo="lista"] .musica-lista:has(.musica-item:not(.sem-capa)) .musica-item.sem-capa .musica-faixa {
+  padding-left: calc(2px + var(--capa) + 24px + var(--dx, 0px) * 0.5);
+}
+
+/* ---- a capa, colada com fita de papel ---- */
+.musica-objeto {
+  position: relative;
+  display: block;
+  width: var(--capa);
+  height: var(--capa);
+  transform: rotate(var(--ang, 0deg));
+}
+.musica[data-modo="lista"] .musica-item.sem-capa .musica-objeto { display: none; }
+
+.musica-moldura {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.musica-capa {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--papel-sombra);
+  box-shadow:
+    0 1px 1px rgba(42, 27, 34, 0.12),
+    0 8px 16px -8px rgba(42, 27, 34, 0.34);
+  /* presa pela fita: é em volta dela que a capa balança quando descola */
+  transform-origin: 50% 0;
+  transition:
+    transform 720ms var(--curva-branco-entrar),
+    box-shadow 720ms var(--curva-branco-entrar);
+}
+.musica-capa img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* a borda do papelão: um filete de luz em cima, um de sombra embaixo */
+.musica-capa::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 0 0 1px rgba(42, 27, 34, 0.08),
+    inset 0 -1px 0 rgba(42, 27, 34, 0.14);
+  pointer-events: none;
+}
+.musica-faixa[aria-pressed="true"] .musica-capa {
+  transform: rotate(calc(var(--ang, 0deg) * -1.8)) scale(1.05);
+  box-shadow:
+    0 1px 1px rgba(42, 27, 34, 0.1),
+    0 16px 26px -10px rgba(42, 27, 34, 0.4);
+}
+
+.musica-fita {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: calc(50% + var(--fita-x, 0%));
+  width: max(36%, 30px);
+  height: max(10%, 13px);
+  background:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0) 42%, rgba(104, 78, 48, 0.2)),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.16) 0 1px, rgba(255, 255, 255, 0) 1px 5px),
+    rgba(226, 207, 170, 0.9);
+  /* as pontas rasgadas à mão */
+  -webkit-clip-path: polygon(0% 0%, 3% 17%, 0.5% 33%, 3.5% 50%, 0% 67%, 3% 84%, 0.5% 100%, 99.5% 100%, 97% 84%, 100% 67%, 96.5% 50%, 99.5% 33%, 97% 17%, 100% 0%);
+  clip-path: polygon(0% 0%, 3% 17%, 0.5% 33%, 3.5% 50%, 0% 67%, 3% 84%, 0.5% 100%, 99.5% 100%, 97% 84%, 100% 67%, 96.5% 50%, 99.5% 33%, 97% 17%, 100% 0%);
+  transform: translate(-50%, -54%) rotate(var(--fita-ang, 0deg));
+}
+
+/* ---- uma faixa só: a capa de um compacto, com o disco saindo ---- */
+.musica[data-modo="unica"] .musica-objeto {
+  width: var(--lado);
+  height: var(--lado);
+  margin-right: calc(var(--lado) * 0.3);
+}
+.musica[data-modo="unica"] .musica-capa {
+  box-shadow:
+    0 1px 1px rgba(42, 27, 34, 0.12),
+    0 14px 28px -12px rgba(42, 27, 34, 0.36),
+    0 34px 60px -30px rgba(42, 27, 34, 0.3);
+}
+/* a marca que o disco guardado deixa na capa, de tanto tempo ali dentro */
+.musica[data-modo="unica"] .musica-capa::after {
+  background: radial-gradient(circle closest-side,
+    rgba(255, 255, 255, 0) 89%, rgba(255, 255, 255, 0.16) 90.5%, rgba(42, 27, 34, 0.07) 92%, rgba(42, 27, 34, 0) 94%);
+}
+.musica[data-modo="unica"] .musica-faixa[aria-pressed="true"] .musica-capa {
+  transform: rotate(calc(var(--ang, 0deg) * -1.8)) scale(1.02);
+  box-shadow:
+    0 1px 1px rgba(42, 27, 34, 0.1),
+    0 22px 36px -14px rgba(42, 27, 34, 0.4),
+    0 46px 70px -34px rgba(42, 27, 34, 0.34);
+}
+.musica-disco-trilho {
+  position: absolute;
+  top: 3%;
+  left: 36%;
+  width: 94%;
+  height: 94%;
+  transition: transform 1100ms var(--curva-branco-entrar);
+}
+.musica-disco {
+  width: 100%;
+  height: 100%;
+}
+/* escolhida: o disco sai mais um pouco de dentro da capa */
+.musica-faixa[aria-pressed="true"] .musica-disco-trilho { transform: translateX(16%); }
+/* sem capa: o disco sozinho, no meio */
+.musica[data-modo="unica"] .musica-item.sem-capa .musica-objeto { margin-right: 0; transform: none; }
+.musica-item.sem-capa .musica-disco-trilho { left: 3%; }
+.musica-item.sem-capa .musica-faixa[aria-pressed="true"] .musica-disco-trilho { transform: none; }
+
+/* ---- o nome, escrito à mão ---- */
+.musica-texto {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  width: -webkit-fit-content;
+  width: fit-content;
+  max-width: 100%;
+  gap: 2px;
+}
+.musica[data-modo="lista"] .musica-texto { align-items: flex-start; max-width: calc(100% - 14px); }   /* sobra lugar para o laço dar a volta */
+.musica-nome {
+  font-family: var(--fonte-mao);
+  font-weight: 600;
+  font-size: clamp(1.75rem, 1.4rem + 1.6vw, 2.25rem);
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  overflow-wrap: anywhere;
+}
+.musica[data-modo="lista"] .musica-nome { font-size: clamp(1.3125rem, 1.2rem + 0.55vw, 1.5rem); }
+.musica[data-modo="lista"][data-folga="larga"] .musica-nome { font-size: clamp(1.4375rem, 1.3rem + 0.7vw, 1.6875rem); }
+.musica[data-modo="lista"][data-folga="justa"] .musica-nome { font-size: clamp(1.1875rem, 1.1rem + 0.45vw, 1.375rem); }
+.musica[data-modo="lista"][data-folga="justa"] .musica-faixa { min-height: 56px; padding-top: 5px; padding-bottom: 5px; }
+.musica[data-modo="lista"][data-folga="justa"] .musica-traco { margin-top: 4px; margin-bottom: 4px; }
+.musica-artista {
+  font-family: var(--fonte-mao);
+  font-size: var(--texto-pequeno);
+  line-height: 1.3;
+  letter-spacing: 0.03em;
+  color: var(--tinta-suave);
+  overflow-wrap: anywhere;
+}
+.musica[data-modo="unica"] .musica-artista { font-size: clamp(1rem, 0.95rem + 0.3vw, 1.125rem); }
+.musica-laco { left: -18px; top: -12px; }   /* o js/musica.js acerta a folga de cada laço pelo tamanho do texto */
+
+/* ---- o traço de tinta entre duas linhas ---- */
+.musica-traco {
+  display: block;
+  width: calc(100% - 4px);
+  max-width: none;
+  height: 10px;
+  margin: 6px 0 6px 2px;
+  fill: var(--tinta);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* ---- continuar: manuscrito, sublinhado pelo fio ---- */
+.musica-continuar {
+  flex: none;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 48px;
+  margin-top: clamp(14px, calc(var(--tela) * 0.03), 30px);
+  padding: 8px 12px 14px;
+  font-family: var(--fonte-mao);
+  font-weight: 600;
+  font-size: clamp(1.1875rem, 1.12rem + 0.4vw, 1.375rem);
+  letter-spacing: 0.03em;
+  color: var(--tinta);
+  border-radius: 10px;
+  transition: transform var(--dur-ui) var(--curva-ui);
+}
+.musica[data-modo="lista"] .musica-continuar { align-self: flex-end; }
+.musica-continuar:active { transform: scale(0.97); }
+.musica-continuar:disabled { cursor: default; }
+.musica-continuar-texto { position: relative; }
+.musica-sublinhado { left: -4px; top: calc(100% - 2px); }
+.musica-seta {
+  flex: none;
+  width: 42px;
+  height: 19px;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform var(--dur-ui-lenta) var(--curva-branco-entrar);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .musica-faixa:not(:disabled):not([aria-pressed="true"]):hover .musica-capa {
+    transform: rotate(calc(var(--ang, 0deg) * -0.6)) scale(1.02);
+  }
+  .musica-continuar:not(:disabled):hover .musica-seta { transform: translateX(6px); }
+}
+
+/* ---- o que voa da folha até o canto ---- */
+.musica-voador,
+.disco.musica-voador {
+  position: fixed;
+  z-index: var(--z-topo);
+  margin: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+.musica-voador-capa {
+  display: block;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--papel-sombra);
+  box-shadow: 0 12px 24px -10px rgba(42, 27, 34, 0.4);
+}
+.musica-voador-capa img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ---------------------------------------------------------------------------
+   Mini seletor (canto de cima, à direita)
+   As três peles só trocam estas variáveis.
+   ------------------------------------------------------------------------- */
 #mini {
+  --mini-fundo: var(--papel);
+  --mini-texto: var(--tinta);
+  --mini-suave: var(--tinta-suave);
+  --mini-linha: var(--papel-linha);
+  --mini-realce: rgba(42, 27, 34, 0.055);
+  --mini-sombra: 0 1px 2px rgba(42, 27, 34, 0.08), 0 18px 40px -14px rgba(42, 27, 34, 0.32);
+  --mini-aro: var(--papel);
+  --mini-aro-sombra: 0 4px 12px -2px rgba(42, 27, 34, 0.3);
+  --mini-trilho: rgba(42, 27, 34, 0.16);
+  --mini-fio: var(--fio);
+  --mini-marca: var(--fio-escuro);
+  --mini-conta: radial-gradient(circle at 36% 30%, #ffb3b5 0%, #e3283c 34%, #a80f22 80%);
+  --mini-conta-sombra: 0 1px 2px rgba(42, 27, 34, 0.4);
+  --mini-tecla-fundo: transparent;
+  --mini-tecla-texto: var(--tinta);
+  --mini-tecla-borda: inset 0 0 0 1.5px var(--tinta);
+  --mini-fonte: var(--fonte-mao);
+  --mini-raio: 14px;
+  --mini-foco: var(--fio);
+
   position: fixed;
   top: calc(var(--seguro-topo) + 12px);
   right: calc(var(--seguro-dir) + 12px);
   z-index: var(--z-mini);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--esp-2);
-  font-family: var(--fonte-mao);
-  color: var(--tinta);
+  width: 48px;
+  height: 48px;
+  font-family: var(--mini-fonte);
+  color: var(--mini-texto);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
+
+/* Poppy: plástico escuro de brinquedo, tecla amarela com rebordo. */
+#mini[data-pele="poppy"] {
+  --mini-fundo: #123044;
+  --mini-texto: var(--poppy-texto);
+  --mini-suave: #b7c6c8;
+  --mini-linha: rgba(242, 234, 216, 0.16);
+  --mini-realce: rgba(242, 234, 216, 0.08);
+  --mini-sombra: 0 4px 0 #071a26, 0 20px 36px -10px rgba(2, 10, 16, 0.7);
+  --mini-aro: #0d2534;
+  --mini-aro-sombra: 0 3px 0 #071a26, 0 8px 16px -4px rgba(2, 10, 16, 0.6);
+  --mini-trilho: rgba(242, 234, 216, 0.24);
+  --mini-fio: var(--poppy-vermelho);
+  --mini-marca: var(--poppy-amarelo);
+  --mini-conta: radial-gradient(circle at 36% 30%, #fff1b8 0%, #f6c12d 38%, #c08d0c 84%);
+  --mini-conta-sombra: 0 2px 0 #7d5b06;
+  --mini-tecla-fundo: var(--poppy-amarelo);
+  --mini-tecla-texto: #0d2534;
+  --mini-tecla-borda: 0 3px 0 #a87b08;
+  --mini-fonte: var(--fonte-brinquedo);
+  --mini-raio: 18px;
+  --mini-foco: var(--poppy-amarelo);
+}
+
+/* Your Name: vidro índigo, com a luz do fim da tarde na borda. */
+#mini[data-pele="yourname"] {
+  --mini-fundo: rgba(17, 21, 68, 0.86);
+  --mini-texto: var(--yn-texto);
+  --mini-suave: #cdc7e2;
+  --mini-linha: rgba(255, 209, 161, 0.3);
+  --mini-realce: rgba(255, 209, 161, 0.1);
+  --mini-sombra: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 20px 44px -14px rgba(4, 7, 30, 0.75);
+  --mini-aro: rgba(17, 21, 68, 0.8);
+  --mini-aro-sombra: 0 0 0 1px rgba(255, 209, 161, 0.3), 0 6px 16px -4px rgba(4, 7, 30, 0.7);
+  --mini-trilho: rgba(253, 246, 238, 0.26);
+  --mini-fio: #f0434f;
+  --mini-marca: var(--yn-pessego);
+  --mini-conta: radial-gradient(circle at 36% 30%, #ffffff 0%, #ffd1a1 40%, #d99a72 86%);
+  --mini-conta-sombra: 0 0 10px rgba(255, 209, 161, 0.55);
+  --mini-tecla-fundo: rgba(255, 209, 161, 0.12);
+  --mini-tecla-texto: var(--yn-texto);
+  --mini-tecla-borda: inset 0 0 0 1px rgba(255, 209, 161, 0.55);
+  --mini-fonte: var(--fonte-titulo);
+  --mini-raio: 16px;
+  --mini-foco: var(--yn-pessego);
+}
+
+#mini :focus-visible { outline-color: var(--mini-foco); }
+/* O foco do disco fica no próprio disco: quando ele se recolhe, o anel de foco vai junto. */
+#mini .mini-botao:focus-visible { outline: none; }
+#mini .mini-botao:focus-visible .mini-visual { outline: 2px solid var(--mini-foco); outline-offset: 3px; }
+
+/* ---- fechado: o disco com o fio em volta ---- */
 .mini-botao {
-  display: grid;
-  place-items: center;
-  width: var(--alvo);
-  height: var(--alvo);
+  position: relative;
+  z-index: 2;
+  display: block;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  background: var(--papel);
-  box-shadow: 0 0 0 1px var(--papel-linha), 0 6px 18px rgba(42, 27, 34, 0.14);
   transition: transform var(--dur-ui) var(--curva-ui);
 }
-.mini-botao:active { transform: scale(0.97); }
-.mini-botao.tocando { color: var(--fio); }
+.mini-botao:active { transform: scale(0.94); }
+.mini-visual {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border-radius: 50%;
+  background: var(--mini-aro);
+  box-shadow: var(--mini-aro-sombra);
+  transform-origin: 100% 0;
+  transition:
+    transform 460ms var(--curva-branco-entrar),
+    opacity 300ms linear,
+    background-color 600ms linear,
+    box-shadow 600ms linear;
+}
+.disco-mini {
+  position: absolute;
+  inset: 2px;
+}
+.mini-anel {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  overflow: visible;
+  pointer-events: none;
+}
+.mini-anel-trilho {
+  fill: none;
+  stroke: var(--mini-trilho);
+  stroke-width: 1;
+  transition: stroke 600ms linear;
+}
+.mini-anel-fio {
+  fill: none;
+  stroke: var(--mini-fio);
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 420ms linear, opacity 300ms linear, stroke 600ms linear;
+}
+
+/* Enquanto ela rola: uma conta na margem da folha, fora da coluna do texto. */
+#mini[data-quieto] .mini-visual {
+  transform: translate(9px, -3px) scale(0.36);
+  opacity: 0.66;
+  transition-duration: 240ms, 200ms, 600ms, 600ms;
+  transition-timing-function: var(--curva-ui), linear, linear, linear;
+}
+
+/* ---- aberto: o painel nasce do disco ---- */
 .mini-painel {
-  display: grid;
-  gap: var(--esp-3);
-  width: min(78vw, 280px);
-  padding: var(--esp-4);
-  border-radius: var(--raio);
-  background: var(--papel);
-  box-shadow: 0 0 0 1px var(--papel-linha), 0 18px 48px rgba(42, 27, 34, 0.18);
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  z-index: 1;
+  width: min(calc(100vw - 2 * var(--seguro-dir) - 8px), 292px);
+  padding: 8px 8px 6px;
+  border-radius: var(--mini-raio) 32px var(--mini-raio) var(--mini-raio);   /* o canto de cima acompanha o disco */
+  background: var(--mini-fundo);
+  color: var(--mini-texto);
+  box-shadow: 0 0 0 1px var(--mini-linha), var(--mini-sombra);
+  transform-origin: calc(100% - 32px) 32px;
+  transform: scale(0.96);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 130ms linear,
+    transform 170ms var(--curva-ui),
+    visibility 0s linear 170ms;
+}
+#mini[data-aberto] .mini-painel {
+  transform: none;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity 150ms linear,
+    transform 210ms var(--curva-ui),
+    visibility 0s;
+}
+#mini[data-pele="yourname"] .mini-painel {
+  -webkit-backdrop-filter: blur(12px) saturate(1.25);
+  backdrop-filter: blur(12px) saturate(1.25);
+}
+
+.mini-agora {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding-right: 58px;                     /* o lugar do disco */
 }
 .mini-alternar {
+  flex: none;
   display: grid;
   place-items: center;
-  width: var(--alvo);
-  height: var(--alvo);
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 1.5px var(--tinta);
+  width: 44px;
+  height: 44px;
+  /* um círculo feito à mão, não de compasso */
+  border-radius: 49% 51% 47% 53% / 53% 47% 52% 48%;
+  background: var(--mini-tecla-fundo);
+  color: var(--mini-tecla-texto);
+  box-shadow: var(--mini-tecla-borda);
   transition: transform var(--dur-ui) var(--curva-ui);
 }
-.mini-alternar:active { transform: scale(0.97); }
-.mini-lista { display: grid; gap: var(--esp-1); }
+.mini-alternar:active { transform: scale(0.94); }
+.mini-alternar svg { width: 22px; height: 22px; }
+#mini[data-pele="poppy"] .mini-alternar { border-radius: 50%; }
+#mini[data-pele="poppy"] .mini-alternar:active { transform: translateY(2px); box-shadow: 0 1px 0 #a87b08; }
+#mini[data-pele="yourname"] .mini-alternar { border-radius: 50%; }
+
+.mini-atual {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+.mini-nome,
+.mini-artista,
+.mini-faixa-nome,
+.mini-faixa-artista {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.mini-nome { font-size: 1.0625rem; font-weight: 600; }
+.mini-artista { font-size: 0.8125rem; letter-spacing: 0.02em; color: var(--mini-suave); }
+
+.mini-lista {
+  max-height: 198px;
+  margin-top: 6px;
+  padding-top: 6px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--mini-linha) transparent;
+  box-shadow: inset 0 1px 0 var(--mini-linha);
+}
 .mini-faixa {
   display: grid;
-  grid-template-columns: 40px 1fr;
+  grid-template-columns: 34px minmax(0, 1fr);
   grid-template-rows: auto auto;
-  column-gap: var(--esp-3);
+  column-gap: 12px;
   align-items: center;
   width: 100%;
-  min-height: var(--alvo);
-  padding: var(--esp-1);
-  border-radius: 8px;
+  min-height: 46px;
+  padding: 5px 8px 5px 6px;
+  border-radius: 10px;
+  color: inherit;
   text-align: left;
+  transition: background-color var(--dur-ui) linear, transform var(--dur-ui) var(--curva-ui);
 }
+.mini-faixa:active { transform: scale(0.98); }
 .mini-capa {
   grid-row: 1 / 3;
-  width: 40px;
-  height: 40px;
-  border-radius: 4px;
+  display: block;
+  width: 34px;
+  height: 34px;
+  border-radius: 3px;
   overflow: hidden;
-  background: var(--papel-sombra);
+  background: var(--mini-realce);
+  transition: box-shadow var(--dur-ui-lenta) var(--curva-ui);
 }
 .mini-capa img { width: 100%; height: 100%; object-fit: cover; }
-.mini-nome { align-self: end; font-size: 1rem; font-weight: 600; line-height: 1.2; }
-.mini-artista { align-self: start; font-size: 0.875rem; color: var(--tinta-suave); line-height: 1.2; }
-.mini-faixa[aria-pressed="true"] .mini-nome { color: var(--fio-escuro); }
-.mini-volume { width: 100%; height: var(--alvo); margin: 0; }
+.mini-capa.sem-capa {
+  border-radius: 50%;
+  background:
+    radial-gradient(circle closest-side, var(--mini-fundo) 0 12%, var(--mini-fio) 13% 40%, #2a1b22 41% 100%);
+}
+.mini-faixa-nome { align-self: end; font-size: 0.9375rem; font-weight: 600; line-height: 1.2; }
+.mini-faixa-nome:last-child { grid-row: 1 / 3; align-self: center; }
+.mini-faixa-artista { align-self: start; font-size: 0.8125rem; line-height: 1.25; color: var(--mini-suave); }
+/* a que toca: o fio dá a volta na capa */
+.mini-faixa[aria-pressed="true"] .mini-capa { box-shadow: 0 0 0 2px var(--mini-fundo), 0 0 0 3.5px var(--mini-fio); }
+.mini-faixa[aria-pressed="true"] .mini-faixa-nome { color: var(--mini-marca); }
+
+/* ---- o volume: uma conta num fio ---- */
+.mini-volume {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 14px;
+  height: 46px;
+  margin-top: 4px;
+  padding: 0 12px 0 11px;
+  box-shadow: inset 0 1px 0 var(--mini-linha);
+}
+.mini-volume-icone {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: var(--mini-suave);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.mini-volume-fio {
+  grid-column: 2;
+  grid-row: 1;
+  position: relative;
+  height: 1.5px;
+  border-radius: 1px;
+  background: var(--mini-fio);
+  pointer-events: none;
+}
+/* os dois nós nas pontas do fio */
+.mini-volume-fio::before,
+.mini-volume-fio::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  margin-top: -2.5px;
+  border-radius: 50%;
+  background: var(--mini-fio);
+}
+.mini-volume-fio::before { left: -2px; }
+.mini-volume-fio::after { right: -2px; }
+.mini-volume-controle {
+  grid-column: 2;
+  grid-row: 1;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  touch-action: pan-y;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.mini-volume-controle::-webkit-slider-runnable-track {
+  height: 44px;
+  background: transparent;
+  border: 0;
+}
+.mini-volume-controle::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--mini-conta);
+  box-shadow: var(--mini-conta-sombra);
+}
+.mini-volume-controle::-moz-range-track {
+  height: 44px;
+  background: transparent;
+  border: 0;
+}
+.mini-volume-controle::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--mini-conta);
+  box-shadow: var(--mini-conta-sombra);
+}
+.mini-volume-controle:focus-visible {
+  outline: 2px solid var(--mini-foco);
+  outline-offset: -8px;
+  border-radius: 22px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mini-faixa:hover { background-color: var(--mini-realce); }
+}
+
+/* ---------------------------------------------------------------------------
+   Movimento reduzido: nada balança nem cresce; os estados continuam claros.
+   ------------------------------------------------------------------------- */
+html.reduzido .musica-capa,
+html.reduzido .musica-disco-trilho,
+html.reduzido .musica-seta,
+html.reduzido .mini-visual { transition-duration: 0.01ms; }
+html.reduzido .musica-faixa[aria-pressed="true"] .musica-capa { transform: none; }
+html.reduzido .musica-faixa[aria-pressed="true"] .musica-disco-trilho { transform: none; }
+html.reduzido .mini-painel,
+html.reduzido #mini[data-aberto] .mini-painel {
+  transform: none;
+  transition: opacity 150ms linear, visibility 0s;
+}
+html.reduzido .mini-anel-fio { transition: opacity 300ms linear; }
+
+/* ---------------------------------------------------------------------------
+   Aparelho fraco: sem desfoque atrás do vidro, sombras de uma camada só.
+   ------------------------------------------------------------------------- */
+html[data-nivel="baixo"] #mini[data-pele="yourname"] {
+  --mini-fundo: rgba(17, 21, 68, 0.95);
+}
+html[data-nivel="baixo"] #mini[data-pele="yourname"] .mini-painel {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+html[data-nivel="baixo"] .musica[data-modo="unica"] .musica-capa,
+html[data-nivel="baixo"] .musica[data-modo="unica"] .musica-faixa[aria-pressed="true"] .musica-capa {
+  box-shadow: 0 12px 24px -10px rgba(42, 27, 34, 0.4);
+}
+html[data-nivel="baixo"] .disco-sulcos {
+  background:
+    conic-gradient(from 28deg,
+      rgba(255, 255, 255, 0) 0deg, rgba(255, 255, 255, 0.3) 18deg, rgba(255, 255, 255, 0) 50deg,
+      rgba(255, 255, 255, 0) 180deg, rgba(255, 255, 255, 0.2) 200deg, rgba(255, 255, 255, 0) 232deg,
+      rgba(255, 255, 255, 0) 360deg),
+    radial-gradient(circle closest-side, #3b2832 0%, #2a1b22 44%, #24171d 94%, #4d3944 96.6%, #150d11 99%);
+}

@@ -6,20 +6,27 @@
 //   som.volume(v)          0..1; sem argumento devolve o volume atual
 //   som.estado             { destravado, tocando, indice, volume, falhou }
 //   som.aoMudar(fn)        fn(estado) a cada mudança; devolve a função que cancela
-//   som.efeito(nome)       'lacre' | 'papel' | 'desenrolar' | 'toque' | 'caneta' | 'fita' | 'mola' | 'brilho'
+//   som.efeito(nome, opcoes)
+//                          'lacre' | 'papel' | 'desenrolar' | 'toque' | 'caneta' | 'fita' | 'mola' | 'brilho'
+//                          só a caneta usa opções: { duracao (s), intensidade (0..1,5) }
 //   som.abafar(fator, ms)  abaixa a música para `fator` (0..1) por `ms` milissegundos e volta
+//   som.progresso()        0..1: em que ponto da faixa a música está
+//   som.aoTempo(fn)        fn(progresso, segundos, duracao) enquanto a faixa anda; devolve quem cancela
 //   som.diagnostico()      (só para testes) estado interno: contexto, ganho, tempo da faixa
 //
 // A música passa por <audio> → MediaElementSource → GainNode, porque no iPhone
 // `audio.volume` não tem efeito. Se o Web Audio faltar, cai para `audio.volume`.
 // Com ?mudo=1 (ou se qualquer coisa do áudio falhar) tudo vira silêncio sem erro:
 // o estado continua mudando, para a interface se comportar igual.
+//
+// Os efeitos são sintetizados (nenhum arquivo). As receitas ficam em RECEITAS e
+// também podem ser tocadas num OfflineAudioContext com sintetizar(), para medir
+// pico e duração sem ouvir.
 
-import { clamp } from './nucleo/util.js';
+import { clamp, semente } from './nucleo/util.js';
 
 const ENTRADA = 1.8;   // s: a música chega devagar
 const SAIDA = 0.45;    // s
-const TETO_EFEITO = 0.5; // os efeitos ficam sempre abaixo da música
 
 export function criarSom(conteudo, amb) {
   const faixas = Array.isArray(conteudo?.musica?.faixas) ? conteudo.musica.faixas : [];
@@ -28,22 +35,46 @@ export function criarSom(conteudo, amb) {
 
   const estado = { destravado: false, tocando: false, indice: -1, volume: volumeInicial, falhou: false };
   const ouvintes = new Set();
+  const ouvintesTempo = new Set();
 
   let ctx = null;            // AudioContext
   let audio = null;          // <audio> da música
   let ganhoMusica = null;    // volume + entradas e saídas
   let ganhoAbafar = null;    // abafar()
   let ganhoEfeitos = null;
-  let ruido = null;          // buffer de ruído branco para os efeitos
   let pausaPendente = 0;
   let voltaAbafar = 0;
   let pausadoPelaAba = false;
   let rampaReserva = 0;
+  let pedindoPlay = false;   // há um audio.play() ainda sem resposta
 
   function emitir() {
     for (const fn of ouvintes) {
       try { fn(estado); } catch (erro) { console.error(erro); }
     }
+  }
+
+  function progresso() {
+    if (!audio) return 0;
+    const total = audio.duration;
+    return Number.isFinite(total) && total > 0 ? clamp(audio.currentTime / total) : 0;
+  }
+
+  function emitirTempo() {
+    if (!ouvintesTempo.size || !audio) return;
+    const p = progresso();
+    const total = Number.isFinite(audio.duration) ? audio.duration : 0;
+    for (const fn of ouvintesTempo) {
+      try { fn(p, audio.currentTime, total); } catch (erro) { console.error(erro); }
+    }
+  }
+
+  /**
+   * Os efeitos acompanham o volume que ela escolheu para a música: se ela abaixa
+   * a música, eles abaixam junto; no mudo, somem. Assim ficam sempre abaixo dela.
+   */
+  function nivelEfeitos() {
+    return volumeInicial > 0 ? clamp(estado.volume / volumeInicial, 0, 2) : 1;
   }
 
   // ---- montagem (só dentro de um gesto) -----------------------------------
@@ -62,6 +93,8 @@ export function criarSom(conteudo, amb) {
         estado.falhou = true;
         emitir();
       });
+      audio.addEventListener('timeupdate', emitirTempo);
+      audio.addEventListener('durationchange', emitirTempo);
     } catch {
       audio = null;
       return;
@@ -75,7 +108,7 @@ export function criarSom(conteudo, amb) {
       ganhoAbafar = ctx.createGain();
       ganhoEfeitos = ctx.createGain();
       ganhoMusica.gain.value = 0;
-      ganhoEfeitos.gain.value = TETO_EFEITO;
+      ganhoEfeitos.gain.value = nivelEfeitos();
       ctx.createMediaElementSource(audio).connect(ganhoMusica);
       ganhoMusica.connect(ganhoAbafar).connect(ctx.destination);
       ganhoEfeitos.connect(ctx.destination);
@@ -84,6 +117,17 @@ export function criarSom(conteudo, amb) {
       ctx = null;
       ganhoMusica = ganhoAbafar = ganhoEfeitos = null;
     }
+
+    // Ao voltar de outro aplicativo o iPhone pode deixar o contexto suspenso e
+    // recusar o play() sem gesto: o próximo toque dela, onde for, devolve o som.
+    const reanimar = () => {
+      acordar();
+      if (estado.tocando && audio && audio.paused && !pedindoPlay && !document.hidden) {
+        audio.play().then(() => rampa(estado.volume, 0.6)).catch(() => {});
+      }
+    };
+    window.addEventListener('pointerup', reanimar, { capture: true, passive: true });
+    window.addEventListener('keydown', reanimar, { capture: true, passive: true });
   }
 
   function acordar() {
@@ -161,16 +205,21 @@ export function criarSom(conteudo, amb) {
           audio.src = faixa.arquivo;
         }
         // play() precisa sair ainda dentro do gesto: nada de await antes daqui.
+        pedindoPlay = true;
         await audio.play();
-        rampa(estado.volume, ENTRADA);
+        pedindoPlay = false;
+        // Ela pode ter pausado ou trocado de faixa enquanto o arquivo carregava.
+        if (estado.indice === indice && estado.tocando) rampa(estado.volume, ENTRADA);
         return true;
-      } catch {
+      } catch (erro) {
+        pedindoPlay = false;
+        if (estado.indice !== indice) return false;
+        // Interrompido por uma pausa ou por outra faixa: não é falha do arquivo.
+        if (erro && erro.name === 'AbortError') return false;
         // Arquivo que falta ou navegador que recusou: segue em silêncio.
-        if (estado.indice === indice) {
-          estado.tocando = false;
-          estado.falhou = true;
-          emitir();
-        }
+        estado.tocando = false;
+        estado.falhou = !(erro && erro.name === 'NotAllowedError');
+        emitir();
         return false;
       }
     },
@@ -194,6 +243,7 @@ export function criarSom(conteudo, amb) {
       if (v === undefined) return estado.volume;
       estado.volume = clamp(Number(v) || 0, 0, 1);
       if (estado.tocando) rampa(estado.volume, 0.12);
+      if (ctx && ganhoEfeitos) ganhoEfeitos.gain.setTargetAtTime(nivelEfeitos(), ctx.currentTime, 0.05);
       emitir();
       return estado.volume;
     },
@@ -201,6 +251,15 @@ export function criarSom(conteudo, amb) {
     aoMudar(fn) {
       ouvintes.add(fn);
       return () => ouvintes.delete(fn);
+    },
+
+    /** 0..1: em que ponto da faixa a música está (0 enquanto a duração não é conhecida). */
+    progresso,
+
+    /** fn(progresso, segundos, duracao) algumas vezes por segundo enquanto a faixa anda. */
+    aoTempo(fn) {
+      ouvintesTempo.add(fn);
+      return () => ouvintesTempo.delete(fn);
     },
 
     abafar(fator = 0.4, ms = 600) {
@@ -227,75 +286,20 @@ export function criarSom(conteudo, amb) {
         webAudio: !!ctx,
         contexto: ctx ? ctx.state : null,
         ganho: ganhoMusica ? ganhoMusica.gain.value : (audio ? audio.volume : 0),
+        ganhoEfeitos: ganhoEfeitos ? ganhoEfeitos.gain.value : 0,
         tempo: audio ? audio.currentTime : 0,
+        duracao: audio && Number.isFinite(audio.duration) ? audio.duration : 0,
         pausado: audio ? audio.paused : true,
-        fonte: audio ? audio.getAttribute("src") || "" : "",
+        fonte: audio ? audio.getAttribute('src') || '' : '',
       };
     },
 
-    efeito(nome) {
+    efeito(nome, opcoes) {
       if (mudo || !ctx || !ganhoEfeitos || ctx.state !== 'running') return;
       try {
-        const receita = EFEITOS[nome];
-        if (receita) receita(ferramentas());
+        sintetizar(ctx, ganhoEfeitos, nome, opcoes);
       } catch { /* efeito nunca derruba a cena */ }
     },
-  };
-
-  // ---- efeitos sintetizados (provisórios: bips bem discretos) ----------------
-
-  function ferramentas() {
-    const agora = ctx.currentTime;
-    return {
-      /** Um tom curto: { tipo, de, para, dur, ganho, atraso } */
-      tom({ tipo = 'sine', de = 440, para = de, dur = 0.12, ganho = 0.08, atraso = 0 }) {
-        const t = agora + atraso;
-        const osc = ctx.createOscillator();
-        const g = ctx.createGain();
-        osc.type = tipo;
-        osc.frequency.setValueAtTime(de, t);
-        if (para !== de) osc.frequency.exponentialRampToValueAtTime(Math.max(20, para), t + dur);
-        g.gain.setValueAtTime(0.0001, t);
-        g.gain.exponentialRampToValueAtTime(ganho, t + 0.012);
-        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-        osc.connect(g).connect(ganhoEfeitos);
-        osc.start(t);
-        osc.stop(t + dur + 0.02);
-      },
-      /** Um sopro de ruído filtrado: { filtro, de, para, dur, ganho, atraso } */
-      sopro({ filtro = 'bandpass', de = 2000, para = de, dur = 0.2, ganho = 0.05, atraso = 0 }) {
-        if (!ruido) {
-          ruido = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-          const dados = ruido.getChannelData(0);
-          for (let i = 0; i < dados.length; i++) dados[i] = Math.random() * 2 - 1;
-        }
-        const t = agora + atraso;
-        const fonte = ctx.createBufferSource();
-        const f = ctx.createBiquadFilter();
-        const g = ctx.createGain();
-        fonte.buffer = ruido;
-        f.type = filtro;
-        f.frequency.setValueAtTime(de, t);
-        if (para !== de) f.frequency.exponentialRampToValueAtTime(Math.max(40, para), t + dur);
-        g.gain.setValueAtTime(0.0001, t);
-        g.gain.exponentialRampToValueAtTime(ganho, t + 0.02);
-        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-        fonte.connect(f).connect(g).connect(ganhoEfeitos);
-        fonte.start(t);
-        fonte.stop(t + dur + 0.02);
-      },
-    };
-  }
-
-  const EFEITOS = {
-    lacre: ({ tom, sopro }) => { tom({ tipo: 'triangle', de: 190, para: 80, dur: 0.14, ganho: 0.1 }); sopro({ de: 3200, dur: 0.06, ganho: 0.04 }); },
-    papel: ({ sopro }) => sopro({ filtro: 'highpass', de: 1800, para: 4200, dur: 0.22, ganho: 0.04 }),
-    desenrolar: ({ sopro }) => sopro({ filtro: 'lowpass', de: 500, para: 2600, dur: 0.6, ganho: 0.045 }),
-    toque: ({ tom }) => tom({ de: 620, para: 760, dur: 0.09, ganho: 0.05 }),
-    caneta: ({ sopro }) => sopro({ de: 5200, dur: 0.045, ganho: 0.02 }),
-    fita: ({ tom, sopro }) => { tom({ tipo: 'square', de: 110, dur: 0.08, ganho: 0.03 }); sopro({ de: 900, dur: 0.12, ganho: 0.03 }); },
-    mola: ({ tom }) => tom({ tipo: 'triangle', de: 220, para: 520, dur: 0.22, ganho: 0.06 }),
-    brilho: ({ tom }) => { tom({ de: 1320, dur: 0.5, ganho: 0.03 }); tom({ de: 1980, dur: 0.6, ganho: 0.02, atraso: 0.05 }); },
   };
 
   // ---- aba escondida: a música espera -----------------------------------------
@@ -315,4 +319,275 @@ export function criarSom(conteudo, amb) {
   });
 
   return som;
+}
+
+// ============================================================================
+// EFEITOS SINTETIZADOS
+// Cada receita desenha o som com osciladores e ruído filtrado, a partir do
+// instante `k.t0`, e devolve quanto dura (em segundos). O número `nivel` é o
+// pico que o efeito alcança com a música no volume inicial: fica perto de
+// 18 dB abaixo do pico dela (0,3 → ~0,04), um pouco mais nos estalos curtos.
+// ============================================================================
+
+const ruidos = new WeakMap();   // contexto → buffer de ruído branco (2 s, sempre o mesmo)
+
+function bufferDeRuido(c) {
+  let buffer = ruidos.get(c);
+  if (!buffer) {
+    buffer = c.createBuffer(1, Math.round(c.sampleRate * 2), c.sampleRate);
+    const dados = buffer.getChannelData(0);
+    const sorte = semente(2312);
+    for (let i = 0; i < dados.length; i++) dados[i] = sorte() * 2 - 1;
+    ruidos.set(c, buffer);
+  }
+  return buffer;
+}
+
+/** Agenda uma curva num AudioParam: pontos = [[t, valor, 'exp'?], ...] com t em segundos a partir de t0. */
+function curva(param, t0, pontos) {
+  pontos.forEach(([t, valor, modo], i) => {
+    const quando = t0 + t;
+    if (i === 0) param.setValueAtTime(valor, quando);
+    else if (modo === 'exp') param.exponentialRampToValueAtTime(Math.max(valor, 0.0001), quando);
+    else param.linearRampToValueAtTime(valor, quando);
+  });
+}
+
+/** As peças com que as receitas trabalham, presas a um contexto, uma saída e um instante. */
+function caixa(c, saida, t0) {
+  const k = {
+    c, t0,
+    ganho(pontos) {
+      const g = c.createGain();
+      if (typeof pontos === 'number') g.gain.value = pontos;
+      else curva(g.gain, t0, pontos);
+      return g;
+    },
+    filtro(tipo, freq, q = 0.7) {
+      const f = c.createBiquadFilter();
+      f.type = tipo;
+      f.frequency.value = freq;
+      f.Q.value = q;
+      return f;
+    },
+    osc(tipo, freq, inicio, fim) {
+      const o = c.createOscillator();
+      o.type = tipo;
+      o.frequency.value = freq;
+      o.start(t0 + inicio);
+      o.stop(t0 + fim);
+      return o;
+    },
+    /** Ruído branco entre `inicio` e `fim`; `desloc` escolhe o trecho do buffer. */
+    ruido(inicio, fim, desloc = 0) {
+      const fonte = c.createBufferSource();
+      fonte.buffer = bufferDeRuido(c);
+      fonte.loop = true;
+      fonte.start(t0 + inicio, desloc % 2);
+      fonte.stop(t0 + fim);
+      return fonte;
+    },
+    /** Um valor que passeia ao acaso entre −1 e 1, mudando `hz` vezes por segundo (ruído tocado bem devagar). */
+    acaso(hz, inicio, fim, desloc = 0) {
+      const fonte = k.ruido(inicio, fim, desloc);
+      fonte.playbackRate.value = hz / c.sampleRate;
+      return fonte;
+    },
+    em(param, pontos) { curva(param, t0, pontos); },
+    /** Liga os nós em fila e o último na saída. */
+    liga(...nos) {
+      for (let i = 0; i < nos.length - 1; i++) nos[i].connect(nos[i + 1]);
+      nos[nos.length - 1].connect(saida);
+    },
+    /** Faz `fonte` mexer num parâmetro, com profundidade `quanto`. */
+    modula(fonte, param, quanto) {
+      const g = c.createGain();
+      if (typeof quanto === 'number') g.gain.value = quanto;
+      else curva(g.gain, t0, quanto);
+      fonte.connect(g);
+      g.connect(param);
+    },
+  };
+  return k;
+}
+
+export const RECEITAS = {
+  // O lacre de cera: um estalo seco em três grãos e a cera cedendo (batida grave).
+  lacre: {
+    nivel: 0.04,      // os estalos medem mais alto que o RMS: este fica a ~−17,5 dB do pico da música
+    bruto: 1.0,
+    fazer(k) {
+      for (const [t, a] of [[0, 1], [0.013, 0.5], [0.034, 0.28]]) {
+        k.liga(
+          k.ruido(t, t + 0.03, 0.2 + t * 9),
+          k.filtro('bandpass', 3300 - t * 18000, 1.3),
+          k.filtro('highpass', 1700),
+          k.ganho([[t, 0], [t + 0.0015, 1.1 * a], [t + 0.022, 0.0001, 'exp']]),
+        );
+      }
+      const corpo = k.osc('sine', 190, 0, 0.26);
+      k.em(corpo.frequency, [[0, 190], [0.17, 74, 'exp']]);
+      k.liga(corpo, k.ganho([[0, 0], [0.005, 0.85], [0.22, 0.0001, 'exp']]));
+      // Um harmônico acima: é o que o alto-falante do celular consegue mostrar da batida.
+      const cima = k.osc('triangle', 380, 0, 0.15);
+      k.em(cima.frequency, [[0, 380], [0.11, 150, 'exp']]);
+      k.liga(cima, k.ganho([[0, 0], [0.004, 0.3], [0.12, 0.0001, 'exp']]));
+      return 0.26;
+    },
+  },
+
+  // Papel: ruído filtrado que varre para o agudo e volta, amassando de leve (~220 ms).
+  papel: {
+    nivel: 0.042,
+    bruto: 0.78,
+    fazer(k) {
+      const dur = 0.22;
+      const varre = k.filtro('bandpass', 1300, 0.8);
+      k.em(varre.frequency, [[0, 1300], [0.09, 4200, 'exp'], [dur, 2300, 'exp']]);
+      const amasso = k.ganho(1);
+      k.modula(k.acaso(90, 0, dur + 0.02, 0.31), amasso.gain, 0.55);
+      k.liga(
+        k.ruido(0, dur + 0.02, 0.5),
+        k.filtro('highpass', 900),
+        varre,
+        amasso,
+        k.ganho([[0, 0], [0.03, 1], [0.1, 0.5], [dur, 0.0001, 'exp']]),
+      );
+      return dur + 0.02;
+    },
+  },
+
+  // Desenrolar: papel mais longo, com o ritmo do rolo girando cada vez mais solto.
+  desenrolar: {
+    nivel: 0.045,
+    bruto: 0.81,
+    fazer(k) {
+      const dur = 1.15;
+      const ritmo = [[0, 0.0001]];
+      let t = 0.02;
+      let passo = 0.17;
+      while (t < dur - 0.14) {
+        ritmo.push([t + 0.035, 1], [t + passo * 0.82, 0.32]);
+        t += passo;
+        passo *= 0.9;
+      }
+      ritmo.push([dur, 0.0001, 'exp']);
+
+      const varre = k.filtro('bandpass', 620, 0.7);
+      k.em(varre.frequency, [[0, 620], [dur * 0.7, 1900, 'exp'], [dur, 1300, 'exp']]);
+      const amasso = k.ganho(1);
+      k.modula(k.acaso(70, 0, dur + 0.02, 0.77), amasso.gain, 0.45);
+      const pulso = k.ganho(ritmo);
+      k.liga(k.ruido(0, dur + 0.02, 1.1), k.filtro('highpass', 380), varre, amasso, pulso);
+      // O rolo de madeira embaixo do papel.
+      k.liga(k.ruido(0, dur + 0.02, 0.05), k.filtro('lowpass', 240, 0.8), k.ganho(0.5), k.ganho(ritmo));
+      return dur + 0.02;
+    },
+  },
+
+  // Toque: um tique macio, de madeira, não um bipe.
+  toque: {
+    nivel: 0.04,
+    bruto: 1.06,
+    fazer(k) {
+      const tom = k.osc('sine', 660, 0, 0.1);
+      k.em(tom.frequency, [[0, 660], [0.06, 520, 'exp']]);
+      k.liga(tom, k.ganho([[0, 0], [0.004, 1], [0.08, 0.0001, 'exp']]));
+      const cima = k.osc('sine', 1320, 0, 0.06);
+      k.liga(cima, k.ganho([[0, 0], [0.003, 0.22], [0.045, 0.0001, 'exp']]));
+      k.liga(k.ruido(0, 0.02, 0.9), k.filtro('bandpass', 2300, 3), k.ganho([[0, 0], [0.001, 0.3], [0.012, 0.0001, 'exp']]));
+      return 0.1;
+    },
+  },
+
+  // Caneta: o risco contínuo da ponta no papel. A mão anda mais rápido e mais devagar,
+  // então o chiado respira. opcoes: { duracao (s), intensidade (0..1,5) }.
+  caneta: {
+    nivel: 0.032,
+    bruto: 1.3,
+    fazer(k, opcoes = {}) {
+      const dur = clamp(Number(opcoes.duracao) || 0.9, 0.08, 20);
+      const forca = clamp(opcoes.intensidade === undefined ? 1 : Number(opcoes.intensidade) || 0, 0, 1.5);
+      const fim = dur + 0.14;
+      const ponta = k.filtro('bandpass', 3200, 0.9);
+      const mao = k.acaso(11, 0, fim, 1.3);           // a velocidade da mão
+      k.modula(mao, ponta.frequency, 850);
+      const traco = k.ganho(1);
+      k.modula(mao, traco.gain, 0.5);
+      k.modula(k.acaso(140, 0, fim, 0.6), traco.gain, 0.22);   // o grão do papel
+      k.liga(
+        k.ruido(0, fim, 1.7),
+        k.filtro('highpass', 1700),
+        ponta,
+        traco,
+        k.ganho([[0, 0], [0.035, forca], [dur, forca * 0.85], [fim, 0.0001, 'exp']]),
+      );
+      return fim;
+    },
+  },
+
+  // Fita: a fita de vídeo entrando (duas batidas surdas) e o cabeçote começando a girar.
+  fita: {
+    nivel: 0.038,     // ~−18 dB do pico da música
+    bruto: 0.75,
+    fazer(k) {
+      for (const [t, a] of [[0, 1], [0.075, 0.6]]) {
+        k.liga(k.ruido(t, t + 0.06, 0.2 + t), k.filtro('lowpass', 520, 0.9), k.ganho([[t, 0], [t + 0.003, a], [t + 0.05, 0.0001, 'exp']]));
+        const batida = k.osc('triangle', 160, t, t + 0.09);
+        k.em(batida.frequency, [[t, 160], [t + 0.07, 86, 'exp']]);
+        k.liga(batida, k.ganho([[t, 0], [t + 0.004, 0.7 * a], [t + 0.08, 0.0001, 'exp']]));
+      }
+      const zumbido = k.osc('sawtooth', 120, 0.09, 0.54);
+      const treme = k.ganho(1);
+      k.modula(k.osc('sine', 9, 0.09, 0.54), treme.gain, 0.25);
+      k.liga(zumbido, k.filtro('lowpass', 700, 0.6), treme, k.ganho([[0.09, 0], [0.16, 0.24], [0.36, 0.17], [0.52, 0.0001, 'exp']]));
+      k.liga(k.ruido(0.09, 0.52, 1.5), k.filtro('highpass', 4200), k.ganho([[0.09, 0], [0.15, 0.06], [0.5, 0.0001, 'exp']]));
+      return 0.54;
+    },
+  },
+
+  // Mola: o boing de um brinquedo, com o balanço morrendo.
+  mola: {
+    nivel: 0.045,
+    bruto: 1.11,
+    fazer(k) {
+      const balanco = k.osc('sine', 27, 0, 0.46);
+      const tom = k.osc('sine', 250, 0, 0.46);
+      k.em(tom.frequency, [[0, 250], [0.03, 420], [0.42, 232, 'exp']]);
+      k.modula(balanco, tom.frequency, [[0, 70], [0.4, 2, 'exp']]);
+      k.liga(tom, k.ganho([[0, 0], [0.006, 1], [0.12, 0.5], [0.44, 0.0001, 'exp']]));
+      const cima = k.osc('sine', 840, 0, 0.2);
+      k.modula(balanco, cima.frequency, [[0, 180], [0.18, 4, 'exp']]);
+      k.liga(cima, k.ganho([[0, 0], [0.004, 0.2], [0.17, 0.0001, 'exp']]));
+      return 0.46;
+    },
+  },
+
+  // Brilho: quatro notas agudas que acendem devagar, uma depois da outra, e somem.
+  brilho: {
+    nivel: 0.04,
+    bruto: 1.15,
+    fazer(k) {
+      for (const [freq, t, a] of [[2093, 0, 1], [2637, 0.07, 0.8], [3136, 0.15, 0.62], [3951, 0.24, 0.36]]) {
+        for (const desvio of [-2.2, 2.6]) {     // duas vozes quase iguais: é o que faz cintilar
+          k.liga(k.osc('sine', freq + desvio, t, t + 1.02), k.ganho([[t, 0], [t + 0.17, 0.5 * a], [t + 1, 0.0001, 'exp']]));
+        }
+      }
+      return 1.26;
+    },
+  },
+};
+
+/**
+ * Toca uma receita num contexto qualquer (o da página ou um OfflineAudioContext).
+ * Devolve a duração em segundos, ou 0 se o efeito não existe.
+ */
+export function sintetizar(contexto, destino, nome, opcoes, quando) {
+  const receita = RECEITAS[nome];
+  if (!receita) return 0;
+  const saida = contexto.createGain();
+  saida.gain.value = receita.nivel / receita.bruto;
+  saida.connect(destino);
+  const t0 = quando === undefined ? contexto.currentTime + 0.005 : quando;
+  return receita.fazer(caixa(contexto, saida, t0), opcoes);
 }

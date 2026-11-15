@@ -76,6 +76,8 @@ window.CONTEUDO = {
       pausar: 'Pausar a música',
       tocar: 'Tocar a música',
       volume: 'Volume',
+      // Nome da lista de músicas dentro do mini seletor (só aparece com duas ou mais).
+      trocar: 'Trocar de música',
     },
 
     // As músicas, na ordem em que aparecem.
