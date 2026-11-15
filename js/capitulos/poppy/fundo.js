@@ -366,19 +366,30 @@ export function criarFundo({ recipiente, amb, imagem = null }) {
   // ---- tamanho -----------------------------------------------------------------------
   let largura = 0;
   let altura = 0;
-  function medir() {
-    largura = recipiente.clientWidth;
-    altura = recipiente.clientHeight;
+  // `reaproveitar`: usa a última medida (do ResizeObserver) em vez de ler o tamanho de novo.
+  // Ler clientWidth no meio do desenrolar forçava o layout do capítulo inteiro, recém-
+  // montado, dentro de um quadro (~200 ms parado no começo do desenrolar).
+  function medir(reaproveitar = false) {
+    if (!reaproveitar || !largura || !altura) {
+      largura = recipiente.clientWidth;
+      altura = recipiente.clientHeight;
+    }
     if (!largura || !altura) return;
-    if (webgl && gl && pronto && !perdido) {
+    if (webgl && gl && !perdido) {
       const linhas = amb.nivel === 'baixo' ? 400 : amb.nivel === 'medio' ? 500 : 580;
       const escala = Math.min(linhas / altura, Math.min(window.devicePixelRatio || 1, 1.5));
       const w = Math.max(2, Math.round(largura * escala));
       const h = Math.max(2, Math.round(altura * escala));
+      // O tamanho do canvas já na montagem (antes do programa ficar pronto): trocar o
+      // tamanho realoca o buffer de desenho, e isso caía num quadro do desenrolar.
       if (canvas.width !== w || canvas.height !== h) {
         canvas.width = w;
         canvas.height = h;
       }
+    }
+    if (webgl && gl && pronto && !perdido) {
+      const w = canvas.width;
+      const h = canvas.height;
       gl.viewport(0, 0, w, h);
       gl.uniform2f(u.uRes, w, h);
       const tela = largura / altura;
@@ -390,7 +401,7 @@ export function criarFundo({ recipiente, amb, imagem = null }) {
   }
   let observador = null;
   if ('ResizeObserver' in window) {
-    observador = new ResizeObserver(medir);
+    observador = new ResizeObserver(() => medir());
     observador.observe(recipiente);
   }
   medir();
@@ -456,7 +467,7 @@ export function criarFundo({ recipiente, amb, imagem = null }) {
       // o programa compila em segundo plano: confere uma vez por quadro
       if (webgl && !pronto && !perdido && gl && compilou()) {
         if (concluirGl()) {
-          medir();
+          medir(true);
           atualizarCamadas();
         } else {
           desistirDoGl();

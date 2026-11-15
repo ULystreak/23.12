@@ -381,10 +381,19 @@ vec3 acabar(vec3 cor) {
 // Com a foto atrás não existe mais um branco onde a carta nasce e some: além de
 // ir para a luz da alameda, ela fica transparente junto (senão nasceria como um
 // cartão chapado por cima da foto). Sem foto (névoa branca) isto vale 1.
-float presenca() {
-  float foto = smoothstep(0.02, 0.4, length(vec3(1.0) - uCorBranco));
-  return 1.0 - uBranco * foto;
+float fotoAtras() {
+  return smoothstep(0.02, 0.4, length(vec3(1.0) - uCorBranco));
 }
+float presenca() {
+  return 1.0 - uBranco * fotoAtras();
+}
+// O mesmo vale para a névoa: com a foto atrás, uma carta lá no fundo não pode
+// virar um retângulo chapado da cor da névoa por cima da alameda; ela some.
+#ifdef USE_FOG
+  #define SUMIR_NA_NEVOA gl_FragColor.a *= 1.0 - fogFactor * fotoAtras();
+#else
+  #define SUMIR_NA_NEVOA
+#endif
 `;
 
 const VERT_SIMPLES = /* glsl */ `
@@ -493,6 +502,7 @@ void main() {
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
   #include <fog_fragment>
+  SUMIR_NA_NEVOA
 }
 `;
 
@@ -532,6 +542,7 @@ void main() {
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
   #include <fog_fragment>
+  SUMIR_NA_NEVOA
 }
 `;
 
@@ -643,6 +654,7 @@ void main() {
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
   #include <fog_fragment>
+  SUMIR_NA_NEVOA
 }
 `;
 
@@ -766,6 +778,7 @@ void main() {
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
   #include <fog_fragment>
+  SUMIR_NA_NEVOA
 }
 `;
 
@@ -836,6 +849,7 @@ void main() {
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
   #include <fog_fragment>
+  SUMIR_NA_NEVOA
 }
 `;
 
@@ -977,8 +991,17 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao' }) {
   // Papel opaco, a não ser enquanto some com a foto atrás: aí a transparência
   // (presenca() no shader) precisa de mistura ligada. Fora disso continua opaco,
   // para as pétalas que passam na frente dele não serem pintadas por cima.
-  corpo.onBeforeRender = () => {
-    const sumindo = comum.uBranco.value > 0.001 && corNevoa.r < 0.995;
+  // Dentro da névoa (SUMIR_NA_NEVOA no shader) vale o mesmo: com a foto atrás,
+  // a carta lá no fundo fica translúcida, e isso também pede mistura.
+  const naVista = new THREE.Vector3();
+  corpo.onBeforeRender = (_r, _c, camera) => {
+    const foto = corNevoa.r < 0.995;
+    let naNevoa = false;
+    if (foto && mundo.cena.fog && camera) {
+      naVista.setFromMatrixPosition(corpo.matrixWorld).applyMatrix4(camera.matrixWorldInverse);
+      naNevoa = -naVista.z > mundo.cena.fog.near - 0.5;
+    }
+    const sumindo = foto && (comum.uBranco.value > 0.001 || naNevoa);
     if (matCorpo.transparent !== sumindo) {
       matCorpo.transparent = sumindo;
       matForro.transparent = sumindo;

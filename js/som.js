@@ -88,7 +88,8 @@ export function criarSom(conteudo, amb) {
       audio.playsInline = true;
       audio.setAttribute('playsinline', '');
       audio.addEventListener('error', () => {
-        if (!audio.getAttribute('src')) return;
+        // Antes da escolha (arquivo só adiantado) não há o que avisar: o seletor confere sozinho.
+        if (!audio.getAttribute('src') || estado.indice < 0) return;
         estado.tocando = false;
         estado.falhou = true;
         emitir();
@@ -98,6 +99,14 @@ export function criarSom(conteudo, amb) {
     } catch {
       audio = null;
       return;
+    }
+
+    // O primeiro toque dela é na carta, segundos antes da folha das músicas: a primeira
+    // faixa já começa a chegar daqui. Numa rede de celular, o toque no disco tocava
+    // só 2–3 s depois (o tempo de baixar o começo do arquivo) e o silêncio parecia falha.
+    const primeira = faixas.find((f) => typeof f?.arquivo === 'string' && f.arquivo.trim());
+    if (primeira) {
+      try { audio.src = primeira.arquivo; } catch { /* chega no toque do disco */ }
     }
 
     // No iPhone, o Web Audio segue a categoria "ambient" e obedece à chave de
@@ -207,7 +216,8 @@ export function criarSom(conteudo, amb) {
       try {
         if (trocou || !audio.getAttribute('src')) {
           zerar();
-          audio.src = faixa.arquivo;
+          // A mesma faixa que já vinha chegando (ver montar) não recomeça o download.
+          if (audio.getAttribute('src') !== faixa.arquivo) audio.src = faixa.arquivo;
         }
         // play() precisa sair ainda dentro do gesto: nada de await antes daqui.
         pedindoPlay = true;

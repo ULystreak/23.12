@@ -86,6 +86,13 @@ export function criarRecursos(conteudo) {
     iniciar() {
       if (iniciado) return;
       iniciado = true;
+      // As fontes que ainda não entraram (manuscrito, capítulos, títulos) chegam já agora:
+      // senão cada uma só é pedida quando a primeira letra dela aparece, e numa rede de
+      // celular a dica da carta, a folha da música e o capítulo do jogo nasciam na fonte
+      // reserva e trocavam de letra diante dela. São ~200 kB, bem antes de serem usadas.
+      try {
+        if (document.fonts) document.fonts.forEach((f) => { if (f.status === 'unloaded') f.load().catch(() => {}); });
+      } catch { /* sem a API, cada fonte chega quando for usada */ }
       recursos.precarregar(listarImagens(conteudo));
     },
   };
