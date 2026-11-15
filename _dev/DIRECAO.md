@@ -28,6 +28,7 @@ Quem constrói uma cena lê isto inteiro antes de escrever código.
 | 5 | Capítulo 1 | `poppy` | A folha desenrola de cima para baixo como pergaminho; dentro, a fábrica em VHS. Fim: "Fechar este capítulo" | o pergaminho |
 | 6 | Segunda carta | `carta2` | O pergaminho enrola, volta ao mundo branco, caminha até a carta com estrela no lacre | o papel |
 | 7 | Capítulo 2 | `yourname` | Capa, céu do dia à noite com a rolagem, cometa que se divide, cordão trançado, encontro de ponta a ponta, o par ligado pelo fio | o fio |
+| 7b | Segredos | `segredos` | Só com vídeos no `content.js`. O pergaminho enrola, o mundo volta, uma frase e bilhetes amarrados com o fio que nascem da névoa. Tocar: o fio desamarra, a carta de dentro vira a moldura do vídeo; ao fechar, o nome de quem gravou é escrito à mão. Todos vistos: "Seguir" | o mundo branco aberto, sem carta |
 | 8 | A mão | `mao` | Capítulo fecha, carta vai embora, "Olha a sua mão.", a mão com o akai ito, botão "Seguir o fio", o fio vira o caminho | o fio é o caminho |
 | 9 | Última carta | `final` | Amarrada só com o fio. Folha em branco desdobra. Uma frase escrita à mão, letra por letra. Fica ali com as pétalas. Sem botão, sem "fim" | — |
 
@@ -65,9 +66,10 @@ js/capitulos/poppy.js    ← capítulo 1 (+ js/capitulos/poppy/*)
 js/capitulos/yourname.js ← capítulo 2 (+ js/capitulos/yourname/*)
 js/cenas/abertura.js     ← as frases (a caminhada até a carta é de carta.js; ver seção 6)
 js/cenas/carta.js        ← caminha, a carta chega, espera o toque, abre, entrega o papel (usada 3×)
+js/cenas/segredos.js     ← os vídeos dos amigos (bilhetes → moldura → nome escrito à mão)
 js/cenas/mao.js          ← "Olha a sua mão." + seguir o fio
 js/cenas/final.js        ← última carta + folha + frase
-css/base.css  css/mundo.css  css/musica.css  css/pergaminho.css  css/poppy.css  css/yourname.css  css/mao.css  css/final.css
+css/base.css  css/mundo.css  css/musica.css  css/pergaminho.css  css/poppy.css  css/yourname.css  css/segredos.css  css/mao.css  css/final.css
 lib/                     ← three, gsap (+DrawSVGPlugin, CustomEase; ScrollTrigger e SplitText estão aqui mas não são carregados), lenis
 assets/fonts  assets/images  assets/music
 _dev/                    ← este documento e as ferramentas de teste: ver.mjs, robustez.mjs, lib.mjs (não publicado)
@@ -77,7 +79,7 @@ _dev/                    ← este documento e as ferramentas de teste: ver.mjs, 
 
 `main.js` monta `ctx = { conteudo, amb, mundo, som, musica, pergaminho, diretor, gsap, ScrollTrigger }` e chama `diretor.rodar(ctx, cenaInicial)`. `ctx.ScrollTrigger` hoje chega `undefined` (ver "Bibliotecas" na seção 6).
 
-Cenas, na ordem: `inicio`, `poppy`, `carta2`, `yourname`, `mao`, `final`. Cada uma é `async function(ctx, { frio })` que resolve quando a próxima deve começar. `frio: true` quando se entrou direto por `?cena=`: a cena monta sozinha as pré-condições (mundo branco parado, pergaminho aberto etc.). `final` nunca resolve.
+Cenas, na ordem: `inicio`, `poppy`, `carta2`, `yourname`, `segredos`, `mao`, `final`. `segredos` só existe quando algum item de `conteudo.segredos.itens` tem `video` (`temSegredos(conteudo)`, exportado do diretor): sem vídeo o diretor a pula sem publicar nada, e o fluxo é idêntico ao de antes. Cada uma é `async function(ctx, { frio })` que resolve quando a próxima deve começar. `frio: true` quando se entrou direto por `?cena=`: a cena monta sozinha as pré-condições (mundo branco parado, pergaminho aberto etc.). `final` nunca resolve.
 
 O diretor publica o estado em `document.documentElement.dataset.cena` e `dataset.etapa` (via `diretor.etapa('nome')`). Etapas padrão:
 
@@ -85,6 +87,7 @@ O diretor publica o estado em `document.documentElement.dataset.cena` e `dataset
 - `poppy`: `desenrolando` → `lendo`
 - `carta2`: `enrolando` → `caminhada` → `carta-chegando` → `carta-espera` → `carta-abrindo` → `papel`
 - `yourname`: `desenrolando` → `lendo`
+- `segredos`: `enrolando` → `frase` → `escolhendo` → `assistindo` → `escolhendo` → … (cada vídeo aberto publica `assistindo`; ao fechar e escrever o nome, `escolhendo`)
 - `mao`: `enrolando` → `olha` → `mao-espera` → `seguindo`
 - `final`: `carta-chegando` → `carta-espera` → `carta-abrindo` → `desdobrando` → `escrevendo` → `fim`
 
@@ -200,7 +203,7 @@ O esqueleto andante já existe e segue a seção 4. Esta seção só registra o 
 - *Recurso que falta.* Campo vazio (`''`) não faz pedido e não deixa rastro. Arquivo citado no `content.js` que não existe vira `null` sem exceção e sem buraco, mas o navegador registra o 404 da rede no console por conta própria (não há como suprimir): é o único aviso aceito.
 - *Texto fora do `content.js`.* A única exceção é o aviso do `<noscript>` no `index.html` (sem JavaScript o `content.js` não roda) e o título/descrição neutros do `<head>`.
 
-**Ganchos de teste (não mudar).** `[data-acao="faixa"]`, `[data-acao="continuar"]`, `[data-acao="mini"]`, `[data-acao="mini-alternar"]`, `[data-acao="fechar-capitulo"]`, `[data-acao="seguir-fio"]`; na etapa `carta-espera`, um toque no centro da tela abre a carta.
+**Ganchos de teste (não mudar).** `[data-acao="faixa"]`, `[data-acao="continuar"]`, `[data-acao="mini"]`, `[data-acao="mini-alternar"]`, `[data-acao="fechar-capitulo"]`, `[data-acao="seguir-fio"]`, `[data-acao="segredo"]` (cada bilhete, com `data-estado="fechado|aberto|falhou"`), `[data-acao="fechar-segredo"]`, `[data-acao="continuar-segredos"]`; na etapa `carta-espera`, um toque no centro da tela abre a carta.
 
 **Verificação.** `node _dev/ver.mjs --cena poppy --vp celular,desktop --motor chromium,webkit --rapido 6 --fotos` (capturas em `output/ver/`), `--fluxo` (a carta inteira), `--video`, `--quadros`, `--params "webgl=0&reduzido=1"`, `--ate etapa`. Robustez do núcleo: `node _dev/robustez.mjs` (todos os casos) ou `node _dev/robustez.mjs spam resize aba contexto params faltando teclado audio quebra qualidade`; rode `spam` e `resize` depois de mexer em qualquer cena. Para testes próprios: `import { abrir } from './_dev/lib.mjs'` (`esperarEtapa`, `foto`, `tocarCentro`, `acionar(seletor)`, `medirQuadros`, `erros`, `preparar(page)`).
 
@@ -217,3 +220,11 @@ O esqueleto andante já existe e segue a seção 4. Esta seção só registra o 
 - *Mini* (`js/musica.js`, para o CSS): `#mini[data-pele="papel|poppy|yourname"]` acompanha a cena; `#mini[data-quieto]` quando ele se recolhe à margem durante a rolagem de um capítulo; `#mini[data-longe]` na mão e no final.
 - *Pergaminho* (para o CSS): `#pergaminho[data-estado="folha|abrindo|aberto|fechando|saindo"]`; sem o atributo, oculto.
 - *Conteúdo*: `musica.rotulos.continuar` e `mao.rotuloBotao` são os nomes lidos por leitores de tela quando `musica.continuar` ou `mao.botao` ficam vazios.
+
+**Segredos (`js/cenas/segredos.js`, `css/segredos.css`).**
+- *Passagem.* A cena começa com `voltarAoMundo` (o pergaminho do filme enrola, a segunda carta vai embora) e termina com o mundo branco aberto, sem carta, sem pergaminho e com o mini visível. A mão, que entra em seguida com `frio: false`, chama `voltarAoMundo` de novo: com o pergaminho `oculto` e sem `estado.envelope`, isso não faz nada, e `mao:enrolando` passa direto para `olha`. Nada mudou em `mao.js`.
+- *Tudo em DOM* sobre o mundo (dentro de `#palco`, que o diretor limpa se a cena quebrar): a cena é a mesma com e sem WebGL. Os bilhetes flutuam por `mundo.aoQuadro` e seguem um pouco `mundo.ponteiro`.
+- *O vídeo.* Um `<video>` por item, `preload="metadata"` (só o tamanho e a duração; no iPhone nem isso, até o toque). O toque dela chama `play()` e `pause()` na hora (o gesto que o Safari exige) e o vídeo começa quando a moldura termina de abrir; se o navegador ainda recusar, aparece um botão de tocar no meio. `playsinline`, sem controles nativos: fechar (disco de papel na quina), barra de progresso em fio na margem de baixo, toque no vídeo pausa/continua; teclado: Tab fica dentro, Espaço/K pausa, Esc fecha, o foco volta ao bilhete. Vídeo que falha (`error`) conta como visto e o bilhete mostra só o nome.
+- *A moldura* fica no tamanho final desde o começo e abre por `clip-path: inset()` + `transform` (o vídeo nunca é esticado). Margens: as áreas seguras + `clamp(26px, 6,5% do lado menor, 64px)`.
+- *Música:* `som.abafar(0.04, 30 min)` durante o vídeo e `som.abafar(1, 0)` na volta; sem Web Audio, `som.pausar()`/`som.retomar()`. Se o iPhone tiver pausado o `<audio>` da música enquanto o vídeo tocava, a cena o religa ao fechar (confere `som.diagnostico().pausado`). O mini some durante o vídeo. Pétalas: densidade 0,35 e foco a 0,5 m durante o vídeo (o resto desfoca), de volta a 1 e 3 m depois; a foto da alameda desfoca por CSS (`html.segredo-aberto`).
+- *Teste:* `node _dev/ver.mjs --fluxo --segredos output/segredos-teste [--segredos-falho]` injeta vídeos de teste no `content.js` servido (page.route, `injetarSegredos` em `_dev/lib.mjs`) sem tocar no arquivo; `lerConteudo`, `temSegredos` e `segredosDeTeste` também estão lá. Sem `--segredos` e sem vídeo no `content.js`, a cena sai do roteiro.

@@ -15,8 +15,18 @@
   width: var(--mao-l);
   pointer-events: none;
 }
+/* O véu do momento em que ela vê o fio: bordas da alameda escurecem de leve em
+   volta do laço (centro em --vx/--vy, posto pelo js). Só opacidade anima. */
+.mao-veu {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(ellipse 72% 58% at var(--vx, 50%) var(--vy, 62%),
+    rgba(70, 14, 34, 0) 0%, rgba(70, 14, 34, 0) 40%, rgba(70, 14, 34, 0.12) 72%, rgba(52, 10, 26, 0.3) 100%);
+}
 .mao-corpo {
-  transform-origin: 50% 70%;
+  transform-origin: 60% 70%;          /* = ORIGEM_X/ORIGEM_Y em js/cenas/mao.js: o zoom chega perto do laço */
   opacity: 0;
   will-change: transform, opacity;
 }
@@ -61,7 +71,7 @@
   stroke: var(--fio);
   stroke-width: 2.2;
   stroke-linecap: round;
-  vector-effect: non-scaling-stroke;
+  /* Sem vector-effect: com ele o Chromium mede o tracejado em pixels e ignora o pathLength. */
   stroke-dasharray: 1 1;
   stroke-dashoffset: 1;
   transition: stroke-dashoffset 1.5s var(--curva-branco-camera) 0.35s;

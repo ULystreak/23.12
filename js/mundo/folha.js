@@ -1648,6 +1648,8 @@ function criarFolha3D(mundo) {
           m.uniforms.uProgresso.value = estado.p;
         },
       }));
+      // assentado, o fio respira um brilho muito sutil de tempos em tempos
+      fio.respirar?.(0.2);
     },
 
     viver() {
@@ -1989,6 +1991,7 @@ function criarFolhaLeve(mundo) {
           </mask></defs>
           <g mask="url(#fl-fio-mascara)">
             <path class="fl-fio-sombra" d="${d}" fill="none" stroke-width="22" stroke-linecap="round" transform="translate(9 13)"/>
+            <path class="fl-fio-brilho" d="${d}" fill="none" stroke="#ffbf7a" stroke-width="34" stroke-linecap="round"/>
             <path d="${d}" fill="none" stroke="#d7192d" stroke-width="13" stroke-linecap="round"/>
             <path d="${d}" fill="none" stroke="#a80f22" stroke-width="13" stroke-dasharray="7 15" opacity="0.55"/>
           </g>
@@ -2006,6 +2009,7 @@ function criarFolhaLeve(mundo) {
         ease: calmo ? 'none' : 'power2.out',
         onUpdate: aplicar,
       }));
+      fioEl.classList.add('fl-fio-respira');
     },
 
     viver() {

@@ -23,11 +23,11 @@ CONTEXTO: ctx = { conteudo, amb, mundo, som, musica, pergaminho, diretor, gsap, 
 
 DIRETOR (js/nucleo/diretor.js)
 - diretor.etapa(nome) publica em <html data-etapa>; diretor.etapa() devolve a atual. diretor.cena, .etapaAtual, .historico [{cena, etapa, t}], .ordem, .aoMudar(fn(cena, etapa)) → cancelar, .cenaInicial() → string, .aquecer(), .rodar(ctx, cenaInicial).
-- export voltarAoMundo(ctx) → Promise (enrola, solta a folha, manda embora e descarta estado.envelope). export ORDEM.
+- export voltarAoMundo(ctx) → Promise (enrola, solta a folha, manda embora e descarta estado.envelope). export ORDEM. export temSegredos(conteudo) → boolean (algum item de segredos com vídeo; sem isso o diretor pula a cena "segredos").
 - Cena = async (ctx, { frio }). Cena que lança exceção: o diretor limpa tudo e a próxima entra com frio: true.
 - window.__carta = { ctx, cena, etapa, historico, pronto: Promise<ctx>, gpu, erro }.
 - Nomes que o diretor importa: cenaAbertura (js/cenas/abertura.js), cenaCarta (js/cenas/carta.js), cenaMao (js/cenas/mao.js), cenaFinal (js/cenas/final.js), capitulo (js/capitulos/poppy.js e yourname.js).
-- Parâmetros: ?cena=inicio|poppy|carta2|yourname|mao|final (inválido → inicio), ?rapido=N (0.1 a 60), ?nivel=alto|medio|baixo, ?webgl=0, ?reduzido=1 (ou 0), ?mudo=1, ?musica=N (interno).
+- Parâmetros: ?cena=inicio|poppy|carta2|yourname|segredos|mao|final (inválido → inicio), ?rapido=N (0.1 a 60), ?nivel=alto|medio|baixo, ?webgl=0, ?reduzido=1 (ou 0), ?mudo=1, ?musica=N (interno).
 
 MUNDO (ctx.mundo; export async criarMundo({ amb, canvas, recipienteLeve }))
 - ok:boolean; THREE, renderer, cena, camera (PerspectiveCamera, 1,5 m, FOV 58° em pé a 42° deitado), rig (Group; a caminhada move rig.position.z); canvas; amb; gpu; tamanho { largura, altura, dpr }; ligado (getter); recipienteLeve.
@@ -59,10 +59,10 @@ MUSICA (ctx.musica; export criarMusica({ conteudo, som, amb, recursos, mini }))
 
 FIO: criarFio(mundo, { curva: Vector3[] | {x,y,z}[] | THREE.Curve, largura=0.012 }) → { objeto, progresso(p?) → number, definirCurva(c), atualizar(dt, t), dispose() }.
 FOLHA: criarFolha(mundo) → { grupo, desdobrar() → Promise, escrever(texto) → Promise, atualizar(dt, t), dispose() }. Extras (final.js chama com checagem): assumir(papel) (aparece dobrada onde está o papel da carta), repousarFio() → Promise (o fio solto repousa no canto da folha), viver() (pétalas pousam de tempos em tempos).
-CENAS: cenaAbertura(ctx) → Promise (etapa frases); cenaMao(ctx, { frio }) → Promise (enrolando → olha → mao-espera → seguindo; deixa estado.fio, estado.distanciaFinal, estado.envelope e estado.seguidorFio { parar(), soltar(duracao?) }, o seguidor que mantém o fio preso ao pulso e à carta até final:carta-abrindo); cenaFinal(ctx, { frio }) → nunca resolve.
+CENAS: cenaSegredos(ctx, { frio }) → Promise (js/cenas/segredos.js; enrolando → frase → escolhendo ⇄ assistindo; termina com o mundo aberto, sem carta e sem pergaminho); cenaAbertura(ctx) → Promise (etapa frases); cenaMao(ctx, { frio }) → Promise (enrolando → olha → mao-espera → seguindo; deixa estado.fio, estado.distanciaFinal, estado.envelope e estado.seguidorFio { parar(), soltar(duracao?) }, o seguidor que mantém o fio preso ao pulso e à carta até final:carta-abrindo); cenaFinal(ctx, { frio }) → nunca resolve.
 
 DOM DO ESQUELETO (index.html): canvas#mundo, div#mundo-leve, main#palco com #frases, p#dica[hidden], #acoes; section#pergaminho[hidden]; aside#mini[hidden].
-GANCHOS DE TESTE: [data-acao="faixa"], "continuar", "mini", "mini-alternar", "fechar-capitulo", "seguir-fio", "abrir-carta"; em carta-espera um toque no centro da tela abre a carta.
+GANCHOS DE TESTE: [data-acao="faixa"], "continuar", "mini", "mini-alternar", "fechar-capitulo", "seguir-fio", "abrir-carta", "segredo" (com data-estado fechado|aberto|falhou), "fechar-segredo", "continuar-segredos"; em carta-espera um toque no centro da tela abre a carta.
 GLOBAIS: gsap, CustomEase, DrawSVGPlugin, Lenis, CONTEUDO. ScrollTrigger e SplitText ficam em lib/ mas o index.html não os carrega (nenhum capítulo usa, e o ScrollTrigger mantinha um rAF rodando a carta inteira): quem precisar carrega no próprio montar (ex.: injetar <script src="lib/ScrollTrigger.min.js"> e esperar o load) e registra. O núcleo (movimento.js, main.js) e o pergaminho funcionam sem eles; nunca use window.ScrollTrigger/SplitText sem checar.
 
 CONTENT.JS (window.CONTEUDO)
@@ -71,6 +71,7 @@ CONTENT.JS (window.CONTEUDO)
 - musica { titulo, continuar, volumeInicial, rotulos { abrir, pausar, tocar, volume, trocar, continuar }, faixas: [{ titulo, artista, arquivo, capa }] } (rotulos.continuar é o aria-label quando musica.continuar fica vazio)
 - poppy { titulo, subtitulo, fundo, fechar, blocos: [{ tipo:'texto', texto } | { tipo:'imagem', arquivo, alt, legenda } | { tipo:'cena', cena:'maos'|'fita'|'esteira', etiqueta?, data?, itens? }] }
 - yourname { titulo, subtitulo, capa, fundo, video, fechar, blocos: [{ tipo:'texto', texto } | { tipo:'cordao' } | { tipo:'imagem-cheia', arquivo, alt } | { tipo:'imagem', arquivo, alt, legenda } | { tipo:'par', dele, dela, legendaDele, legendaDela }] }
+- segredos { frase, continuar, fechar (aria-label do botão de fechar o vídeo), itens: [{ titulo, video, capa, nome }] } (item com video '' some; nenhum vídeo = a cena não existe)
 - mao { frase, imagem, ancoraFio { x, y }, botao, rotuloBotao } (rotuloBotao é o aria-label quando botao fica vazio)
 - final { frase }
 Campo de imagem/música vazio ('') não faz pedido e a peça some.
@@ -94,6 +95,11 @@ Cenas e fluxo (capturas em output/ver/):
 Robustez do núcleo (capturas em output/robustez/):
 - node _dev/robustez.mjs (todos os casos, uns 6 minutos, 88 verificações)
 - node _dev/robustez.mjs spam resize (rodar depois de mexer em qualquer cena); demais casos: aba contexto params faltando teclado audio quebra vazio qualidade
+
+Segredos (vídeos de teste em output/segredos-teste, injetados por page.route; o content.js não muda):
+- node _dev/ver.mjs --fluxo --vp iphone,desktop --rapido 6 --segredos output/segredos-teste [--segredos-falho] [--fotos]
+- node _dev/ver.mjs --cena segredos --vp iphone --motor webkit --segredos output/segredos-teste --fotos
+- lib.mjs: lerConteudo(itens?), temSegredos(c), segredosDeTeste(pasta, { falho }), injetarSegredos(page, itens), ERRO_ESPERADO; sessao.perfil.
 
 Testes próprios: import { abrir } from './_dev/lib.mjs' → sessão com esperarEtapa('cena:etapa'), foto(nome), tocar(x,y)/tocarCentro(), acionar(seletor), medirQuadros(ms), estado(), erros, page, fechar(); abrir aceita { cena, vp, motor, params, video, preparar(page) }.
 

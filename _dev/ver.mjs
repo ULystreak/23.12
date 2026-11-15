@@ -22,18 +22,26 @@
 //   --params "a=1&b=2"   parâmetros extras (webgl=0, reduzido=1, nivel=baixo, mudo=1)
 //   --quadros       mede os quadros por 2 s na última etapa
 //   --timeout ms    limite por etapa (padrão: 90000)
+//   --segredos pasta  troca os vídeos do content.js (só na página, por page.route) por um
+//                   .mp4 de cada arquivo da pasta (ex.: output/segredos-teste)
+//   --segredos-falho  acrescenta um vídeo que não existe (o 404 dele é esperado)
+//
+// A cena "segredos" só existe com algum vídeo no content.js (ou com --segredos): sem
+// vídeo, ela sai do --fluxo e da lista padrão, como sai da carta. No --fluxo, com
+// vídeos, cada bilhete é aberto, o vídeo toca 1 s e é fechado; depois, "seguir".
 
-import { abrir } from './lib.mjs';
+import { abrir, lerConteudo, temSegredos, segredosDeTeste, injetarSegredos, ERRO_ESPERADO } from './lib.mjs';
 
 const ROTEIRO = {
   inicio: ['frases', 'caminhada', 'carta-chegando', 'carta-espera', 'carta-abrindo', 'papel', 'musica'],
   poppy: ['desenrolando', 'lendo'],
   carta2: ['enrolando', 'caminhada', 'carta-chegando', 'carta-espera', 'carta-abrindo', 'papel'],
   yourname: ['desenrolando', 'lendo'],
+  segredos: ['enrolando', 'frase', 'escolhendo'],
   mao: ['enrolando', 'olha', 'mao-espera', 'seguindo'],
   final: ['carta-chegando', 'carta-espera', 'carta-abrindo', 'desdobrando', 'escrevendo', 'fim'],
 };
-const ORDEM = Object.keys(ROTEIRO);
+const TODAS = Object.keys(ROTEIRO);
 
 // Quanto esperar (em ms "de cena", divididos por --rapido) antes da foto de cada etapa,
 // para a captura mostrar a etapa acontecendo e não o primeiro quadro dela.
@@ -41,14 +49,16 @@ const ASSENTAR = {
   frases: 4200, caminhada: 1500, 'carta-chegando': 1500, 'carta-espera': 700, 'carta-abrindo': 1500,
   papel: 900, musica: 2400, desenrolando: 900, lendo: 900, enrolando: 700, olha: 2600,
   'mao-espera': 900, seguindo: 2600, desdobrando: 1300, escrevendo: 3200, fim: 900,
+  frase: 1800, escolhendo: 1500,
 };
 // Etapas em que a carta fica parada esperando: aqui o tempo de assentar é real (não acelera).
-const PARADAS = new Set(['carta-espera', 'musica', 'lendo', 'mao-espera', 'fim']);
+const PARADAS = new Set(['carta-espera', 'musica', 'lendo', 'mao-espera', 'fim', 'escolhendo']);
 
 function lerArgumentos(argv) {
   const opcoes = {
     cena: null, vp: ['celular'], motor: ['chromium'], rapido: null, ate: null,
     fotos: false, fluxo: false, video: false, params: {}, quadros: false, timeout: 90000,
+    segredos: null, segredosFalho: false,
   };
   const lista = (v) => String(v || '').split(',').map((s) => s.trim()).filter(Boolean);
   for (let i = 0; i < argv.length; i++) {
@@ -66,6 +76,8 @@ function lerArgumentos(argv) {
       case '--fluxo': opcoes.fluxo = true; break;
       case '--video': opcoes.video = true; break;
       case '--quadros': opcoes.quadros = true; break;
+      case '--segredos': opcoes.segredos = valor(); break;
+      case '--segredos-falho': opcoes.segredosFalho = true; break;
       case '--ajuda': case '--help': case '-h': opcoes.ajuda = true; break;
       default: throw new Error(`opção desconhecida: ${arg}`);
     }
@@ -73,8 +85,36 @@ function lerArgumentos(argv) {
   return opcoes;
 }
 
+/** Abre cada bilhete, deixa o vídeo tocar 1 s, fecha; depois segue. */
+async function verSegredos(s, { fotos, prefixo, sufixo, timeout = 30000 }) {
+  const etapaAgora = (alvo) => s.page.waitForFunction((e) => window.__carta.etapa === e, alvo, { timeout, polling: 50 });
+  const bilhetes = s.page.locator('[data-acao="segredo"]');
+  const n = await bilhetes.count();
+  for (let i = 0; i < n; i++) {
+    const b = bilhetes.nth(i);
+    if ((await b.getAttribute('data-estado')) === 'falhou') continue;
+    await etapaAgora('escolhendo');
+    if (s.perfil.toque) await b.tap(); else await b.click();
+    await etapaAgora('assistindo');
+    // Abriu (ou falhou no meio e voltou a escolher): espera um dos dois.
+    await s.page.waitForFunction(() => window.__carta.etapa === 'escolhendo'
+      || document.querySelector('.segredo-moldura-assentada'), null, { timeout, polling: 50 });
+    if (await s.page.evaluate(() => window.__carta.etapa === 'assistindo')) {
+      await s.pausa(1000);
+      if (fotos) await s.foto(`${prefixo}-assistindo${i + 1}${sufixo}`);
+      await s.acionar('[data-acao="fechar-segredo"]');
+    }
+    await etapaAgora('escolhendo');
+  }
+  if (fotos) {
+    await s.pausa(600);
+    await s.foto(`${prefixo}-vistos${sufixo}`);
+  }
+  await s.acionar('[data-acao="continuar-segredos"]', timeout);
+}
+
 /** O que fazer em cada etapa para a carta seguir adiante. */
-async function agir(s, cena, etapa) {
+async function agir(s, cena, etapa, extra = {}) {
   if (etapa === 'carta-espera') {
     await s.tocarCentro();
   } else if (etapa === 'musica') {
@@ -90,6 +130,8 @@ async function agir(s, cena, etapa) {
     await s.acionar('[data-acao="fechar-capitulo"]');
   } else if (etapa === 'mao-espera') {
     await s.acionar('[data-acao="seguir-fio"]');
+  } else if (cena === 'segredos' && etapa === 'escolhendo') {
+    await verSegredos(s, extra);
   }
 }
 
@@ -105,7 +147,11 @@ async function rodar({ cenas, vp, motor, opcoes, rotulo }) {
   let s;
 
   try {
-    s = await abrir({ cena: cenas[0] === 'inicio' ? undefined : cenas[0], vp, motor, params, video: opcoes.video });
+    const itens = opcoes.segredos ? segredosDeTeste(opcoes.segredos, { falho: opcoes.segredosFalho }) : null;
+    s = await abrir({
+      cena: cenas[0] === 'inicio' ? undefined : cenas[0], vp, motor, params, video: opcoes.video,
+      preparar: itens ? (page) => injetarSegredos(page, itens) : null,
+    });
   } catch (erro) {
     return { nome, ok: false, falhas: [`não abriu: ${erro.message}`], linhas, gpu: '' };
   }
@@ -127,7 +173,9 @@ async function rodar({ cenas, vp, motor, opcoes, rotulo }) {
           await s.foto(`${rotulo === 'fluxo' ? `fluxo-${cena}` : cena}-${vp}-${motor}-${etapa}${sufixo}`);
         }
         if (etapa === alvo) { chegouAoFim = true; break percurso; }
-        await agir(s, cena, etapa);
+        await agir(s, cena, etapa, {
+          fotos: opcoes.fotos, prefixo: `${rotulo === 'fluxo' ? `fluxo-${cena}` : cena}-${vp}-${motor}`, sufixo,
+        });
       }
     }
     if (opcoes.quadros) {
@@ -141,7 +189,10 @@ async function rodar({ cenas, vp, motor, opcoes, rotulo }) {
   }
   if (!chegouAoFim && !falhas.length) falhas.push('não chegou à etapa pedida');
 
-  for (const erro of s.erros) falhas.push(`${erro.tipo}: ${erro.texto}`);
+  for (const erro of s.erros) {
+    if (opcoes.segredosFalho && ERRO_ESPERADO.test(`${erro.texto} ${erro.onde || ""}`)) continue;   // o 404 de propósito
+    falhas.push(`${erro.tipo}: ${erro.texto}`);
+  }
   const video = await s.fechar(opcoes.video ? nome : undefined);
   if (video) linhas.push(`  vídeo: ${video}`);
 
@@ -155,11 +206,14 @@ async function principal() {
     return 0;
   }
 
+  const conteudo = lerConteudo(opcoes.segredos ? segredosDeTeste(opcoes.segredos, { falho: opcoes.segredosFalho }) : null);
+  const ORDEM = TODAS.filter((c) => c !== 'segredos' || temSegredos(conteudo));
   const execucoes = [];
   if (opcoes.fluxo) {
     execucoes.push({ cenas: ORDEM, rotulo: 'fluxo' });
   } else {
     for (const cena of opcoes.cena || ORDEM) {
+      if (cena === 'segredos' && !temSegredos(conteudo)) throw new Error('a cena segredos não existe sem vídeos (use --segredos output/segredos-teste)');
       if (!ROTEIRO[cena]) throw new Error(`cena desconhecida: ${cena}`);
       execucoes.push({ cenas: [cena], rotulo: cena });
     }

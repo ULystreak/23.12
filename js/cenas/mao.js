@@ -371,7 +371,22 @@ function criarCordao(pontos, { peso = 4.6, seed = 7, passos = 8 } = {}) {
   trama.setAttribute('stroke-width', String(peso * 0.2));
   trama.setAttribute('stroke-linecap', 'round');
   trama.setAttribute('stroke-opacity', '0.85');
-  grupo.append(sombra, base, trama, brilho);
+  // a luz que corre por dentro do cordão (um traço curto e quente que viaja)
+  // (uma aura larga e morna e um miolo fino e claro, o mesmo traço)
+  const luzes = [['#ffc77a', peso * 2.1, 0.4], ['#ffe3b0', peso * 1.1, 0.7], ['#fffaf0', peso * 0.4, 1]].map(([cor, largura, op]) => {
+    const l = document.createElementNS(SVGNS, 'path');
+    l.setAttribute('d', d);
+    l.setAttribute('fill', 'none');
+    l.setAttribute('stroke', cor);
+    l.setAttribute('stroke-width', String(largura));
+    l.setAttribute('stroke-linecap', 'round');
+    l.setAttribute('pathLength', '1');
+    l.setAttribute('stroke-dasharray', '0 2');
+    l.setAttribute('opacity', '0');
+    l.dataset.op = String(op);
+    return l;
+  });
+  grupo.append(sombra, base, trama, brilho, ...luzes);
 
   // Espinha: pequenos traços inclinados, alternando o lado, a cada ~2,4 unidades.
   const passo = peso * 0.55;
@@ -410,7 +425,18 @@ function criarCordao(pontos, { peso = 4.6, seed = 7, passos = 8 } = {}) {
     for (const m of marcas) { if (m.s > ate) break; d2 += m.d; }
     trama.setAttribute('d', d2);
   }
-  return { grupo, desenhar, ponta: linha[n - 1] };
+  /** A luz passa pelo cordão: p de 0 (antes do começo) a 1 (depois do fim). */
+  function correrLuz(p, tamanho = 0.32) {
+    luzes.forEach((luz, i) => {
+      // o miolo é mais curto que a aura: a luz tem cabeça clara e cauda morna
+      const L = tamanho * (1 - i * 0.3);
+      if (p <= 0 || p >= 1) { luz.setAttribute('opacity', '0'); return; }
+      luz.setAttribute('opacity', luz.dataset.op);
+      luz.setAttribute('stroke-dasharray', `${L.toFixed(3)} 2`);
+      luz.setAttribute('stroke-dashoffset', String(L - p * (1 + tamanho) - i * 0.0));
+    });
+  }
+  return { grupo, desenhar, correrLuz, ponta: linha[n - 1], linha, acum, total };
 }
 
 /** Monta o desenho inteiro. Devolve o <svg>, as partes animáveis e onde fica a ponta solta. */
@@ -427,6 +453,19 @@ function montarDesenho(amb) {
         <mask id="mao-mascara" maskUnits="userSpaceOnUse" x="-20" y="-20" width="${VB_L + 40}" height="${VB_A + 40}">
           <rect x="-20" y="-20" width="${VB_L + 40}" height="${VB_A + 40}" fill="url(#mao-esvai)"/>
         </mask>
+        <radialGradient id="mao-brilho" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stop-color="#fff4d6" stop-opacity="0.95"/>
+          <stop offset="0.28" stop-color="#ffc77a" stop-opacity="0.62"/>
+          <stop offset="0.62" stop-color="#ff8a6e" stop-opacity="0.2"/>
+          <stop offset="1" stop-color="#ff8a6e" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="mao-brasa" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stop-color="#fffaf0"/>
+          <stop offset="0.22" stop-color="#ffd890"/>
+          <stop offset="0.5" stop-color="#ff8a5c" stop-opacity="0.78"/>
+          <stop offset="0.74" stop-color="#e2283f" stop-opacity="0.32"/>
+          <stop offset="1" stop-color="#d7192d" stop-opacity="0"/>
+        </radialGradient>
       </defs>
       <g class="mao-fundo" mask="url(#mao-mascara)">
         <path class="mao-silhueta" fill="#ffffff"/>
@@ -434,7 +473,12 @@ function montarDesenho(amb) {
         <path class="mao-aguada-borda" fill="none" stroke="#dcaa9b" stroke-width="1" stroke-opacity="0.42" transform="translate(2.6 3.4)"/>
       </g>
       <g class="mao-tinta"></g>
+      <g class="mao-luz" opacity="0">
+        <ellipse class="mao-luz-faixa" cx="166" cy="322" rx="78" ry="16" fill="url(#mao-brilho)" opacity="0.7"/>
+        <circle class="mao-luz-no" cx="${CORDAO.no[0]}" cy="${CORDAO.no[1]}" r="44" fill="url(#mao-brilho)"/>
+      </g>
       <g class="mao-cordao"></g>
+      <g class="mao-brasas"></g>
     </svg>`);
 
   const silhuetaD = caminhoFechado(g.silhueta);
@@ -500,6 +544,71 @@ function montarDesenho(amb) {
     no: CORDAO.no,
     pontaSolta: longa.ponta,             // em unidades do viewBox, antes do balanço
     reduzido: amb.reduzido,
+    luz: raiz.querySelector('.mao-luz'),
+    brasas: criarBrasas(raiz.querySelector('.mao-brasas'), [volta, longa], amb),
+  };
+}
+
+/**
+ * Poeira de luz que se solta do cordão do pulso: pontinhos quentes que sobem
+ * devagar, balançam e apagam. Poucos círculos SVG (sem filtro), em unidades do
+ * viewBox: crescem junto com o zoom na mão. Movimento reduzido: nenhuma.
+ */
+function criarBrasas(camada, cordoes, amb) {
+  const N = amb.reduzido ? 0 : amb.nivel === 'baixo' ? 14 : 34;
+  const lista = [];
+  for (let i = 0; i < N; i++) {
+    const c = document.createElementNS(SVGNS, 'circle');
+    c.setAttribute('r', '0');
+    c.setAttribute('fill', 'url(#mao-brasa)');
+    camada.append(c);
+    lista.push({ c, vivo: false, x: 0, y: 0, vx: 0, vy: 0, idade: 0, vida: 1, r: 1, fase: 0 });
+  }
+  let acumulado = 0;
+  let proxima = 0;
+  const pontoNoCordao = () => {
+    // a maior parte nasce no laço e no nó; algumas ao longo da ponta solta
+    const cordao = Math.random() < 0.72 ? cordoes[0] : cordoes[1];
+    const s = Math.random() * cordao.total;
+    let i = 1;
+    while (i < cordao.linha.length - 1 && cordao.acum[i] < s) i++;
+    return cordao.linha[i];
+  };
+  function soltar(x, y) {
+    if (!N) return;
+    const b = lista[proxima];
+    proxima = (proxima + 1) % N;
+    const p = x === undefined ? pontoNoCordao() : [x, y];
+    b.vivo = true;
+    b.x = p[0] + (Math.random() - 0.5) * 3; b.y = p[1] + (Math.random() - 0.5) * 2;
+    b.vx = (Math.random() - 0.5) * 9; b.vy = -(6 + Math.random() * 12);
+    b.idade = 0; b.vida = 1.3 + Math.random() * 1.6;
+    b.r = 1.1 + Math.random() * 1.9;
+    b.fase = Math.random() * 6.28;
+  }
+  return {
+    taxa: 0,
+    soltar,
+    atualizar(dt, t) {
+      if (!N) return;
+      acumulado += dt * this.taxa;
+      while (acumulado >= 1) { acumulado -= 1; soltar(); }
+      const freio = Math.exp(-0.9 * dt);
+      for (const b of lista) {
+        if (!b.vivo) continue;
+        b.idade += dt;
+        const k = b.idade / b.vida;
+        if (k >= 1) { b.vivo = false; b.c.setAttribute('r', '0'); continue; }
+        b.vx = b.vx * freio + Math.sin(t * 1.9 + b.fase) * 7 * dt;
+        b.vy = b.vy * freio - 3 * dt;
+        b.x += b.vx * dt; b.y += b.vy * dt;
+        const a = Math.min(1, b.idade / 0.2) * (1 - k) * (0.7 + 0.3 * Math.sin(t * 8 + b.fase));
+        b.c.setAttribute('cx', b.x.toFixed(1));
+        b.c.setAttribute('cy', b.y.toFixed(1));
+        b.c.setAttribute('r', (b.r * (1 - 0.4 * k) * 2.1).toFixed(2));
+        b.c.setAttribute('opacity', a.toFixed(2));
+      }
+    },
   };
 }
 
@@ -888,11 +997,18 @@ export async function cenaMao(ctx, { frio } = {}) {
   const olharMao = calmo ? 0 : -lerp(0.15, 0.24, clamp((aspecto - 0.6) / 1.0));
 
   let pararPose = () => {};
+  let pararMagia = () => {};
   try {
     // 1. O capítulo fecha e a carta vai embora.
     diretor.etapa('enrolando');
     if (frio) musica.mostrarMini();
-    else await voltarAoMundo(ctx);
+    else if (ctx.pergaminho && ctx.pergaminho.estado === 'oculto') {
+      // a cena anterior já enrolou o pergaminho e devolveu o mundo: só a carta que
+      // tiver ficado vai embora (sem enrolar de novo)
+      const env0 = estado.envelope;
+      estado.envelope = null;
+      if (env0) await env0.irEmbora().then(() => env0.dispose()).catch(() => {});
+    } else await voltarAoMundo(ctx);
     mundo.petalas.definirDensidade(1);
     x0 = mundo.rig.position.x;
     z0 = mundo.rig.position.z;
@@ -919,12 +1035,17 @@ export async function cenaMao(ctx, { frio } = {}) {
       corpo.append(desenho.raiz);
     }
     palco.append(mao);
+    // O véu: quando ela vê o fio, a alameda escurece um pouco nas bordas (o mundo
+    // prende a respiração) e a luz do laço passa a ler como luz sobre o fundo claro.
+    // Fica atrás de tudo no palco; só opacidade.
+    const veu = el('div', { class: 'mao-veu', 'aria-hidden': 'true' });
+    palco.prepend(veu);
     // Frase longa (duas linhas grandes) não fica embaixo dos dedos: a mão desce um pouco.
     const invade = frase.getBoundingClientRect().bottom + 14 - mao.getBoundingClientRect().top;
     if (invade > 0) mao.style.top = `${mao.offsetTop + Math.min(invade, innerHeight * 0.14)}px`;
 
     // Pose da mão (aplicada por quadro) e onde está a ponta solta do fio, em px.
-    const pose = { y: calmo ? 0 : 54, rot: calmo ? 0 : 1.6, opacidade: 0, respiro: calmo ? 0.25 : 1, balanco: 0, caudaKick: 0 };
+    const pose = { y: calmo ? 0 : 54, rot: calmo ? 0 : 1.6, opacidade: 0, respiro: calmo ? 0.25 : 1, balanco: 0, caudaKick: 0, zoom: 1, luz: 0 };
     const caixa = { left: 0, top: 0, width: 1, height: 1 };
     const medir = () => {
       // offset* ignora o transform: é a caixa de repouso.
@@ -935,6 +1056,9 @@ export async function cenaMao(ctx, { frio } = {}) {
       foto.top = caixa.top + (imagem ? imagem.offsetTop : 0);
       foto.width = (imagem && imagem.offsetWidth) || caixa.width;
       foto.height = (imagem && imagem.offsetHeight) || caixa.height;
+      // o centro do véu: o ponto para onde o zoom vai (perto do laço)
+      veu.style.setProperty('--vx', `${(caixa.left + caixa.width * 0.6).toFixed(0)}px`);   // = ORIGEM_X
+      veu.style.setProperty('--vy', `${(caixa.top + caixa.height * 0.7).toFixed(0)}px`);  // = ORIGEM_Y
     };
     const foto = { left: 0, top: 0, width: 1, height: 1 };
     medir();
@@ -946,6 +1070,7 @@ export async function cenaMao(ctx, { frio } = {}) {
     const ponta = { x: 0, y: 0 };
     let anguloCauda = 0;
     let tPose = 0;
+    const ORIGEM_X = 0.6;                // = transform-origin do .mao-corpo (css/mao.css)
     const ORIGEM_Y = 0.7;
     function pulsoPx() {
       let vx; let vy;
@@ -960,10 +1085,10 @@ export async function cenaMao(ctx, { frio } = {}) {
         vx = clamp(Number(ancoraImagem.x ?? 0.5));
         vy = clamp(Number(ancoraImagem.y ?? 0.62));
       }
-      const ox = caixa.left + caixa.width * 0.5;
+      const ox = caixa.left + caixa.width * ORIGEM_X;
       const oy = caixa.top + caixa.height * ORIGEM_Y;
-      const x = foto.left + foto.width * vx - ox;
-      const y = foto.top + foto.height * vy - oy;
+      const x = (foto.left + foto.width * vx - ox) * pose.zoom;
+      const y = (foto.top + foto.height * vy - oy) * pose.zoom;
       const r = (pose.rot * Math.PI) / 180;
       ponta.x = ox + x * Math.cos(r) - y * Math.sin(r);
       ponta.y = oy + x * Math.sin(r) + y * Math.cos(r) + pose.y;
@@ -975,8 +1100,14 @@ export async function cenaMao(ctx, { frio } = {}) {
       tPose = t;
       const respira = Math.sin(t * 1.15) * 2.2 * pose.respiro;
       const gira = Math.sin(t * 0.83 + 0.6) * 0.35 * pose.respiro;
-      corpo.style.transform = `translate3d(0, ${(pose.y + respira).toFixed(2)}px, 0) rotate(${(pose.rot + gira).toFixed(3)}deg)`;
+      corpo.style.transform = `translate3d(0, ${(pose.y + respira).toFixed(2)}px, 0) rotate(${(pose.rot + gira).toFixed(3)}deg) scale(${pose.zoom.toFixed(4)})`;
       corpo.style.opacity = pose.opacidade.toFixed(3);
+      if (desenho) {
+        // a luz do nó respira devagar enquanto está acesa
+        const luz = pose.luz * (0.82 + 0.18 * Math.sin(t * 1.7));
+        desenho.luz.setAttribute('opacity', luz.toFixed(3));
+        desenho.brasas.atualizar(Math.min(dt, 0.05), t);
+      }
       if (caudaG) {
         const vento = calmo ? 1.2 : 4.5;
         anguloCauda = (Math.sin(t * 1.55) * 0.7 + Math.sin(t * 2.6 + 1.1) * 0.3) * vento * pose.balanco + pose.caudaKick;
@@ -987,6 +1118,12 @@ export async function cenaMao(ctx, { frio } = {}) {
 
     // O desenho e a frase correm juntos; o botão vem quando os dois assentaram.
     await Promise.all([desenharMao(gsap, { pose, desenho, imagem, calmo, mundo }), fraseLida]);
+
+    // 3b. O momento em que ela vê: o tempo quase para (as pétalas desaceleram), o
+    // olhar chega perto do pulso (o foco vem para a mão e o resto desfoca), o laço
+    // acende por dentro, uma luz quente percorre o cordão uma vez e solta poeira de luz.
+    gsap.to(veu, { opacity: calmo ? 0.7 : 1, duration: calmo ? 1.2 : 3.2, ease: curvas.branco.camera });
+    await verOFio(gsap, { pose, desenho, calmo, mundo, cam, olharMao, som });
 
     // 4. O botão. Antes dele, o caminho já existe, invisível: a última carta lá
     // dentro do branco (só no 3D; além da névoa ela é só branco) e o fio com
@@ -1043,6 +1180,36 @@ export async function cenaMao(ctx, { frio } = {}) {
     gsap.to(botao, { autoAlpha: 0, duration: 0.5, ease: curvas.branco.sair, onComplete: () => botao.remove() });
     ocultarPalavras(frase).then(() => frase.remove());
     if (petalasChao) petalasChao.visible = true;
+    // o tempo volta a andar e o foco volta para longe
+    mundo.petalas.definirTempo?.(1);
+    mundo.petalas.definirFoco?.();
+    if (desenho) desenho.brasas.taxa = 0;
+    // a luz do nó escorre para o fio: ela vira a ponta luminosa que desenha o caminho
+    gsap.to(pose, { luz: 0, duration: 1.6, ease: 'power1.in' });
+    // o véu sai enquanto o fio nasce: o caminho é na luz do dia
+    gsap.to(veu, { opacity: 0, duration: 1.8, ease: 'sine.inOut', onComplete: () => veu.remove() });
+    const magico = !calmo && mundo.ok;
+    fio.rastro?.(calmo ? 0 : 1);
+    fio.estrela?.(0, 16);
+    if (!calmo) {
+      const nasce = { k: 0 };
+      gsap.to(nasce, { k: 1, duration: 0.5, ease: curvas.branco.entrar, onUpdate: () => fio.estrela?.(nasce.k) });
+    }
+    const pontaFio = mundo.ok ? new mundo.THREE.Vector3() : null;
+    pararMagia = mundo.aoQuadro((dt) => {
+      if (!magico || !fio.pontoEm) return;
+      const k = fio.progresso();
+      if (k <= 0.001 || k >= 0.999) return;
+      fio.pontoEm(k, pontaFio);
+      mundo.petalas.magia?.(pontaFio, 1);
+      if (!cam.guiar) {
+        // a câmera procura a ponta, com antecipação (só enquanto ela ainda não anda)
+        const dx = pontaFio.x - mundo.rig.position.x;
+        const dz = mundo.rig.position.z - pontaFio.z;
+        const alvo = clamp(-Math.atan2(dx, Math.max(0.5, dz)) * 0.32, -0.16, 0.16);
+        cam.guinada = amortecer(cam.guinada, alvo, 1.6, dt);
+      }
+    });
 
     // O nó dá um puxão: a ponta solta estica antes do fio correr.
     if (desenho && !calmo) {
@@ -1059,9 +1226,14 @@ export async function cenaMao(ctx, { frio } = {}) {
       const tl = gsap.timeline({ onComplete: ok, onUpdate: () => fio.progresso(revelar.p) });
       if (calmo) tl.to(revelar, { p: 1, duration: 1.6, ease: curvas.branco.deriva });
       else {
-        tl.to(revelar, { p: queda, duration: 0.85, ease: curvas.branco.camera })
-          .to(revelar, { p: 1, duration: 2.9, ease: curvas.branco.entrar }, 0.8);
+        tl.to(revelar, { p: queda, duration: 1.1, ease: curvas.branco.camera })
+          .to(revelar, { p: 1, duration: 5.2, ease: 'power2.out' }, 1.0);
       }
+    }).then(() => {
+      // a ponta some na névoa, longe; o rastro apaga
+      const o = { k: 1 };
+      gsap.to(o, { k: 0, duration: 1.2, ease: 'power1.out', onUpdate: () => { fio.estrela?.(o.k); fio.rastro?.(calmo ? 0 : o.k); } });
+      mundo.petalas.magia?.(null);
     });
     // A câmera acompanha a corrida do fio, um pouco mais para o chão.
     if (!calmo) gsap.to(cam, { inclinacao: olharMao * 1.1, duration: 1.8, ease: curvas.branco.camera });
@@ -1103,8 +1275,20 @@ export async function cenaMao(ctx, { frio } = {}) {
     }
     await Promise.all([andar, extensao, alinhada]);
     await new Promise((ok) => (saida.progress() >= 1 ? ok() : saida.eventCallback('onComplete', ok)));
+    pararMagia();
+    mundo.petalas.magia?.(null);
     cam.guiar = false;
     cam.x = 0; cam.guinada = 0; cam.inclinacao = 0;
+
+    // 7. Chegada: a luz corre pelo fio uma última vez e chega ao laço da carta, que acende.
+    const cartaAqui = estado.envelope;
+    if (fio.pulso) {
+      const chegou = fio.pulso({ de: mundo.ok ? 0.5 : 0, ate: 1.02, duracao: calmo ? 1.4 : 2.2, forca: 1, brasas: 18, curva: 'power1.inOut' });
+      await espera(calmo ? 500 : 1650);
+      cartaAqui?.brilharLaco?.(0.75, calmo ? 0.6 : 1.1);
+      som.efeito('brilho');
+      await chegou;
+    }
 
     pararPose();
     pararMedida();
@@ -1112,7 +1296,10 @@ export async function cenaMao(ctx, { frio } = {}) {
     mao.remove();
   } finally {
     pararPose();
+    pararMagia();
     pararCamera();
+    mundo.petalas.definirTempo?.(1);
+    mundo.petalas.magia?.(null);
     if (mundo.ok) {
       mundo.rig.position.x = x0;
       mundo.rig.rotation.y = 0;
@@ -1189,6 +1376,48 @@ function desenharMao(gsap, { pose, desenho, imagem, calmo }) {
     tl.fromTo(pose, { caudaKick: 14 }, { caudaKick: 0, duration: 2.4, ease: curvas.branco.entrar }, tCordao + 0.9)
       .to(pose, { balanco: 1, duration: 2, ease: 'none' }, tCordao + 1.2)
       .call(resolver, null, tCordao + 1.0);
+  });
+}
+
+/**
+ * "Olha a sua mão.": o instante em que ela percebe o fio. Resolve quando o botão
+ * pode aparecer (a luz continua respirando no nó por baixo dele).
+ *   - as pétalas desaceleram, como se o tempo parasse;
+ *   - o olhar chega perto do pulso: a mão cresce em volta do laço, a câmera desce
+ *     um pouco mais e o foco vem para perto (as pétalas do fundo desfocam);
+ *   - o laço acende por dentro, um pulso de luz percorre o cordão uma vez e
+ *     poeira de luz se solta dele.
+ * Movimento reduzido: sem zoom e sem partículas; só a luz, por opacidade.
+ */
+function verOFio(gsap, { pose, desenho, calmo, mundo, cam, olharMao, som }) {
+  return new Promise((resolver) => {
+    const tl = gsap.timeline({ onComplete: resolver });
+    mundo.petalas.definirTempo?.(calmo ? 0.6 : 0.28);
+    if (!calmo) {
+      mundo.petalas.definirFoco?.(0.85);
+      tl.to(pose, { zoom: 1.3, duration: 3.8, ease: curvas.branco.camera }, 0);
+      if (olharMao) tl.to(cam, { inclinacao: olharMao * 1.22, duration: 3.6, ease: curvas.branco.camera, overwrite: 'auto' }, 0);
+    }
+    if (!desenho) {
+      // com a foto do autor não há cordão desenhado: só o tempo e o olhar
+      tl.add(() => {}, calmo ? 0.8 : 2.2);
+      return;
+    }
+    const { volta, curta, longa } = desenho.cordao;
+    tl.add(() => som.efeito('brilho'), 0.5)
+      .to(pose, { luz: 1, duration: calmo ? 0.9 : 1.3, ease: curvas.yourname.florescer }, 0.5);
+    if (!calmo) {
+      const luz = { a: 0, b: 0, c: 0 };
+      tl.add(() => { desenho.brasas.taxa = 20; }, 0.7)
+        .to(luz, { a: 1, duration: 1.3, ease: 'sine.inOut', onUpdate: () => volta.correrLuz(luz.a, 0.28) }, 0.8)
+        .to(luz, { b: 1, duration: 0.6, ease: 'sine.inOut', onUpdate: () => curta.correrLuz(luz.b, 0.5) }, 1.75)
+        .to(luz, { c: 1, duration: 0.9, ease: 'sine.inOut', onUpdate: () => longa.correrLuz(luz.c, 0.4) }, 1.8)
+        .add(() => { desenho.brasas.taxa = 5; }, 2.7)
+        .to(pose, { luz: 0.55, duration: 1.4, ease: 'sine.inOut' }, 2.6);
+    } else {
+      tl.to(pose, { luz: 0.55, duration: 1.0, ease: 'none' }, 1.6);
+    }
+    tl.add(() => {}, calmo ? 1.8 : 3.0);
   });
 }
 

@@ -821,6 +821,7 @@ uniform vec3 uCorFio;
 uniform float uBrilho;
 uniform vec3 uCentroLaco;
 uniform float uAlfa;
+uniform float uAceso;     // o laço acende por dentro (a luz do fio chegou; o nó que se desfaz)
 varying vec2 vUv;
 varying vec3 vL;
 varying vec3 vN;
@@ -845,6 +846,14 @@ void main() {
   float faixa = exp(-pow((vL.x * 0.8 + vL.y * 0.6 - uBrilho) / 0.004, 2.0));
   faixa *= 1.0 - smoothstep(0.03, 0.05, length(vL.xy - uCentroLaco.xy));
   cor += vec3(1.0, 0.86, 0.84) * (esp + faixa * 0.32 * (1.0 - sulco));
+  if (uAceso > 0.001) {
+    // a luz mora no nó e escorre pelo cordão: forte no laço, um morno no resto
+    float perto = exp(-pow(length(vL.xy - uCentroLaco.xy) / 0.026, 2.0));
+    float k = uAceso * (0.28 + 0.72 * perto);
+    // vermelho que acende (num papel claro, a luz vermelha é o que se lê como brilho)
+    cor = mix(cor, vec3(1.0, 0.3, 0.32), k * 0.7);
+    cor += vec3(1.0, 0.78, 0.7) * k * 0.28 * (1.0 - sulco) * (0.5 + 0.5 * difusa);
+  }
   gl_FragColor = vec4(acabar(cor), uAlfa * presenca());
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -956,6 +965,7 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao' }) {
   });
   const uBrilho = { value: 99 };
   const uAlfaFio = { value: 1 };
+  const uAcesoLaco = { value: 0 };
   const matCordao = shader({
     uniforms: {
       ...uniformesComuns(),
@@ -963,6 +973,7 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao' }) {
       uBrilho: amarracao === 'fio' ? uBrilho : { value: 99 },
       uCentroLaco: { value: new THREE.Vector3(0, LACRE_Y, 0) },
       uAlfa: uAlfaFio,
+      uAceso: uAcesoLaco,
     },
     vertexShader: VERT_CORDAO,
     fragmentShader: FRAG_CORDAO,
@@ -1383,6 +1394,11 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao' }) {
 
     get descartado() { return descartado; },
 
+    /** O laço acende por dentro (0..1): a luz do fio chegou até ele. */
+    brilharLaco(k = 0.7, duracao = 0.9) {
+      return comoPromise(t(uAcesoLaco, { value: clamp(k), duration: duracao, ease: curvas.branco.entrar, overwrite: 'auto' }));
+    },
+
     get ancoraFio() {
       grupo.updateWorldMatrix(true, true);
       return ponta.getWorldPosition(new THREE.Vector3());
@@ -1441,6 +1457,9 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao' }) {
 
       // o laço é puxado, as voltas afrouxam, escorregam e caem
       const tLaco = lacre ? 0.42 : 0.24;
+      // um brilho curto no nó, no instante em que ele cede
+      tl.to(uAcesoLaco, { value: 1, duration: 0.16, ease: curvas.ui.resposta, overwrite: 'auto' }, tLaco - 0.12)
+        .to(uAcesoLaco, { value: 0, duration: reduzido ? 0.5 : 0.8, ease: 'power2.out' }, tLaco + 0.08);
       if (reduzido) {
         tl.to(uAlfaFio, { value: 0, duration: 0.6, ease: 'none' }, tLaco)
           .to(sombraLinhas.uSombraFio, { value: 0, duration: 0.5, ease: 'none' }, tLaco)
@@ -2041,6 +2060,22 @@ function criarEnvelopeLeve(mundo, { lacre = 'coracao', amarracao = 'cordao', che
 
     chegar({ duracao = 2.4, atraso = 0 } = {}) {
       return entrar(duracao, atraso);
+    },
+
+    /** O laço acende (0..1): um halo morno só em volta dele. */
+    brilharLaco(k = 0.7, duracao = 0.9) {
+      const alvo = amarra.querySelector('.cl-laco');
+      if (!alvo || !gsap) return Promise.resolve();
+      const o = { k: Number(alvo.dataset.brilho) || 0 };
+      return comoPromise(guardar(gsap.to(o, {
+        k: clamp(k),
+        duration: duracao,
+        ease: curvas.branco.entrar,
+        onUpdate: () => {
+          alvo.dataset.brilho = o.k.toFixed(3);
+          alvo.style.filter = o.k > 0.01 ? `drop-shadow(0 0 ${(o.k * 7).toFixed(1)}px rgba(255, 186, 110, ${o.k.toFixed(2)}))` : '';
+        },
+      })));
     },
 
     abrir() {

@@ -19,6 +19,19 @@
 // Extras do objeto devolvido: fio.comprimento (m), fio.fase(m) (desloca a trança ao
 // longo do fio, para ela não escorregar quando o começo anda), fio.opacidade(v),
 // e, só no modo leve, fio.elemento (o <svg>).
+// A luz do fio (todas existem nas duas variantes; chame com ?.):
+//   fio.acender(v)            brilho de dentro do fio inteiro (0..1)
+//   fio.respirar(k)           de tempos em tempos acende devagar e apaga (0 desliga)
+//   fio.rastro(v)             rastro de luz atrás da ponta que se desenha
+//   fio.estrela(v, taxa)      estrela na ponta que se desenha, soltando `taxa` brasas/s
+//   fio.pulso({ de, ate, duracao, forca, largura, brasas }) → Promise   luz que corre pelo fio
+//   fio.pontoEm(u, saida)     ponto do fio a uma fração u (sem u: a ponta atual)
+//   fio.faiscar(ponto, n)     poeira de luz que se solta de um ponto
+// Movimento reduzido: sem estrela e sem brasas; o pulso vira o fio inteiro acendendo.
+//
+// O fio é de algodão torcido: três pernas em hélice com sulco, brilho especular
+// que corre com a torção (e pisca quando uma perna pega a luz), borda mais clara
+// e quente contra a luz (translucidez), penugem de fibras soltas de perto.
 //
 // A fita é montada no espaço da câmera (não deforma em trechos atrás dela), tem
 // seção redonda, trança em espinha e uma segunda fita deitada no chão que faz a
@@ -177,6 +190,20 @@ const COMUM = /* glsl */ `
   uniform float uComprimento;
   uniform float uProgresso;
   uniform float uPonta;
+  uniform float uAceso;     // brilho de dentro do fio inteiro (0..1)
+  uniform float uPulsoS;    // onde está o pulso de luz que corre pelo fio (m)
+  uniform float uPulsoK;    // força do pulso
+  uniform float uPulsoL;    // comprimento do pulso (m)
+  uniform float uRastro;    // rastro que a ponta deixa enquanto se desenha
+
+  // Quanto o fio brilha por dentro a "s" metros do começo.
+  float brilhoEm(float s) {
+    float d = (s - uPulsoS) / uPulsoL;
+    float pulso = uPulsoK * exp(-d * d);
+    float atras = uProgresso * uComprimento - s;
+    float rastro = uRastro * exp(-max(atras, 0.) / 1.6) * step(-0.02, atras);
+    return clamp(uAceso + pulso + rastro, 0., 1.5);
+  }
 
   // Largura do fio (m) a "s" metros do começo, já com a ponta que se desenha afinando.
   float larguraEm(float s) {
@@ -203,6 +230,8 @@ const VERTICE = /* glsl */ `
   uniform float uVento;
   uniform float uPasso;
   uniform vec3 uLuz;
+  uniform float uHaloPx;
+  uniform float uFuzzPx;
   ${COMUM}
 
   varying float vS;
@@ -212,6 +241,9 @@ const VERTICE = /* glsl */ `
   varying float vFino;
   varying float vLuzLado;
   varying float vLuzFrente;
+  varying float vBrilho;
+  varying float vExtraPx;
+  varying float vPerto;
 
   // Vento: só mexe no que está no ar (aSolto vai de 0, no chão ou preso, a 1).
   vec3 balanco(vec3 p, float s, float solto) {
@@ -240,8 +272,13 @@ const VERTICE = /* glsl */ `
     float meiaPx = larguraEm(s) * 0.5 / metroPorPx;               // meia largura real, em px
     float minimo = uMinPx * 0.5;
     vFino = clamp(meiaPx / minimo, 0., 1.);                        // fino demais: clareia em vez de engrossar
+    // perto: o fio de verdade seria mais largo que a bitola; é aí que a penugem aparece
+    vPerto = smoothstep(0.55, 1.1, meiaPx / (uMaxPx * 0.5));
     meiaPx = clamp(meiaPx, minimo, uMaxPx * 0.5);               // a mesma bitola do cordão da carta, perto ou longe
-    mv.xyz += lado * aLado * (meiaPx + uMargemPx) * metroPorPx;   // a margem é o espaço da borda macia
+    vBrilho = brilhoEm(s);
+    // espaço além da borda: a penugem (de perto) e o halo quando o fio acende
+    vExtraPx = uFuzzPx * vPerto + uHaloPx * min(vBrilho, 1.);
+    mv.xyz += lado * aLado * (meiaPx + uMargemPx + vExtraPx) * metroPorPx;   // a margem é o espaço da borda macia
 
     vec3 luz = normalize(mat3(viewMatrix) * uLuz);
     vLuzLado = dot(lado, luz);
@@ -268,6 +305,12 @@ const FRAGMENTO = /* glsl */ `
   uniform vec3 uNevoaCor;
   uniform float uNevoaPerto;
   uniform float uNevoaLonge;
+  uniform float uTempo;
+  uniform float uHaloPx;
+  uniform float uFuzzPx;
+  uniform vec3 uCorQuente;    // a luz de dentro (ouro morno)
+  uniform vec3 uCorHalo;      // o halo em volta (rosa-ouro)
+  uniform vec3 uCorTrans;     // vermelho atravessado pela luz (bordas contra a luz)
 
   varying float vS;
   varying float vLado;
@@ -276,41 +319,297 @@ const FRAGMENTO = /* glsl */ `
   varying float vFino;
   varying float vLuzLado;
   varying float vLuzFrente;
+  varying float vBrilho;
+  varying float vExtraPx;
+  varying float vPerto;
+
+  float acaso(float n) { return fract(sin(n * 12.9898) * 43758.5453); }
 
   void main() {
     if (vS > uProgresso * uComprimento) discard;
 
     // Borda macia calculada em px (não depende do antialias do aparelho).
-    float distPx = abs(vLado) * (vMeiaPx + uMargemPx);
+    float total = vMeiaPx + uMargemPx + vExtraPx;
+    float distPx = abs(vLado) * total;
     float cobertura = clamp((vMeiaPx - distPx) / uMargemPx + 0.5, 0., 1.);
-    if (cobertura <= 0.003) discard;
+    float fora = max(distPx - vMeiaPx, 0.);
+
+    // Penugem: fibrinhas soltas que escapam da torção (só de perto, e somem
+    // antes de cintilar quando ficam menores que um pixel).
+    float fuzz = 0.;
+    float fuzzPx = uFuzzPx * vPerto;
+    if (fuzzPx > 0.05 && fora > 0.) {
+      float hs = vS / 0.0021 + sign(vLado) * 31.;
+      float id = floor(hs);
+      float h = acaso(id);
+      float comp = (0.25 + 0.75 * h * h) * fuzzPx;
+      float inclina = (acaso(id + 7.) - 0.5) * 0.9;
+      float d = abs(fract(hs) - 0.5 - inclina * fora / fuzzPx);
+      float fio = (1. - smoothstep(0.05, 0.15, d)) * (1. - smoothstep(comp * 0.6, comp, fora));
+      float penugem = 0.16 * exp(-fora / 0.6);
+      fuzz = max(fio * 0.5 * step(0.35, h), penugem) * (1. - smoothstep(0.35, 0.9, fwidth(hs)));
+    }
+    // Halo: a luz que vaza quando o fio acende.
+    float halo = 0.;
+    if (vBrilho > 0.002 && uHaloPx > 0.) {
+      float b = min(vBrilho, 1.);
+      halo = b * (0.55 * exp(-fora / max(uHaloPx * 0.22, 0.5)) + 0.35 * exp(-fora / max(uHaloPx * 0.6, 0.8)));
+      halo *= 1. - smoothstep(uHaloPx * b * 0.75, uHaloPx * b + 0.01, fora);
+    }
+    if (cobertura <= 0.003 && fuzz < 0.004 && halo < 0.004) discard;
 
     // Seção redonda: v vai de -1 a 1 de um lado ao outro do fio.
-    float v = clamp(vLado * (vMeiaPx + uMargemPx) / vMeiaPx, -1., 1.);
+    float v = clamp(vLado * total / vMeiaPx, -1., 1.);
     float altura = sqrt(max(0., 1. - v * v));
     float luz = 0.5 + 0.5 * (v * vLuzLado + altura * vLuzFrente);
 
-    // Trança em espinha: os fios descem dos dois lados para o meio. Some com
-    // suavidade quando fica menor que um pixel (senão cintila ao longe).
+    // Torção: três pernas que sobem em hélice (listras inclinadas, sempre para
+    // o mesmo lado), com o sulco escuro entre elas. Some com suavidade quando
+    // fica menor que um pixel (senão cintila ao longe).
     float fase = (vS + uFase) / uTranca;
     float detalhe = 1. - smoothstep(0.18, 0.62, fwidth(fase));
-    float espinha = fract(fase + abs(v) * 0.9);
-    float sulco = 1. - smoothstep(0., 0.2, espinha) * (1. - smoothstep(0.8, 1., espinha));
-    float meio = 1. - smoothstep(0., 0.16, abs(v));
-    float relevo = 1. - detalhe * (0.34 * sulco + 0.2 * meio);
+    float w = fase + v * 0.62;
+    float f = fract(w);
+    float sulco = 1. - smoothstep(0., 0.2, f) * (1. - smoothstep(0.8, 1., f));
+    float bojo = sin(3.14159 * f);
+    float relevo = 1. - detalhe * (0.4 * sulco - 0.08 * bojo);
 
     vec3 cor = mix(uCorEscura, uCor, smoothstep(0.18, 0.86, luz));
     cor *= relevo * (0.84 + 0.16 * altura);
-    cor += uCorClara * pow(clamp(luz, 0., 1.), 7.) * 0.2 * detalhe;   // brilho de seda
+    // brilho especular de cada perna: corre junto com a torção
+    float faixa = exp(-pow((f - 0.42 + v * 0.18) / 0.13, 2.)) * smoothstep(0.25, 0.95, luz);
+    cor += uCorClara * faixa * 0.32 * detalhe;
+    // de vez em quando uma perna pega a luz de cheio (cintila e passa)
+    float idp = floor(w);
+    float sorte = acaso(idp);
+    float pisca = pow(max(0., sin(uTempo * (0.5 + sorte) + sorte * 40.)), 36.);
+    cor += vec3(1., 0.9, 0.84) * faixa * pisca * 0.7 * detalhe * step(0.55, sorte);
+    cor += uCorClara * pow(clamp(luz, 0., 1.), 7.) * 0.14 * detalhe;   // brilho de seda
+    // translucidez: a borda contra a luz fica mais clara e mais quente
+    float borda = pow(1. - altura, 1.6);
+    float contra = clamp(0.45 - vLuzFrente * 0.6, 0., 1.);
+    cor = mix(cor, uCorTrans, borda * (0.25 + 0.4 * contra));
     cor = mix(uCor, cor, 0.3 + 0.7 * detalhe);                        // ao longe é só "o vermelho do fio"
+    // a luz de dentro: o miolo esquenta e clareia
+    float b = clamp(vBrilho, 0., 1.);
+    // (o vermelho do fio fica luminoso, não laranja: num mundo claro a luz vermelha é que se lê)
+    cor = mix(cor, uCorQuente, b * (0.35 + 0.35 * altura));
+    cor += vec3(1., 0.88, 0.8) * b * 0.4 * pow(altura, 8.);
 
     float nevoa = smoothstep(uNevoaPerto, uNevoaLonge, vProf);
+    float aCor = cobertura * mix(0.5, 1., vFino);
+    vec3 corFora = fuzz > halo * 0.6 ? mix(uCor, uCorClara, 0.45) : mix(uCorHalo, uCorQuente, exp(-fora / 1.2) * b);
+    float aFora = max(fuzz, halo * 0.6) * (1. - aCor);
+    float alfa = aCor + aFora;
+    cor = (cor * aCor + corFora * aFora) / max(alfa, 1e-4);
     cor = mix(cor, uNevoaCor, nevoa);
 
-    gl_FragColor = vec4(cor, cobertura * mix(0.5, 1., vFino) * uOpacidade);
+    gl_FragColor = vec4(cor, alfa * uOpacidade);
     #include <colorspace_fragment>
   }
 `;
+
+// =============================================================================
+// Luzes do fio: a estrela que desenha a ponta e a poeira de luz (brasas) que
+// se solta dele. Um único THREE.Points (uma chamada de desenho), simulado na CPU.
+// =============================================================================
+
+const VERTICE_LUZ = /* glsl */ `
+  attribute vec4 aDados;     // x: tamanho (m), y: opacidade, z: tipo (0 brasa, 1 estrela), w: calor (0 rosa, 1 ouro)
+  uniform vec2 uTela;
+  uniform float uDpr;
+  uniform vec2 uNevoa;
+  varying vec4 vD;
+  void main() {
+    vec4 mv = modelViewMatrix * vec4(position, 1.);
+    float prof = max(-mv.z, 0.05);
+    float px = aDados.x * projectionMatrix[1][1] * uTela.y * 0.5 / prof;
+    px = aDados.z > 0.5 ? clamp(px, 44., 120.) : clamp(px, 5., 12.);
+    float a = aDados.y * (1. - smoothstep(uNevoa.x, uNevoa.y, prof));
+    vD = vec4(px, a, aDados.z, aDados.w);
+    if (a < 0.003) { gl_Position = vec4(2., 2., 2., 1.); gl_PointSize = 0.; return; }
+    gl_PointSize = px * uDpr;
+    gl_Position = projectionMatrix * mv;
+  }
+`;
+
+const FRAGMENTO_LUZ = /* glsl */ `
+  uniform vec3 uOuro;
+  uniform vec3 uRosa;
+  uniform vec3 uBranco;
+  varying vec4 vD;
+  void main() {
+    vec2 q = gl_PointCoord * 2. - 1.;
+    float r2 = dot(q, q);
+    vec3 tom = mix(uRosa, uOuro, vD.w);
+    float a; vec3 cor;
+    if (vD.z > 0.5) {
+      // estrela: miolo branco-quente, halo e quatro raios finos (dois maiores)
+      float miolo = exp(-r2 * 60.);
+      float halo = exp(-r2 * 5.) * 0.62 + exp(-r2 * 1.8) * 0.26;
+      float raios = exp(-abs(q.x) * 34.) * exp(-q.y * q.y * 2.2) + exp(-abs(q.y) * 34.) * exp(-q.x * q.x * 4.) * 0.75;
+      vec2 d = vec2(q.x + q.y, q.x - q.y) * 0.7071;
+      raios += (exp(-abs(d.x) * 44.) * exp(-d.y * d.y * 12.) + exp(-abs(d.y) * 44.) * exp(-d.x * d.x * 12.)) * 0.35;
+      raios *= 1. - smoothstep(0.6, 1., sqrt(r2));
+      a = clamp(miolo + halo + raios, 0., 1.) * (1. - smoothstep(0.75, 1., sqrt(r2)));
+      cor = mix(tom, uBranco, clamp(miolo * 1.6 + raios * 0.55 + halo * 0.3, 0., 1.));
+    } else {
+      // um ponto macio e cheio (sem miolo branco: no papel claro ele virava um anel)
+      float miolo = exp(-r2 * 14.);
+      a = min(1., exp(-r2 * 5.) * 1.25) * (1. - smoothstep(0.8, 1., sqrt(r2)));
+      cor = mix(tom, mix(tom, uBranco, 0.45), miolo);
+    }
+    a *= vD.y;
+    if (a < 0.004) discard;
+    gl_FragColor = vec4(cor, a);
+    #include <colorspace_fragment>
+  }
+`;
+
+const LUZES = { alto: 140, medio: 96, baixo: 40 };
+
+function criarLuzes(mundo, amostrador, comuns) {
+  const { THREE, amb } = mundo;
+  const N = (LUZES[amb.nivel] || LUZES.medio) + 1;     // o 0 é a estrela
+  const pos = new Float32Array(N * 3);
+  const dados = new Float32Array(N * 4);
+  const vel = new Float32Array(N * 3);
+  const vida = new Float32Array(N);
+  const idade = new Float32Array(N);
+  const base = new Float32Array(N);                    // tamanho de nascença
+  const geo = new THREE.BufferGeometry();
+  const atribPos = new THREE.BufferAttribute(pos, 3).setUsage(THREE.DynamicDrawUsage);
+  const atribDados = new THREE.BufferAttribute(dados, 4).setUsage(THREE.DynamicDrawUsage);
+  geo.setAttribute('position', atribPos);
+  geo.setAttribute('aDados', atribDados);
+  const nevoa = mundo.cena.fog;
+  const mat = new THREE.ShaderMaterial({
+    vertexShader: VERTICE_LUZ,
+    fragmentShader: FRAGMENTO_LUZ,
+    uniforms: {
+      uTela: { value: new THREE.Vector2(mundo.tamanho.largura, mundo.tamanho.altura) },
+      uDpr: { value: mundo.tamanho.dpr || 1 },
+      uNevoa: { value: new THREE.Vector2(nevoa ? nevoa.near + 1 : 3.5, nevoa ? nevoa.far * 1.15 : 11) },
+      uOuro: { value: new THREE.Color('#ffb04a') },
+      uRosa: { value: new THREE.Color('#ff3352') },
+      uBranco: { value: new THREE.Color('#fff6e4') },
+    },
+    transparent: true,
+    depthWrite: false,
+  });
+  const pontos = new THREE.Points(geo, mat);
+  pontos.name = 'fio-luzes';
+  pontos.frustumCulled = false;
+  pontos.renderOrder = 6;
+  pontos.visible = false;
+
+  let vivas = 0;
+  let proxima = 1;
+  const estado = { estrela: 0, taxaPonta: 0, taxaPulso: 0, acumPonta: 0, acumPulso: 0, t: 0 };
+  const aux = { x: 0, y: 0, z: 0 };
+
+  function pontoEm(s, saida) {
+    const total = amostrador.comprimento;
+    const seg = (amostrador.pontos.length / 3) - 1;
+    const u = clamp(total > 0 ? s / total : 0) * seg;
+    const i = Math.min(seg - 1, Math.floor(u));
+    const r = u - i;
+    const p = amostrador.pontos;
+    const o = i * 3;
+    saida.x = p[o] + (p[o + 3] - p[o]) * r;
+    saida.y = p[o + 1] + (p[o + 4] - p[o + 1]) * r;
+    saida.z = p[o + 2] + (p[o + 5] - p[o + 2]) * r;
+    return saida;
+  }
+
+  function soltar(x, y, z, forca = 1) {
+    if (amb.reduzido) return;
+    const i = proxima;
+    proxima = proxima + 1 >= N ? 1 : proxima + 1;
+    if (vida[i] <= 0) vivas++;
+    const ang = Math.random() * Math.PI * 2;
+    const v = (0.03 + Math.random() * 0.1) * forca;
+    pos[i * 3] = x + (Math.random() - 0.5) * 0.01;
+    pos[i * 3 + 1] = y + (Math.random() - 0.5) * 0.01;
+    pos[i * 3 + 2] = z + (Math.random() - 0.5) * 0.01;
+    vel[i * 3] = Math.cos(ang) * v;
+    vel[i * 3 + 1] = 0.05 + Math.random() * 0.12 * forca;
+    vel[i * 3 + 2] = Math.sin(ang) * v;
+    vida[i] = 1.4 + Math.random() * 1.8;
+    idade[i] = 0;
+    base[i] = 0.006 + Math.random() * 0.008;
+    dados[i * 4 + 2] = 0;
+    dados[i * 4 + 3] = Math.random() < 0.35 ? 1 : Math.random() * 0.35;
+    pontos.visible = true;
+  }
+
+  function atualizar(dt, t) {
+    estado.t = t;
+    const total = amostrador.comprimento;
+    // a estrela, na ponta que se desenha
+    if (estado.estrela > 0.002 && total > 0) {
+      const sPonta = comuns.uProgresso.value * total;
+      pontoEm(sPonta, aux);
+      pos[0] = aux.x; pos[1] = aux.y + 0.004; pos[2] = aux.z;
+      const cintila = 0.86 + 0.14 * Math.sin(t * 9.3) * Math.sin(t * 5.1 + 1);
+      dados[0] = 0.09 * cintila; dados[1] = estado.estrela * comuns.uOpacidade.value; dados[2] = 1; dados[3] = 0.3;
+      estado.acumPonta += dt * estado.taxaPonta * estado.estrela;
+      while (estado.acumPonta >= 1) { estado.acumPonta -= 1; soltar(aux.x, aux.y, aux.z, 1); }
+      pontos.visible = true;
+    } else {
+      dados[1] = 0;
+    }
+    // brasas que se soltam do pulso de luz
+    if (comuns.uPulsoK.value > 0.05 && estado.taxaPulso > 0 && total > 0) {
+      estado.acumPulso += dt * estado.taxaPulso * comuns.uPulsoK.value;
+      while (estado.acumPulso >= 1) {
+        estado.acumPulso -= 1;
+        pontoEm(comuns.uPulsoS.value + (Math.random() - 0.5) * comuns.uPulsoL.value, aux);
+        if (comuns.uPulsoS.value <= comuns.uProgresso.value * total) soltar(aux.x, aux.y, aux.z, 0.7);
+      }
+    }
+    if (vivas) {
+      let restam = 0;
+      const amortece = Math.exp(-1.6 * dt);
+      for (let i = 1; i < N; i++) {
+        if (vida[i] <= 0) { dados[i * 4 + 1] = 0; continue; }
+        idade[i] += dt;
+        const k = idade[i] / vida[i];
+        if (k >= 1) { vida[i] = 0; dados[i * 4 + 1] = 0; continue; }
+        restam++;
+        const o = i * 3;
+        // sobem devagar, o ar segura, e um sopro leve as faz ondular
+        vel[o] = vel[o] * amortece + Math.sin(t * 1.7 + i) * 0.02 * dt;
+        vel[o + 1] = vel[o + 1] * amortece + 0.06 * dt;
+        vel[o + 2] = vel[o + 2] * amortece + Math.cos(t * 1.3 + i * 0.7) * 0.02 * dt;
+        pos[o] += vel[o] * dt; pos[o + 1] += vel[o + 1] * dt; pos[o + 2] += vel[o + 2] * dt;
+        const piscar = 0.75 + 0.25 * Math.sin(t * (6 + (i % 5)) + i);
+        dados[i * 4] = base[i] * (1 - k * 0.5);
+        dados[i * 4 + 1] = Math.min(1, idade[i] / 0.18) * (1 - k * k) * piscar * comuns.uOpacidade.value;
+      }
+      vivas = restam;
+    }
+    atribPos.needsUpdate = true;
+    atribDados.needsUpdate = true;
+    if (!vivas && estado.estrela <= 0.002) pontos.visible = false;
+  }
+
+  function ajustar(tamanho) {
+    mat.uniforms.uTela.value.set(tamanho.largura, tamanho.altura);
+    mat.uniforms.uDpr.value = tamanho.dpr || 1;
+  }
+
+  return {
+    objeto: pontos,
+    estado,
+    pontoEm,
+    soltar,
+    rajada(x, y, z, n = 16) { for (let i = 0; i < n; i++) soltar(x, y, z, 1.6); },
+    atualizar,
+    ajustar,
+    dispose() { geo.dispose(); mat.dispose(); },
+  };
+}
 
 // A sombra: a mesma curva, deitada no chão (y = 0), deslocada para longe da luz.
 // Quanto mais alto o fio, mais larga, mais fraca e mais afastada ela fica.
@@ -435,7 +734,13 @@ function criarFio3D(mundo, opcoes) {
     uProgresso: { value: 0 },
     uPonta: { value: 0.3 },
     uOpacidade: { value: 1 },
+    uAceso: { value: 0 },
+    uPulsoS: { value: -10 },
+    uPulsoK: { value: 0 },
+    uPulsoL: { value: 0.5 },
+    uRastro: { value: 0 },
   };
+  const baixo = mundo.amb.nivel === 'baixo';
 
   const material = new THREE.ShaderMaterial({
     vertexShader: VERTICE,
@@ -458,6 +763,11 @@ function criarFio3D(mundo, opcoes) {
       uNevoaCor: { value: nevoa ? nevoa.color : new THREE.Color(0xffffff) },   // acompanha a névoa da cena
       uNevoaPerto: { value: perto },
       uNevoaLonge: { value: longe * 1.2 },      // o fio some um pouco depois de tudo: ele é o caminho
+      uHaloPx: { value: baixo ? 5 : 9 },
+      uFuzzPx: { value: baixo ? 0 : 2.2 },
+      uCorQuente: { value: new THREE.Color('#ff4a4e') },
+      uCorHalo: { value: new THREE.Color('#ff3d55') },
+      uCorTrans: { value: new THREE.Color('#ff5b46') },
     },
     transparent: true,
     side: THREE.DoubleSide,
@@ -496,15 +806,36 @@ function criarFio3D(mundo, opcoes) {
     objeto.add(sombra);
   }
 
+  // Estrela da ponta e poeira de luz (fora do movimento reduzido: lá só o brilho).
+  const luzes = mundo.amb.reduzido ? null : criarLuzes(mundo, amostrador, comuns);
+  if (luzes) objeto.add(luzes.objeto);
+
   function ajustarTela(t) {
     material.uniforms.uTela.value.set(t.largura, t.altura);
     material.uniforms.uMargemPx.value = 1 / Math.max(1, t.dpr || 1);
+    if (luzes) luzes.ajustar(t);
   }
   ajustarTela(mundo.tamanho);
   const pararTamanho = mundo.aoRedimensionar(ajustarTela);
 
+  // Respiração (a folha final): de tempos em tempos o fio acende devagar e apaga.
+  let acesoBase = 0;
+  let respiro = 0;
+  let respiroDesde = 0;
+
   // O relógio do vento vem do mundo, sem ninguém precisar chamar atualizar().
-  const pararQuadro = mundo.aoQuadro((dt, t) => { material.uniforms.uTempo.value = t; });
+  const pararQuadro = mundo.aoQuadro((dt, t) => {
+    material.uniforms.uTempo.value = t;
+    if (respiro) {
+      const c = ((t - respiroDesde) % 7.5) / 7.5;
+      const onda = Math.pow(Math.sin(Math.PI * c), 4);
+      comuns.uAceso.value = acesoBase + respiro * onda;
+    }
+    if (luzes) luzes.atualizar(dt, t);
+  });
+
+  const gsap = window.gsap;
+  let pulsoAtual = null;
 
   function definirCurva(c) {
     if (!amostrador.definir(c)) return;
@@ -564,16 +895,84 @@ function criarFio3D(mundo, opcoes) {
       if (v !== undefined) comuns.uOpacidade.value = clamp(Number(v) || 0);
       return comuns.uOpacidade.value;
     },
+    /** Brilho de dentro do fio inteiro (0..1). */
+    acender(v) {
+      if (v !== undefined) { acesoBase = clamp(Number(v) || 0); if (!respiro) comuns.uAceso.value = acesoBase; }
+      return acesoBase;
+    },
+    /** O fio respira um brilho muito sutil de tempos em tempos (k 0 desliga). */
+    respirar(k = 0.22) {
+      respiro = clamp(Number(k) || 0);
+      respiroDesde = material.uniforms.uTempo.value;
+      if (!respiro) comuns.uAceso.value = acesoBase;
+    },
+    /** Rastro de luz que a ponta deixa enquanto se desenha (0..1). */
+    rastro(v) {
+      if (v !== undefined) comuns.uRastro.value = clamp(Number(v) || 0);
+      return comuns.uRastro.value;
+    },
+    /** A estrela na ponta que se desenha (0..1) e quantas brasas ela solta por segundo. */
+    estrela(v, taxa) {
+      if (!luzes) return 0;
+      if (v !== undefined) luzes.estado.estrela = clamp(Number(v) || 0);
+      if (taxa !== undefined) luzes.estado.taxaPonta = Math.max(0, Number(taxa) || 0);
+      return luzes.estado.estrela;
+    },
+    /**
+     * Um pulso de luz quente corre pelo fio de `de` a `ate` (frações do comprimento).
+     * Resolve quando chega. Movimento reduzido: o fio só acende e apaga, parado.
+     */
+    pulso({ de = 0, ate = 1, duracao = 2.2, forca = 1, largura = 0.55, brasas = 22, curva = 'sine.inOut' } = {}) {
+      if (!gsap) return Promise.resolve();
+      if (pulsoAtual) pulsoAtual.kill();
+      const total = Math.max(amostrador.comprimento, 1e-3);
+      if (mundo.amb.reduzido) {
+        const o = { k: 0 };
+        return new Promise((ok) => {
+          pulsoAtual = gsap.timeline({ onComplete: ok })
+            .to(o, { k: forca * 0.6, duration: duracao * 0.4, ease: 'none', onUpdate: () => { comuns.uAceso.value = acesoBase + o.k; } })
+            .to(o, { k: 0, duration: duracao * 0.6, ease: 'none', onUpdate: () => { comuns.uAceso.value = acesoBase + o.k; } });
+        });
+      }
+      comuns.uPulsoL.value = largura;
+      comuns.uPulsoS.value = de * total;
+      if (luzes) luzes.estado.taxaPulso = brasas;
+      return new Promise((ok) => {
+        pulsoAtual = gsap.timeline({ onComplete: () => { comuns.uPulsoK.value = 0; ok(); } })
+          .to(comuns.uPulsoK, { value: forca, duration: Math.min(0.5, duracao * 0.25), ease: 'power2.out' }, 0)
+          .to(comuns.uPulsoS, { value: ate * total, duration: duracao, ease: curva }, 0)
+          .to(comuns.uPulsoK, { value: 0, duration: Math.min(0.7, duracao * 0.3), ease: 'power1.in' }, duracao * 0.82);
+      });
+    },
+    /** Ponto do fio a uma fração do comprimento (sem argumento: a ponta que se desenha). */
+    pontoEm(u = comuns.uProgresso.value, saida = new THREE.Vector3()) {
+      const p = amostrador.pontos;
+      const k = clamp(u) * seg;
+      const i = Math.min(seg - 1, Math.floor(k));
+      const r = k - i;
+      const o = i * 3;
+      saida.x = p[o] + (p[o + 3] - p[o]) * r;
+      saida.y = p[o + 1] + (p[o + 4] - p[o + 1]) * r;
+      saida.z = p[o + 2] + (p[o + 5] - p[o + 2]) * r;
+      return saida;
+    },
+    /** Poeira de luz que se solta de um ponto do mundo (o laço que se desfaz). */
+    faiscar(ponto, n = 18) {
+      if (!luzes || !ponto) return;
+      luzes.rajada(ponto.x, ponto.y, ponto.z, n);
+    },
     atualizar(dt, t) {
       if (Number.isFinite(t)) material.uniforms.uTempo.value = t;
     },
     dispose() {
       pararTamanho();
       pararQuadro();
+      if (pulsoAtual) pulsoAtual.kill();
       if (objeto.parent) objeto.parent.remove(objeto);
       geometria.dispose();
       material.dispose();
       if (materialSombra) materialSombra.dispose();
+      if (luzes) luzes.dispose();
     },
   };
 }
@@ -584,18 +983,46 @@ function criarFio3D(mundo, opcoes) {
 
 function criarFioLeve(mundo, opcoes) {
   // Sem viewBox: uma unidade do desenho é um px de tela.
+  // A torção é um padrão de listras inclinadas (as pernas do fio) por cima da cor;
+  // o halo, um contorno largo e morno que só aparece quando o fio acende.
+  const id = `fio-torcao-${++contadorLeve}`;
   const desenho = svg(`
     <svg class="fio-leve" aria-hidden="true">
+      <defs>
+        <pattern id="${id}" width="3.2" height="3.2" patternUnits="userSpaceOnUse" patternTransform="rotate(38)">
+          <rect width="1.15" height="3.2" fill="#8f0b1d" fill-opacity="0.5"/>
+          <rect x="1.6" width="0.55" height="3.2" fill="#ff8f8a" fill-opacity="0.45"/>
+        </pattern>
+      </defs>
+      <path class="fio-leve-halo"/>
       <path class="fio-leve-sombra"/>
       <path class="fio-leve-fita"/>
+      <path class="fio-leve-torcao"/>
+      <circle class="fio-leve-estrela" r="0"/>
     </svg>`);
+  const halo = desenho.querySelector('.fio-leve-halo');
   const sombra = desenho.querySelector('.fio-leve-sombra');
   const fita = desenho.querySelector('.fio-leve-fita');
+  const torcao = desenho.querySelector('.fio-leve-torcao');
+  const estrelaEl = desenho.querySelector('.fio-leve-estrela');
   // Estilo no próprio elemento: o fio precisa aparecer mesmo se o CSS da cena não tiver carregado.
   fita.setAttribute('fill', '#d7192d');
+  torcao.setAttribute('fill', `url(#${id})`);
   sombra.setAttribute('fill', '#2a1b22');
   sombra.setAttribute('fill-opacity', '0.1');
+  halo.setAttribute('fill', '#ffb27a');
+  halo.setAttribute('fill-opacity', '0');
+  estrelaEl.setAttribute('fill', '#fff3dc');
+  estrelaEl.setAttribute('stroke', '#ffb04a');
+  estrelaEl.setAttribute('stroke-opacity', '0.55');
+  estrelaEl.setAttribute('stroke-width', '3');
   mundo.recipienteLeve.append(desenho);
+  let brilho = 0;
+  let estrelaK = 0;
+  let respiro = 0;
+  let pararRespiro = null;
+  const gsapLeve = window.gsap;
+  const aplicarBrilho = () => { halo.setAttribute('fill-opacity', (Math.min(1, brilho) * 0.5).toFixed(3)); };
 
   const seg = SEGMENTOS_LEVE;
   const amostrador = criarAmostrador(seg);
@@ -655,11 +1082,27 @@ function criarFioLeve(mundo, opcoes) {
   function desenhar() {
     if (atual <= 0.0005 || amostrador.comprimento <= 0) {
       fita.setAttribute('d', '');
+      torcao.setAttribute('d', '');
       sombra.setAttribute('d', '');
+      halo.setAttribute('d', '');
+      estrelaEl.setAttribute('r', '0');
       return;
     }
-    fita.setAttribute('d', contorno(0, atual, 1, 0, 0));
+    const d = contorno(0, atual, 1, 0, 0);
+    fita.setAttribute('d', d);
+    torcao.setAttribute('d', d);
     sombra.setAttribute('d', atual > chao ? contorno(chao, atual, 2.6, 2, 3) : '');
+    halo.setAttribute('d', brilho > 0.01 ? contorno(0, atual, 3.4, 0, 0) : '');
+    if (estrelaK > 0.01) {
+      const p = amostrador.pontos;
+      const k = Math.min(seg, Math.round(atual * seg)) * 3;
+      estrelaEl.setAttribute('cx', p[k].toFixed(1));
+      estrelaEl.setAttribute('cy', p[k + 1].toFixed(1));
+      estrelaEl.setAttribute('r', (3.2 * estrelaK).toFixed(2));
+      estrelaEl.setAttribute('opacity', estrelaK.toFixed(2));
+    } else {
+      estrelaEl.setAttribute('r', '0');
+    }
   }
 
   function tracarPadrao() {
@@ -704,7 +1147,48 @@ function criarFioLeve(mundo, opcoes) {
       if (v !== undefined) desenho.style.opacity = String(clamp(Number(v) || 0));
       return desenho.style.opacity === '' ? 1 : Number(desenho.style.opacity);
     },
+    acender(v) {
+      if (v !== undefined) { brilho = clamp(Number(v) || 0); aplicarBrilho(); desenhar(); }
+      return brilho;
+    },
+    respirar(k = 0.22) {
+      respiro = clamp(Number(k) || 0);
+      if (pararRespiro) { pararRespiro(); pararRespiro = null; }
+      if (!respiro) return;
+      let desde = null;
+      pararRespiro = mundo.aoQuadro((dt, t) => {
+        if (desde === null) desde = t;
+        const c = ((t - desde) % 7.5) / 7.5;
+        brilho = respiro * Math.pow(Math.sin(Math.PI * c), 4);
+        aplicarBrilho();
+        if (brilho > 0.01 && !halo.getAttribute('d')) desenhar();
+      });
+    },
+    rastro() { return 0; },
+    estrela(v) {
+      if (v !== undefined && !mundo.amb.reduzido) { estrelaK = clamp(Number(v) || 0); desenhar(); }
+      return estrelaK;
+    },
+    pulso({ duracao = 2.2, forca = 1 } = {}) {
+      // sem WebGL o pulso é o fio inteiro que acende e apaga
+      if (!gsapLeve) return Promise.resolve();
+      const o = { k: brilho };
+      return new Promise((ok) => {
+        gsapLeve.timeline({ onComplete: ok })
+          .to(o, { k: forca * 0.8, duration: duracao * 0.4, ease: 'none', onUpdate: () => { brilho = o.k; aplicarBrilho(); desenhar(); } })
+          .to(o, { k: 0, duration: duracao * 0.6, ease: 'none', onUpdate: () => { brilho = o.k; aplicarBrilho(); } });
+      });
+    },
+    pontoEm(u = atual, saida = { x: 0, y: 0, z: 0 }) {
+      const p = amostrador.pontos;
+      const k = Math.min(seg, Math.round(clamp(u) * seg)) * 3;
+      saida.px = saida.x = p[k]; saida.py = saida.y = p[k + 1]; saida.z = 0;
+      return saida;
+    },
+    faiscar() {},
     atualizar() {},
-    dispose() { pararTamanho(); desenho.remove(); },
+    dispose() { pararTamanho(); if (pararRespiro) pararRespiro(); desenho.remove(); },
   };
 }
+
+let contadorLeve = 0;

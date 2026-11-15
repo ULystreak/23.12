@@ -63,6 +63,7 @@ const VERTICE = /* glsl */ `
   uniform float uConcha;      // quão funda é a concha
   uniform vec4 uProtege;      // retângulo protegido em NDC (x0, y0, x1, y1)
   uniform float uProtegeK;    // 0..1, quanto a zona protegida vale agora
+  uniform vec4 uMagia;        // a ponta luminosa do fio (xyz) e quanto ela mexe no ar e no chão (w)
 
   varying vec2 vP;            // coordenada na pétala (a silhueta cabe em ±0,8)
   varying vec2 vQ;            // coordenada no quadrado (±1)
@@ -220,6 +221,14 @@ const VERTICE = /* glsl */ `
     // A caixa acompanha a câmera: quem sai por um lado renasce pelo outro.
     p = mod(p - uCentro + 0.5 * uCaixa, uCaixa) - 0.5 * uCaixa + uCentro;
 
+    // Perto da ponta luminosa do fio o ar gira: a pétala contorna a luz e segue.
+    if (uMagia.w > 0.001) {
+      vec3 dm = p - uMagia.xyz;
+      float km = uMagia.w * exp(-dot(dm, dm) / 0.28);
+      p.xz += vec2(-dm.z, dm.x) * km * 0.9 + normalize(dm.xz + 1e-4) * km * 0.07;
+      p.y += km * 0.06;
+    }
+
     float a = presenca(p);
     a *= smoothstep(0.0, 0.7, uCaixa.y * 0.5 - abs(p.y - uCentro.y));  // teto e fundo da caixa
     a *= smoothstep(0.0, 0.5, uCaixa.x * 0.5 - abs(p.x - uCentro.x));  // lados
@@ -256,9 +265,17 @@ const VERTICE = /* glsl */ `
     a *= smoothstep(0.0, 0.7, beira.x) * smoothstep(0.0, 0.7, beira.y);
     if (a < 0.004) { sumir(); return; }
 
+    // Onde a luz do fio passa rente ao chão, as caídas se levantam um pouco e assentam.
+    float ergue = 0.0;
+    if (uMagia.w > 0.001) {
+      vec2 dm = p.xz - uMagia.xz;
+      ergue = uMagia.w * exp(-dot(dm, dm) / 0.22) * (1.0 - smoothstep(0.12, 0.5, uMagia.y));
+      p.y += ergue * (0.03 + 0.04 * aR1.w);
+    }
+
     // Deitada, com rotação qualquer; metade caiu de barriga para baixo.
     float virada = step(0.5, aR2.z) * 3.14159265;
-    mat3 R = rotY(aR1.x * TAU) * rotX(-1.5708 + (aR1.z - 0.5) * 0.3 + virada) * rotZ(aR1.y);
+    mat3 R = rotY(aR1.x * TAU) * rotX(-1.5708 + (aR1.z - 0.5) * 0.3 + virada + ergue * (aR1.y > 0.0 ? 0.9 : -0.9)) * rotZ(aR1.y);
 
     float tamanho = mix(uTamanho.x, uTamanho.y, aR1.w * aR1.w);
     montar(p, R, tamanho, 0.0, 1.0, a, aR2.x, aR2.w);
@@ -415,6 +432,7 @@ export function criarPetalas(mundo, amb) {
     uConcha: { value: 0.55 },
     uProtege: { value: new THREE.Vector4(-0.8, -0.62, 0.8, 0.7) },
     uProtegeK: { value: 0 },
+    uMagia: { value: new THREE.Vector4(0, -10, 0, 0) },
     uCorBaseA: { value: new THREE.Color('#6d0a22') },
     uCorBordaA: { value: new THREE.Color('#b3123a') },
     uCorBaseB: { value: new THREE.Color('#7d0c28') },
@@ -542,6 +560,9 @@ export function criarPetalas(mundo, amb) {
   const tetoChuva = amb.reduzido ? 0.34 : 1;        // ... e poucas
   const tetoChao = amb.reduzido ? 0.6 : 1;
   let relogio = sorte() * 40;                       // relógio próprio (anda no ritmo acima)
+  let tempoAlvo = 1;                                // definirTempo(): o tempo do mundo quase para
+  let tempoAgora = 1;
+  let magiaAlvo = 0;
   let densidadeAlvo = 1;
   let focoAlvo = FOCO_PADRAO;
   let desde = 1e5;                                  // tempo desde comecar(); enorme = já estavam no ar
@@ -764,8 +785,25 @@ export function criarPetalas(mundo, amb) {
       malhaSoltas.visible = true;
     },
 
+    /** Quão depressa o tempo das pétalas passa (1 normal; 0,3 quase parado). Muda devagar. */
+    definirTempo(k) {
+      const v = Number(k);
+      tempoAlvo = Number.isFinite(v) ? clamp(v, 0.05, 1) : 1;
+    },
+
+    /** A ponta luminosa do fio: as pétalas no ar a contornam e as do chão se levantam. null desliga. */
+    magia(pos, forca = 1) {
+      const u = comuns.uMagia.value;
+      if (!pos || !Number.isFinite(pos.x) || amb.reduzido) { magiaAlvo = 0; return; }
+      u.x = pos.x; u.y = pos.y; u.z = pos.z;
+      magiaAlvo = clamp(Number(forca) || 0);
+    },
+
     atualizar(dt) {
-      const passo = dt * ritmo;
+      tempoAgora = amortecer(tempoAgora, tempoAlvo, 1.6, dt);
+      const um = comuns.uMagia.value;
+      um.w = amortecer(um.w, magiaAlvo, 3, dt);
+      const passo = dt * ritmo * tempoAgora;
       relogio += passo;
 
       camera.getWorldPosition(posCamera);

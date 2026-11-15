@@ -118,6 +118,13 @@
   pointer-events: none;
 }
 .fl-fio-sombra { stroke: rgba(42, 27, 34, 0.16); }
+/* Assentado, o fio respira um brilho muito sutil de tempos em tempos (só opacidade). */
+.fl-fio-brilho { opacity: 0; }
+.fl-fio-respira .fl-fio-brilho { animation: fl-fio-respira 7.5s ease-in-out infinite; }
+@keyframes fl-fio-respira {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 0.32; }
+}
 
 /* A pétala que pousa: a mesma forma das pétalas do mundo leve. */
 .fl-petala {

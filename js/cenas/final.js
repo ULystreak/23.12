@@ -71,6 +71,16 @@ export async function cenaFinal(ctx, { frio } = {}) {
       console.error('[carta] não consegui compor a frase', erro);
     });
 
+  // No toque, o laço se desfaz em fios de luz: poeira de luz sai do ponto onde o
+  // fio chega à carta (o brilho do nó é do envelope).
+  const pararFaisca = diretor.aoMudar((cenaAgora, etapa) => {
+    if (cenaAgora !== 'final' || etapa !== 'carta-abrindo') return;
+    try {
+      const a = estado.envelope && estado.envelope.ancoraFio;
+      if (mundo.ok && a && estado.fio && estado.fio.faiscar) estado.fio.faiscar(a, 30);
+    } catch { /* carta descartada no meio: sem faísca */ }
+  });
+
   const { env, papel, parar } = await cenaCarta(ctx, {
     lacre: null,
     amarracao: 'fio',
@@ -79,6 +89,7 @@ export async function cenaFinal(ctx, { frio } = {}) {
     anunciarCaminhada: false,
   });
 
+  pararFaisca();
   // A folha toma o lugar do papel, na mesma pose, e vem até a frente dela.
   diretor.etapa('desdobrando');
   som.efeito('papel');

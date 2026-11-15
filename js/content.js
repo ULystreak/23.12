@@ -23,6 +23,7 @@
      ?cena=poppy      o capítulo do jogo
      ?cena=carta2     a segunda carta
      ?cena=yourname   o capítulo do filme
+     ?cena=segredos   os bilhetes com os vídeos (só se houver algum vídeo)
      ?cena=mao        "Olha a sua mão." e o fio
      ?cena=final      a última carta
    ========================================================================== */
@@ -345,6 +346,94 @@ window.CONTEUDO = {
     // sublinhado, e este nome é lido em voz alta por leitores de tela.
     // [Fechar este capítulo]
     rotuloFechar: 'Fechar este capítulo',
+  },
+
+  /* --------------------------------------------------------------------------
+     SEGREDOS (os vídeos)
+     Depois do segundo capítulo, antes de "Olha a sua mão.": o mundo volta, uma
+     frase aparece e alguns envelopinhos amarrados com o fio vermelho chegam
+     flutuando, cada um com "Segredo 1", "Segredo 2"... escrito à mão. Ela toca
+     num, o fio desamarra, o bilhete se abre e vira o vídeo. Quando o vídeo
+     acaba (ou ela fecha), o bilhete volta e o NOME de quem gravou é escrito
+     nele, letra por letra. Quando ela já viu todos, aparece o botão de seguir.
+
+     Enquanto nenhum item tiver vídeo (todos com video: ''), esta parte inteira
+     NÃO aparece: do capítulo do filme a carta vai direto para a mão.
+
+     COMO COLOCAR UM VÍDEO
+     1. Ponha o arquivo na pasta assets/videos/ (crie a pasta se não existir).
+        Use nomes simples, sem espaço nem acento: assets/videos/ana.mp4
+     2. Escreva o caminho no campo video do item: video: 'assets/videos/ana.mp4'
+     3. Escreva no campo nome quem gravou (é o que aparece escrito à mão).
+
+     FORMATO DO VÍDEO
+     - MP4 (vídeo H.264 e som AAC). É o que o iPhone grava quando a câmera está
+       em "Mais compatível" e o que qualquer app de compressão gera.
+       Vídeo .mov ou HEVC do iPhone: converta para MP4 antes (veja abaixo).
+     - Pode ser em pé ou deitado: a carta mede sozinha e ajusta a moldura.
+     - Até uns 25 MB cada (o GitHub aceita até 100 MB por arquivo, mas ela vai
+       abrir no 4G: quanto mais leve, mais rápido começa). Um vídeo de 1 minuto
+       em 720p fica com uns 10 a 15 MB.
+
+     COMO COMPRIMIR
+     - Pelo celular: um app de comprimir vídeo (por exemplo "Video Compressor")
+       exportando em MP4, 720p.
+     - Pelo computador, com o HandBrake (grátis): predefinição "Fast 720p30".
+     - Pelo computador, com o ffmpeg (uma linha só no terminal):
+         ffmpeg -i original.mov -vf "scale=w=1280:h=1280:force_original_aspect_ratio=decrease:force_divisible_by=2" -c:v libx264 -crf 26 -preset slow -pix_fmt yuv420p -c:a aac -b:a 128k -movflags +faststart assets/videos/ana.mp4
+       Serve para vídeo em pé e deitado: o lado maior fica com no máximo
+       1280 px. O "+faststart" faz o vídeo começar antes de baixar inteiro.
+
+     CAMPOS DE CADA ITEM
+       titulo: o que vem escrito no bilhete antes de abrir ('Segredo 1')
+       video:  o caminho do .mp4 ('' = este bilhete não aparece)
+       capa:   imagem opcional mostrada enquanto o vídeo carrega
+               (assets/images/..., '' se não tiver)
+       nome:   quem gravou; é escrito à mão no bilhete quando o vídeo termina
+
+     Se um vídeo não carregar (arquivo com nome errado, por exemplo), o
+     bilhete mostra só o nome e conta como visto: nada trava.
+     ------------------------------------------------------------------------ */
+  segredos: {
+    // A frase que aparece no alto, palavra por palavra.
+    frase: '[Algumas pessoas também queriam te dizer uma coisa.]',
+
+    // Texto do botão que aparece quando ela já viu todos.
+    continuar: 'Seguir',
+
+    // Nome do botão de fechar o vídeo (não aparece escrito; é lido em voz
+    // alta por leitores de tela).
+    fechar: 'Fechar o vídeo',
+
+    // Os bilhetes, na ordem. Para ter mais, copie um bloco { ... }, com a
+    // vírgula do fim. Exemplo de um item pronto:
+    //
+    // {
+    //   titulo: 'Segredo 1',
+    //   video: 'assets/videos/ana.mp4',
+    //   capa: '',
+    //   nome: 'Ana',
+    // },
+    itens: [
+      {
+        titulo: 'Segredo 1',
+        video: '',
+        capa: '',
+        nome: '[Nome de quem gravou]',
+      },
+      {
+        titulo: 'Segredo 2',
+        video: '',
+        capa: '',
+        nome: '[Nome de quem gravou]',
+      },
+      {
+        titulo: 'Segredo 3',
+        video: '',
+        capa: '',
+        nome: '[Nome de quem gravou]',
+      },
+    ],
   },
 
   /* --------------------------------------------------------------------------

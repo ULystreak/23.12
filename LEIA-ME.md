@@ -4,7 +4,7 @@ Este arquivo é só para você (não aparece no site). Tudo o que ela lê, ouve 
 
 ## 1. Editar os textos (`js/content.js`)
 
-Abra o arquivo num editor de texto simples (Bloco de Notas, VS Code, o próprio editor do GitHub). Ele é dividido em partes, na ordem em que ela vê: página, abertura, música, capítulo 1 (o jogo), capítulo 2 (o filme), a mão e o final. Cada parte tem um comentário em cima explicando o que é.
+Abra o arquivo num editor de texto simples (Bloco de Notas, VS Code, o próprio editor do GitHub). Ele é dividido em partes, na ordem em que ela vê: página, abertura, música, capítulo 1 (o jogo), capítulo 2 (o filme), os segredos (os vídeos), a mão e o final. Cada parte tem um comentário em cima explicando o que é.
 
 Regras para não quebrar nada:
 
@@ -63,7 +63,52 @@ Dois ajustes quando trocar imagens:
 - **`mao.ancoraFio`** e **`fioDele` / `fioDela`** (no bloco `par`): dizem em que ponto da imagem o fio vermelho sai ou chega. `x` vai de 0 (esquerda) a 1 (direita), `y` de 0 (topo) a 1 (base). Se trocar a imagem, mude esses números até o fio sair do lugar certo.
 - **`alt`**: uma frase curta descrevendo a imagem, para quem usa leitor de tela.
 
-## 4. Ver uma parte só
+## 4. Vídeos dos amigos (os segredos)
+
+Depois do capítulo do filme, antes de "Olha a sua mão.", podem aparecer bilhetes amarrados com o fio vermelho: "Segredo 1", "Segredo 2", "Segredo 3"... Ela toca num, o bilhete se abre e vira o vídeo (com som; a música abaixa sozinha). Quando o vídeo acaba ou ela fecha, o nome de quem gravou é escrito à mão no bilhete, e a música volta. Quando ela já viu todos, aparece o botão "Seguir".
+
+**Enquanto nenhum bilhete tiver vídeo, essa parte não aparece**: a carta vai direto do filme para a mão.
+
+Para pôr um vídeo:
+
+1. Crie a pasta `assets/videos/` e ponha o arquivo lá, com nome simples, sem espaço e sem acento: `assets/videos/ana.mp4`.
+2. Em `js/content.js`, na parte `segredos`, preencha um item da lista `itens`:
+
+```js
+{
+  titulo: 'Segredo 1',
+  video: 'assets/videos/ana.mp4',
+  capa: '',
+  nome: 'Ana',
+},
+```
+
+- `titulo`: o que vem escrito no bilhete fechado.
+- `video`: o caminho do vídeo. Vazio (`''`) = esse bilhete não aparece.
+- `capa`: uma imagem opcional que aparece enquanto o vídeo carrega (pode ficar `''`).
+- `nome`: quem gravou; é escrito à mão quando o vídeo termina.
+- Para ter mais bilhetes, copie um bloco `{ ... },` inteiro, com a vírgula. Até uns 6 cabem bem no celular.
+- O seu vídeo também pode ser um deles: o último costuma ser o melhor lugar.
+
+Formato e tamanho:
+
+- **MP4 (vídeo H.264 e som AAC).** É o que todo app de compressão gera. Vídeo `.mov` ou HEVC direto do iPhone: converta antes (abaixo).
+- **Em pé ou deitado**, tanto faz: a moldura mede o vídeo sozinha.
+- **Até uns 25 MB cada.** O GitHub aceita até 100 MB por arquivo, mas ela vai abrir no 4G: quanto mais leve, mais rápido começa. Um minuto em 720p fica com uns 10 a 15 MB.
+
+Como comprimir:
+
+- **No celular:** um app de comprimir vídeo, exportando em MP4, 720p.
+- **No computador, HandBrake** (grátis): predefinição "Fast 720p30", formato MP4.
+- **No computador, ffmpeg** (uma linha; serve para vídeo em pé e deitado, o lado maior fica com no máximo 1280 px):
+
+```
+ffmpeg -i original.mov -vf "scale=w=1280:h=1280:force_original_aspect_ratio=decrease:force_divisible_by=2" -c:v libx264 -crf 26 -preset slow -pix_fmt yuv420p -c:a aac -b:a 128k -movflags +faststart assets/videos/ana.mp4
+```
+
+Se um vídeo não carregar (nome do arquivo errado, por exemplo), o bilhete mostra só o nome e conta como visto: nada trava. Depois de pôr os vídeos, teste com `?cena=segredos` no endereço, no iPhone, com som.
+
+## 5. Ver uma parte só
 
 Coloque um destes finais no endereço para pular direto para uma parte:
 
@@ -73,6 +118,7 @@ Coloque um destes finais no endereço para pular direto para uma parte:
 | `?cena=poppy` | capítulo 1, o jogo |
 | `?cena=carta2` | a segunda carta |
 | `?cena=yourname` | capítulo 2, o filme |
+| `?cena=segredos` | os bilhetes com os vídeos (só se houver algum vídeo) |
 | `?cena=mao` | "Olha a sua mão." e o fio |
 | `?cena=final` | a última carta e a frase escrita à mão |
 
@@ -80,7 +126,7 @@ Para testar mais rápido, junte `&rapido=4` (tudo anda 4 vezes mais rápido). Pa
 
 O link que você manda para ela é o endereço **sem** nada no final.
 
-## 5. Testar no seu computador
+## 6. Testar no seu computador
 
 A carta precisa de um servidor (abrir o `index.html` com dois cliques não funciona). Qualquer servidor estático serve. O mais simples, com o Node instalado, na pasta do projeto:
 
@@ -90,7 +136,7 @@ npx serve
 
 Depois abra o endereço que ele mostrar (algo como `http://localhost:3000`). Para ver no celular, abra no navegador do celular o endereço de rede que o `serve` também mostra (os dois aparelhos no mesmo Wi-Fi).
 
-## 6. Publicar
+## 7. Publicar
 
 O site publica sozinho pelo **GitHub Pages**: tudo o que você enviar para o ramo **`main`** do repositório `ULystreak/23.12` vai ao ar em um ou dois minutos em:
 

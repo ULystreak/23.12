@@ -12,18 +12,33 @@
 //   poppy     desenrolando → lendo
 //   carta2    enrolando → caminhada → carta-chegando → carta-espera → carta-abrindo → papel
 //   yourname  desenrolando → lendo
+//   segredos  enrolando → frase → escolhendo ⇄ assistindo  (só existe com algum vídeo no content.js)
 //   mao       enrolando → olha → mao-espera → seguindo
 //   final     carta-chegando → carta-espera → carta-abrindo → desdobrando → escrevendo → fim
 
 import { cenaAbertura } from '../cenas/abertura.js';
 import { cenaCarta } from '../cenas/carta.js';
 
-export const ORDEM = ['inicio', 'poppy', 'carta2', 'yourname', 'mao', 'final'];
+export const ORDEM = ['inicio', 'poppy', 'carta2', 'yourname', 'segredos', 'mao', 'final'];
+
+/**
+ * Cenas que só existem quando o content.js tem o que mostrar. Pulada, a cena nem
+ * aparece em data-cena: a seguinte entra como entraria sem ela (fria só se a
+ * carta começou ali por ?cena=).
+ */
+export function temSegredos(conteudo) {
+  const itens = conteudo && conteudo.segredos && conteudo.segredos.itens;
+  return Array.isArray(itens) && itens.some((i) => i && typeof i.video === 'string' && i.video.trim());
+}
+const PULAR = {
+  segredos: (ctx) => !temSegredos(ctx.conteudo),
+};
 
 // O que não é da primeira tela só é baixado depois (em segundo plano, durante a abertura).
 const carregar = {
   poppy: () => import('../capitulos/poppy.js'),
   yourname: () => import('../capitulos/yourname.js'),
+  segredos: () => import('../cenas/segredos.js'),
   mao: () => import('../cenas/mao.js'),
   final: () => import('../cenas/final.js'),
 };
@@ -75,6 +90,11 @@ const cenas = {
   },
 
   yourname: (ctx, { frio }) => cenaCapitulo(ctx, 'yourname', frio),
+
+  async segredos(ctx, opcoes) {
+    const { cenaSegredos } = await carregar.segredos();
+    await cenaSegredos(ctx, opcoes);
+  },
 
   async mao(ctx, opcoes) {
     const { cenaMao } = await carregar.mao();
@@ -140,6 +160,7 @@ export function criarDiretor() {
 
       for (let i = comeco; i < ORDEM.length; i++) {
         const nome = ORDEM[i];
+        if (PULAR[nome] && PULAR[nome](ctx)) continue;
         diretor.cena = nome;
         diretor.etapaAtual = null;
         raiz.dataset.cena = nome;

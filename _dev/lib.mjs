@@ -12,8 +12,9 @@
 // padrão da sessão; por último, num `playwright` instalado normalmente.
 
 import http from 'node:http';
-import { createReadStream, existsSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync, readdirSync } from 'node:fs';
 import { stat, mkdir, rename } from 'node:fs/promises';
+import vm from 'node:vm';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -144,8 +145,60 @@ export function subirServidor(raiz = RAIZ) {
 }
 
 /**
+ * O content.js como a página vê (window.CONTEUDO), avaliado aqui no Node.
+ * `segredos` (opcional) troca a lista de vídeos, como injetarSegredos faz na página.
+ */
+export function lerConteudo(segredos = null) {
+  const janela = {};
+  vm.runInNewContext(readFileSync(path.join(RAIZ, 'js', 'content.js'), 'utf8'), { window: janela });
+  const c = janela.CONTEUDO || {};
+  if (segredos) c.segredos = { ...(c.segredos || {}), itens: segredos };
+  return c;
+}
+
+/** A cena dos segredos existe? (= temSegredos do diretor) */
+export function temSegredos(conteudo) {
+  const itens = conteudo && conteudo.segredos && conteudo.segredos.itens;
+  return Array.isArray(itens) && itens.some((i) => i && typeof i.video === 'string' && i.video.trim());
+}
+
+/**
+ * Itens de teste para a cena dos segredos: um por .mp4 da pasta (caminho relativo à
+ * raiz), mais um vídeo que não existe se `falho` (o 404 é esperado; ver ERRO_ESPERADO).
+ */
+export function segredosDeTeste(pasta, { falho = false } = {}) {
+  const absoluta = path.resolve(RAIZ, pasta);
+  const relativa = path.relative(RAIZ, absoluta).split(path.sep).join('/');
+  const arquivos = readdirSync(absoluta).filter((a) => a.toLowerCase().endsWith('.mp4')).sort();
+  const itens = arquivos.map((a, i) => ({
+    titulo: `Segredo ${i + 1}`,
+    video: `${relativa}/${a}`,
+    capa: '',
+    nome: `Teste ${a.replace(/\.mp4$/i, '').replace(/-/g, ' ')}`,
+  }));
+  if (falho) itens.push({ titulo: `Segredo ${itens.length + 1}`, video: `${relativa}/nao-existe.mp4`, capa: '', nome: 'Vídeo que falhou' });
+  return itens;
+}
+/** O 404 do vídeo que falta de propósito (segredosDeTeste com falho). */
+export const ERRO_ESPERADO = /nao-existe\.mp4/;
+
+/**
+ * Troca a lista de vídeos do content.js servido à página, sem tocar no arquivo.
+ * Chame dentro de `preparar(page)`.
+ */
+export async function injetarSegredos(page, itens) {
+  const original = readFileSync(path.join(RAIZ, 'js', 'content.js'), 'utf8');
+  const corpo = `${original}
+;window.CONTEUDO.segredos = Object.assign({}, window.CONTEUDO.segredos, { itens: ${JSON.stringify(itens)} });
+`;
+  await page.route(/\/js\/content\.js(\?.*)?$/, (rota) => rota.fulfill({
+    status: 200, contentType: 'text/javascript; charset=utf-8', body: corpo, headers: { 'Cache-Control': 'no-store' },
+  }));
+}
+
+/**
  * Abre a carta.
- *   cena    'inicio' | 'poppy' | 'carta2' | 'yourname' | 'mao' | 'final' (omitido = começo)
+ *   cena    'inicio' | 'poppy' | 'carta2' | 'yourname' | 'segredos' | 'mao' | 'final' (omitido = começo)
  *   vp      'celular' (390×844, DPR 3, toque) | 'desktop' (1440×900)
  *   motor   'chromium' | 'webkit'
  *   params  parâmetros extras do endereço: { rapido: 6, webgl: 0, reduzido: 1, nivel: 'baixo', mudo: 1 }
@@ -231,6 +284,7 @@ export async function abrir({ cena, vp = 'celular', motor = 'chromium', params =
 
   const sessao = {
     page,
+    perfil,
     endereco,
     gpu,          // texto do renderer WebGL ('' no modo leve)
     amb,
