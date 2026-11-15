@@ -111,6 +111,8 @@ export async function cenaFinal(ctx, { frio } = {}) {
   await Promise.all([folha.desdobrar(), pronta]);
 
   diretor.etapa('escrevendo');
+  // A cena fica quase parada daqui em diante: a frase ganha a resolução cheia da tela.
+  if (amb.nivel !== 'baixo') mundo.nitidezMaxima?.(true);
   await espera(amb.reduzido ? 200 : 450);              // a mão pousa antes da primeira letra
   let letras = 0;
   await folha.escrever(frase, {

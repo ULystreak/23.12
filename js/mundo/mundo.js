@@ -203,6 +203,7 @@ export async function criarMundo(opcoes) {
 
   const tamanho = { largura: 1, altura: 1, dpr: 1 };
   let dprAtual = Math.min(window.devicePixelRatio || 1, amb.dprMax);
+  let dprAntesNitidez = null;             // ver nitidezMaxima()
   const ouvintesTamanho = new Set();
 
   function aplicarTamanho(forcar = false) {
@@ -564,6 +565,27 @@ export async function criarMundo(opcoes) {
     aoRedimensionar(fn) {
       ouvintesTamanho.add(fn);
       return () => ouvintesTamanho.delete(fn);
+    },
+    /**
+     * A frase final é texto desenhado no WebGL: quando a cena para em 'fim' (só a
+     * folha e as pétalas), paga-se a resolução cheia da tela (até 3x), mesmo que o
+     * DPR tenha caído antes, na caminhada. O medidor continua valendo: se o
+     * aparelho não aguentar, ele desce de novo meio ponto por vez.
+     */
+    nitidezMaxima(ligar = true) {
+      if (ligar) {
+        if (dprAntesNitidez === null) dprAntesNitidez = dprAtual;
+        dprAtual = Math.min(window.devicePixelRatio || 1, 3);
+      } else if (dprAntesNitidez !== null) {
+        dprAtual = Math.min(dprAtual, dprAntesNitidez);
+        dprAntesNitidez = null;
+      }
+      const agora = performance.now();
+      medidor.soma = 0;
+      medidor.n = 0;
+      medidor.carenciaAte = agora + CARENCIA_MS;
+      medidor.desde = agora + CARENCIA_MS;
+      aplicarTamanho(true);
     },
     petalas: null,
     fundo,

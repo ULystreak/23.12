@@ -1145,7 +1145,10 @@ function criarFolha3D(mundo) {
 
   // ---- escrita ---------------------------------------------------------------------------
 
-  const escrita = criarEscrita({ amb, largura: baixo ? 768 : 1024 });
+  // A folha ocupa ~375 pt no iPhone: em tela 3x são ~1125 px, então 1024 já ficava
+  // abaixo de 1:1. Em tela densa (e nível alto) a escrita vai a 1536 px.
+  const densa = !baixo && amb.nivel === 'alto' && (window.devicePixelRatio || 1) > 2;
+  const escrita = criarEscrita({ amb, largura: baixo ? 768 : densa ? 1536 : 1024 });
   let textura = null;
   let textoPronto = null;
   let preparando = null;
@@ -1464,7 +1467,10 @@ function criarFolha3D(mundo) {
           pontos.push(new THREE.Vector3(x, y0 - abaixo, zBorda + 0.006 + abaixo * 0.065));
         }
       });
-      fio = criarFio(mundo, { curva: pontos, largura: 0.0058 });
+      // Sem a sombra "do chão" do fio: aqui dentro o chão (y = 0) é o meio da folha,
+      // e ela aparecia como um risco claro sob a frase em tela 3x. A sombra no papel
+      // é a de baixo (sombraFio).
+      fio = criarFio(mundo, { curva: pontos, largura: 0.0058, sombra: false });
       fio.progresso(0);
       interno.add(fio.objeto);
 

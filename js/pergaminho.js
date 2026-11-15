@@ -245,6 +245,8 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
     if (!camada.hidden) {
       rolagemEl.style.setProperty('--perg-altura', `${vista.clientHeight}px`);
       rolagemEl.style.setProperty('--perg-largura', `${vista.clientWidth}px`);
+      const v = vista.getBoundingClientRect();
+      vistaMedida = { largura: Math.round(v.width), altura: Math.round(v.height) };
     }
   }
 
@@ -270,8 +272,90 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
     },
   };
 
+  // ---- o ponto da leitura ------------------------------------------------------------
+  // Os capítulos medem as seções pela altura da folha (--perg-altura): girar o aparelho
+  // ou a barra do Safari mudam a altura do texto, e um scrollTop fixo faria o texto
+  // pular. A cada rolagem guarda-se o que está a 35% da altura da folha; depois de um
+  // redimensionamento esse trecho volta para o mesmo lugar (o Safari não tem
+  // overflow-anchor para fazer isso sozinho).
+  const PONTO_LEITURA = 0.35;
+  let marco = null;
+  let redimensionando = false;
+  let fimRedimensionar = 0;
+  let vistaMedida = { largura: -1, altura: -1 };
+  let lacoLeitura = 0;
+
+  // Por ~1,2 s depois da última mudança de tamanho, o trecho é reposto a cada quadro:
+  // os capítulos refazem as medidas com atraso (o Your Name até 1 s depois). Um toque
+  // ou a roda do mouse devolvem a rolagem a ela na hora.
+  function segurarLeitura() {
+    redimensionando = true;
+    clearTimeout(fimRedimensionar);
+    fimRedimensionar = setTimeout(soltarLeitura, 1200);
+    if (lacoLeitura) return;
+    const passo = () => {
+      if (!redimensionando) { lacoLeitura = 0; return; }
+      reancorar();
+      lacoLeitura = requestAnimationFrame(passo);
+    };
+    lacoLeitura = requestAnimationFrame(passo);
+  }
+  function soltarLeitura() {
+    redimensionando = false;
+    clearTimeout(fimRedimensionar);
+    cancelAnimationFrame(lacoLeitura);
+    lacoLeitura = 0;
+  }
+  for (const tipo of ['touchstart', 'wheel', 'keydown']) {
+    rolagemEl.addEventListener(tipo, () => { if (redimensionando) soltarLeitura(); }, { passive: true });
+  }
+
+  // Posição de layout dentro do rolador, sem transformações: os capítulos mexem nos
+  // trechos com parallax e entradas, e isso só se acerta na rolagem seguinte.
+  // null quando o trecho está preso (fixed) ou fora da folha.
+  function topoNoConteudo(no) {
+    let topo = 0;
+    for (let n = no; n; n = n.offsetParent) {
+      if (n === rolagemEl) return topo;
+      topo += n.offsetTop;
+    }
+    return null;
+  }
+
+  function guardarMarco() {
+    if (redimensionando || estado !== 'aberto' || camada.hidden) return;
+    const v = vista.getBoundingClientRect();
+    // A folha já mudou e o ResizeObserver ainda não avisou: a posição já está errada.
+    if (Math.round(v.width) !== vistaMedida.largura || Math.round(v.height) !== vistaMedida.altura) return;
+    if (v.height < 40) return;
+    const alvo = document.elementFromPoint(v.left + v.width / 2, v.top + v.height * PONTO_LEITURA);
+    const valido = alvo && alvo !== conteudoEl && conteudoEl.contains(alvo);
+    const topo = valido ? topoNoConteudo(alvo) : null;
+    marco = {
+      el: topo === null ? null : alvo,
+      desvio: topo === null ? 0 : topo - (rolagemEl.scrollTop + rolagemEl.clientHeight * PONTO_LEITURA),
+      progresso: rolagem.progresso,
+    };
+  }
+
+  function reancorar() {
+    if (!marco || estado !== 'aberto' || camada.hidden) return;
+    const topo = marco.el && marco.el.isConnected && conteudoEl.contains(marco.el) ? topoNoConteudo(marco.el) : null;
+    let y;
+    if (topo !== null) {
+      y = topo - rolagemEl.clientHeight * PONTO_LEITURA - marco.desvio;
+    } else {
+      y = marco.progresso * (rolagemEl.scrollHeight - rolagemEl.clientHeight);
+    }
+    y = Math.max(0, Math.min(Math.round(y), rolagemEl.scrollHeight - rolagemEl.clientHeight));
+    if (Math.abs(y - rolagemEl.scrollTop) < 1) return;
+    if (lenis) lenis.scrollTo(y, { immediate: true, force: true });
+    else rolagemEl.scrollTop = y;
+  }
+
   function avisarRolagem() {
     avisoPendente = false;
+    guardarMarco();
     const p = rolagem.progresso;
     costurar(p);
     for (const fn of ouvintesRolagem) {
@@ -319,12 +403,19 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
     alturaConferida = conteudoEl.offsetHeight;
     if (lenis) lenis.resize();
     if (ScrollTrigger) ScrollTrigger.refresh(true);
+    if (redimensionando) reancorar();
     avisarRolagem();
   }, 140);
   const observadorConteudo = window.ResizeObserver
     ? new ResizeObserver(() => {
-      if (estado !== 'aberto' || conteudoEl.offsetHeight === alturaConferida) return;
-      refazerGatilhos();
+      if (estado !== 'aberto') return;
+      // Antes da pintura: o texto volta ao lugar no mesmo quadro em que mudou
+      // (mesmo quando a altura volta a um valor já conferido, ao desvirar o aparelho).
+      if (redimensionando) {
+        reancorar();
+        segurarLeitura();
+      }
+      if (conteudoEl.offsetHeight !== alturaConferida) refazerGatilhos();
     })
     : null;
 
@@ -536,6 +627,8 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
     }
     if (observadorConteudo) observadorConteudo.disconnect();
     refazerGatilhos.cancelar();
+    marco = null;
+    soltarLeitura();
     desligarRolagemSuave();
     renovarCapitulo();
     costura.textContent = '';
@@ -606,14 +699,26 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
   // uma animação em curso continua certa no tamanho novo.
   const aoMudarTamanho = () => {
     if (raiz.hidden) return;
+    const antes = vistaMedida;
     medir();
+    if (estado === 'aberto' && !camada.hidden && marco && antes.altura > 0
+      && (antes.largura !== vistaMedida.largura || antes.altura !== vistaMedida.altura)) {
+      segurarLeitura();
+      // Os gatilhos de rolagem dos capítulos (entradas, parallax) acham o lugar novo
+      // agora, e não no refresh atrasado do próprio ScrollTrigger: sem isso o trecho
+      // seria reposto contra medidas velhas e pularia por um quadro.
+      if (ScrollTrigger) ScrollTrigger.refresh();
+      reancorar();
+    }
     if (!camada.hidden && vista.clientHeight !== fio.altura) {
       montarCostura();
       costurar(rolagem.progresso);
     }
   };
   if (window.ResizeObserver) new ResizeObserver(aoMudarTamanho).observe(moldura);
-  else window.addEventListener('resize', aoMudarTamanho, { passive: true });
+  // O evento de resize chega antes do observador no quadro em que a janela muda:
+  // assim o trecho que ela lia já está no lugar quando o quadro novo é pintado.
+  window.addEventListener('resize', aoMudarTamanho, { passive: true });
 
   // ---- API ----------------------------------------------------------------------------
   const perg = {

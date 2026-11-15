@@ -41,6 +41,8 @@ window.CONTEUDO = {
     // caminhadas, a mão e a última carta (os capítulos não mudam). Quando ela
     // anda, a foto se aproxima devagar, como quem caminha pela alameda.
     // Deixe vazio ('') para voltar ao mundo todo branco.
+    // Tamanho: pelo menos 1600 px de largura (webp, qualidade ~70, perto de
+    // 250 KB). A foto atual tem só 719 px e aparece ampliada ~7x no iPhone.
     fundo: 'assets/images/mundo-fundo.webp',
   },
 
@@ -268,6 +270,8 @@ window.CONTEUDO = {
     // Troque por fotos de vocês ou céus e lugares parecidos; a capa pode ficar ''
     // (o capítulo abre só com o título e o céu). Prefira .webp ou .jpg: a capa em
     // .png pesa mais que as outras imagens do capítulo somadas.
+    // Tamanho das imagens do capítulo (capa, imagem-cheia, par): pelo menos
+    // 1300 px de largura, porque o iPhone mostra em 3x (as de agora têm 533 e 860).
     capa:'assets/images/yourname-capa.png',
 
     // Imagem de fundo do céu (opcional).

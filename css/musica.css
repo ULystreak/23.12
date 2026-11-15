@@ -631,7 +631,9 @@
     transition: transform 460ms var(--curva-branco-entrar);
   }
   #pergaminho[data-estado] ~ #mini {
-    transform: translate(10px, calc(max(var(--perg-margem, 10px), var(--seguro-topo)) - var(--seguro-topo) - 18px));
+    /* Sobe 18 px para montar na quina do papel, mas nunca acima da área segura:
+       com entalhe (47 px) a subida vira 12 px e o disco encosta na borda do papel. */
+    transform: translate(10px, calc(max(var(--perg-margem, 10px), var(--seguro-topo)) - var(--seguro-topo) - 18px + min(var(--seguro-topo), 6px)));
   }
   #pergaminho[data-estado] ~ #mini .mini-visual {
     transform: scale(0.834);
