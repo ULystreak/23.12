@@ -12,7 +12,7 @@
 //   mundo.telaParaMundo(xNdc, yNdc, distancia) → Vector3
 //   mundo.mundoParaTela(v3)        → { x, y, visivel } em px de tela
 //   mundo.retanguloParaPose(rect, obj, { distancia }?) → { pai, posicao, quaternion, escala }
-//   mundo.petalas.rajada(posMundo, n) / .definirDensidade(k)
+//   mundo.petalas.rajada(posMundo, n) / .definirDensidade(k) / .definirFoco(metros)
 //   mundo.aoMudarNivel(fn(nivel))  → função que cancela
 //
 // Além do contrato: mundo.amb, mundo.aoRedimensionar(fn), mundo.tamanho { largura, altura, dpr },
@@ -26,11 +26,41 @@ import { criarPetalas } from './petalas.js';
 export const ALTURA_OLHOS = 1.5;
 const FOV_EM_PE = 58;
 const FOV_DEITADO = 42;
-const COMPRIMENTO_PASSO = 0.74;      // metros por passo
-const QUADRO_LENTO_MS = 22;          // acima disto por 2 s, a qualidade desce
+const CADENCIA_LENTA = 1.5;          // passos por segundo ao sair e ao chegar
+const CADENCIA_RAPIDA = 1.9;         // ... e no meio da caminhada
+const BALANCO_VERTICAL = 0.0125;     // ±1,25 cm: 2,5 cm de vale a pico
+const BALANCO_LATERAL = 0.007;       // ±0,7 cm
+const BALANCO_ROLAGEM = 0.0027;      // ±0,15°: 0,3° de um lado ao outro
+const VELOCIDADE_CALMA = 0.28;       // m/s: o avanço contínuo no movimento reduzido
+const QUADRO_LENTO_MS = 22;         // acima disto por 2 s, a qualidade desce
 const JANELA_MS = 2000;
 const CARENCIA_MS = 1500;            // depois de (re)ligar, não mede (compilação de shaders etc.)
 const AMOSTRAS_RITMO = 36;           // quadros iniciais usados para descobrir o ritmo natural do aparelho
+
+/**
+ * Curva padrão da caminhada: sai devagar (o corpo tem inércia), anda em passo
+ * quase constante e chega deslizando até parar. O pico de velocidade fica em
+ * ~1,5× a média; uma curva em S comum passaria de 2× e a caminhada viraria corrida.
+ */
+export const curvaDaCaminhada = (() => {
+  const N = 96;
+  const ENTRADA = 0.26;              // fração do tempo para ganhar o passo
+  const CHEGADA = 0.42;              // ... e para perdê-lo
+  const s = (x) => { const t = clamp(x); return t * t * (3 - 2 * t); };
+  const tabela = new Float32Array(N + 1);
+  let soma = 0;
+  for (let i = 1; i <= N; i++) {
+    const t = (i - 0.5) / N;
+    soma += s(t / ENTRADA) * s((1 - t) / CHEGADA);
+    tabela[i] = soma;
+  }
+  for (let i = 1; i <= N; i++) tabela[i] /= soma;
+  return (p) => {
+    const x = clamp(p) * N;
+    const i = Math.min(N - 1, Math.floor(x));
+    return lerp(tabela[i], tabela[i + 1], x - i);
+  };
+})();
 
 /** FOV vertical conforme a proporção da tela: ~58° em pé, ~42° deitado. */
 function fovPara(aspecto) {
@@ -190,24 +220,34 @@ export async function criarMundo(opcoes) {
   function atualizarCamera(dt) {
     ponteiro.atualizar(dt);
 
-    // Balanço de passo: proporcional à velocidade real do rig.
+    // Balanço de passo. A amplitude segue a velocidade real do rig (entra e sai
+    // com suavidade); a cadência quase não muda: quem anda mais depressa alonga
+    // o passo, não a frequência (~1,8 passo por segundo).
     const velocidade = dt > 0 ? Math.abs(rig.position.z - passo.zAnterior) / dt : 0;
     passo.zAnterior = rig.position.z;
-    const alvoAmp = amb.reduzido ? 0 : clamp(velocidade / 1.1);
-    passo.amplitude = amortecer(passo.amplitude, alvoAmp, 5, dt);
-
+    const alvoAmp = amb.reduzido ? 0 : clamp(velocidade / 0.9);
+    passo.amplitude = amortecer(passo.amplitude, alvoAmp, alvoAmp > passo.amplitude ? 3.4 : 2.2, dt);
     const a = passo.amplitude;
-    const ciclo = passo.fase * Math.PI;                 // um ciclo lateral a cada dois passos
+    passo.fase += dt * lerp(CADENCIA_LENTA, CADENCIA_RAPIDA, clamp(velocidade / 1.8)) * clamp(a * 4);
+
+    // Um ciclo vertical por passo (o corpo desce quando o pé toca o chão e sobe
+    // no meio do apoio); lateral e rolagem a cada dois passos (o peso troca de perna).
+    const ciclo = passo.fase * Math.PI * 2;
+    const vertical = (Math.cos(ciclo) + 0.18 * Math.cos(ciclo * 2 + 0.7)) * BALANCO_VERTICAL * a;
+    const lateral = Math.sin(ciclo * 0.5) * BALANCO_LATERAL * a;
+    const rolagem = Math.sin(ciclo * 0.5 + 0.4) * BALANCO_ROLAGEM * a;
+    const arfar = Math.sin(ciclo + 1.2) * 0.0016 * a;
+
     const forca = amb.reduzido ? 0.35 : 1;              // paralaxe do ponteiro
     camera.position.set(
-      Math.sin(ciclo) * 0.016 * a + ponteiro.x * 0.035 * forca,
-      ALTURA_OLHOS + Math.sin(ciclo * 2) * 0.02 * a + ponteiro.y * 0.02 * forca,
+      lateral + ponteiro.x * 0.035 * forca,
+      ALTURA_OLHOS + vertical + ponteiro.y * 0.02 * forca,
       0,
     );
     camera.rotation.set(
-      ponteiro.y * 0.018 * forca + Math.sin(ciclo * 2 + 0.6) * 0.0035 * a,
+      ponteiro.y * 0.018 * forca + arfar,
       -ponteiro.x * 0.03 * forca,
-      Math.sin(ciclo) * 0.0045 * a,
+      rolagem,
     );
   }
 
@@ -336,27 +376,41 @@ export async function criarMundo(opcoes) {
     const andar = () => new Promise((resolver) => {
       if (!(distancia > 0) || !gsap) { rig.position.z -= Math.max(0, distancia); resolver(); return; }
 
+      const z0 = rig.position.z;
+      const estado = { p: 0 };
+
       if (amb.reduzido) {
-        // Sem deslocamento de câmera: o mundo dissolve no branco e volta já no lugar.
-        gsap.timeline({ onComplete: resolver })
-          .to(canvas, { opacity: 0, duration: 0.7, ease: 'none' })
-          .add(() => { rig.position.z -= distancia; passo.zAnterior = rig.position.z; })
-          .to(canvas, { opacity: 1, duration: 0.9, ease: 'none' });
+        // Movimento reduzido: um avanço lento e contínuo, sem balanço. O grosso
+        // da distância não é percorrido à vista: some dentro de uma dissolvência
+        // no branco, no meio do caminho, e o mundo volta já mais adiante.
+        const lento = Math.min(distancia, VELOCIDADE_CALMA * duracao);
+        const salto = distancia - lento;
+        let saltado = 0;
+        const tl = gsap.timeline({ onComplete: resolver });
+        tl.to(estado, {
+          p: 1,
+          duration: duracao,
+          ease: curvas.branco.deriva,
+          onUpdate() {
+            rig.position.z = z0 - lento * estado.p - saltado;
+            passo.zAnterior = rig.position.z;
+          },
+        }, 0);
+        if (salto > 0.01) {
+          const some = Math.min(0.7, duracao * 0.2);
+          const meio = Math.max(some, duracao * 0.36);
+          tl.to(canvas, { opacity: 0, duration: some, ease: 'none' }, meio - some)
+            .add(() => { saltado = salto; }, meio)
+            .to(canvas, { opacity: 1, duration: Math.min(1, duracao * 0.3), ease: 'none' }, meio + 0.04);
+        }
         return;
       }
 
-      const z0 = rig.position.z;
-      const estado = { p: 0 };
-      let anterior = 0;
       gsap.to(estado, {
         p: 1,
         duration: duracao,
-        ease: curva || curvas.branco.camera,
-        onUpdate() {
-          rig.position.z = z0 - distancia * estado.p;
-          passo.fase += (distancia * (estado.p - anterior)) / COMPRIMENTO_PASSO;
-          anterior = estado.p;
-        },
+        ease: curva || curvaDaCaminhada,
+        onUpdate() { rig.position.z = z0 - distancia * estado.p; },
         onComplete: resolver,
       });
     });

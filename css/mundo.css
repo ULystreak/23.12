@@ -1,37 +1,127 @@
 /* ============================================================================
    MUNDO
-   O canvas do mundo branco e a versão leve (sem WebGL): pétalas em CSS.
+   As frases da abertura sobre o mundo branco e a versão leve do mundo (sem
+   WebGL): pétalas desenhadas em SVG, em três camadas de profundidade.
    (A carta leve leva os próprios estilos em js/mundo/envelope.js.)
-   Esqueleto: o mínimo para funcionar.
    ========================================================================== */
 
-/* ---- pétalas em CSS (modo leve) ------------------------------------------- */
-.petalas-leve {
+/* ---- frases da abertura ---------------------------------------------------- */
+.frase-abertura {
+  font-size: clamp(1.6rem, 6.6vw, 3.4rem);
+  line-height: 1.5;
+  max-width: 10.6em;                       /* "Feliz aniversário." cabe numa linha; a segunda quebra em duas */
+  font-kerning: normal;
+  font-feature-settings: "kern", "liga";
+}
+/* Um halo branco em volta das letras: quando uma pétala passa por trás de uma
+   palavra, a tinta continua lendo (sobre o branco o halo não aparece). */
+.frase-abertura .palavra {
+  text-shadow:
+    0 0 0.18em var(--branco),
+    0 0 0.5em var(--branco),
+    0 0 1.1em var(--branco);
+}
+@media (min-width: 900px) {
+  .frase-abertura { max-width: 16em; letter-spacing: 0.025em; }
+}
+
+/* ---- mundo leve (sem WebGL) ------------------------------------------------
+   Três camadas: longe (pequenas e nítidas), meio e perto (grandes, já
+   desenhadas macias: nenhum filtro de desfoque roda em tempo real).
+   Cada pétala é um <i> que cai (translate) com um <b> dentro que balança e
+   tomba (rotate + scale), e a imagem da pétala é o fundo do <b>.            */
+#mundo-leve { contain: strict; }
+
+/* A raiz não cria camada própria: a de perto e as soltas (z-index 2) passam
+   na frente da carta leve, que o envelope.js acrescenta depois. */
+.leve-mundo, .leve-frente {
   position: absolute;
   inset: 0;
-  transition: opacity 2.4s var(--curva-branco-deriva);
+  pointer-events: none;
+}
+.leve-frente { z-index: 2; }
+
+/* Densidade: a pétala que sobra some devagar, sem reiniciar a queda. */
+.leve-petala > b { transition: opacity 1.6s linear; }
+.leve-petala.fora > b { opacity: 0; }
+.leve-chao > i { transition: opacity 2.4s linear; }
+.leve-chao > i.fora { opacity: 0; }
+
+/* comecar(): zera as quedas para elas recomeçarem com os atrasos novos. */
+.leve-zerar .leve-petala,
+.leve-zerar .leve-petala > b { animation: none; }
+
+.leve-camada {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 46%;
   will-change: transform, opacity;
 }
-.petala-leve {
+.leve-petala {
   position: absolute;
-  top: -8%;
-  left: var(--x, 50%);
-  width: var(--tam, 16px);
-  height: calc(var(--tam, 16px) * 1.25);
-  background: var(--rosa);
-  border-radius: 60% 60% 55% 55% / 85% 85% 35% 35%;
-  animation: petala-cai var(--dur, 12s) linear var(--atraso, 0s) infinite;
-  will-change: transform;
+  left: 0;
+  top: 0;
+  width: var(--tam, 24px);
+  height: var(--tam, 24px);
+  margin: calc(var(--tam, 24px) * -0.5) 0 0 calc(var(--tam, 24px) * -0.5);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: leve-cair var(--dur, 12s) linear var(--atraso, 0s) infinite;
 }
-.petala-leve-perto { filter: blur(3px); }
-.petalas-leve.parada .petala-leve { animation-play-state: paused; }
-.petala-leve-solta {
-  position: fixed;
-  animation: none;
-  margin: calc(var(--tam, 16px) * -0.5) 0 0 calc(var(--tam, 16px) * -0.5);
-  z-index: 2;
+.leve-petala > b {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-position: center; background-size: contain; background-repeat: no-repeat;
+  animation: leve-tombar var(--tombo, 5s) var(--curva-branco-deriva) var(--fase, 0s) infinite alternate;
 }
-@keyframes petala-cai {
-  from { transform: translate3d(0, 0, 0) rotate(0deg); }
-  to   { transform: translate3d(var(--deriva, 6vw), 118vh, 0) rotate(var(--giro, 320deg)); }
+.leve-camada.parada .leve-petala,
+.leve-camada.parada .leve-petala > b { animation-play-state: paused; }
+
+/* A queda: entra por cima, deriva para o lado do vento, some antes do chão. */
+@keyframes leve-cair {
+  0%   { transform: translate3d(var(--x0), -12vh, 0); opacity: 0; }
+  7%   { opacity: var(--alfa, 1); }
+  88%  { opacity: var(--alfa, 1); }
+  100% { transform: translate3d(var(--x1), var(--y1, 112vh), 0); opacity: 0; }
 }
+/* O tombo: balança de um lado para o outro e mostra ora a face, ora o perfil. */
+@keyframes leve-tombar {
+  from { transform: translate3d(calc(var(--bal, 12px) * -1), 0, 0) rotate(var(--r0, -30deg)) scale(var(--s0, 0.9), 1); }
+  to   { transform: translate3d(var(--bal, 12px), 0, 0) rotate(var(--r1, 50deg)) scale(var(--s1, 0.3), 1); }
+}
+
+/* As do chão: deitadas, paradas; dão o horizonte. */
+.leve-chao {
+  position: absolute;
+  left: 0; right: 0;
+  top: 46%; bottom: 0;
+  will-change: transform, opacity;
+}
+.leve-chao > i {
+  position: absolute;
+  width: var(--tam, 20px);
+  height: var(--tam, 20px);
+  margin: calc(var(--tam, 20px) * -0.5) 0 0 calc(var(--tam, 20px) * -0.5);
+  background-position: center; background-size: contain; background-repeat: no-repeat;
+  opacity: var(--alfa, 1);
+  transform: scale(1, var(--achata, 0.4)) rotate(var(--r, 0deg));
+}
+
+/* As que saltam do lacre (rajada) e as enormes que cruzam rente à lente. */
+.leve-solta {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--tam, 22px);
+  height: var(--tam, 22px);
+  margin: calc(var(--tam, 22px) * -0.5) 0 0 calc(var(--tam, 22px) * -0.5);
+  background-position: center; background-size: contain; background-repeat: no-repeat;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+/* Movimento reduzido: sem tombo (só a queda lenta), nada cruza a tela. */
+html.reduzido .leve-petala > b { animation: none; transform: rotate(var(--r0, -30deg)) scale(0.72, 1); }
+
+.leve-instante, .leve-instante * { transition: none !important; }

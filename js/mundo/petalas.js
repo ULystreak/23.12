@@ -1,262 +1,591 @@
-// Pétalas (WebGL): uma malha instanciada que cai numa caixa em volta da câmera,
-// mais um pequeno estoque de pétalas soltas para as rajadas.
+// Pétalas (WebGL): pétalas de rosa com profundidade de campo de fotografia.
 //
-//   petalas.rajada(posMundo, n)     pétalas que saltam de um ponto do mundo
+//   petalas.rajada(posMundo, n)     pétalas que saltam de um ponto e depois caem como as outras
 //   petalas.definirDensidade(k)     0..1 (0 = nenhuma, 1 = todas); muda devagar
+//   petalas.definirFoco(metros)     distância do plano de foco (padrão 3 m); muda devagar
+//   petalas.comecar()               só a abertura usa: as pétalas entram por cima, como se
+//                                   tivessem começado a cair agora (sem isso, já estão no ar)
+//   petalas.protagonistas()         só a abertura usa: algumas pétalas enormes e bem
+//                                   desfocadas cruzam devagar rente à lente
 //   petalas.atualizar(dt, t)        chamado pelo mundo a cada quadro
 //   petalas.objeto                  Object3D (já está na cena)
 //   petalas.dispose()
 //
-// Versão do esqueleto: forma e movimento simples. A assinatura acima não muda.
+// Três chamadas de desenho, todas instanciadas e com o mesmo par de shaders:
+//   chuva   as que caem. Posição, tombo e balanço saem do tempo, dentro do vertex shader
+//           (nada é simulado na CPU): uma caixa de ar acompanha a câmera e a pétala que sai
+//           por um lado renasce pelo outro, então a caminhada atravessa as pétalas.
+//   chão    as que já caíram: deitadas, com uma sombra de contato mínima. Dão o horizonte.
+//   soltas  as das rajadas e as protagonistas, simuladas na CPU (são poucas).
+//
+// A forma é desenhada por distância (SDF) no fragment shader: gota larga de base
+// curta, com um entalhe raso na margem de cima, sobre um quadrado curvado em
+// concha no vertex shader.
+// O desfoque é por instância: o círculo de confusão sai da distância ao plano de
+// foco; quanto mais fora de foco, maior e mais macia a borda e menor a opacidade
+// (a luz se espalha). Muito desfocada, a pétala se vira para a câmera e vira
+// mancha: é o que impede a borda reta do quadrado de aparecer rente à lente.
+// Ao longe elas rareiam e somem na névoa: perto são poucas e grandes, longe são
+// dezenas pequenas. Sem isso o fundo vira confete.
 
-import { clamp, amortecer } from '../nucleo/util.js';
+import { clamp, amortecer, semente } from '../nucleo/util.js';
 
-const QUANTIDADE = { alto: 320, medio: 200, baixo: 110 };
+// Quantas pétalas em cada nível (as que caem + as do chão).
+const QUANTIDADE = {
+  alto: { chuva: 700, chao: 300 },
+  medio: { chuva: 420, chao: 180 },
+  baixo: { chuva: 220, chao: 90 },
+};
+const FOLGA_TELA_LARGA = 1.7;        // em tela deitada a caixa de ar é mais larga: mais pétalas, mesma densidade
 const ESTOQUE_RAJADA = 96;
+const PROTAGONISTAS = 5;
+const FOCO_PADRAO = 3;               // metros
+const ALTURA_CAIXA = 5.6;
+const FUNDO_CAIXA = 9;
+const LARGURA_MINIMA = 5;
+const SOPRO = { velocidade: 0.5, calma: 2.2 };   // o primeiro sopro da abertura: m/s a mais, e em quantos segundos passa
 
 const VERTICE = /* glsl */ `
-  attribute vec3 aSemente;   // posição inicial na caixa (0..1)
-  attribute vec4 aFase;      // x: fase do giro, y: velocidade do giro, z: fase do vaivém, w: tamanho/peso
-  attribute float aTom;      // mistura entre as duas cores
-  attribute float aSorte;    // 0..1, para ligar/desligar pela densidade
+  #define TAU 6.2831853
 
-  uniform float uTempo;
-  uniform vec3 uCaixa;
+  uniform float uFoco;        // distância do plano de foco (m)
+  uniform vec2 uAbertura;     // raio do desfoque (m): x antes do foco, y depois dele
+  uniform vec2 uNevoa;        // onde a névoa branca começa e onde some tudo
+  uniform vec2 uPerto;        // rente à lente a pétala some (antes de cortar no plano próximo)
+  uniform vec3 uLuzDir;       // de onde vem a luz (mundo)
+  uniform float uConcha;      // quão funda é a concha
+
+  varying vec2 vP;            // coordenada na pétala (a silhueta cabe em ±0,8)
+  varying vec2 vQ;            // coordenada no quadrado (±1)
+  varying vec4 vDados;        // x: desfoque (em unidades da pétala), y: opacidade, z: tom, w: forma
+  varying vec3 vLuz;          // x: normal·luz (sem virar), y: névoa, z: o quanto a face olha para a câmera
+
+  mat3 rotX(float a) { float c = cos(a), s = sin(a); return mat3(1., 0., 0., 0., c, s, 0., -s, c); }
+  mat3 rotY(float a) { float c = cos(a), s = sin(a); return mat3(c, 0., -s, 0., 1., 0., s, 0., c); }
+  mat3 rotZ(float a) { float c = cos(a), s = sin(a); return mat3(c, s, 0., -s, c, 0., 0., 0., 1.); }
+
+  void sumir() {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);               // fora do quadro: nem chega ao rasterizador
+    vP = vec2(0.0); vQ = vec2(0.0); vDados = vec4(0.0); vLuz = vec3(0.0);
+  }
+
+  // Recebe o centro da pétala no mundo, a rotação e o tamanho; resolve foco, concha e projeção.
+  void montar(vec3 centro, mat3 R, float tamanho, float rolagem, float extra, float alfa, float tom, float forma) {
+    vec4 mvC = viewMatrix * vec4(centro, 1.0);
+    float prof = -mvC.z;
+    float unidade = tamanho / 1.62;                       // metros por unidade da pétala
+
+    // Círculo de confusão: cresce com a distância ao plano de foco.
+    float abertura = prof < uFoco ? uAbertura.x : uAbertura.y;
+    float s = min(abertura * abs(prof - uFoco) / uFoco * extra / unidade, 2.2);
+
+    float nev = smoothstep(uNevoa.x, uNevoa.y, prof);
+    float a = alfa * smoothstep(uPerto.x, uPerto.y, prof) * (1.0 - nev);
+    a *= max(1.0 / (1.0 + 1.5 * s * s), 0.15);            // a luz se espalha: quanto maior, mais fraca
+
+    if (a < 0.004) { sumir(); return; }
+
+    // O quadrado cresce o bastante para a borda macia caber inteira dentro dele.
+    #ifdef CHAO
+    float margem = max(s, 0.42);                          // a sombra de contato também precisa caber
+    #else
+    float margem = s;
+    #endif
+    float e = max(1.0, (0.86 + margem) / 1.12);
+    vec2 q = position.xy * 2.0;
+    vec2 pp = q * 1.12 * e;
+
+    // Concha: côncava nos dois eixos, com a margem de cima levemente virada para trás.
+    vec2 c = clamp(pp, vec2(-0.8), vec2(0.8));
+    float k = uConcha * (0.6 + 0.8 * fract(forma * 7.3));
+    float tp = clamp((c.y - 0.15) / 0.65, 0.0, 1.0);
+    float ponta = tp * tp * (3.0 - 2.0 * tp);
+    float z = k * (0.62 * c.x * c.x + 0.3 * (c.y + 0.1) * (c.y + 0.1) - 0.34 * ponta * ponta);
+    vec3 local = vec3(pp, z) * unidade;
+    vec3 nLocal = normalize(vec3(
+      -k * 1.24 * c.x,
+      -k * (0.6 * (c.y + 0.1) - 0.68 * ponta * 6.0 * tp * (1.0 - tp) / 0.65),
+      1.0));
+
+    // Quanto mais desfocada, mais de frente para a câmera (uma mancha não tem perfil).
+    #ifdef CHAO
+    float f = 0.0;
+    #else
+    // (começa cedo: meio desfocada e de perfil, ela viraria um risco esticado)
+    float f = smoothstep(0.05, 0.42, s);
+    #endif
+    mat3 V = mat3(viewMatrix);
+    float cr = cos(rolagem), sr = sin(rolagem);
+    vec3 dMundo = V * (R * local);
+    vec3 dFrente = vec3(cr * local.x - sr * local.y, sr * local.x + cr * local.y, local.z);
+    gl_Position = projectionMatrix * vec4(mvC.xyz + mix(dMundo, dFrente, f), 1.0);
+
+    vec3 lV = V * uLuzDir;
+    vec3 nMundo = V * (R * nLocal);
+    vec3 nFrente = vec3(cr * nLocal.x - sr * nLocal.y, sr * nLocal.x + cr * nLocal.y, nLocal.z);
+    float nl = mix(dot(nMundo, lV), dot(nFrente, lV), f);
+    float nv = mix(abs(dot(nMundo, normalize(-mvC.xyz))), 1.0, f);
+
+    vP = pp;
+    vQ = q;
+    vDados = vec4(s, a, tom, forma);
+    vLuz = vec3(nl, nev, nv);
+  }
+
+  #if defined(CHUVA) || defined(CHAO)
+  attribute vec3 aSemente;    // posição inicial na caixa (0..1)
+  attribute vec4 aR1;         // x: fase, y: giro (rad/s, com sinal), z: fase do balanço, w: tamanho
+  attribute vec4 aR2;         // x: tom, y: sorte (densidade), z: modo (plana ↔ gira), w: forma
+
+  uniform vec3 uCaixa;        // tamanho da caixa de ar
+  uniform vec3 uCentro;       // centro da caixa (acompanha a câmera)
   uniform float uDensidade;
-  uniform float uQueda;
-  uniform vec2 uVento;
-  uniform float uTamanho;
+  uniform vec2 uTamanho;      // menor e maior pétala (m)
+  uniform vec3 uRalo;         // ao longe elas rareiam: x de onde, y até onde, z a fração que sobra
 
-  varying vec2 vUv;
-  varying float vTom;
-  varying float vProf;
-  varying float vLuz;
+  // Quantas ficam a esta profundidade: perto todas, longe só uma parte.
+  float presenca(vec3 p) {
+    float prof = -(viewMatrix * vec4(p, 1.0)).z;
+    float limite = uDensidade * 1.06 * mix(1.0, uRalo.z, smoothstep(uRalo.x, uRalo.y, prof));
+    return smoothstep(aR2.y, aR2.y + 0.06, limite);
+  }
+  #endif
 
-  mat3 girarX(float a) { float c = cos(a), s = sin(a); return mat3(1., 0., 0., 0., c, s, 0., -s, c); }
-  mat3 girarY(float a) { float c = cos(a), s = sin(a); return mat3(c, 0., -s, 0., 1., 0., s, 0., c); }
-  mat3 girarZ(float a) { float c = cos(a), s = sin(a); return mat3(c, s, 0., -s, c, 0., 0., 0., 1.); }
+  #ifdef CHUVA
+  uniform float uTempo;       // relógio das pétalas (s)
+  uniform vec2 uVento;        // deriva em x e z (m/s)
+  uniform float uDesde;       // segundos desde que começaram a cair (abertura)
+  uniform float uSopro;       // metros a mais que todas desceram (o primeiro sopro, na abertura)
+  uniform float uTanFov;      // tangente de metade do campo de visão vertical
 
   void main() {
-    vUv = uv;
-    vTom = aTom;
+    float t = uTempo;
+    float gira = smoothstep(0.62, 0.74, aR2.z);                         // 0 plana, 1 tomba sem parar
+    float vel = mix(0.35, 0.6, fract(aR2.w * 13.7 + aR2.z * 5.1));      // queda (m/s)
 
-    float peso = 0.6 + aFase.w * 0.8;
+    // Balanço lateral: duas ondas de períodos que não casam (parece ruído, custa dois senos).
+    float fb = t * (0.55 + 0.7 * aR1.x) + aR1.z * TAU;
+    float bal = sin(fb);
+    float amp = mix(0.24, 0.09, gira);
 
-    // Deriva: cai, é levada pelo vento e balança de lado.
     vec3 p = aSemente * uCaixa;
-    p.y -= uTempo * uQueda * peso;
-    p.x += uTempo * uVento.x + sin(uTempo * 0.55 + aFase.z * 6.2831) * 0.28;
-    p.z += uTempo * uVento.y + cos(uTempo * 0.4 + aFase.z * 6.2831) * 0.12;
+    p.y -= t * vel + uSopro;
+    p.x += t * uVento.x * (0.75 + 0.5 * aR1.z) + bal * amp + sin(fb * 0.43 + aR1.x * 9.0) * 0.16;
+    p.z += t * uVento.y * (0.75 + 0.5 * aR1.x) + cos(fb * 0.8 + 1.3) * amp * 0.6;
+    // quem plana sobe um nada no fim de cada balanço, como folha
+    p.y += (1.0 - gira) * (1.0 - bal * bal) * 0.035;
 
-    // A caixa acompanha a câmera: a pétala que sai por um lado volta pelo outro.
-    vec3 centro = cameraPosition + vec3(0., 0.5, -uCaixa.z * 0.44);
-    p = mod(p - centro + uCaixa * 0.5, uCaixa) - uCaixa * 0.5 + centro;
+    // A caixa acompanha a câmera: quem sai por um lado renasce pelo outro.
+    p = mod(p - uCentro + 0.5 * uCaixa, uCaixa) - 0.5 * uCaixa + uCentro;
 
-    // Some com suavidade nas bordas de cima e de baixo da caixa (sem estalo).
-    float borda = smoothstep(0., 0.6, uCaixa.y * 0.5 - abs(p.y - centro.y));
+    float a = presenca(p);
+    a *= smoothstep(0.0, 0.7, uCaixa.y * 0.5 - abs(p.y - uCentro.y));  // teto e fundo da caixa
+    a *= smoothstep(0.0, 0.5, uCaixa.x * 0.5 - abs(p.x - uCentro.x));  // lados
+    a *= smoothstep(0.03, 0.3, p.y);                                    // some antes de atravessar o chão
 
-    float a = uTempo * aFase.y + aFase.x * 6.2831;
-    vec3 local = position;
-    local.z += (local.x * local.x - 0.08) * 0.9;          // pétala levemente em concha
-    float visivel = step(aSorte, uDensidade);
-    local *= uTamanho * (0.7 + aFase.w * 0.9) * visivel * borda;
-    mat3 giro = girarY(a * 0.7 + aFase.z * 3.) * girarX(a) * girarZ(aFase.x * 6.2831 + a * 0.3);
-    local = giro * local;
+    // Abertura: só aparece quem entrou por cima do quadro depois que elas começaram a cair.
+    float frente = max(cameraPosition.z - p.z, 0.3);
+    float topo = min(uCentro.y + uCaixa.y * 0.5, cameraPosition.y + frente * uTanFov * 1.08 + 0.15);
+    // (as que passam rente à lente esperam um pouco: as primeiras a aparecer são as nítidas)
+    float desde = uDesde - 1.7 * (1.0 - smoothstep(0.6, 1.7, frente));
+    a *= smoothstep(0.0, 0.45, vel * desde * 1.1 + uSopro - (topo - p.y)) * step(0.0, desde);
 
-    vLuz = abs((giro * vec3(0., 0., 1.)).z);              // de frente = mais clara
-    vec4 mv = viewMatrix * vec4(p + local, 1.);
-    vProf = -mv.z;
-    gl_Position = projectionMatrix * mv;
+    if (a < 0.004) { sumir(); return; }
+
+    // Tombo em eixo próprio: as planas oscilam como folha, as outras giram sem parar.
+    float guinada = aR1.x * TAU + t * (0.2 + 0.5 * aR2.w) * sign(aR1.y);
+    float incl = (aR1.z - 0.5) * 2.6 + bal * mix(0.6, 0.2, gira) + gira * t * aR1.y;
+    float rol = aR2.x * TAU + t * 0.12 * aR1.y;
+    mat3 R = rotY(guinada) * rotX(incl - 1.5708) * rotZ(rol);
+
+    float tamanho = mix(uTamanho.x, uTamanho.y, aR1.w * aR1.w);
+    montar(p, R, tamanho, rol + guinada * 0.5, 1.0, a, aR2.x, aR2.w);
   }
-`;
+  #endif
 
-const VERTICE_RAJADA = /* glsl */ `
-  attribute vec3 aPos;
-  attribute vec4 aDados;     // x: ângulo, y: tamanho, z: opacidade, w: tom
+  #ifdef CHAO
+  void main() {
+    vec3 p = vec3(aSemente.x * uCaixa.x, 0.0, aSemente.z * uCaixa.z);
+    p.xz = mod(p.xz - uCentro.xz + 0.5 * uCaixa.xz, uCaixa.xz) - 0.5 * uCaixa.xz + uCentro.xz;
+    p.y = 0.012;
 
-  varying vec2 vUv;
-  varying float vTom;
-  varying float vProf;
-  varying float vLuz;
-  varying float vOpacidade;
+    float a = presenca(p);
+    vec2 beira = uCaixa.xz * 0.5 - abs(p.xz - uCentro.xz);
+    a *= smoothstep(0.0, 0.7, beira.x) * smoothstep(0.0, 0.7, beira.y);
+    if (a < 0.004) { sumir(); return; }
 
-  mat3 girarX(float a) { float c = cos(a), s = sin(a); return mat3(1., 0., 0., 0., c, s, 0., -s, c); }
-  mat3 girarZ(float a) { float c = cos(a), s = sin(a); return mat3(c, s, 0., -s, c, 0., 0., 0., 1.); }
+    // Deitada, com rotação qualquer; metade caiu de barriga para baixo.
+    float virada = step(0.5, aR2.z) * 3.14159265;
+    mat3 R = rotY(aR1.x * TAU) * rotX(-1.5708 + (aR1.z - 0.5) * 0.3 + virada) * rotZ(aR1.y);
+
+    float tamanho = mix(uTamanho.x, uTamanho.y, aR1.w * aR1.w);
+    montar(p, R, tamanho, 0.0, 1.0, a, aR2.x, aR2.w);
+  }
+  #endif
+
+  #ifdef SOLTA
+  attribute vec3 aPos;        // posição no mundo
+  attribute vec4 aGiro;       // x: guinada, y: inclinação, z: rolagem, w: forma
+  attribute vec4 aSolta;      // x: tamanho (m), y: opacidade, z: tom, w: desfoque extra
 
   void main() {
-    vUv = uv;
-    vTom = aDados.w;
-    vOpacidade = aDados.z;
-    vec3 local = position;
-    local.z += (local.x * local.x - 0.08) * 0.9;
-    local *= aDados.y;
-    mat3 giro = girarX(aDados.x * 1.3) * girarZ(aDados.x);
-    local = giro * local;
-    vLuz = abs((giro * vec3(0., 0., 1.)).z);
-    vec4 mv = viewMatrix * vec4(aPos + local, 1.);
-    vProf = -mv.z;
-    gl_Position = projectionMatrix * mv;
+    mat3 R = rotY(aGiro.x) * rotX(aGiro.y - 1.5708) * rotZ(aGiro.z);
+    montar(aPos, R, aSolta.x, aGiro.z, aSolta.w, aSolta.y, aSolta.z, aGiro.w);
   }
+  #endif
 `;
 
 const FRAGMENTO = /* glsl */ `
-  uniform vec3 uCor1;
-  uniform vec3 uCor2;
-  uniform vec3 uNevoaCor;
-  uniform float uNevoaPerto;
-  uniform float uNevoaLonge;
+  uniform vec3 uCorBaseA;     // base (onde prendia na flor): mais escura
+  uniform vec3 uCorBordaA;
+  uniform vec3 uCorBaseB;     // segunda variação de tom
+  uniform vec3 uCorBordaB;
+  uniform vec3 uCorLuz;       // a cor da pétala atravessada pela luz
+  uniform vec3 uCorSombra;
 
-  varying vec2 vUv;
-  varying float vTom;
-  varying float vProf;
-  varying float vLuz;
-  #ifdef RAJADA
-  varying float vOpacidade;
-  #endif
+  varying vec2 vP;
+  varying vec2 vQ;
+  varying vec4 vDados;
+  varying vec3 vLuz;
+
+  // Cápsula desigual (Inigo Quilez): círculo de raio r1 na origem, r2 em (0, h).
+  float capsula(vec2 p, float r1, float r2, float h) {
+    p.x = abs(p.x);
+    float b = (r1 - r2) / h;
+    float a = sqrt(1.0 - b * b);
+    float k = dot(p, vec2(-b, a));
+    if (k < 0.0) return length(p) - r1;
+    if (k > a * h) return length(p - vec2(0.0, h)) - r2;
+    return dot(p, vec2(a, b)) - r1;
+  }
+
+  // Pétala de rosa: uma gota larga, de base curta e arredondada (a unha, onde
+  // prendia na flor), que abre num leque redondo. A nervura do meio é levemente
+  // curva (nenhuma é simétrica) e a margem de cima leva um entalhe raso.
+  float petala(vec2 p, float forma, float nitidez) {
+    float lado = fract(forma * 11.3) - 0.5;
+    p.x += lado * 0.3 * (p.y * p.y - 0.18);                // a curva da nervura
+    p.x *= mix(0.82, 0.98, fract(forma * 3.7));            // umas mais largas que outras
+    float r2 = mix(0.6, 0.54, fract(forma * 5.3));
+    float d = capsula(p - vec2(0.0, -0.43), 0.25, r2, 0.55);
+
+    // entalhe: um círculo pequeno morde a margem de cima, raso e fora do centro
+    // (fundo e no meio, a pétala vira coração); some com o desfoque
+    float fundo = 0.05 * smoothstep(0.25, 0.9, fract(forma * 7.9)) * nitidez;
+    float dn = length(p - vec2(lado * 0.3 + sign(lado) * 0.09, 0.12 + r2 + 0.11 - fundo)) - 0.11;
+    float k = 0.07 * smoothstep(0.0, 0.02, fundo) + 0.0001;
+    float h = clamp(0.5 - 0.5 * (d + dn) / k, 0.0, 1.0);
+    return mix(d, -dn, h) + k * h * (1.0 - h);
+  }
+
+  float ruido(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 
   void main() {
-    // Forma de pétala: gota mais larga embaixo, com a ponta em cima.
-    vec2 q = vUv * 2. - 1.;
-    float d = length(vec2(q.x * (1.25 + 0.55 * q.y), q.y * 0.96));
+    float s = vDados.x;
+    float forma = vDados.w;
+    float nitidez = 1.0 - smoothstep(0.03, 0.3, s);
 
-    // Perto da câmera a borda amolece (parece fora de foco) e a pétala fica translúcida.
-    float perto = 1. - smoothstep(0.35, 1.7, vProf);
-    float maciez = mix(0.06, 0.55, perto);
-    float alfa = 1. - smoothstep(0.92 - maciez, 0.92, d);
-    alfa *= mix(1., 0.55, perto) * smoothstep(0.08, 0.3, vProf);
+    float d = petala(vP, forma, nitidez);
+    // margem de cima levemente ondulada: nenhuma pétala é um desenho de compasso
+    float ang = atan(vP.x, vP.y + 0.3);
+    d += (0.016 * sin(ang * 5.0 + forma * 40.0) + 0.007 * sin(ang * 11.0 + forma * 17.0))
+      * smoothstep(-0.25, 0.45, vP.y) * nitidez;
 
-    vec3 cor = mix(uCor1, uCor2, vTom) * (0.82 + 0.26 * vLuz);
-    cor += (1. - d) * 0.06;                                  // miolo um pouco mais claro
+    // Borda: nítida no foco; fora dele a luz se espalha para fora da silhueta.
+    // Por dentro a rampa é curta: o miolo fica liso, sem os vincos da função de distância.
+    float aa = fwidth(d) * 0.75 + 0.0001;
+    float cobertura = 1.0 - smoothstep(-max(min(s, 0.16), aa), max(s, aa), d);
+    // rede de segurança: na beira do quadrado a opacidade é sempre zero
+    float janela = 1.0 - smoothstep(0.84, 1.0, max(abs(vQ.x), abs(vQ.y)));
+    float alfa = cobertura * janela * vDados.y;
 
-    float nevoa = smoothstep(uNevoaPerto, uNevoaLonge, vProf);
-    cor = mix(cor, uNevoaCor, nevoa);
-    alfa *= 1. - nevoa * 0.85;
-    #ifdef RAJADA
-    alfa *= vOpacidade;
+    // Cor: da base escura para a borda viva.
+    // Fora de foco o desenho de dentro também se desfaz: sobra a cor média, viva.
+    float liso = smoothstep(0.18, 0.9, s);
+    float g = smoothstep(0.0, 1.0, length((vP - vec2(0.0, -0.68)) * vec2(0.85, 1.0)) / 1.3);
+    g = mix(g, 0.74, liso);
+    vec3 cor = mix(mix(uCorBaseA, uCorBaseB, vDados.z), mix(uCorBordaA, uCorBordaB, vDados.z), g);
+
+    // Nervura central e veios em leque, quase invisíveis (somem com o desfoque).
+    float nervura = exp(-vP.x * vP.x / 0.0016) * smoothstep(0.5, -0.6, vP.y);
+    float veios = 0.5 + 0.5 * sin(atan(vP.x, vP.y + 1.1) * 44.0);
+    cor *= 1.0 - nitidez * (0.09 * nervura + 0.04 * veios * smoothstep(-0.6, 0.35, vP.y));
+
+    // A margem é mais fina: deixa passar um pouco de luz.
+    cor = mix(cor, uCorLuz, smoothstep(-0.2, 0.0, d) * 0.22);
+
+    // Luz do alto, sem brilho de plástico. Vista pelo lado da sombra, a luz
+    // atravessa a pétala e ela clareia. Nas faces que fogem do olhar, o veludo.
+    float nl = vLuz.x * (gl_FrontFacing ? 1.0 : -1.0);
+    cor *= mix(mix(0.66, 1.06, smoothstep(-1.0, 1.0, nl)), 0.98, liso);
+    cor = mix(cor, uCorLuz, max(max(-nl, 0.0) * 0.4, liso * 0.28));
+    float veludo = 1.0 - vLuz.z;
+    cor = mix(cor, uCorLuz, veludo * veludo * 0.3);
+    cor *= 0.9 + 0.2 * fract(forma * 9.1);
+
+    // Ao longe, some na névoa branca.
+    cor = mix(cor, vec3(1.0), vLuz.y * 0.8);
+
+    #ifdef CHAO
+    // Sombra de contato: uma mancha escura mínima, deslocada um nada.
+    float ds = petala(vP - vec2(0.05, -0.06), forma, 0.0);
+    float sombra = (1.0 - smoothstep(-0.36, 0.36, ds)) * janela * 0.085 * min(vDados.y * 1.4, 1.0);
+    float total = alfa + sombra * (1.0 - alfa);
+    cor = mix(uCorSombra, cor, alfa / max(total, 0.0001));
+    alfa = total;
     #endif
 
-    if (alfa < 0.01) discard;
+    // um grão mínimo desfaz os degraus das manchas grandes e macias
+    alfa += (ruido(gl_FragCoord.xy) - 0.5) * 0.012 * step(0.2, s) * step(0.004, alfa);
+
+    if (alfa < 0.003) discard;
     gl_FragColor = vec4(cor, alfa);
     #include <colorspace_fragment>
+    gl_FragColor.rgb *= gl_FragColor.a;                   // alfa pré-multiplicado
   }
 `;
 
 export function criarPetalas(mundo, amb) {
-  const { THREE, cena, camera } = mundo;
+  const { THREE, cena, camera, rig } = mundo;
+  const sorte = semente(231223);
+  const entre = (a, b) => a + sorte() * (b - a);
 
-  // ---- geometria-base: um plano pequeno, com subdivisão para a concha -----------
-  const base = new THREE.PlaneGeometry(1, 1, 2, 2);
+  // Quadrado com subdivisão, para a concha aparecer.
+  const base = new THREE.PlaneGeometry(1, 1, amb.nivel === 'baixo' ? 4 : 6, amb.nivel === 'baixo' ? 5 : 7);
 
-  const uniformesComuns = () => ({
-    uCor1: { value: new THREE.Color('#b3123a') },
-    uCor2: { value: new THREE.Color('#d7264f') },
-    uNevoaCor: { value: new THREE.Color(0xffffff) },
-    uNevoaPerto: { value: 3.0 },
-    uNevoaLonge: { value: 11.0 },
-  });
+  const comuns = {
+    uFoco: { value: FOCO_PADRAO },
+    uAbertura: { value: new THREE.Vector2(0.04, 0.008) },
+    uNevoa: { value: new THREE.Vector2(3.8, 9.2) },
+    // movimento reduzido: nada enorme passando rente à lente
+    uPerto: { value: amb.reduzido ? new THREE.Vector2(0.6, 1.1) : new THREE.Vector2(0.16, 0.38) },
+    uLuzDir: { value: new THREE.Vector3(-0.3, 1, 0.45).normalize() },
+    uConcha: { value: 0.55 },
+    uCorBaseA: { value: new THREE.Color('#6d0a22') },
+    uCorBordaA: { value: new THREE.Color('#b3123a') },
+    uCorBaseB: { value: new THREE.Color('#7d0c28') },
+    uCorBordaB: { value: new THREE.Color('#c9184a') },
+    uCorLuz: { value: new THREE.Color('#e4486c') },
+    uCorSombra: { value: new THREE.Color('#2a1b22') },
+  };
 
-  // ---- chuva de pétalas ---------------------------------------------------------
-  const maximo = QUANTIDADE.alto;
-  const geometria = new THREE.InstancedBufferGeometry();
-  geometria.index = base.index;
-  geometria.setAttribute('position', base.getAttribute('position'));
-  geometria.setAttribute('uv', base.getAttribute('uv'));
-
-  const sementes = new Float32Array(maximo * 3);
-  const fases = new Float32Array(maximo * 4);
-  const tons = new Float32Array(maximo);
-  const sortes = new Float32Array(maximo);
-  for (let i = 0; i < maximo; i++) {
-    sementes[i * 3] = Math.random();
-    sementes[i * 3 + 1] = Math.random();
-    sementes[i * 3 + 2] = Math.random();
-    fases[i * 4] = Math.random();
-    fases[i * 4 + 1] = (0.5 + Math.random() * 1.6) * (Math.random() < 0.5 ? -1 : 1);
-    fases[i * 4 + 2] = Math.random();
-    fases[i * 4 + 3] = Math.random();
-    tons[i] = Math.random();
-    sortes[i] = Math.random();
-  }
-  geometria.setAttribute('aSemente', new THREE.InstancedBufferAttribute(sementes, 3));
-  geometria.setAttribute('aFase', new THREE.InstancedBufferAttribute(fases, 4));
-  geometria.setAttribute('aTom', new THREE.InstancedBufferAttribute(tons, 1));
-  geometria.setAttribute('aSorte', new THREE.InstancedBufferAttribute(sortes, 1));
-  geometria.instanceCount = QUANTIDADE[amb.nivel] || QUANTIDADE.medio;
-
-  const material = new THREE.ShaderMaterial({
+  const material = (variante, uniformes) => new THREE.ShaderMaterial({
     vertexShader: VERTICE,
     fragmentShader: FRAGMENTO,
-    uniforms: {
-      ...uniformesComuns(),
-      uTempo: { value: 0 },
-      uCaixa: { value: new THREE.Vector3(7, 6, 11) },
-      uDensidade: { value: 0 },
-      uQueda: { value: amb.reduzido ? 0.14 : 0.3 },
-      uVento: { value: new THREE.Vector2(amb.reduzido ? 0.04 : 0.1, 0.03) },
-      uTamanho: { value: 0.06 },
-    },
+    defines: { [variante]: '' },
+    uniforms: { ...comuns, ...uniformes },
     transparent: true,
+    premultipliedAlpha: true,
     depthWrite: false,
     side: THREE.DoubleSide,
   });
 
-  const chuva = new THREE.Mesh(geometria, material);
+  const geometriaInstanciada = () => {
+    const g = new THREE.InstancedBufferGeometry();
+    g.index = base.index;
+    g.setAttribute('position', base.getAttribute('position'));
+    g.setAttribute('uv', base.getAttribute('uv'));
+    return g;
+  };
+
+  /** Atributos aleatórios de `n` pétalas (os mesmos nomes servem à chuva e ao chão). */
+  const semear = (g, n) => {
+    const sementes = new Float32Array(n * 3);
+    const r1 = new Float32Array(n * 4);
+    const r2 = new Float32Array(n * 4);
+    for (let i = 0; i < n; i++) {
+      sementes[i * 3] = sorte();
+      sementes[i * 3 + 1] = sorte();
+      sementes[i * 3 + 2] = sorte();
+      r1[i * 4] = sorte();
+      r1[i * 4 + 1] = entre(1.2, 3.6) * (sorte() < 0.5 ? -1 : 1);
+      r1[i * 4 + 2] = sorte();
+      r1[i * 4 + 3] = sorte();
+      r2[i * 4] = sorte();
+      r2[i * 4 + 1] = sorte();
+      r2[i * 4 + 2] = sorte();
+      r2[i * 4 + 3] = sorte();
+    }
+    g.setAttribute('aSemente', new THREE.InstancedBufferAttribute(sementes, 3));
+    g.setAttribute('aR1', new THREE.InstancedBufferAttribute(r1, 4));
+    g.setAttribute('aR2', new THREE.InstancedBufferAttribute(r2, 4));
+  };
+
+  // ---- as que caem ----------------------------------------------------------------
+  const maxChuva = Math.ceil(QUANTIDADE.alto.chuva * FOLGA_TELA_LARGA);
+  const geoChuva = geometriaInstanciada();
+  semear(geoChuva, maxChuva);
+  const matChuva = material('CHUVA', {
+    uTempo: { value: 0 },
+    uCaixa: { value: new THREE.Vector3(LARGURA_MINIMA, ALTURA_CAIXA, FUNDO_CAIXA) },
+    uCentro: { value: new THREE.Vector3() },
+    uDensidade: { value: 0 },
+    uTamanho: { value: new THREE.Vector2(0.07, 0.15) },
+    uRalo: { value: new THREE.Vector3(3, 7.5, 0.28) },
+    uVento: { value: new THREE.Vector2(0.12, 0.02) },
+    uDesde: { value: 1e5 },
+    uSopro: { value: 0 },
+    uTanFov: { value: 0.55 },
+  });
+  const chuva = new THREE.Mesh(geoChuva, matChuva);
   chuva.frustumCulled = false;
   chuva.renderOrder = 5;
 
-  // ---- rajada: estoque de pétalas simuladas na CPU --------------------------------
-  const geoRajada = new THREE.InstancedBufferGeometry();
-  geoRajada.index = base.index;
-  geoRajada.setAttribute('position', base.getAttribute('position'));
-  geoRajada.setAttribute('uv', base.getAttribute('uv'));
-  const rPos = new Float32Array(ESTOQUE_RAJADA * 3);
-  const rDados = new Float32Array(ESTOQUE_RAJADA * 4);
-  const atribPos = new THREE.InstancedBufferAttribute(rPos, 3).setUsage(THREE.DynamicDrawUsage);
-  const atribDados = new THREE.InstancedBufferAttribute(rDados, 4).setUsage(THREE.DynamicDrawUsage);
-  geoRajada.setAttribute('aPos', atribPos);
-  geoRajada.setAttribute('aDados', atribDados);
-  geoRajada.instanceCount = ESTOQUE_RAJADA;
-
-  const matRajada = new THREE.ShaderMaterial({
-    vertexShader: VERTICE_RAJADA,
-    fragmentShader: FRAGMENTO,
-    defines: { RAJADA: '' },
-    uniforms: uniformesComuns(),
-    transparent: true,
-    depthWrite: false,
-    side: THREE.DoubleSide,
+  // ---- as do chão -----------------------------------------------------------------
+  const maxChao = Math.ceil(QUANTIDADE.alto.chao * FOLGA_TELA_LARGA);
+  const geoChao = geometriaInstanciada();
+  semear(geoChao, maxChao);
+  const matChao = material('CHAO', {
+    uCaixa: { value: new THREE.Vector3(LARGURA_MINIMA + 2, 1, FUNDO_CAIXA + 1) },
+    uCentro: { value: new THREE.Vector3() },
+    uDensidade: { value: 0 },
+    uTamanho: { value: new THREE.Vector2(0.07, 0.14) },
+    uRalo: { value: new THREE.Vector3(3.5, 8, 0.32) },
   });
-  const rajadas = new THREE.Mesh(geoRajada, matRajada);
-  rajadas.frustumCulled = false;
-  rajadas.renderOrder = 6;
-  rajadas.visible = false;
+  const chao = new THREE.Mesh(geoChao, matChao);
+  chao.frustumCulled = false;
+  chao.renderOrder = 4;
 
-  const soltas = Array.from({ length: ESTOQUE_RAJADA }, () => ({
-    viva: false, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, idade: 0, vida: 1, giro: 0, vGiro: 0, tam: 0.05, tom: 0,
+  // ---- soltas: rajadas e protagonistas, simuladas na CPU ---------------------------
+  const totalSoltas = ESTOQUE_RAJADA + PROTAGONISTAS;
+  const geoSoltas = geometriaInstanciada();
+  const sPos = new Float32Array(totalSoltas * 3);
+  const sGiro = new Float32Array(totalSoltas * 4);
+  const sDados = new Float32Array(totalSoltas * 4);
+  const atribPos = new THREE.InstancedBufferAttribute(sPos, 3).setUsage(THREE.DynamicDrawUsage);
+  const atribGiro = new THREE.InstancedBufferAttribute(sGiro, 4).setUsage(THREE.DynamicDrawUsage);
+  const atribDados = new THREE.InstancedBufferAttribute(sDados, 4).setUsage(THREE.DynamicDrawUsage);
+  geoSoltas.setAttribute('aPos', atribPos);
+  geoSoltas.setAttribute('aGiro', atribGiro);
+  geoSoltas.setAttribute('aSolta', atribDados);
+  geoSoltas.instanceCount = totalSoltas;
+  const matSoltas = material('SOLTA', {});
+  const malhaSoltas = new THREE.Mesh(geoSoltas, matSoltas);
+  malhaSoltas.frustumCulled = false;
+  malhaSoltas.renderOrder = 6;
+  malhaSoltas.visible = false;
+
+  const soltas = Array.from({ length: totalSoltas }, () => ({
+    viva: false, roteiro: null, partiu: false,
+    de: new THREE.Vector3(), ate: new THREE.Vector3(),
+    x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0,
+    idade: 0, vida: 1, queda: 0.45, fase: 0,
+    guinada: 0, incl: 0, rol: 0, vGuinada: 0, vIncl: 0, vInclFinal: 0,
+    tam: 0.06, tom: 0, forma: 0, extra: 1,
   }));
   let vivas = 0;
-  let cursor = 0;
 
   const objeto = new THREE.Group();
   objeto.name = 'petalas';
-  objeto.add(chuva, rajadas);
+  objeto.add(chao, chuva, malhaSoltas);
   cena.add(objeto);
 
-  // ---- densidade e caixa ----------------------------------------------------------
-  const tetoDensidade = amb.reduzido ? 0.22 : 1;
+  // ---- estado ---------------------------------------------------------------------
+  const ritmo = amb.reduzido ? 0.45 : 1;            // movimento reduzido: tudo mais lento
+  const tetoChuva = amb.reduzido ? 0.34 : 1;        // ... e poucas
+  const tetoChao = amb.reduzido ? 0.6 : 1;
+  let relogio = sorte() * 40;                       // relógio próprio (anda no ritmo acima)
   let densidadeAlvo = 1;
+  let focoAlvo = FOCO_PADRAO;
+  let desde = 1e5;                                  // tempo desde comecar(); enorme = já estavam no ar
+  const posCamera = new THREE.Vector3();
+
+  function ajustarQuantidade() {
+    const q = QUANTIDADE[amb.nivel] || QUANTIDADE.medio;
+    const largura = matChuva.uniforms.uCaixa.value.x;
+    const folga = clamp(largura / LARGURA_MINIMA, 1, FOLGA_TELA_LARGA);
+    geoChuva.instanceCount = Math.min(maxChuva, Math.round(q.chuva * folga));
+    geoChao.instanceCount = Math.min(maxChao, Math.round(q.chao * folga));
+  }
 
   function ajustarCaixa() {
     // A caixa precisa ser mais larga que o que a câmera vê lá no fundo (telas deitadas).
-    const fundo = material.uniforms.uCaixa.value.z;
-    const larguraVista = 2 * Math.tan((camera.fov * Math.PI) / 360) * fundo * camera.aspect;
-    material.uniforms.uCaixa.value.x = Math.max(7, larguraVista * 1.05);
+    const tan = Math.tan((camera.fov * Math.PI) / 360);
+    const larguraVista = 2 * tan * FUNDO_CAIXA * camera.aspect;
+    const largura = Math.max(LARGURA_MINIMA, larguraVista * 1.06);
+    matChuva.uniforms.uCaixa.value.x = largura;
+    matChuva.uniforms.uTanFov.value = tan;
+    matChao.uniforms.uCaixa.value.x = largura + 2;
+    ajustarQuantidade();
   }
   ajustarCaixa();
   const pararTamanho = mundo.aoRedimensionar(ajustarCaixa);
-  const pararNivel = mundo.aoMudarNivel((nivel) => {
-    geometria.instanceCount = QUANTIDADE[nivel] || QUANTIDADE.baixo;
-  });
+  const pararNivel = mundo.aoMudarNivel(ajustarQuantidade);
+
+  function pegarSolta() {
+    // Primeiro uma livre; se não houver, a que está mais perto do fim dá a vez.
+    let escolhida = soltas[0];
+    for (let i = 0; i < ESTOQUE_RAJADA; i++) {
+      const p = soltas[i];
+      if (!p.viva) return p;
+      if (p.idade / p.vida > escolhida.idade / escolhida.vida) escolhida = p;
+    }
+    return escolhida;
+  }
+
+  /** Metade do quadro (em metros) a `prof` metros da câmera. */
+  function meiaVista(prof) {
+    const meiaAltura = Math.tan((camera.fov * Math.PI) / 360) * prof;
+    return { x: meiaAltura * camera.aspect, y: meiaAltura };
+  }
+
+  function atualizarSoltas(dt) {
+    const vento = matChuva.uniforms.uVento.value;
+    const assenta = 1 - Math.exp(-1.9 * dt);
+    let sobrou = 0;
+
+    for (let i = 0; i < totalSoltas; i++) {
+      const p = soltas[i];
+      if (!p.viva) { sDados[i * 4 + 1] = 0; continue; }
+      p.idade += dt;
+      let alfa = 1;
+
+      if (p.roteiro) {
+        // Protagonista: atravessa o quadro devagar, rente à lente. O caminho é
+        // fixado no mundo quando ela entra: se a caminhada começar antes de ela
+        // sair, ela passa pela câmera como qualquer outra.
+        const r = p.roteiro;
+        if (p.idade < 0) { sDados[i * 4 + 1] = 0; sobrou++; continue; }     // ainda não entrou
+        const k = p.idade / p.vida;
+        if (k >= 1) { p.viva = false; p.roteiro = null; sDados[i * 4 + 1] = 0; continue; }
+        if (!p.partiu) {
+          const meia = meiaVista(r.prof);
+          const folga = p.tam * 2.4;                            // o quanto ela (desfocada) ocupa para fora do centro
+          camera.updateWorldMatrix(true, false);
+          p.de.set(r.de[0] * (meia.x + folga), r.de[1] * (meia.y + folga), -r.prof).applyMatrix4(camera.matrixWorld);
+          p.ate.set(r.ate[0] * (meia.x + folga), r.ate[1] * (meia.y + folga), -r.prof).applyMatrix4(camera.matrixWorld);
+          p.partiu = true;
+        }
+        p.x = p.de.x + (p.ate.x - p.de.x) * k;
+        p.y = p.de.y + (p.ate.y - p.de.y) * k + Math.sin(k * 5 + p.fase) * 0.012;
+        p.z = p.de.z + (p.ate.z - p.de.z) * k;
+        alfa = clamp(k / 0.14) * clamp((1 - k) / 0.14);
+      } else {
+        // Rajada: sai em leque, o ar freia, e ela passa a cair como as outras.
+        const fim = p.idade >= p.vida || p.y < 0.03 || p.z > posCamera.z + 0.4;
+        if (fim) { p.viva = false; sDados[i * 4 + 1] = 0; continue; }
+        const bal = Math.sin(p.idade * 1.3 + p.fase) * 0.18 * clamp(p.idade - 0.6);
+        p.vx += (vento.x + bal - p.vx) * assenta;
+        p.vy += (-p.queda - p.vy) * assenta;
+        p.vz += (vento.y - p.vz) * assenta;
+        p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+        p.vIncl += (p.vInclFinal - p.vIncl) * (1 - Math.exp(-1.1 * dt));
+        alfa = clamp(p.idade / 0.12) * clamp((p.vida - p.idade) / 1.6) * clamp((p.y - 0.03) / 0.3);
+      }
+
+      p.guinada += p.vGuinada * dt;
+      p.incl += p.vIncl * dt;
+      sPos[i * 3] = p.x; sPos[i * 3 + 1] = p.y; sPos[i * 3 + 2] = p.z;
+      sGiro[i * 4] = p.guinada; sGiro[i * 4 + 1] = p.incl; sGiro[i * 4 + 2] = p.rol; sGiro[i * 4 + 3] = p.forma;
+      sDados[i * 4] = p.tam; sDados[i * 4 + 1] = alfa; sDados[i * 4 + 2] = p.tom; sDados[i * 4 + 3] = p.extra;
+      sobrou++;
+    }
+
+    vivas = sobrou;
+    atribPos.needsUpdate = true;
+    atribGiro.needsUpdate = true;
+    atribDados.needsUpdate = true;
+  }
 
   const petalas = {
     objeto,
@@ -265,72 +594,121 @@ export function criarPetalas(mundo, amb) {
       densidadeAlvo = clamp(Number(k) || 0);
     },
 
-    rajada(posMundo, n = 12) {
-      if (!posMundo) return;
-      const quantas = Math.min(amb.reduzido ? Math.ceil(n / 3) : n, ESTOQUE_RAJADA);
-      for (let i = 0; i < quantas; i++) {
-        const p = soltas[cursor];
-        cursor = (cursor + 1) % ESTOQUE_RAJADA;
-        const angulo = Math.random() * Math.PI * 2;
-        const forca = 0.5 + Math.random() * 1.3;
-        if (!p.viva) vivas++;
-        p.viva = true;
-        p.x = posMundo.x; p.y = posMundo.y; p.z = posMundo.z;
-        p.vx = Math.cos(angulo) * forca;
-        p.vy = Math.sin(angulo) * forca * 0.8 + 0.7;
-        p.vz = 0.3 + Math.random() * 1.1;                  // saltam um pouco na direção dela
-        p.idade = 0;
-        p.vida = 1.6 + Math.random() * 1.4;
-        p.giro = Math.random() * 6.28;
-        p.vGiro = (Math.random() - 0.5) * 9;
-        p.tam = 0.035 + Math.random() * 0.035;
-        p.tom = Math.random();
-      }
-      rajadas.visible = true;
+    definirFoco(metros) {
+      const d = Number(metros);
+      focoAlvo = Number.isFinite(d) && d > 0 ? clamp(d, 0.4, 30) : FOCO_PADRAO;
     },
 
-    atualizar(dt, t) {
-      const u = material.uniforms;
-      u.uTempo.value = t;
-      u.uDensidade.value = amortecer(u.uDensidade.value, densidadeAlvo * tetoDensidade, 0.9, dt);
+    comecar() {
+      desde = 0;
+      matChuva.uniforms.uDesde.value = 0;
+      matChuva.uniforms.uSopro.value = 0;
+      matChao.uniforms.uDensidade.value = 0;
+    },
 
-      if (!vivas) {
-        if (rajadas.visible) rajadas.visible = false;
-        return;
+    protagonistas() {
+      if (amb.reduzido) return;                       // nada grande cruzando a tela
+      // Cada uma: de onde vem e para onde vai (±1 = já fora do quadro), a que
+      // distância da lente, em quantos segundos e depois de quanto tempo.
+      // Todas derivam para o lado do vento (direita) e para baixo.
+      const roteiros = [
+        { de: [-1, 0.3], ate: [1, -0.42], prof: 0.44, dura: 6.4, atraso: 0 },
+        { de: [0.2, 1], ate: [1, 0.1], prof: 0.58, dura: 5.2, atraso: 1.9 },
+        { de: [-1, -0.2], ate: [0.4, -1], prof: 0.5, dura: 5.8, atraso: 3.6 },
+        { de: [-1, 0.78], ate: [1, 0.12], prof: 0.76, dura: 6.6, atraso: 5.4 },
+        { de: [-0.5, 1], ate: [1, -0.66], prof: 0.47, dura: 6.2, atraso: 7.5 },
+      ];
+      const quantas = amb.nivel === 'baixo' ? 3 : roteiros.length;
+      for (let i = 0; i < quantas; i++) {
+        const r = roteiros[i];
+        const p = soltas[ESTOQUE_RAJADA + i];
+        if (!p.viva) vivas++;
+        p.viva = true;
+        p.roteiro = r;
+        p.partiu = false;
+        p.idade = -r.atraso;                          // negativa: ainda não entrou
+        p.vida = r.dura;
+        p.fase = sorte() * 6.28;
+        p.guinada = sorte() * 6.28; p.incl = entre(-0.5, 0.5); p.rol = sorte() * 6.28;
+        p.vGuinada = entre(-0.25, 0.25); p.vIncl = entre(-0.3, 0.3); p.vInclFinal = p.vIncl;
+        p.tam = entre(0.085, 0.11); p.tom = sorte(); p.forma = sorte();
+        // quanto mais longe da lente, mais desfoque a mais: todas chegam como mancha macia
+        p.extra = entre(1.4, 1.8) * (r.prof / 0.45);
       }
-      const arrasto = Math.exp(-2.2 * dt);
-      for (let i = 0; i < ESTOQUE_RAJADA; i++) {
-        const p = soltas[i];
-        if (!p.viva) { rDados[i * 4 + 1] = 0; continue; }
-        p.idade += dt;
-        if (p.idade >= p.vida) {
-          p.viva = false;
-          vivas--;
-          rDados[i * 4 + 1] = 0;
-          continue;
-        }
-        p.vx *= arrasto; p.vy = p.vy * arrasto - 0.55 * dt; p.vz *= arrasto;
-        p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
-        p.giro += p.vGiro * dt;
-        rPos[i * 3] = p.x; rPos[i * 3 + 1] = p.y; rPos[i * 3 + 2] = p.z;
-        rDados[i * 4] = p.giro;
-        rDados[i * 4 + 1] = p.tam;
-        rDados[i * 4 + 2] = 1 - clamp((p.idade / p.vida - 0.6) / 0.4);
-        rDados[i * 4 + 3] = p.tom;
+      malhaSoltas.visible = true;
+    },
+
+    rajada(posMundo, n = 12) {
+      if (!posMundo || !Number.isFinite(posMundo.x)) return;
+      const quantas = Math.min(amb.reduzido ? Math.ceil(n / 3) : n, ESTOQUE_RAJADA);
+      const forca = amb.reduzido ? 0.5 : 1;
+      for (let i = 0; i < quantas; i++) {
+        const p = pegarSolta();
+        if (!p.viva) vivas++;
+        p.viva = true;
+        p.roteiro = null;
+        // Leque: para todos os lados, um pouco para cima e na direção dela.
+        const angulo = sorte() * Math.PI * 2;
+        const impulso = entre(0.5, 1.9) * forca;
+        p.x = posMundo.x; p.y = posMundo.y; p.z = posMundo.z;
+        p.vx = Math.cos(angulo) * impulso;
+        p.vy = Math.sin(angulo) * impulso * 0.8 + 0.7 * forca;
+        p.vz = entre(0.3, 1.5) * forca;
+        p.idade = 0;
+        p.vida = entre(7, 12);
+        p.queda = entre(0.35, 0.6) * ritmo;
+        p.fase = sorte() * 6.28;
+        p.guinada = sorte() * 6.28; p.incl = sorte() * 6.28; p.rol = sorte() * 6.28;
+        p.vGuinada = entre(-1.2, 1.2);
+        p.vIncl = entre(5, 11) * (sorte() < 0.5 ? -1 : 1) * forca;   // sai rodopiando
+        p.vInclFinal = (sorte() < 0.4 ? entre(1.2, 3) : entre(0.1, 0.5)) * Math.sign(p.vIncl);
+        p.tam = entre(0.046, 0.085); p.tom = sorte(); p.forma = sorte();
+        p.extra = 1;
       }
-      atribPos.needsUpdate = true;
-      atribDados.needsUpdate = true;
+      malhaSoltas.visible = true;
+    },
+
+    atualizar(dt) {
+      const passo = dt * ritmo;
+      relogio += passo;
+
+      camera.getWorldPosition(posCamera);
+
+      const uc = matChuva.uniforms;
+      if (desde < 1e4) {
+        desde += passo;
+        // O primeiro sopro: as primeiras descem um pouco mais depressa e o ar se acalma.
+        uc.uSopro.value = SOPRO.velocidade * SOPRO.calma * (1 - Math.exp(-desde / SOPRO.calma));
+      }
+      uc.uTempo.value = relogio;
+      uc.uDesde.value = desde;
+      uc.uDensidade.value = amortecer(uc.uDensidade.value, densidadeAlvo * tetoChuva, 0.9, dt);
+      // A caixa segue o rig (não o balanço do passo): as bordas não tremem.
+      uc.uCentro.value.set(rig.position.x, ALTURA_CAIXA * 0.5 - 0.1, rig.position.z - FUNDO_CAIXA * 0.44);
+
+      // O chão só junta pétalas depois que elas tiveram tempo de cair.
+      const uh = matChao.uniforms;
+      const alvoChao = desde < 3.6 ? 0 : densidadeAlvo * tetoChao;
+      uh.uDensidade.value = amortecer(uh.uDensidade.value, alvoChao, desde < 60 ? 0.32 : 0.9, dt);
+      uh.uCentro.value.set(rig.position.x, 0, rig.position.z - (FUNDO_CAIXA + 1) * 0.46);
+
+      comuns.uFoco.value = amortecer(comuns.uFoco.value, focoAlvo, 2.2, dt);
+
+      if (vivas) atualizarSoltas(passo);
+      else if (malhaSoltas.visible) malhaSoltas.visible = false;
     },
 
     dispose() {
       pararTamanho();
       pararNivel();
       cena.remove(objeto);
-      geometria.dispose();
-      geoRajada.dispose();
+      geoChuva.dispose();
+      geoChao.dispose();
+      geoSoltas.dispose();
       base.dispose();
-      material.dispose();
-      matRajada.dispose();
+      matChuva.dispose();
+      matChao.dispose();
+      matSoltas.dispose();
     },
   };
 
