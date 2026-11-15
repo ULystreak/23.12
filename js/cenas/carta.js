@@ -8,22 +8,48 @@
 //   amarracao          'cordao' | 'fio'
 //   distancia          metros de caminhada até a carta (0 = ela já está na frente)
 //   entregar           true: o papel voa até o pergaminho e vira a folha DOM (etapa `papel`)
-//                      false: para depois de abrir (a cena final assume o papel)
+//                      false: para depois de abrir (a cena final assume o papel, que fica
+//                      fora do envelope, de frente e parado)
 //   anunciarCaminhada  false: não publica a etapa `caminhada` (a cena final começa em `carta-chegando`)
 //
 // Etapas: caminhada → carta-chegando → carta-espera → carta-abrindo → papel
 // O envelope fica em ctx.estado.envelope até a cena seguinte mandá-lo embora.
+// Se a cena anterior já deixou em estado.envelope uma carta igual e ainda fechada
+// (a cena da mão cria a última carta para o fio terminar nela), ela é reaproveitada.
+//
+// Extra exportado: distanciaDaCarta(mundo) → metros entre os olhos e a carta parada
+// (~72% da largura da tela em pé, ~28% no computador).
 //
 // Gancho para os testes: tocar no centro da tela na etapa `carta-espera`.
-// Versão do esqueleto: coreografia simples. A assinatura não muda.
 
-import { el, espera, pxParaNdc } from '../nucleo/util.js';
+import { clamp, el, espera, lerp, pxParaNdc } from '../nucleo/util.js';
 import { curvas } from '../nucleo/movimento.js';
 import { criarEnvelope } from '../mundo/envelope.js';
 
-const DISTANCIA_FINAL = 1.25;      // a carta para a esta distância dela
 const ALTURA_OLHOS = 1.5;          // contrato 4.3: câmera a 1,5 m do chão
+const LARGURA_CARTA = 0.23;        // o envelope tem 23 × 16 cm
+const ALTURA_CARTA = 0.16;
 const ESPERA_DICA = 4000;          // ms sem toque até a dica aparecer
+const LONGE = 2.6;                 // metros além do ponto de parada de onde a carta vem
+
+/** Distância (m) em que a carta para: ~72% da largura no celular em pé, ~28% no computador. */
+export function distanciaDaCarta(mundo) {
+  const camera = mundo.camera;
+  if (!camera) return 0.62;
+  const aspecto = camera.aspect || 1;
+  const meia = Math.tan((camera.fov * Math.PI) / 360);
+  const fracao = lerp(0.72, 0.28, clamp((aspecto - 0.75) / (1.5 - 0.75)));
+  const pelaLargura = LARGURA_CARTA / (fracao * 2 * meia * aspecto);
+  const pelaAltura = ALTURA_CARTA / (0.46 * 2 * meia);      // nunca mais que ~46% da altura
+  return Math.max(pelaLargura, pelaAltura, 0.4);
+}
+
+/** Onde a carta para, com a câmera em `zOlhos`: um pouco abaixo da linha dos olhos. */
+function poseParada(mundo, zOlhos) {
+  const d = distanciaDaCarta(mundo);
+  const meia = Math.tan(((mundo.camera?.fov || 58) * Math.PI) / 360);
+  return { x: mundo.rig.position.x, y: ALTURA_OLHOS - d * meia * 0.12, z: zOlhos - d };
+}
 
 export async function cenaCarta(ctx, opcoes = {}) {
   const { lacre = 'coracao', amarracao = 'cordao', distancia = 7, entregar = true, anunciarCaminhada = true } = opcoes;
@@ -31,16 +57,30 @@ export async function cenaCarta(ctx, opcoes = {}) {
   const gsap = window.gsap;
 
   const duracao = distancia > 0 ? 2.4 + distancia * 0.6 : 0;
-  const env = criarEnvelope(mundo, { lacre, amarracao, chegada: Math.max(1.2, duracao * 0.5) });
+  const anterior = estado.envelope;
+  const reaproveitar = !!(anterior && !anterior.aberto && anterior.amarracao === amarracao
+    && (anterior.lacre ?? null) === (lacre ?? null));
+  if (anterior && !reaproveitar) {
+    // sobrou uma carta de antes: vai embora no branco
+    estado.envelope = null;
+    Promise.resolve(anterior.irEmbora?.()).catch(() => {}).then(() => anterior.dispose?.());
+  }
+  const env = reaproveitar ? anterior : criarEnvelope(mundo, { lacre, amarracao, chegada: false });
   estado.envelope = env;
+  env.aoMarco = (nome) => {
+    if (nome === 'lacre') som.efeito('lacre');
+    if (nome === 'papel') som.efeito('papel');
+  };
 
+  // Para onde ela anda e onde a carta para.
+  const zOlhosFinal = mundo.rig.position.z - Math.max(0, distancia || 0);
   if (mundo.ok) {
-    // A carta já está lá na frente, dentro da névoa; é ela quem caminha até a carta.
-    env.grupo.position.set(mundo.rig.position.x, ALTURA_OLHOS - 0.04, mundo.rig.position.z - distancia - DISTANCIA_FINAL);
-    mundo.cena.add(env.grupo);
-    if (!(distancia > 0)) {
-      // Sem caminhada, a carta vem do branco até ela.
-      gsap.from(env.grupo.position, { z: env.grupo.position.z - 8, duration: 2.6, ease: curvas.branco.entrar });
+    const alvo = poseParada(mundo, zOlhosFinal);
+    if (reaproveitar) {
+      gsap.to(env.grupo.position, { x: alvo.x, y: alvo.y, z: alvo.z, duration: Math.max(1.6, duracao), ease: curvas.branco.camera });
+    } else {
+      env.grupo.position.set(alvo.x, alvo.y, alvo.z);
+      mundo.cena.add(env.grupo);
     }
   }
   const parar = mundo.aoQuadro((dt, t) => env.atualizar(dt, t));
@@ -48,21 +88,25 @@ export async function cenaCarta(ctx, opcoes = {}) {
   if (distancia > 0) {
     diretor.etapa(anunciarCaminhada ? 'caminhada' : 'carta-chegando');
     const andar = mundo.caminhar({ distancia, duracao });
+    // A carta nasce da névoa na segunda metade da caminhada e pousa logo depois dela parar.
+    const inicio = anunciarCaminhada ? duracao * 0.5 : duracao * 0.25;
+    if (!reaproveitar) env.chegar({ duracao: duracao - inicio + 0.8, distancia: LONGE, atraso: inicio });
     if (anunciarCaminhada) {
-      await espera(duracao * 1000 * 0.55);
+      await espera(inicio * 1000);
       diretor.etapa('carta-chegando');
     }
     await andar;
+    await espera(500);
   } else {
     diretor.etapa('carta-chegando');
-    await espera(2200);
+    if (!reaproveitar) await env.chegar({ duracao: 2.6, distancia: LONGE + 1 });
+    else await espera(1200);
   }
 
   diretor.etapa('carta-espera');
   await esperarToque(ctx, env);
 
   diretor.etapa('carta-abrindo');
-  som.efeito('lacre');
   const { papel } = await env.abrir();
 
   if (!entregar) return { env, papel, parar };
@@ -78,27 +122,63 @@ export async function cenaCarta(ctx, opcoes = {}) {
 
 /** Espera ela tocar na carta. Depois de alguns segundos sem toque, mostra a dica. */
 function esperarToque(ctx, env) {
-  const { conteudo, som } = ctx;
+  const { conteudo, som, mundo, amb } = ctx;
   const gsap = window.gsap;
   const dica = document.getElementById('dica');
   const acoes = document.getElementById('acoes');
   const textoDica = conteudo.abertura?.dicaCarta || '';
+  // Na última carta o fio sobe do chão até o laço: a dica fica acima, longe dele.
+  const dicaAcima = env.amarracao === 'fio';
 
   return new Promise((resolver) => {
     let terminado = false;
 
-    // Alvo invisível: dá foco de teclado e nome para leitores de tela.
+    // Alvo invisível sobre a carta: dá foco de teclado e nome para leitores de tela.
     // (pointer-events: none no CSS; o toque de verdade é medido contra a carta.)
     const alvo = el('button', {
       class: 'alvo-carta', type: 'button', 'aria-label': textoDica, dataset: { acao: 'abrir-carta' },
     });
     acoes.append(alvo);
 
+    const posicionar = () => {
+      const caixa = env.caixaTela?.();
+      if (!caixa || !(caixa.width > 0)) return;
+      Object.assign(alvo.style, {
+        left: `${caixa.left}px`, top: `${caixa.top}px`,
+        width: `${caixa.width}px`, height: `${caixa.height}px`, transform: 'none',
+      });
+      if (dica.hidden) return;
+      const folga = Math.max(22, caixa.height * 0.14);
+      if (dicaAcima) {
+        dica.style.top = 'auto';
+        dica.style.bottom = `${Math.max(16, innerHeight - caixa.top + folga)}px`;
+      } else {
+        dica.style.bottom = 'auto';
+        dica.style.top = `${Math.min(innerHeight - 64, caixa.bottom + folga)}px`;
+      }
+    };
+    posicionar();
+
+    // Se a tela girar, a carta refaz a distância (mesma proporção da tela) e a dica acompanha.
+    const pararTamanho = mundo.aoRedimensionar(() => {
+      if (terminado) return;
+      if (mundo.ok) {
+        const alvoPose = poseParada(mundo, mundo.rig.position.z);
+        gsap.to(env.grupo.position, { x: alvoPose.x, y: alvoPose.y, z: alvoPose.z, duration: 0.6, ease: curvas.branco.entrar, onComplete: posicionar });
+      } else {
+        posicionar();
+      }
+    });
+
     const mostrarDica = () => {
       if (terminado || !textoDica || !dica.hidden) return;
       dica.textContent = textoDica;
+      Object.assign(dica.style, { fontFamily: 'var(--fonte-mao)', letterSpacing: '0.03em', fontSize: 'clamp(1rem, 0.94rem + 0.3vw, 1.15rem)' });
       dica.hidden = false;
-      gsap.fromTo(dica, { autoAlpha: 0 }, { autoAlpha: 1, duration: 1.2, ease: 'none' });
+      posicionar();
+      gsap.fromTo(dica,
+        { autoAlpha: 0, y: amb.reduzido ? 0 : 8 },
+        { autoAlpha: 1, y: 0, duration: 1.4, ease: curvas.branco.entrar });
     };
     espera(ESPERA_DICA).then(mostrarDica);
 
@@ -108,31 +188,42 @@ function esperarToque(ctx, env) {
       som.destravar();                    // primeiro gesto: libera o áudio
       window.removeEventListener('pointerup', aoSoltar);
       window.removeEventListener('pointerdown', aoApertar);
+      window.removeEventListener('pointercancel', aoCancelar);
+      pararTamanho();
       alvo.remove();
       if (!dica.hidden) {
         gsap.to(dica, {
           autoAlpha: 0, duration: 0.4, ease: 'none',
-          onComplete: () => { dica.hidden = true; dica.textContent = ''; },
+          onComplete: () => { dica.hidden = true; dica.textContent = ''; dica.removeAttribute('style'); },
         });
+      } else {
+        dica.removeAttribute('style');
       }
       resolver();
     };
 
     // Toque é apertar e soltar no mesmo lugar: arrastar a carta para girá-la não abre.
     let apertou = null;
-    const aoApertar = (e) => { apertou = { x: e.clientX, y: e.clientY }; };
+    const aoApertar = (e) => {
+      if (e.target && e.target.closest && e.target.closest('#mini')) return;
+      apertou = { x: e.clientX, y: e.clientY };
+      const ndc = pxParaNdc(e.clientX, e.clientY);
+      if (env.acertou(ndc.x, ndc.y)) env.pressionar?.(true);
+    };
+    const aoCancelar = () => { apertou = null; env.pressionar?.(false); };
     const aoSoltar = (e) => {
       if (e.target && e.target.closest && e.target.closest('#mini')) return;
       const arrastou = apertou && Math.hypot(e.clientX - apertou.x, e.clientY - apertou.y) > 14;
       apertou = null;
-      if (arrastou) return;
+      if (arrastou) { env.pressionar?.(false); return; }
       const ndc = pxParaNdc(e.clientX, e.clientY);
       if (env.acertou(ndc.x, ndc.y)) concluir();
-      else mostrarDica();                 // tocou fora: mostra logo onde é
+      else { env.pressionar?.(false); mostrarDica(); }      // tocou fora: mostra logo onde é
     };
 
     window.addEventListener('pointerdown', aoApertar);
     window.addEventListener('pointerup', aoSoltar);
+    window.addEventListener('pointercancel', aoCancelar);
     alvo.addEventListener('click', concluir);   // teclado (Enter/Espaço) e leitores de tela
   });
 }
