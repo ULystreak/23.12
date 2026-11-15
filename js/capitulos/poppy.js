@@ -1,4 +1,4 @@
-// Capítulo 1: o jogo. A fábrica de brinquedos numa fita antiga.
+// Capítulo 1: o jogo. Uma fita VHS achada numa fábrica de brinquedos.
 //
 //   export const capitulo = { id, montar(raiz, api) → { destruir() } }
 //   api = { conteudo, amb, som, rolagem, fundo, gsap, ScrollTrigger, fechar(), recursos }
@@ -8,119 +8,442 @@
 //   { tipo: 'imagem', arquivo, alt, legenda }
 //   { tipo: 'cena', cena: 'maos' | 'fita' | 'esteira', ... }
 //
+// Como a cena se arma:
+//   api.fundo   ← a fábrica vista pela fita (poppy/fundo.js: um canvas WebGL só)
+//   raiz        ← camada do videocassete (poppy/osd.js, presa no alto da rolagem)
+//                 + o corpo: título em blocos, cartões, cenas, botão de parar
+//   um laço só  ← mede a velocidade da rolagem, alimenta o fundo, o contador e
+//                 as cenas que estão na tela (as outras ficam paradas)
+//
+// A abertura (tela azul → PLAY → a imagem entra → o título cai) começa quando a
+// folha termina de desenrolar: o diretor publica a etapa "lendo" em <html>.
+//
 // Gancho para os testes (não mudar): [data-acao="fechar-capitulo"].
-// Versão do esqueleto: monta os blocos com estilo básico. Cenas maiores podem ir
-// para js/capitulos/poppy/*.
 
-import { el, svg } from '../nucleo/util.js';
+import { clamp, el, espera, svg } from '../nucleo/util.js';
+import { criarFundo } from './poppy/fundo.js';
+import { criarOsd } from './poppy/osd.js';
+import { criarTitulo } from './poppy/titulo.js';
+import { criarCartao, criarMonitor } from './poppy/cartao.js';
+import { criarMaos } from './poppy/maos.js';
+import { criarFita } from './poppy/fita.js';
+import { criarEsteira } from './poppy/esteira.js';
 
-const DESENHOS = {
-  // Duas mãos de brinquedo (uma azul, uma vermelha) esticadas uma para a outra.
-  maos: () => svg(`
-    <svg viewBox="0 0 320 120" aria-hidden="true">
-      <path d="M0 60H96" stroke="#f6c12d" stroke-width="10" stroke-linecap="round"/>
-      <path d="M320 60H224" stroke="#f6c12d" stroke-width="10" stroke-linecap="round"/>
-      <g fill="#2f8fd8"><rect x="92" y="36" width="46" height="48" rx="14"/><rect x="132" y="38" width="22" height="10" rx="5"/><rect x="132" y="52" width="26" height="10" rx="5"/><rect x="132" y="66" width="22" height="10" rx="5"/></g>
-      <g fill="#e2332f"><rect x="182" y="36" width="46" height="48" rx="14"/><rect x="166" y="38" width="22" height="10" rx="5"/><rect x="162" y="52" width="26" height="10" rx="5"/><rect x="166" y="66" width="22" height="10" rx="5"/></g>
-    </svg>`),
+const CENAS = { maos: criarMaos, fita: criarFita, esteira: criarEsteira };
 
-  // Uma fita de vídeo com etiqueta.
-  fita: (bloco) => {
-    const caixa = el('div', 'poppy-fita');
-    caixa.append(svg(`
-      <svg viewBox="0 0 320 180" aria-hidden="true">
-        <rect x="4" y="4" width="312" height="172" rx="10" fill="#101820" stroke="#f2ead8" stroke-width="3"/>
-        <rect x="28" y="24" width="264" height="56" rx="4" fill="#f2ead8"/>
-        <rect x="60" y="98" width="200" height="58" rx="8" fill="#0d2534" stroke="#f2ead8" stroke-width="2"/>
-        <circle cx="110" cy="127" r="19" fill="none" stroke="#f2ead8" stroke-width="3"/>
-        <circle cx="210" cy="127" r="19" fill="none" stroke="#f2ead8" stroke-width="3"/>
-        <circle cx="110" cy="127" r="5" fill="#e2332f"/><circle cx="210" cy="127" r="5" fill="#e2332f"/>
-      </svg>`));
-    if (bloco.etiqueta) caixa.append(el('p', 'poppy-fita-etiqueta', bloco.etiqueta));
-    if (bloco.data) caixa.append(el('p', 'poppy-fita-data', bloco.data));
-    return caixa;
-  },
-
-  // Uma esteira de fábrica carregando palavras.
-  esteira: (bloco) => {
-    const itens = Array.isArray(bloco.itens) ? bloco.itens.filter(Boolean) : [];
-    const faixa = el('ul', 'poppy-esteira-faixa', itens.map((texto, i) => el('li', { class: `poppy-caixa poppy-caixa-${i % 4}` }, texto)));
-    return el('div', 'poppy-esteira', [faixa, el('div', { class: 'poppy-esteira-base', 'aria-hidden': 'true' })]);
-  },
-};
+const ICONE_PARAR = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4.5" y="4.5" width="15" height="15" rx="2.2"/></svg>';
 
 export const capitulo = {
   id: 'poppy',
 
   async montar(raiz, api) {
+    const { amb, gsap, som, rolagem } = api;
     const c = api.conteudo.poppy || {};
     const blocos = Array.isArray(c.blocos) ? c.blocos : [];
-    raiz.classList.add('poppy');
+    const rotulos = c.osd && typeof c.osd === 'object' ? c.osd : {};
+
+    let vivo = true;
+    const limpezas = [];
+    const animacoes = new Set();
+    /** Guarda cada animação nossa para poder matar só as nossas em destruir(). */
+    const anima = (a) => { animacoes.add(a); return a; };
+
+    raiz.classList.add('poppy', 'aguardando');
     api.fundo.classList.add('poppy-fundo');
 
-    // Fundo opcional (some se o arquivo não existir).
-    api.recursos.imagem(c.fundo).then((img) => {
-      if (img) api.fundo.style.backgroundImage = `url("${img.src}")`;
+    // ---- o fundo: a fábrica pela fita ------------------------------------------------
+    const imagemFundo = await api.recursos.imagem(c.fundo);
+    const fundo = criarFundo({ recipiente: api.fundo, amb, imagem: imagemFundo });
+
+    // ---- a camada do videocassete -----------------------------------------------------
+    const osd = criarOsd({ rotulos, contadorFinal: c.contadorFinal });
+    const corpo = el('div', 'poppy-corpo');
+    raiz.append(osd.el, corpo);
+
+    let modoFixo = null;          // 'parar' fica até o fim
+    let modoAte = 0;              // um modo passageiro (PLAY) some sozinho
+    let agora = 0;
+    function piscarModo(nome, ms) {
+      if (modoFixo) return;
+      osd.modo(nome);
+      modoAte = agora + ms / 1000;
+    }
+
+    /** Um engasgo de tracking na tela inteira: o fundo e tudo o que está por cima. */
+    function falha(forca = 1, ms = 140) {
+      if (amb.reduzido || !vivo) return;
+      fundo.falha(forca, ms);
+      // Só o que está na tela salta de lado (a coluna inteira viraria uma camada
+      // enorme). `translate` soma com a rotação que cada peça já tem.
+      if (typeof Element.prototype.animate !== 'function') return;
+      const dx = 7 + 6 * forca;
+      const quadros = [
+        { translate: `${-dx}px 0` }, { translate: `${dx * 1.4}px -2px` },
+        { translate: `${-dx * 0.5}px 1px` }, { translate: `${dx * 0.7}px 0` }, { translate: '0 0' },
+      ];
+      for (const filho of corpo.children) {
+        const caixa = filho.getBoundingClientRect();
+        if (caixa.bottom < topoTela || caixa.top > topoTela + alturaTela) continue;
+        try { filho.animate(quadros, { duration: Math.max(60, ms), easing: 'steps(1)' }); } catch { /* sem WAAPI completo */ }
+      }
+    }
+
+    const ctx = { amb, gsap, som, anima, falha, piscarModo };
+
+    // ---- título -----------------------------------------------------------------------
+    const titulo = criarTitulo({ texto: c.titulo, subtitulo: c.subtitulo, amb, gsap, anima });
+    corpo.append(titulo.el);
+
+    // ---- blocos -----------------------------------------------------------------------
+    // As imagens são pedidas todas de uma vez; a que não existir vira null e some.
+    const imagens = await Promise.all(blocos.map((bloco) => (
+      bloco?.tipo === 'imagem' ? api.recursos.elementoImagem(bloco.arquivo, bloco.alt || '') : null
+    )));
+    if (!vivo) return { destruir() {} };
+
+    const entradas = new Map();       // elemento → peça com entrar()
+    const cenas = [];                 // cenas ligadas ao laço
+    let textos = 0;
+    let monitores = 0;
+    blocos.forEach((bloco, i) => {
+      if (bloco?.tipo === 'texto' && String(bloco.texto || '').trim()) {
+        const cartao = criarCartao({ texto: String(bloco.texto).trim(), indice: textos++, amb, gsap, anima });
+        corpo.append(cartao.el);
+        entradas.set(cartao.el, cartao);
+      } else if (bloco?.tipo === 'imagem' && imagens[i]) {
+        const monitor = criarMonitor({ img: imagens[i], legenda: bloco.legenda, indice: monitores++, amb, gsap, anima });
+        corpo.append(monitor.el);
+        entradas.set(monitor.el, monitor);
+      } else if (bloco?.tipo === 'cena' && CENAS[bloco.cena]) {
+        const cena = CENAS[bloco.cena](bloco, ctx);
+        cena.visivel = false;
+        corpo.append(cena.el);
+        cenas.push(cena);
+      }
     });
 
-    const cabeca = el('header', 'poppy-cabeca', [
-      c.titulo ? el('h2', 'poppy-titulo', c.titulo) : null,
-      c.subtitulo ? el('p', 'poppy-subtitulo', c.subtitulo) : null,
+    // ---- o botão de parar ----------------------------------------------------------------
+    const textoFechar = String(c.fechar || '').trim();
+    const tecla = el('span', 'poppy-tecla', [
+      el('span', 'poppy-tecla-icone', svg(ICONE_PARAR)),
+      textoFechar ? el('span', 'poppy-tecla-texto', textoFechar) : null,
     ]);
-    raiz.append(cabeca);
-
-    const partes = [cabeca];
-    for (const bloco of blocos) {
-      let parte = null;
-      if (bloco?.tipo === 'texto' && bloco.texto) {
-        parte = el('p', 'poppy-texto', bloco.texto);
-      } else if (bloco?.tipo === 'imagem') {
-        const img = await api.recursos.elementoImagem(bloco.arquivo, bloco.alt || '');
-        if (img) {
-          parte = el('figure', 'poppy-imagem', [img, bloco.legenda ? el('figcaption', null, bloco.legenda) : null]);
-        }
-      } else if (bloco?.tipo === 'cena' && DESENHOS[bloco.cena]) {
-        parte = el('div', { class: `poppy-cena poppy-cena-${bloco.cena}` }, DESENHOS[bloco.cena](bloco));
-      }
-      if (parte) {
-        raiz.append(parte);
-        partes.push(parte);
-      }
-    }
-
     const fechar = el('button', {
-      class: 'poppy-fechar', type: 'button', dataset: { acao: 'fechar-capitulo' }, texto: c.fechar || '',
-    });
-    fechar.addEventListener('click', () => {
-      api.som.efeito('fita');
-      api.fechar();
-    }, { once: true });
-    const rodape = el('footer', 'poppy-rodape', fechar);
-    raiz.append(rodape);
-    partes.push(rodape);
-
-    // Cada parte "cai" no lugar quando entra na tela (o CSS faz o quique).
-    let observador = null;
-    if ('IntersectionObserver' in window) {
-      observador = new IntersectionObserver((entradas) => {
-        for (const entrada of entradas) {
-          if (!entrada.isIntersecting) continue;
-          entrada.target.classList.add('visivel');
-          observador.unobserve(entrada.target);
+      class: `poppy-fechar${textoFechar ? '' : ' so-desenho'}`,
+      type: 'button',
+      dataset: { acao: 'fechar-capitulo' },
+      // sem texto, o nome do botão para leitores de tela é o rótulo de parar
+      'aria-label': textoFechar ? null : (String(rotulos.parar || '').trim() || null),
+    }, tecla);
+    // No iPhone, :active só vale com um ouvinte de toque no elemento.
+    fechar.addEventListener('touchstart', () => {}, { passive: true });
+    const rodape = el('footer', 'poppy-rodape', [
+      el('div', 'poppy-painel', [el('i', { class: 'poppy-painel-luz', 'aria-hidden': 'true' }), fechar]),
+    ]);
+    rodape.classList.add('poppy-entra');
+    corpo.append(rodape);
+    entradas.set(rodape, {
+      entrar() {
+        rodape.classList.remove('poppy-entra');
+        if (amb.reduzido) anima(gsap.fromTo(rodape, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5, ease: 'none' }));
+        else {
+          gsap.set(rodape, { autoAlpha: 1 });
+          anima(gsap.fromTo(rodape, { y: -70, scale: 0.94 }, { y: 0, scale: 1, duration: 0.6, ease: 'back.out(2)' }));
         }
-      }, { root: api.rolagem.el, rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
-      for (const parte of partes) {
-        parte.classList.add('poppy-entra');
-        observador.observe(parte);
+      },
+    });
+
+    titulo.preparar();
+
+    // ---- medidas ---------------------------------------------------------------------------
+    const janela = rolagem.el;
+    let alturaTela = janela.clientHeight || innerHeight;
+    let topoTela = 0;
+    // Os textos que o OSD não pode cobrir: posição no conteúdo da rolagem (sem
+    // contar transformações de entrada) e a faixa da tela onde o OSD escreve.
+    let leiturasPos = [];
+    let zonasOsd = { modo: null, contador: null };
+    const encoberto = { modo: false, contador: false };
+    function medirLeituras() {
+      const caixaJanela = janela.getBoundingClientRect();
+      const caixaCorpo = corpo.getBoundingClientRect();
+      const topoCorpo = caixaCorpo.top - caixaJanela.top + janela.scrollTop;
+      const esqCorpo = caixaCorpo.left - caixaJanela.left;
+      // o vidro tem respiro em volta do texto: o OSD pode passar pela borda
+      const folga = 14;
+      leiturasPos = [...corpo.querySelectorAll('.poppy-cartao, .poppy-monitor-legenda, .poppy-subtitulo')].map((no) => {
+        let topo = 0;
+        let esq = 0;
+        for (let n = no; n && n !== corpo; n = n.offsetParent) { topo += n.offsetTop; esq += n.offsetLeft; }
+        return {
+          topo: topoCorpo + topo + folga,
+          base: topoCorpo + topo + no.offsetHeight - folga,
+          esq: esqCorpo + esq + folga,
+          dir: esqCorpo + esq + no.offsetWidth - folga,
+        };
+      });
+      zonasOsd = osd.zonas();
+    }
+    function vigiarOsd(y) {
+      for (const parte of ['modo', 'contador']) {
+        const z = zonasOsd[parte];
+        if (!z) continue;
+        if (modoFixo) {
+          // o STOP final é o momento do aparelho: fica por cima de tudo
+          if (encoberto[parte]) { encoberto[parte] = false; osd.encobrir(parte, false); }
+          continue;
+        }
+        const topo = y + z.topo;
+        const base = y + z.base;
+        let cobre = false;
+        for (const l of leiturasPos) {
+          if (l.base > topo && l.topo < base && l.dir > z.esq && l.esq < z.dir) { cobre = true; break; }
+        }
+        if (cobre !== encoberto[parte]) {
+          encoberto[parte] = cobre;
+          osd.encobrir(parte, cobre);
+        }
       }
     }
+
+    function medir() {
+      alturaTela = janela.clientHeight || innerHeight;
+      topoTela = janela.getBoundingClientRect().top;
+      osd.medir(alturaTela);
+      for (const cena of cenas) cena.medir?.();
+      medirLeituras();
+    }
+    medir();
+    if ('ResizeObserver' in window) {
+      const observador = new ResizeObserver(medir);
+      observador.observe(janela);
+      observador.observe(corpo);
+      limpezas.push(() => observador.disconnect());
+    }
+
+    // ---- o que entra e o que está na tela ---------------------------------------------------
+    let observaEntradas = null;
+    let observaCenas = null;
+    if ('IntersectionObserver' in window) {
+      observaEntradas = new IntersectionObserver((lista) => {
+        for (const item of lista) {
+          if (!item.isIntersecting) continue;
+          observaEntradas.unobserve(item.target);
+          entradas.get(item.target)?.entrar();
+        }
+      }, { root: janela, rootMargin: '0px 0px -7% 0px', threshold: 0.06 });
+      observaCenas = new IntersectionObserver((lista) => {
+        for (const item of lista) {
+          const cena = cenas.find((s) => s.el === item.target);
+          if (cena) cena.visivel = item.isIntersecting;
+        }
+      }, { root: janela, rootMargin: '12% 0px 12% 0px', threshold: 0 });
+      for (const cena of cenas) observaCenas.observe(cena.el);
+      limpezas.push(() => { observaEntradas.disconnect(); observaCenas.disconnect(); });
+    } else {
+      for (const cena of cenas) cena.visivel = true;
+    }
+    let entradasLigadas = false;
+    function ligarEntradas() {
+      if (entradasLigadas) return;
+      entradasLigadas = true;
+      for (const [alvo, peca] of entradas) {
+        if (observaEntradas) observaEntradas.observe(alvo);
+        else peca.entrar();
+      }
+    }
+
+    // ---- o laço ----------------------------------------------------------------------------
+    let quadroId = 0;
+    let anterior = 0;
+    let yAnterior = rolagem.y;
+    let vel = 0;                 // px/s, suavizada
+    let pressa = 0;              // há quanto tempo ela rola depressa
+    let parado = false;          // depois de desligar a TV nada mais se mexe
+
+    function quadro(instante) {
+      quadroId = requestAnimationFrame(quadro);
+      const passou = anterior ? (instante - anterior) / 1000 : 0.016;
+      const dt = Math.min(0.05, passou);
+      anterior = instante;
+      if (parado || !(dt > 0)) return;
+      // O relógio dos rótulos anda no tempo de verdade: num aparelho que perde
+      // quadros o PLAY não pode ficar parado na tela (dt é limitado para a física).
+      agora += Math.min(0.5, passou);
+
+      const y = rolagem.y;
+      // velocidade pelo tempo que passou de verdade: com quadros lentos o dt
+      // limitado inventaria uma rolagem rápida (e a fita viraria só chuvisco)
+      const bruta = (y - yAnterior) / Math.max(dt, Math.min(0.25, passou));
+      yAnterior = y;
+      vel += (bruta - vel) * Math.min(1, dt * 11);
+      const rapidez = clamp(Math.abs(vel) / 2600);
+      const sentido = vel >= 0 ? 1 : -1;
+      const progresso = rolagem.progresso;
+
+      fundo.rolar(progresso, rapidez, sentido);
+      fundo.quadro(dt);
+      osd.contador(progresso);
+      vigiarOsd(y);
+
+      // avanço e retrocesso de fita: só quando ela rola depressa de verdade
+      if (!modoFixo) {
+        if (rapidez > 0.42) pressa += dt;
+        else pressa = Math.max(0, pressa - dt * 3);
+        if (pressa > 0.1 && rapidez > 0.3) {
+          osd.modo(sentido > 0 ? 'avancar' : 'voltar');
+          modoAte = agora + 0.42;
+        } else if (osd.modoAtual && agora > modoAte) {
+          osd.modo(null);
+        }
+      }
+
+      const info = { y, vel, rapidez, topo: topoTela, altura: alturaTela };
+      for (const cena of cenas) if (cena.visivel) cena.quadro(dt, info);
+    }
+    quadroId = requestAnimationFrame(quadro);
+    limpezas.push(() => cancelAnimationFrame(quadroId));
+
+    // ---- a abertura --------------------------------------------------------------------------
+    // Espera a folha terminar de desenrolar (etapa "lendo"); se o aviso não vier, começa assim mesmo.
+    function folhaAberta() {
+      const html = document.documentElement;
+      return new Promise((ok) => {
+        if (html.dataset.etapa === 'lendo') { ok(); return; }
+        const observador = new MutationObserver(() => {
+          if (html.dataset.etapa !== 'lendo') return;
+          observador.disconnect();
+          ok();
+        });
+        observador.observe(html, { attributes: true, attributeFilter: ['data-etapa'] });
+        limpezas.push(() => observador.disconnect());
+      });
+    }
+
+    // Se ela rolar antes da abertura acabar, o que já está na tela não fica esperando.
+    const cancelarRolagem = rolagem.aoRolar((p, y) => { if (y > 24) ligarEntradas(); });
+    limpezas.push(cancelarRolagem);
+
+    async function abertura() {
+      await Promise.race([folhaAberta(), espera(4200)]);
+      if (!vivo) return;
+      await espera(280);
+      if (!vivo || modoFixo) return;
+      som.efeito('fita');
+      piscarModo('tocar', 3600);
+      await espera(560);
+      if (!vivo) return;
+
+      // a imagem entra: um engasgo de tracking e o azul dá lugar à fábrica
+      if (amb.reduzido) {
+        const mistura = { v: 1 };
+        anima(gsap.to(mistura, { v: 0, duration: 0.7, ease: 'none', onUpdate: () => fundo.azul(mistura.v) }));
+        await espera(500);
+      } else {
+        falha(1, 220);
+        await espera(70);
+        fundo.azul(0);
+        await espera(300);
+      }
+      if (!vivo) return;
+      raiz.classList.remove('aguardando');
+
+      const queda = titulo.cair();
+      await Promise.race([queda, espera(1700)]);
+      if (!vivo) return;
+      await titulo.digitar();
+      if (!vivo) return;
+      osd.mostrarContador();
+      ligarEntradas();
+    }
+    abertura().catch((erro) => console.error(erro));
+
+    // ---- desligar ------------------------------------------------------------------------------
+    const travarToque = (evento) => { if (evento.cancelable) evento.preventDefault(); };
+
+    async function desligar() {
+      modoFixo = 'parar';
+      osd.modo('parar');
+      osd.mostrarContador();
+      som.efeito('fita');
+      fechar.disabled = true;
+      fechar.classList.add('apertada');
+      rodape.classList.add('desligado');
+      // a tela azul não pode sobrar por baixo se ela apertou parar antes da imagem entrar
+      raiz.classList.remove('aguardando');
+
+      // enquanto a imagem fecha, a rolagem fica presa onde está
+      janela.addEventListener('wheel', travarToque, { passive: false });
+      janela.addEventListener('touchmove', travarToque, { passive: false });
+      limpezas.push(() => {
+        janela.removeEventListener('wheel', travarToque);
+        janela.removeEventListener('touchmove', travarToque);
+      });
+
+      if (amb.reduzido) {
+        await espera(450);
+        if (!vivo) return;
+        await new Promise((ok) => {
+          anima(gsap.to([raiz, fundo.el], { autoAlpha: 0, duration: 0.7, ease: 'none', onComplete: ok }));
+        });
+      } else {
+        falha(0.7, 130);
+        await espera(520);
+        if (!vivo) return;
+        parado = true;
+        // tubo que desliga: a imagem inteira colapsa numa linha, a linha num ponto, o ponto apaga
+        const centroY = rolagem.y + alturaTela / 2;
+        const ponto = el('i', { class: 'poppy-fosforo', 'aria-hidden': 'true' });
+        const brasa = el('i', { class: 'poppy-fosforo-ponto', 'aria-hidden': 'true' });
+        api.fundo.append(ponto, brasa);
+        limpezas.push(() => { ponto.remove(); brasa.remove(); });
+        // só o que está na tela se achata: o resto do capítulo fica recortado fora
+        const alturaRaiz = raiz.offsetHeight;
+        const corteBaixo = Math.max(0, alturaRaiz - rolagem.y - alturaTela);
+        gsap.set(raiz, {
+          transformOrigin: `50% ${centroY}px`,
+          clipPath: `inset(${rolagem.y}px 0px ${corteBaixo}px 0px)`,
+          webkitClipPath: `inset(${rolagem.y}px 0px ${corteBaixo}px 0px)`,
+        });
+        gsap.set(fundo.el, { transformOrigin: '50% 50%' });
+        gsap.set(ponto, { scaleX: 1, scaleY: 0.2, autoAlpha: 0 });
+        gsap.set(brasa, { autoAlpha: 0, scale: 0.5 });
+        await new Promise((ok) => {
+          const tl = anima(gsap.timeline({ onComplete: ok }));
+          tl.to(osd.clarao, { opacity: 0.5, duration: 0.07, ease: 'none' }, 0);
+          tl.to([raiz, fundo.el], { scaleY: 0.004, duration: 0.24, ease: 'power3.in' }, 0.02);
+          tl.to(ponto, { autoAlpha: 1, scaleY: 1, duration: 0.1, ease: 'none' }, 0.16);
+          tl.set([raiz, fundo.el], { autoAlpha: 0 }, 0.27);
+          tl.add(() => api.fundo.classList.add('desligada'), 0.27);
+          // a linha encolhe para o meio e vira um ponto de fósforo que demora a apagar
+          tl.to(ponto, { scaleX: 0.012, duration: 0.2, ease: 'power2.in' }, 0.32);
+          tl.to(brasa, { autoAlpha: 1, scale: 1, duration: 0.06, ease: 'none' }, 0.47);
+          tl.set(ponto, { autoAlpha: 0 }, 0.53);
+          tl.to(brasa, { scale: 0.25, duration: 0.7, ease: 'power2.in' }, 0.62);
+          tl.to(brasa, { autoAlpha: 0, duration: 0.6, ease: 'power1.in' }, 0.72);
+        });
+      }
+      if (!vivo) return;
+      await espera(140);
+      if (vivo) api.fechar();
+    }
+
+    fechar.addEventListener('click', () => { desligar().catch((erro) => { console.error(erro); api.fechar(); }); }, { once: true });
 
     return {
       destruir() {
-        if (observador) observador.disconnect();
-        raiz.classList.remove('poppy');
-        api.fundo.classList.remove('poppy-fundo');
-        api.fundo.style.backgroundImage = '';
+        vivo = false;
+        for (const limpar of limpezas) {
+          try { limpar(); } catch (erro) { console.error(erro); }
+        }
+        for (const a of animacoes) a.kill();
+        animacoes.clear();
+        for (const cena of cenas) cena.destruir?.();
+        titulo.destruir();
+        fundo.destruir();
+        gsap.set(raiz, { clearProps: 'all' });
+        raiz.classList.remove('poppy', 'aguardando');
+        api.fundo.classList.remove('poppy-fundo', 'desligada');
         raiz.textContent = '';
       },
     };

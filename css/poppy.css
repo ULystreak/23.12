@@ -1,126 +1,783 @@
 /* ============================================================================
    CAPÍTULO 1: O JOGO
-   Fita antiga de uma fábrica de brinquedos: petróleo + vermelho, amarelo, azul
-   e verde. Fredoka nos títulos e textos, VT323 no que é "da fita".
-   Esqueleto: o mínimo para funcionar.
+   Uma fita VHS achada numa fábrica de brinquedos. Petróleo + vermelho,
+   amarelo, azul e verde de brinquedo. Fredoka no que é brinquedo, VT323 no
+   que é "da fita". Física: molas, quiques, peso e cortes de vídeo.
    ========================================================================== */
 
-.poppy-fundo { background-color: var(--poppy-fundo); }
-
 .poppy {
-  display: flex;
-  flex-direction: column;
-  gap: var(--esp-7);
-  padding:
-    calc(var(--seguro-topo) + var(--esp-9))
-    max(var(--margem), var(--seguro-dir))
-    calc(var(--seguro-base) + var(--esp-8))
-    max(var(--margem), var(--seguro-esq));
+  --pp-creme: #f2ead8;
+  --pp-tinta: #0f1c24;                   /* letra escura sobre plástico claro */
+  --pp-vidro: rgba(8, 22, 32, 0.8);
+  --pp-plastico: #e9dfc8;
+  --pp-metal: #a9b6b2;
+  --pp-chassi: #141d22;
+  --pp-lateral: max(var(--margem), var(--seguro-esq));
+  --pp-lateral-dir: max(var(--margem), var(--seguro-dir));
+  position: relative;
   font-family: var(--fonte-brinquedo);
   font-weight: 500;
   font-size: var(--texto-corpo);
-  line-height: 1.65;
-  color: var(--poppy-texto);
+  line-height: 1.6;
+  color: var(--pp-creme);
 }
 .poppy ::selection { background: var(--poppy-amarelo); color: var(--poppy-fundo); }
-.poppy :focus-visible { outline-color: var(--poppy-amarelo); }
+.poppy :focus-visible { outline: 3px solid var(--poppy-amarelo); outline-offset: 4px; }
 
-.poppy-cabeca { display: grid; gap: var(--esp-4); min-height: 46vh; align-content: center; }
-.poppy-titulo {
-  font-family: var(--fonte-brinquedo);
-  font-weight: 600;
-  font-size: var(--texto-titulo);
-  line-height: 1.12;
-  color: var(--poppy-amarelo);
-}
-.poppy-subtitulo {
-  font-family: var(--fonte-fita);
-  font-size: clamp(1.25rem, 1.1rem + 0.8vw, 1.625rem);
-  line-height: 1.3;
-  letter-spacing: 0.04em;
-  color: var(--poppy-texto);
-}
-
-.poppy-texto { max-width: 34em; }
-
-.poppy-imagem { display: grid; gap: var(--esp-3); }
-.poppy-imagem img {
-  width: 100%;
-  border-radius: 10px;
-  border: 3px solid var(--poppy-texto);
-}
-.poppy-imagem figcaption {
-  font-family: var(--fonte-fita);
-  font-size: 1.25rem;
-  letter-spacing: 0.04em;
-}
-
-.poppy-cena { display: grid; justify-items: center; padding: var(--esp-5) 0; }
-.poppy-cena svg { width: min(100%, 420px); height: auto; }
-
-.poppy-fita { position: relative; width: min(100%, 360px); }
-.poppy-fita svg { width: 100%; }
-.poppy-fita-etiqueta,
-.poppy-fita-data {
+/* ---- o fundo (api.fundo) ----------------------------------------------------- */
+.poppy-fundo { background-color: var(--poppy-fundo); }
+.poppy-fundo.desligada { background-color: #04090c; }   /* o vidro do tubo apagado */
+.poppy-tubo {
   position: absolute;
-  left: 12%; right: 12%;
+  inset: 0;
+  overflow: hidden;
+  background: #0a1a24;
+  will-change: transform;
+}
+.poppy-parada,
+.poppy-vhs {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.poppy-parada { object-fit: cover; }
+/* sem WebGL a imagem parada fica à vista: um pouco mais escura e com a vinheta do tubo */
+.sem-vhs .poppy-parada { filter: brightness(0.86) saturate(0.85); }
+.sem-vhs .poppy-tubo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 75% 70% at 50% 48%, transparent 52%, rgba(2, 8, 12, 0.62) 100%);
+  pointer-events: none;
+}
+.poppy-tubo.em-falha .poppy-parada { animation: poppy-tremor 140ms steps(3) infinite; }
+
+.poppy-leve-azul {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: #0f1acc;
+  transition: opacity 200ms steps(3);
+}
+.poppy-leve-chuvisco {
+  position: absolute;
+  inset: -96px;
+  z-index: 1;
+  opacity: 0.075;
+  background-size: 96px 96px;
+  animation: poppy-chuvisco 0.4s steps(4) infinite;
+  pointer-events: none;
+}
+.poppy-leve-faixa {
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  z-index: 2;
+  height: 7%;
+  margin-top: -3.5%;
+  background:
+    repeating-linear-gradient(to bottom, rgba(242, 234, 216, 0.16) 0 1px, transparent 1px 3px),
+    rgba(242, 234, 216, 0.05);
+  box-shadow: 0 0 18px rgba(242, 234, 216, 0.08);
+  transition: opacity 120ms steps(2);
+  pointer-events: none;
+}
+html.reduzido .poppy-leve-chuvisco { animation: none; opacity: 0.04; }
+
+/* o último ponto de luz do tubo quando a TV desliga */
+.poppy-fosforo {
+  position: absolute;
+  left: 0; right: 0;
+  top: 50%;
+  height: 4px;
+  margin-top: -2px;
+  z-index: 4;
+  background: #f4fbff;
+  border-radius: 2px;
+  box-shadow: 0 0 10px 2px rgba(190, 225, 255, 0.85), 0 0 40px 8px rgba(120, 180, 255, 0.35);
+  opacity: 0;
+  pointer-events: none;
+}
+.poppy-fosforo-ponto {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  z-index: 5;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 8px 3px rgba(200, 230, 255, 0.9), 0 0 30px 10px rgba(120, 180, 255, 0.35);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ---- a camada do videocassete (OSD)----------------------------------------- */
+.poppy-osd {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 0;
+  height: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+.poppy-osd-tela {
+  position: relative;
+  height: var(--tela);
+  overflow: hidden;
+}
+.poppy-varredura {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.16) 0 1px, transparent 1px 3px);
+  opacity: 0.55;
+}
+.poppy-clarao {
+  position: absolute;
+  inset: 0;
+  background: #dfeeff;
+  opacity: 0;
+}
+.poppy-osd-modo,
+.poppy-contador {
+  position: absolute;
+  left: var(--pp-lateral);
   font-family: var(--fonte-fita);
   line-height: 1;
-  color: #101820;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  letter-spacing: 0.06em;
+  color: #f4f8ec;
+  /* fósforo que vaza um pouco de cor para os lados, como o texto de um videocassete */
+  text-shadow: -1.5px 0 rgba(226, 51, 47, 0.55), 1.5px 0 rgba(47, 143, 216, 0.55), 0 0 8px rgba(0, 0, 0, 0.6);
+  visibility: hidden;
 }
-.poppy-fita-etiqueta { top: 17%; font-size: clamp(1.125rem, 5.2vw, 1.5rem); }
-.poppy-fita-data { top: 31%; font-size: clamp(0.9375rem, 4.2vw, 1.125rem); }
-
-.poppy-esteira { width: 100%; overflow: hidden; }
-.poppy-esteira-faixa {
+.poppy-osd-modo {
+  top: calc(var(--seguro-topo) + 18px);
   display: flex;
-  gap: var(--esp-4);
-  overflow-x: auto;
-  padding: var(--esp-3) 0;
-  scrollbar-width: none;
+  align-items: center;
+  gap: 10px;
+  font-size: clamp(2rem, 1.6rem + 1.6vw, 2.75rem);
 }
-.poppy-esteira-faixa::-webkit-scrollbar { display: none; }
-.poppy-caixa {
+.poppy-osd-icone svg {
+  display: block;
+  height: 0.62em;
+  width: auto;
+  fill: currentColor;
+  filter: drop-shadow(-1.5px 0 rgba(226, 51, 47, 0.55)) drop-shadow(1.5px 0 rgba(47, 143, 216, 0.55));
+}
+.poppy-osd-modo.visivel { visibility: visible; animation: poppy-corte 260ms steps(3) backwards; }
+/* um texto passando por baixo: o OSD quase some, em degraus, e volta quando ele sai */
+.poppy-osd-modo,
+.poppy-contador { transition: opacity 160ms steps(2); }
+.poppy-osd-modo.sob-texto,
+.poppy-contador.sob-texto { opacity: 0.16; }
+.poppy-osd-modo[data-modo="parar"] .poppy-osd-icone svg { height: 0.56em; }
+.poppy-contador {
+  bottom: calc(var(--seguro-base) + 18px);
+  font-size: clamp(1.625rem, 1.4rem + 1vw, 2.125rem);
+}
+.poppy-contador.visivel { visibility: visible; animation: poppy-corte 220ms steps(2) backwards; }
+
+/* ---- o corpo ------------------------------------------------------------------- */
+.poppy-corpo {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(64px, 12vh, 112px);
+  padding:
+    calc(var(--seguro-topo) + 72px)
+    var(--pp-lateral-dir)
+    calc(var(--seguro-base) + 96px)
+    var(--pp-lateral);
+}
+.poppy.aguardando .poppy-corpo { visibility: hidden; }
+
+/* ---- título em blocos -------------------------------------------------------- */
+.poppy-cabeca {
+  display: grid;
+  align-content: center;
+  gap: var(--esp-6);
+  min-height: calc(var(--tela) - 210px);
+}
+.poppy-titulo { margin: 0; font-size: 1rem; line-height: 1; }
+.poppy-pilha { display: flex; flex-direction: column; gap: 3px; }
+.poppy-fileira { display: flex; align-items: flex-end; gap: 3px; }
+.poppy-vao { flex: none; width: calc(var(--lado) * 0.42); }
+.poppy-bloco {
+  --cor: var(--poppy-amarelo);
+  --letra: var(--pp-tinta);
+  position: relative;
   flex: none;
-  padding: var(--esp-3) var(--esp-4);
-  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  width: var(--lado);
+  height: var(--lado);
+  border-radius: calc(var(--lado) * 0.16);
+  background: var(--cor);
+  color: var(--letra);
+  /* um bloco de madeira pintada: aresta de baixo mais escura, quina de cima clara, sombra no chão */
+  box-shadow:
+    inset 0 calc(var(--lado) * -0.1) 0 rgba(0, 0, 0, 0.24),
+    inset calc(var(--lado) * 0.05) calc(var(--lado) * 0.05) 0 rgba(255, 255, 255, 0.28),
+    0 3px 0 rgba(2, 8, 12, 0.55);
+  font-family: var(--fonte-brinquedo);
   font-weight: 600;
-  color: #101820;
-  background: var(--poppy-amarelo);
+  font-size: calc(var(--lado) * 0.6);
+  line-height: 1;
+  opacity: 0;
+  visibility: hidden;
+  transform-origin: 50% 100%;
+  will-change: transform;
 }
-.poppy-caixa-1 { background: var(--poppy-azul); }
-.poppy-caixa-2 { background: var(--poppy-verde); }
-.poppy-caixa-3 { background: var(--poppy-vermelho); color: #fff; }
-.poppy-esteira-base {
-  height: 12px;
-  border-radius: 6px;
-  background: repeating-linear-gradient(90deg, var(--poppy-texto) 0 14px, var(--poppy-fundo-claro) 14px 28px);
+.poppy-bloco > span {
+  position: relative;
+  z-index: 1;
+  margin-top: calc(var(--lado) * -0.08);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+/* uma lasca de tinta: aparece a madeira clara por baixo */
+.poppy-bloco::after {
+  content: "";
+  position: absolute;
+  left: var(--mx);
+  top: var(--my);
+  width: 17%;
+  height: 11%;
+  border-radius: 40% 60% 45% 55%;
+  background: rgba(233, 222, 196, 0.42);
+}
+.poppy-bloco.estreito { width: calc(var(--lado) * 0.5); }
+.poppy-bloco.estreito::after { display: none; }
+.poppy-bloco[data-cor="vermelho"] { --cor: #d93a31; --letra: #fff4e0; }
+.poppy-bloco[data-cor="vermelho"] > span { text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25); }
+.poppy-bloco[data-cor="amarelo"] { --cor: var(--poppy-amarelo); }
+.poppy-bloco[data-cor="azul"] { --cor: #3a95da; }
+.poppy-bloco[data-cor="verde"] { --cor: #44b46c; }
+.poppy-bloco[data-cor="creme"] { --cor: var(--pp-plastico); }
+
+.poppy-subtitulo {
+  margin: 0;
+  max-width: 26em;
+  font-family: var(--fonte-fita);
+  font-size: clamp(1.375rem, 1.2rem + 0.9vw, 1.75rem);
+  line-height: 1.22;
+  letter-spacing: 0.03em;
+  color: #f4f8ec;
+  text-shadow: -1px 0 rgba(226, 51, 47, 0.45), 1px 0 rgba(47, 143, 216, 0.45), 0 0 10px rgba(2, 8, 12, 0.9);
+}
+.poppy-por-digitar { color: transparent; text-shadow: none; }
+.poppy-cursor {
+  /* inline e sem largura: o cursor não abre uma quebra de linha no meio da palavra */
+  position: relative;
+  display: inline;
+  visibility: hidden;
+}
+.poppy-cursor i {
+  position: absolute;
+  left: 0.08em;
+  bottom: -0.06em;
+  width: 0.5em;
+  height: 0.92em;
+  background: currentColor;
+}
+.digitando .poppy-cursor { visibility: visible; }
+.digitado .poppy-cursor i { animation: poppy-piscar 1.06s steps(1) infinite; }
+html.reduzido .digitado .poppy-cursor { visibility: hidden; }
+
+/* ---- entrada das peças --------------------------------------------------------- */
+.poppy-entra { opacity: 0; visibility: hidden; }
+
+/* ---- cartões de vidro ------------------------------------------------------------ */
+.poppy-cartao {
+  position: relative;
+  width: var(--larg, 92%);
+  max-width: 36em;
+  align-self: flex-start;
+  will-change: transform;
+}
+.poppy-cartao[data-lado="dir"] { align-self: flex-end; }
+.poppy-cartao[data-lado="meio"] { align-self: center; }
+.poppy-vidro {
+  position: relative;
+  padding: clamp(22px, 5.6vw, 34px) clamp(22px, 5.6vw, 36px);
+  border-radius: 14px;
+  background: var(--pp-vidro);
+  -webkit-backdrop-filter: blur(7px) saturate(1.1);
+  backdrop-filter: blur(7px) saturate(1.1);
+  border: 1px solid rgba(242, 234, 216, 0.1);
+  box-shadow: 0 18px 38px rgba(2, 8, 12, 0.42), inset 0 1px 0 rgba(242, 234, 216, 0.08);
+}
+.poppy-vidro p { margin: 0; text-wrap: pretty; }
+/* cada cartão é preso de um jeito, e o vidro acompanha o enfeite */
+.poppy-cartao[data-enfeite="fita"] .poppy-vidro { border-radius: 4px; }
+.poppy-cartao[data-enfeite="parafusos"] .poppy-vidro {
+  border-radius: 8px;
+  border-color: rgba(169, 182, 178, 0.26);
+  padding-inline: clamp(30px, 7vw, 44px);
+}
+.poppy-cartao[data-enfeite="etiqueta"] .poppy-vidro { border-radius: 18px 18px 18px 4px; padding-right: clamp(52px, 13vw, 66px); }
+.poppy-cartao[data-enfeite="ima"] .poppy-vidro { border-radius: 22px; padding-top: clamp(30px, 7vw, 40px); }
+.poppy-cartao[data-enfeite="pregador"] .poppy-vidro { border-radius: 10px 10px 16px 16px; }
+html[data-nivel="baixo"] .poppy-vidro,
+.sem-vhs ~ .perg-rolagem .poppy-vidro {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: rgba(8, 22, 32, 0.9);
 }
 
-.poppy-rodape { display: grid; justify-items: center; padding-top: var(--esp-7); }
+.poppy-adesiva {
+  position: absolute;
+  z-index: 2;
+  width: 86px;
+  height: 26px;
+  opacity: 0.9;
+  /* bordas rasgadas à mão */
+  clip-path: polygon(0 8%, 6% 0, 12% 10%, 20% 2%, 100% 0, 96% 22%, 100% 46%, 95% 70%, 100% 100%, 82% 92%, 70% 100%, 0 100%, 4% 72%, 0 50%, 5% 28%);
+}
+.poppy-adesiva.a { top: -12px; left: 16px; background: rgba(246, 193, 45, 0.86); transform: rotate(-6deg); }
+.poppy-adesiva.b { bottom: -11px; right: 22px; width: 70px; background: rgba(63, 184, 107, 0.82); transform: rotate(4deg); }
+
+.poppy-parafuso { position: absolute; z-index: 2; width: 16px; height: 16px; }
+.poppy-parafuso.p0 { top: 9px; left: 9px; }
+.poppy-parafuso.p1 { top: 9px; right: 9px; }
+.poppy-parafuso.p2 { bottom: 9px; right: 9px; }
+.poppy-parafuso.p3 { bottom: 9px; left: 9px; }
+
+.poppy-etiqueta { position: absolute; z-index: 2; top: -7px; right: 12px; width: 36px; height: 58px; overflow: visible; }
+.poppy-ima { position: absolute; z-index: 2; top: -15px; left: 50%; width: 36px; height: 38px; margin-left: -18px; }
+.poppy-pregador { position: absolute; z-index: 2; top: -26px; left: 30px; width: 22px; height: 52px; transform: rotate(5deg); }
+
+/* ---- monitor (imagens) ------------------------------------------------------------ */
+.poppy-monitor {
+  position: relative;
+  margin: 0;
+  width: min(94%, 560px);
+  align-self: flex-start;
+  padding: 14px 14px 10px;
+  border-radius: 24px 24px 20px 20px;
+  background: #1b252b;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.07),
+    inset 0 -6px 0 rgba(0, 0, 0, 0.3),
+    0 22px 40px rgba(2, 8, 12, 0.5);
+  will-change: transform;
+}
+.poppy-monitor[data-lado="dir"] { align-self: flex-end; }
+.poppy-monitor-tela {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px / 13px;
+  background: #050a0d;
+  box-shadow: inset 0 0 0 2px #0a1013;
+}
+/* foto em pé não vira um monitor do tamanho da tela: fica com tarjas pretas dos lados, como no tubo */
+.poppy-monitor-img { display: block; width: 100%; height: auto; max-height: min(56vh, 520px); object-fit: contain; transform-origin: 50% 50%; }
+.poppy-monitor-linhas {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 3px);
+  pointer-events: none;
+}
+.poppy-monitor-reflexo {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(ellipse 60% 40% at 28% 18%, rgba(255, 255, 255, 0.1), transparent 70%);
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+.poppy-monitor-legenda {
+  margin: 10px 4px 0;
+  font-family: var(--fonte-fita);
+  font-size: clamp(1.25rem, 1.15rem + 0.4vw, 1.4rem);
+  line-height: 1.2;
+  letter-spacing: 0.03em;
+  color: #f4f8ec;
+}
+.poppy-monitor-painel { display: flex; align-items: center; gap: 10px; margin: 10px 4px 2px; }
+.poppy-monitor-painel .luz { width: 7px; height: 7px; border-radius: 50%; background: #3a1414; transition: background 200ms steps(2), box-shadow 200ms steps(2); }
+.poppy-monitor.ligado .poppy-monitor-painel .luz { background: var(--fio); box-shadow: 0 0 8px rgba(215, 25, 45, 0.8); }
+.poppy-monitor-painel .grade {
+  flex: 1;
+  height: 10px;
+  background: repeating-linear-gradient(90deg, #0b1216 0 3px, transparent 3px 7px);
+  opacity: 0.8;
+}
+.poppy-monitor-painel .botao { width: 16px; height: 16px; border-radius: 50%; background: #2c3940; box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.4); }
+
+/* ---- cenas -------------------------------------------------------------------------- */
+.poppy-cena { position: relative; z-index: 0; width: 100%; }
+/* o que se lê fica sempre na frente do que passa por trás (a calha, a mola, o fio) */
+.poppy-cartao,
+.poppy-monitor { z-index: 1; }
+/* as cenas de fora a fora: a mola e o fio vêm de fora da tela */
+.poppy-maos,
+.poppy-esteira {
+  width: auto;
+  margin-left: calc(-1 * var(--pp-lateral));
+  margin-right: calc(-1 * var(--pp-lateral-dir));
+}
+
+/* mãos */
+.poppy-maos { height: clamp(210px, 52vw, 300px); }
+.poppy-maos-desenho { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.poppy-maos .mola,
+.poppy-maos .mola-sombra { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.poppy-maos .mola { stroke: #b9c4c0; stroke-width: 3.4; }
+.poppy-maos .mola-sombra { stroke: rgba(2, 8, 12, 0.5); stroke-width: 5; transform: translate(0, 5px); }
+.poppy-maos .fio-base,
+.poppy-maos .fio-torcido,
+.poppy-maos .fio-brilho { fill: none; stroke-linecap: round; }
+.poppy-maos .fio-base { stroke: var(--fio); stroke-width: 6; }
+.poppy-maos .fio-torcido { stroke: var(--fio-escuro); stroke-width: 6; stroke-dasharray: 2.5 5.5; }
+.poppy-maos .fio-brilho { stroke: rgba(255, 220, 220, 0.4); stroke-width: 1.4; stroke-dasharray: 2 6; transform: translate(0, -1.6px); }
+.poppy-maos .pele { stroke: rgba(2, 8, 12, 0.32); stroke-width: 2; }
+.poppy-maos .azul .pele { fill: #3a8fd4; }
+.poppy-maos .vermelha .pele { fill: #d93a31; }
+.poppy-maos .sombra { fill: none; stroke: rgba(2, 8, 12, 0.22); stroke-width: 7; stroke-linecap: round; }
+.poppy-maos .vinco { fill: none; stroke: rgba(2, 8, 12, 0.24); stroke-width: 2.4; stroke-linecap: round; }
+.poppy-maos .brilho { fill: none; stroke: rgba(255, 255, 255, 0.42); stroke-width: 3; stroke-linecap: round; }
+.poppy-maos .brilho.fino { stroke-width: 2.6; stroke: rgba(255, 255, 255, 0.36); }
+/* a costura da junta do dedo e a ponta mais clara, como plástico injetado */
+.poppy-maos .junta { fill: none; stroke: rgba(2, 8, 12, 0.26); stroke-width: 2; stroke-linecap: round; }
+.poppy-maos .unha { fill: none; stroke: rgba(255, 255, 255, 0.3); stroke-width: 2.2; stroke-linecap: round; }
+.poppy-maos .punho { fill: var(--pp-plastico); stroke: rgba(2, 8, 12, 0.35); stroke-width: 1.5; }
+.poppy-maos .friso { stroke: #a99f86; stroke-width: 2; stroke-linecap: round; }
+.poppy-maos .rebite { fill: #7d7562; }
+.poppy-faiscas { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; }
+.poppy-faiscas .risco {
+  position: absolute;
+  left: -1.5px; top: -9px;
+  width: 3px; height: 18px;
+  border-radius: 2px;
+  background: var(--poppy-amarelo);
+  box-shadow: 0 0 6px rgba(246, 193, 45, 0.7);
+}
+.poppy-faiscas .risco.creme { background: #fff4e0; }
+.poppy-faiscas .anel {
+  position: absolute;
+  left: -24px; top: -24px;
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  border: 3px solid var(--poppy-amarelo);
+}
+
+/* fita */
+.poppy-vcr { display: grid; justify-items: center; padding: var(--esp-4) 0; }
+.vcr-palco { position: relative; width: min(100%, 420px); }
+.vcr-aparelho { position: relative; z-index: 1; filter: drop-shadow(0 16px 22px rgba(2, 8, 12, 0.55)); }
+.vcr-aparelho-desenho { display: block; width: 100%; height: auto; }
+.vcr-luz {
+  position: absolute;
+  left: 81.4%;
+  top: 26.5%;
+  width: 3.2%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #3a1414;
+}
+.carregada .vcr-luz { background: var(--fio); box-shadow: 0 0 10px 2px rgba(215, 25, 45, 0.75); }
+.vcr-boca {
+  position: relative;
+  z-index: 2;
+  margin-top: -3.6%;
+  aspect-ratio: 100 / 50;
+  overflow: hidden;
+}
+.vcr-labio {
+  position: absolute;
+  left: 9%; right: 9%; top: 0;
+  height: 7px;
+  background: linear-gradient(to bottom, rgba(1, 3, 4, 0.9), transparent);
+  pointer-events: none;
+}
+.vcr-cassete {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 72%;
+  will-change: transform;
+}
+.vcr-cassete-desenho { display: block; width: 100%; height: auto; }
+.vcr-rotulo {
+  position: absolute;
+  left: 9%; right: 9%;
+  top: 13.5%;
+  height: 31%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0.2em;
+  font-family: var(--fonte-mao);
+  color: #24161c;
+  transform: rotate(-1.4deg);
+  line-height: 1.05;
+  overflow: hidden;
+}
+/* escrito à mão com caneta de ponta grossa: até duas linhas, nunca cortado no meio */
+.vcr-rotulo-nome {
+  font-weight: 600;
+  font-size: clamp(0.8125rem, 3.4vw, 1.0625rem);
+  max-width: 100%;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.vcr-rotulo-data { font-size: clamp(0.75rem, 2.9vw, 0.875rem); color: #3b2a30; }
+
+/* esteira */
+.esteira-palco {
+  position: relative;
+  height: clamp(230px, 56vw, 300px);
+  /* recorta os lados e o chão, mas deixa a calha subir até o teto */
+  -webkit-clip-path: inset(-40vh 0 0 0);
+  clip-path: inset(-40vh 0 0 0);
+}
+.esteira-chao {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 30%;
+  background: radial-gradient(ellipse 62% 55% at 42% 40%, rgba(2, 8, 12, 0.55), transparent 72%);
+}
+.esteira-lona {
+  position: absolute;
+  z-index: 2;
+  left: 2%;
+  width: 78%;
+  top: 60%;
+  height: 14px;
+  border-radius: 7px;
+  overflow: hidden;
+  background: #1c272c;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.06), 0 2px 0 #070c0f;
+}
+.esteira-ripas {
+  position: absolute;
+  top: 0; bottom: 0;
+  left: -18px; right: 0;
+  background: repeating-linear-gradient(90deg, #34444c 0 3px, transparent 3px 18px);
+  will-change: transform;
+}
+.esteira-rolo {
+  position: absolute;
+  z-index: 3;
+  left: calc(80% - 19px);
+  top: calc(60% - 2px);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 3px solid #4b5c64;
+  border-top-color: #c9d2ce;
+  background: #1c272c;
+  will-change: transform;
+}
+.esteira-saia {
+  position: absolute;
+  z-index: 1;
+  left: 4%;
+  width: 74%;
+  top: calc(60% + 12px);
+  height: 22px;
+  border-radius: 0 0 6px 6px;
+  /* faixa de perigo de fábrica, com a tinta gasta */
+  /* em ladrilho de imagem: o gradiente diagonal repetido custava um quadro de
+     80 ms na primeira pintura. Cores já com a tinta gasta (sem opacity). */
+  background: #182127 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26'%3E%3Cpath fill='%23947418' d='M0 0h13L0 13zM26 0v13L13 26H0z'/%3E%3C/svg%3E") 0 0 / 26px 26px repeat;
+}
+.esteira-pe {
+  position: absolute;
+  z-index: 0;
+  top: calc(60% + 30px);
+  bottom: 8%;
+  width: 10px;
+  background: #1a252b;
+  box-shadow: inset 2px 0 0 rgba(255, 255, 255, 0.06);
+}
+.esteira-pe.a { left: 12%; }
+.esteira-pe.b { left: 68%; }
+/* as peças só existem do alto da cena para baixo (a calha agora sobe além dele):
+   a que espera a vez não aparece dos lados do tubo */
+.esteira-itens {
+  position: absolute; inset: 0; z-index: 2;
+  -webkit-clip-path: inset(0 -60px -200px -60px);
+  clip-path: inset(0 -60px -200px -60px);
+}
+.esteira-item { position: absolute; left: 0; top: 0; will-change: transform; }
+.esteira-peca svg { display: block; }
+.esteira-caixa {
+  --cor: var(--poppy-amarelo);
+  padding: 8px 12px 10px;
+  border-radius: 6px;
+  background: var(--cor);
+  color: var(--pp-tinta);
+  font-family: var(--fonte-brinquedo);
+  font-weight: 600;
+  font-size: clamp(0.9375rem, 3.6vw, 1.0625rem);
+  line-height: 1.1;
+  /* palavra curta fica numa linha; frase comprida vira uma caixa mais alta, nunca maior que a esteira */
+  max-width: min(11em, 44vw);
+  text-align: center;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.22), inset 0 2px 0 rgba(255, 255, 255, 0.3);
+}
+.esteira-caixa.alta { padding-top: 16px; padding-bottom: 18px; }
+.esteira-caixa[data-cor="azul"] { --cor: #3a95da; }
+.esteira-caixa[data-cor="verde"] { --cor: #44b46c; }
+.esteira-caixa[data-cor="creme"] { --cor: var(--pp-plastico); }
+.esteira-caixa[data-cor="vermelho"] { --cor: var(--fio); color: #fff; }
+.esteira-cacamba {
+  position: absolute;
+  z-index: 3;
+  right: 2%;
+  bottom: 0;
+  width: 17%;
+  height: 32%;
+  border-radius: 6px 6px 0 0;
+  background: #245d86;
+  box-shadow: inset 0 5px 0 #3577a6, inset 0 -10px 0 rgba(0, 0, 0, 0.25);
+}
+/* a borda dobrada da caçamba e uma lasca de tinta onde já bateu muita caixa */
+.esteira-cacamba::before {
+  content: "";
+  position: absolute;
+  left: -4px; right: -4px; top: -4px;
+  height: 8px;
+  border-radius: 4px;
+  background: #2d6f9e;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.18), 0 2px 0 rgba(2, 8, 12, 0.4);
+}
+.esteira-cacamba::after {
+  content: "";
+  position: absolute;
+  left: 22%; top: 38%;
+  width: 26%; height: 14%;
+  border-radius: 40% 60% 50% 45%;
+  background: rgba(150, 160, 156, 0.35);
+}
+.esteira-calha {
+  position: absolute;
+  z-index: 3;
+  /* um tubo de chapa que desce do teto, de longe: começa no escuro lá em cima,
+     entre o texto anterior e a esteira, e chega com duas cintas e a boca embaixo */
+  top: calc(-1 * var(--calha-sobe));
+  left: min(34%, 150px);
+  width: clamp(104px, 30vw, 136px);
+  height: calc(34% + var(--calha-sobe));
+  --calha-sobe: clamp(150px, 26vh, 260px);
+  transform: translateX(-50%);
+  /* camada própria: pintada uma vez (os gradientes custavam ~100 ms ao entrar na tela) */
+  will-change: transform;
+  /* o alto do tubo se perde no escuro do teto: uma camada da cor do galpão por
+     cima (máscara custava um quadro de 100 ms na primeira pintura) */
+  background:
+    linear-gradient(to bottom, #0a1c27 0, rgba(10, 28, 39, 0.9) 18%, rgba(10, 28, 39, 0.4) 42%, rgba(10, 28, 39, 0) 64%),
+    linear-gradient(#26343b, #26343b) 0 calc(100% - 24px) / 100% 5px no-repeat,
+    linear-gradient(#26343b, #26343b) 0 calc(100% - 58px) / 100% 5px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.07)) 0 calc(100% - 29px) / 100% 1px no-repeat,
+    linear-gradient(90deg, #2a383f 0 12%, #3d4f58 12% 30%, #34454d 30% 80%, #26343b 80%);
+  border-radius: 0 0 6px 6px;
+}
+.esteira-calha::after {
+  content: "";
+  position: absolute;
+  left: 7px; right: 7px; bottom: 4px;
+  height: 8px;
+  border-radius: 4px;
+  background: #060b0e;
+}
+
+/* ---- o botão de parar ---------------------------------------------------------- */
+.poppy-rodape { display: grid; justify-items: center; padding-top: var(--esp-6); }
+.poppy-painel {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px 14px 20px;
+  border-radius: 16px;
+  background: var(--pp-chassi);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -4px 0 rgba(0, 0, 0, 0.35),
+    0 20px 36px rgba(2, 8, 12, 0.5);
+}
+.poppy-painel-luz {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #4ad07a;
+  box-shadow: 0 0 10px rgba(74, 208, 122, 0.8);
+}
+.poppy-rodape.desligado .poppy-painel-luz { background: var(--fio); box-shadow: 0 0 10px rgba(215, 25, 45, 0.85); }
 .poppy-fechar {
-  min-height: 52px;
-  padding: 12px 26px;
-  border-radius: 14px;
+  min-height: 60px;
+  min-width: 60px;
+  padding: 0 0 6px;
+  border-radius: 12px;
+  background: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.poppy-tecla {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 54px;
+  padding: 0 22px 0 18px;
+  border-radius: 11px;
+  background: var(--pp-plastico);
+  color: var(--pp-tinta);
   font-family: var(--fonte-brinquedo);
   font-weight: 600;
   font-size: var(--texto-subtitulo);
-  color: #101820;
-  background: var(--poppy-amarelo);
-  box-shadow: 0 5px 0 #b98a0c;
-  transition: transform 140ms var(--curva-ui), box-shadow 140ms var(--curva-ui);
+  line-height: 1.1;
+  box-shadow:
+    0 6px 0 #8b7f66,
+    0 8px 14px rgba(2, 8, 12, 0.55),
+    inset 0 2px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.08);
+  transition: transform 110ms var(--curva-ui), box-shadow 110ms var(--curva-ui);
 }
-.poppy-fechar:active { transform: translateY(4px) scale(0.99); box-shadow: 0 1px 0 #b98a0c; }
+.poppy-fechar.so-desenho .poppy-tecla { padding: 0 18px; }
+.poppy-tecla-icone svg { display: block; width: 18px; height: 18px; fill: #c5362f; }
+.poppy-fechar:active .poppy-tecla,
+.poppy-fechar.apertada .poppy-tecla {
+  transform: translateY(5px);
+  box-shadow:
+    0 1px 0 #8b7f66,
+    0 2px 4px rgba(2, 8, 12, 0.5),
+    inset 0 2px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.08);
+}
+@media (hover: hover) and (pointer: fine) {
+  .poppy-fechar:not(.apertada):hover .poppy-tecla { transform: translateY(-1px); }
+  .poppy-fechar:not(.apertada):active .poppy-tecla { transform: translateY(5px); }
+}
+.poppy-fechar:disabled { cursor: default; }
 
-/* Entrada das partes: caem com peso e assentam (nada desliza suave). */
-.poppy-entra { opacity: 0; transform: translateY(-28px) scale(0.96); }
-.poppy-entra.visivel {
-  opacity: 1;
-  transform: none;
-  transition: transform 620ms var(--curva-poppy-pulo), opacity 200ms linear;
+/* ---- movimentos ------------------------------------------------------------------ */
+@keyframes poppy-corte {
+  0% { opacity: 0; transform: translateX(-8px); }
+  50% { opacity: 1; transform: translateX(5px); }
+  100% { opacity: 1; transform: none; }
 }
-html.reduzido .poppy-entra { transform: none; }
-html.reduzido .poppy-entra.visivel { transition: opacity 400ms linear; }
+@keyframes poppy-piscar { 50% { opacity: 0; } }
+@keyframes poppy-tremor {
+  0% { transform: translate3d(-6px, 0, 0); }
+  50% { transform: translate3d(8px, 1px, 0); }
+  100% { transform: translate3d(-2px, 0, 0); }
+}
+@keyframes poppy-chuvisco {
+  0% { transform: translate3d(0, 0, 0); }
+  25% { transform: translate3d(-37px, 23px, 0); }
+  50% { transform: translate3d(19px, -41px, 0); }
+  75% { transform: translate3d(-53px, -11px, 0); }
+}
+
+html.reduzido .poppy-osd-modo.visivel,
+html.reduzido .poppy-contador.visivel { animation: none; }
+html.reduzido .poppy-tecla { transition: none; }

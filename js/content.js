@@ -108,32 +108,60 @@ window.CONTEUDO = {
 
   /* --------------------------------------------------------------------------
      CAPÍTULO 1: O JOGO
-     A folha desenrola e vira uma fita antiga de uma fábrica de brinquedos.
+     A folha desenrola e vira uma fita de vídeo antiga, achada numa fábrica de
+     brinquedos. O título cai em blocos de brinquedo, uma letra por bloco.
 
      Os "blocos" são as partes do capítulo, na ordem em que ela vai rolando.
      Você pode trocar a ordem, apagar ou repetir blocos à vontade. Tipos:
 
        { tipo: 'texto', texto: '...' }
-           um parágrafo seu.
+           um parágrafo seu, num cartão de vidro escuro.
 
        { tipo: 'imagem', arquivo: '...', alt: '...', legenda: '...' }
-           uma foto ou captura. "alt" descreve a imagem para quem não enxerga;
-           "legenda" aparece embaixo (pode ficar vazia).
+           uma foto ou captura, mostrada num monitor antigo. "alt" descreve a
+           imagem para quem não enxerga; "legenda" aparece embaixo (pode ficar
+           vazia). Sem arquivo, o bloco inteiro some.
 
        { tipo: 'cena', cena: 'maos' }
            uma cena desenhada pelo próprio site. As três que existem:
-             'maos'     duas mãos de brinquedo que se esticam uma para a outra
-             'fita'     uma fita cassete de vídeo, com etiqueta e contador
-             'esteira'  uma esteira de fábrica que carrega palavras
+             'maos'     duas mãos de brinquedo que se esticam conforme ela rola
+                        e se encontram no meio
+             'fita'     uma fita de vídeo com etiqueta escrita à mão, que entra
+                        no aparelho
+             'esteira'  uma esteira de fábrica onde caem caixas com palavras
      ------------------------------------------------------------------------ */
   poppy: {
+    // O título: cada letra vira um bloco de brinquedo. Títulos curtos (até
+    // umas 5 palavras) ficam mais bonitos.
     titulo: '[Onde a gente se conheceu]',
+
+    // A frase digitada logo abaixo do título, com letra de videocassete.
     subtitulo: '[Fita 01: uma fábrica de brinquedos, um corredor escuro e você.]',
 
-    // Imagem de fundo do capítulo (opcional).
+    // Imagem de fundo do capítulo (opcional). Sem ela, o site desenha a
+    // fábrica sozinho.
     // Quando existir, salve como assets/images/poppy-fundo.webp e escreva aqui:
     // 'assets/images/poppy-fundo.webp'
     fundo: '',
+
+    // As palavrinhas que o videocassete escreve no canto da tela.
+    //   tocar:   aparece quando a fita começa                [PLAY]
+    //   avancar: aparece quando ela rola rápido para baixo   [FF]
+    //   voltar:  aparece quando ela rola rápido para cima    [REW]
+    //   parar:   aparece quando ela fecha o capítulo         [STOP]
+    // Qualquer uma pode ficar vazia (''): aí só o desenho aparece.
+    osd: {
+      tocar: 'PLAY',
+      avancar: 'FF',
+      voltar: 'REW',
+      parar: 'STOP',
+    },
+
+    // O contador da fita, no canto de baixo. Começa em zero e vai subindo
+    // conforme ela rola; quando ela chega ao fim do capítulo, mostra exatamente
+    // este valor. Formato: horas:minutos:segundos. [0:23:12 lembra 23/12]
+    // Vazio ('') esconde o contador.
+    contadorFinal: '0:23:12',
 
     blocos: [
       {
@@ -158,9 +186,9 @@ window.CONTEUDO = {
       {
         tipo: 'cena',
         cena: 'fita',
-        // O que vai escrito na etiqueta da fita.
+        // O que vai escrito à mão na etiqueta da fita.
         etiqueta: '[NOSSA PRIMEIRA PARTIDA]',
-        // A data ou o texto pequeno do canto da fita.
+        // A data ou o texto pequeno embaixo, na mesma etiqueta.
         data: '[00/00/0000]',
       },
       {
@@ -170,7 +198,8 @@ window.CONTEUDO = {
       {
         tipo: 'cena',
         cena: 'esteira',
-        // As palavras que passam na esteira, uma por caixa.
+        // As palavras que caem na esteira, uma por caixa. Palavras curtas
+        // cabem melhor. Entre uma caixa e outra o site põe bolas e peças.
         itens: ['[sua risada]', '[os sustos]', '[as madrugadas]', '[mais uma partida]', '[você]'],
       },
       {
@@ -190,7 +219,9 @@ window.CONTEUDO = {
       },
     ],
 
-    // Texto do botão que fecha o capítulo e leva para a próxima carta.
+    // Texto do botão que fecha o capítulo e leva para a próxima carta. É o
+    // botão de parar do videocassete. Se ficar vazio (''), o botão continua
+    // lá, só com o desenho.
     fechar: 'Fechar este capítulo',
   },
 
