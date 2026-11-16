@@ -4,7 +4,7 @@ Este arquivo é só para você (não aparece no site). Tudo o que ela lê, ouve 
 
 ## 1. Editar os textos (`js/content.js`)
 
-Abra o arquivo num editor de texto simples (Bloco de Notas, VS Code, o próprio editor do GitHub). Ele é dividido em partes, na ordem em que ela vê: página, abertura, música, capítulo 1 (o jogo), capítulo 2 (o filme), os segredos (os vídeos), a mão e o final. Cada parte tem um comentário em cima explicando o que é.
+Abra o arquivo num editor de texto simples (Bloco de Notas, VS Code, o próprio editor do GitHub). Ele é dividido em partes, na ordem em que ela vê: página, abertura, música, capítulo 1 (o jogo), capítulo 2 (o filme), os segredos (os vídeos), a mão, o encontro e o final. Cada parte tem um comentário em cima explicando o que é.
 
 Regras para não quebrar nada:
 
@@ -52,6 +52,7 @@ Todas ficam em `assets/images/`. Prefira `.webp`, até ~350 KB e no máximo 1600
 | `poppy-fundo.webp` | em pé 9:16 | `poppy.fundo` | falta |
 | `poppy-1.webp` e `poppy-2.webp` | 16:9 | blocos `imagem` do capítulo 1 | faltam |
 | `mao-akai-ito.webp` | em pé, fundo transparente | `mao.imagem` | falta |
+| `encontro-mitsuha-costas.webp`, `encontro-2-ele-ve.webp`, `encontro-mitsuha-mao.webp`, `encontro-4-ele-mao.webp` | deitadas (largas) | `encontro.quadros` | já estão |
 | `og-capa.jpg` | 1200×630, JPG | (a prévia do link no WhatsApp) | já está |
 
 Atenção: a capa, o encontro e o par que estão lá agora são quadros do filme (com os personagens). O ideal é trocar por fotos de vocês ou por céus e lugares parecidos; a `capa` também pode ficar `''` (o capítulo abre só com o título e o céu).
@@ -62,6 +63,18 @@ Dois ajustes quando trocar imagens:
 
 - **`mao.ancoraFio`** e **`fioDele` / `fioDela`** (no bloco `par`): dizem em que ponto da imagem o fio vermelho sai ou chega. `x` vai de 0 (esquerda) a 1 (direita), `y` de 0 (topo) a 1 (base). Se trocar a imagem, mude esses números até o fio sair do lugar certo.
 - **`alt`**: uma frase curta descrevendo a imagem, para quem usa leitor de tela.
+
+### O encontro (as imagens depois do fio)
+
+Depois que ela segue o fio, a alameda escurece e as imagens da parte `encontro` do `content.js` passam sozinhas, como cenas de um filme; no fim, o fio vermelho do site liga o dedinho dela ao seu, vem um clarão e a última carta aparece. A lista `quadros` está na ordem em que as imagens passam:
+
+- para **trocar** uma imagem, salve a nova em `assets/images/` e mude o `imagem` do bloco dela; use imagens deitadas (as maiores ficam mais nítidas);
+- `foco` e `ate` dizem de onde até onde a câmera desliza na imagem; `dedo` (só nas duas imagens das mãos) é onde está o dedinho com o fio; `fio` (só na primeira) é onde o fio vermelho da imagem chega perto da borda de baixo. Todos são frações: `x` de 0 (esquerda) a 1 (direita), `y` de 0 (topo) a 1 (base). Se trocar a imagem, ajuste esses números olhando com `?cena=encontro`;
+- para **tirar** esta parte, deixe a lista vazia (`quadros: []`): a carta vai direto do fio para a última carta.
+
+A última imagem da lista, a do abraço (`encontro-5-abraco.webp`), tem `fim: true`: ela entra depois das mãos e é dela que vem o clarão. Ela veio com o logotipo do filme e uma assinatura no alto, por isso tem `aparar: { topo: 0.18 }`, que corta essa parte. Para tirar o abraço, apague o bloco dela; o clarão volta a vir das mãos. O original (`encontro-5-abraco.png`) ficou na pasta, sem uso.
+
+As versões menores (`encontro-1-ela-ve.webp` e `encontro-3-ela-mao.webp`) ficaram na pasta sem uso: as duas imagens largas dela têm o dobro da resolução e dão mais espaço para a câmera deslizar.
 
 ## 4. Vídeos dos amigos (os segredos)
 
@@ -120,6 +133,7 @@ Coloque um destes finais no endereço para pular direto para uma parte:
 | `?cena=yourname` | capítulo 2, o filme |
 | `?cena=segredos` | os bilhetes com os vídeos (só se houver algum vídeo) |
 | `?cena=mao` | "Olha a sua mão." e o fio |
+| `?cena=encontro` | as imagens do encontro, o fio entre os dedinhos e o clarão (só se houver imagens em `encontro.quadros`) |
 | `?cena=final` | a última carta e a frase escrita à mão |
 
 Para testar mais rápido, junte `&rapido=4` (tudo anda 4 vezes mais rápido). Para ver a versão leve (celular fraco), junte `&webgl=0`. Para ver a versão calma (movimento reduzido), `&reduzido=1`.

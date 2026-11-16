@@ -12,8 +12,9 @@
 //     .fundo-nevoa        luz de manhã nublada por cima da foto (estático)
 //     .fundo-veu × 2      véus claros atrás do texto (ligados pelo CSS quando há texto)
 //
-// Caminhar é andar pela alameda: conforme o rig avança, a foto aproxima devagar
-// em direção ao ponto de fuga do caminho. A aproximação acumula pelo fluxo
+// Caminhar é andar pela alameda: conforme ela avança (o passo de base, que nunca
+// para, mais as caminhadas), a foto aproxima devagar em direção ao ponto de fuga
+// do caminho, em laço: perto do limite, dissolve sozinha para uma cópia de mais longe. A aproximação acumula pelo fluxo
 // inteiro; quando a próxima caminhada a levaria além do limite, a foto dissolve,
 // durante essa caminhada, para uma cópia menos aproximada que anda junto.
 //
@@ -37,6 +38,8 @@ const COR_HORIZONTE = '#ece0e6';
 const APROXIMA_POR_METRO = Math.log(1.15) / 7;    // 7 m de caminhada: 15% mais perto
 const LIMITE = 1.55;                              // além disto a foto começaria a estourar
 const RECOMECO = 1;                               // a cópia nova nunca parte de mais longe que isto...
+const TROCA_SOZINHA = 2.2;                        // metros de passo de base que a dissolvência do laço leva
+const SALTO_SOZINHA = 1.45;                       // no laço, a cópia nova parte daqui para trás
 const SALTO = 1.2;                                // ... nem mais de 1,2× atrás da que sai (menos fantasma)
 // Cena fria: onde a aproximação estaria se ela tivesse vindo andando desde o começo.
 const INICIAL = { inicio: 1, poppy: 1.15, carta2: 1.15, yourname: 1.32, mao: 1.32, final: 1.4 };
@@ -162,6 +165,16 @@ export function criarFundo({ amb, antesDe }) {
 
   function avancar(metros) {
     if (!(metros > 0)) return;
+    // O passo de base nunca para: a aproximação é um laço. Um pouco antes do
+    // limite, a foto começa sozinha a dissolver para uma cópia vista de mais longe,
+    // que já vem andando junto (sem salto: as duas aproximam no mesmo ritmo).
+    if (!troca && fotos[atual].z * Math.exp(APROXIMA_POR_METRO * TROCA_SOZINHA) > LIMITE) {
+      const b = fotos[1 - atual];
+      b.z = Math.max(RECOMECO, fotos[atual].z / SALTO_SOZINHA);
+      b.quadro.style.visibility = '';
+      raiz.classList.add('fundo-trocando');
+      troca = { andado: 0, distancia: TROCA_SOZINHA };
+    }
     const k = Math.exp(APROXIMA_POR_METRO * metros);
     fotos[atual].z = Math.min(fotos[atual].z * k, LIMITE * 1.35);
     if (!troca) return;

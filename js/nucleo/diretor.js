@@ -14,12 +14,13 @@
 //   yourname  desenrolando → lendo
 //   segredos  enrolando → frase → escolhendo ⇄ assistindo  (só existe com algum vídeo no content.js)
 //   mao       enrolando → olha → mao-espera → seguindo
+//   encontro  chegando → planos → maos → carta  (só existe com algum quadro em encontro.quadros)
 //   final     carta-chegando → carta-espera → carta-abrindo → desdobrando → escrevendo → fim
 
 import { cenaAbertura } from '../cenas/abertura.js';
 import { cenaCarta } from '../cenas/carta.js';
 
-export const ORDEM = ['inicio', 'poppy', 'carta2', 'yourname', 'segredos', 'mao', 'final'];
+export const ORDEM = ['inicio', 'poppy', 'carta2', 'yourname', 'segredos', 'mao', 'encontro', 'final'];
 
 /**
  * Cenas que só existem quando o content.js tem o que mostrar. Pulada, a cena nem
@@ -30,8 +31,14 @@ export function temSegredos(conteudo) {
   const itens = conteudo && conteudo.segredos && conteudo.segredos.itens;
   return Array.isArray(itens) && itens.some((i) => i && typeof i.video === 'string' && i.video.trim());
 }
+/** O encontro (os quadros entre a caminhada pelo fio e a última carta) existe? */
+export function temEncontro(conteudo) {
+  const quadros = conteudo && conteudo.encontro && conteudo.encontro.quadros;
+  return Array.isArray(quadros) && quadros.some((q) => q && typeof q.imagem === 'string' && q.imagem.trim());
+}
 const PULAR = {
   segredos: (ctx) => !temSegredos(ctx.conteudo),
+  encontro: (ctx) => !temEncontro(ctx.conteudo),
 };
 
 // O que não é da primeira tela só é baixado depois (em segundo plano, durante a abertura).
@@ -40,6 +47,7 @@ const carregar = {
   yourname: () => import('../capitulos/yourname.js'),
   segredos: () => import('../cenas/segredos.js'),
   mao: () => import('../cenas/mao.js'),
+  encontro: () => import('../cenas/encontro.js'),
   final: () => import('../cenas/final.js'),
 };
 
@@ -98,7 +106,14 @@ const cenas = {
 
   async mao(ctx, opcoes) {
     const { cenaMao } = await carregar.mao();
+    // Enquanto ela olha a mão e segue o fio, os quadros do encontro já vão chegando.
+    if (temEncontro(ctx.conteudo)) carregar.encontro().then((m) => m.prepararEncontro(ctx)).catch(() => {});
     await cenaMao(ctx, opcoes);
+  },
+
+  async encontro(ctx, opcoes) {
+    const { cenaEncontro } = await carregar.encontro();
+    await cenaEncontro(ctx, opcoes);
   },
 
   async final(ctx, opcoes) {

@@ -30,6 +30,7 @@ Quem constrói uma cena lê isto inteiro antes de escrever código.
 | 7 | Capítulo 2 | `yourname` | Capa, céu do dia à noite com a rolagem, cometa que se divide, cordão trançado, encontro de ponta a ponta, o par ligado pelo fio | o fio |
 | 7b | Segredos | `segredos` | Só com vídeos no `content.js`. O pergaminho enrola, o mundo volta, uma frase e bilhetes amarrados com o fio que nascem da névoa. Tocar: o fio desamarra, a carta de dentro vira a moldura do vídeo; ao fechar, o nome de quem gravou é escrito à mão. Todos vistos: "Seguir" | o mundo branco aberto, sem carta |
 | 8 | A mão | `mao` | Capítulo fecha, carta vai embora, "Olha a sua mão.", a mão com o akai ito, botão "Seguir o fio", o fio vira o caminho | o fio é o caminho |
+| 8b | O encontro | `encontro` | Só com quadros em `encontro.quadros`. A caminhada pelo fio termina no crepúsculo, a luz corre pelo fio, a alameda escurece e os quadros entram sozinhos como planos de um filme (panorâmica lenta do `foco` ao `ate`); as duas mãos voltam juntas, o fio do site liga um dedinho ao outro, clarão | a última carta, que surge de dentro do clarão já com o fio no laço |
 | 9 | Última carta | `final` | Amarrada só com o fio. Folha em branco desdobra. Uma frase escrita à mão, letra por letra. Fica ali com as pétalas. Sem botão, sem "fim" | — |
 
 ## 3. Gramática de movimento
@@ -38,7 +39,8 @@ Quem constrói uma cena lê isto inteiro antes de escrever código.
 - **Poppy:** molas e quiques (`elastic.out`, `bounce.out`, `back.out`), blocos que caem com peso, cortes de vídeo em `steps()`, falhas de tracking curtas (80–160 ms). Nada desliza suave.
 - **Your Name:** luz e tempo. `sine.inOut` longos, brilhos que florescem (`expo.out`) e somem devagar, camadas de céu com paralaxe, tudo ligado à rolagem.
 - **Interface (botões, mini seletor):** resposta em 120–200 ms, `:active` com `scale(0.97)`, nunca `ease-in`, hover só em `(hover: hover) and (pointer: fine)`.
-- **Movimento reduzido:** sem balanço de passo, sem grandes deslocamentos de câmera (viram dissolvências), pétalas poucas e lentas, texto entra só com opacidade. Nunca tela vazia.
+- **O passo de base:** ela está sempre andando. A alameda vem ao encontro dela o tempo todo, em todas as cenas do mundo (~0,42 m/s, com um balanço de passo bem leve); as caminhadas são acelerações sobre isso e voltam a ele sem solavanco. O que está "parado" (carta em espera, folha, fio) anda junto com ela. Sereno: passeio, não esteira.
+- **Movimento reduzido:** o passo de base cai para ~0,09 m/s (sem WebGL, a imagem fica parada), sem balanço de passo, sem grandes deslocamentos de câmera (viram dissolvências), pétalas poucas e lentas, texto entra só com opacidade. Nunca tela vazia.
 
 ## 4. Arquitetura (contrato)
 
@@ -70,8 +72,9 @@ js/cenas/abertura.js     ← as frases (a caminhada até a carta é de carta.js;
 js/cenas/carta.js        ← caminha, a carta chega, espera o toque, abre, entrega o papel (usada 3×)
 js/cenas/segredos.js     ← os vídeos dos amigos (bilhetes → moldura → nome escrito à mão)
 js/cenas/mao.js          ← "Olha a sua mão." + seguir o fio
+js/cenas/encontro.js     ← o encontro: os quadros como planos de filme, o fio entre os dedinhos, o clarão
 js/cenas/final.js        ← última carta + folha + frase
-css/base.css  css/mundo.css  css/musica.css  css/pergaminho.css  css/poppy.css  css/yourname.css  css/segredos.css  css/mao.css  css/final.css
+css/base.css  css/mundo.css  css/musica.css  css/pergaminho.css  css/poppy.css  css/yourname.css  css/segredos.css  css/mao.css  css/encontro.css  css/final.css
 lib/                     ← three, gsap (+DrawSVGPlugin, CustomEase; ScrollTrigger e SplitText estão aqui mas não são carregados), lenis
 assets/fonts  assets/images  assets/music
 _dev/                    ← este documento e as ferramentas de teste: ver.mjs, robustez.mjs, lib.mjs (não publicado)
@@ -81,7 +84,7 @@ _dev/                    ← este documento e as ferramentas de teste: ver.mjs, 
 
 `main.js` monta `ctx = { conteudo, amb, mundo, som, musica, pergaminho, diretor, gsap, ScrollTrigger }` e chama `diretor.rodar(ctx, cenaInicial)`. `ctx.ScrollTrigger` hoje chega `undefined` (ver "Bibliotecas" na seção 6).
 
-Cenas, na ordem: `inicio`, `poppy`, `carta2`, `yourname`, `segredos`, `mao`, `final`. `segredos` só existe quando algum item de `conteudo.segredos.itens` tem `video` (`temSegredos(conteudo)`, exportado do diretor): sem vídeo o diretor a pula sem publicar nada, e o fluxo é idêntico ao de antes. Cada uma é `async function(ctx, { frio })` que resolve quando a próxima deve começar. `frio: true` quando se entrou direto por `?cena=`: a cena monta sozinha as pré-condições (mundo branco parado, pergaminho aberto etc.). `final` nunca resolve.
+Cenas, na ordem: `inicio`, `poppy`, `carta2`, `yourname`, `segredos`, `mao`, `encontro`, `final`. `encontro` só existe quando algum item de `conteudo.encontro.quadros` tem `imagem` (`temEncontro(conteudo)`, exportado do diretor): com a lista vazia o diretor a pula e a mão entrega a carta como antes. `segredos` só existe quando algum item de `conteudo.segredos.itens` tem `video` (`temSegredos(conteudo)`, exportado do diretor): sem vídeo o diretor a pula sem publicar nada, e o fluxo é idêntico ao de antes. Cada uma é `async function(ctx, { frio })` que resolve quando a próxima deve começar. `frio: true` quando se entrou direto por `?cena=`: a cena monta sozinha as pré-condições (mundo branco parado, pergaminho aberto etc.). `final` nunca resolve.
 
 O diretor publica o estado em `document.documentElement.dataset.cena` e `dataset.etapa` (via `diretor.etapa('nome')`). Etapas padrão:
 
@@ -91,6 +94,7 @@ O diretor publica o estado em `document.documentElement.dataset.cena` e `dataset
 - `yourname`: `desenrolando` → `lendo`
 - `segredos`: `enrolando` → `frase` → `escolhendo` → `assistindo` → `escolhendo` → … (cada vídeo aberto publica `assistindo`; ao fechar e escrever o nome, `escolhendo`)
 - `mao`: `enrolando` → `olha` → `mao-espera` → `seguindo`
+- `encontro`: `chegando` → `planos` → `maos` → `carta` (anda sozinha, sem toque; sem nenhum quadro carregado publica só `chegando`; sem as duas imagens com `dedo`, pula `maos`)
 - `final`: `carta-chegando` → `carta-espera` → `carta-abrindo` → `desdobrando` → `escrevendo` → `fim`
 
 Gancho de teste, sempre presente e invisível: `window.__carta = { ctx, etapa, cena, pronto (Promise) }`.
@@ -222,6 +226,25 @@ O esqueleto andante já existe e segue a seção 4. Esta seção só registra o 
 - *Mini* (`js/musica.js`, para o CSS): `#mini[data-pele="papel|poppy|yourname"]` acompanha a cena; `#mini[data-quieto]` quando ele se recolhe à margem durante a rolagem de um capítulo; `#mini[data-longe]` na mão e no final.
 - *Pergaminho* (para o CSS): `#pergaminho[data-estado="folha|abrindo|aberto|fechando|saindo"]`; sem o atributo, oculto.
 - *Conteúdo*: `musica.rotulos.continuar` e `mao.rotuloBotao` são os nomes lidos por leitores de tela quando `musica.continuar` ou `mao.botao` ficam vazios.
+
+**O passo de base (`js/mundo/mundo.js`, `alameda.js`, `petalas.js`, `leve.js`, `fundo.js`).**
+- *O que é.* A câmera nunca para: `mundo.deriva` (metros de chão que já passaram por baixo dela) cresce a cada quadro, a ~0,42 m/s (0,09 no movimento reduzido), com o balanço de passo proporcional à velocidade.
+- *Como.* O `rig`, a câmera e tudo o que as cenas põem em `mundo.cena` vivem num referencial que anda junto com ela: **nenhuma cena compensa nada**, e posições absolutas (`rig.position.z − distância`) continuam valendo. Quem desliza é só o lugar: a alameda recebe a deriva num uniforme (`uDeriva`: os shaders dela continuam nas coordenadas da alameda e só a câmera é vista de lá, por `camA`/`viewA`; as vagas de árvores são recicladas pela posição da câmera já descontada a deriva) e as pétalas (`uDeriva` no ar e no chão) passam por ela.
+- *Caminhadas.* `mundo.caminhar()` continua movendo o `rig` no referencial. Enquanto ele anda mais depressa que o passo de base, a deriva quase para (velocidade total = √(base² + caminhada²)): o chão fica preso ao fio que ela segue e a carta que chega vem mesmo ao encontro dela; ao fim, a deriva volta sozinha, sem quina.
+- *`alameda.centro(z)`* recebe z do mundo (desconta a deriva por dentro).
+- *Pergaminho.* No computador a alameda continua andando dos lados da coluna; no celular o mundo é desligado atrás da folha (`mundo.desligar()`), a deriva não conta e ao voltar segue de onde estava.
+- *Sem WebGL.* O mundo leve tem a mesma deriva e a entrega à imagem (`fundo.atualizar({ z: rig.z − deriva })`): ela aproxima devagar em laço; perto do limite dissolve sozinha (uns 2 m de passo, ~5 s) para uma cópia vista de mais longe que já vem andando junto. No movimento reduzido a imagem fica parada.
+
+**O encontro (`js/cenas/encontro.js`, `css/encontro.css`).**
+- *Passagem.* Com `temEncontro`, a cena da mão não faz a chegada: termina a caminhada com o entardecer aceso (pela metade), a última carta criada mas **escondida** (`estado.cartaEscondida`; no 3D `env.grupo.visible = false`, no leve criada sem entrada) e o fio preso nela. O encontro fecha o crepúsculo (`entardecer`, exportado de `mao.js`), faz a luz correr pelo fio (`fio.pulso`), mostra os quadros e, debaixo do clarão, revela a carta (`mostrarCarta`), devolve o dia e acende o laço. A cena final segue igual (`cenaCarta` reaproveita a carta). Fria (`?cena=encontro`): sem fio nem carta; a final cria os dela.
+- *Tudo em DOM* dentro de `#palco`: igual com e sem WebGL. Só `transform` e `opacity` animam, numa linha do tempo só da GSAP (`?rapido` vale). Em pé, cada quadro ocupa uma faixa de 64% da altura com as bordas dissolvidas (máscara) no próprio quadro desfocado (rasterizado a 1/4) sobre o céu do crepúsculo, e o mundo 3D é desligado atrás; deitado, faixa larga de cinema com máscara nas quatro bordas e a alameda ao entardecer andando em volta. Grão de filme (ladrilho de ruído pintado uma vez) e 0,6 px de desfoque escondem a baixa resolução.
+- *O fio.* SVG na cor `--fio`: a emenda (do pé da tela até o ponto `fio` do quadro, acompanhando a panorâmica) e o laço entre os dois `dedo` (desenha-se, a luz corre, vira o clarão, que nasce no meio dele).
+- *Quadros.* `prepararEncontro(ctx)` baixa cada um uma vez (`fetch` → `blob:`), e o diretor chama quando a cena da mão começa. Quadro que falha é pulado; nenhum carregado → só a chegada antiga (`chegadaSimples`). A cena espera os quadros no máximo 5 s.
+- *O plano final.* O quadro com `fim: true` (só o primeiro) não entra na fila: as mãos dissolvem nele depois que a luz corre pelo laço, e é dele (do ponto `ate`) que o clarão nasce. Pode ser em pé: no celular usa a mesma faixa; deitado ganha uma janela alta no meio (`.enc-faixa-alta`). Sem ele, o clarão nasce no meio do laço. Hoje é o abraço (`encontro-5-abraco.webp`; é arte assinada: a assinatura no alto não é cortada).
+- *Ritmo.* Planos de 3,8 / 3,1 / 3,2 / 3,2 s com 1 s de dissolvência; nas mãos o fio se desenha (0,9 → 2,3 s), fica inteiro um instante e só então a luz corre (uma conta de luz em DOM, `.enc-brasa`, levada por `getPointAtLength`); plano final 3,3 s até o clarão. Cerca de 24 s no total.
+- *A caminhada antes dele.* Com o encontro por vir, a tarde da caminhada pelo fio clareia só até 0,78 (sem ele, 0,5): a luz não vai ao dia e volta em poucos segundos.
+- *Movimento reduzido:* dissolvências simples, quadro parado no `ate`, mãos já juntas, fio que aparece inteiro, clarão por opacidade.
+- *Atenção ao PRODUCT.md:* a regra "nada de quadros ou personagens do filme" foi aberta aqui por pedido do autor, que forneceu as imagens.
 
 **Segredos (`js/cenas/segredos.js`, `css/segredos.css`).**
 - *Passagem.* A cena começa com `voltarAoMundo` (o pergaminho do filme enrola, a segunda carta vai embora) e termina com o mundo branco aberto, sem carta, sem pergaminho e com o mini visível. A mão, que entra em seguida com `frio: false`, chama `voltarAoMundo` de novo: com o pergaminho `oculto` e sem `estado.envelope`, isso não faz nada, e `mao:enrolando` passa direto para `olha`. Nada mudou em `mao.js`.

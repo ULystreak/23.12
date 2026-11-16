@@ -29,8 +29,10 @@
 // A cena "segredos" só existe com algum vídeo no content.js (ou com --segredos): sem
 // vídeo, ela sai do --fluxo e da lista padrão, como sai da carta. No --fluxo, com
 // vídeos, cada bilhete é aberto, o vídeo toca 1 s e é fechado; depois, "seguir".
+// A cena "encontro" só existe com algum quadro em encontro.quadros; ela anda sozinha
+// (chegando → planos → maos → carta), sem toque nenhum.
 
-import { abrir, lerConteudo, temSegredos, segredosDeTeste, injetarSegredos, ERRO_ESPERADO } from './lib.mjs';
+import { abrir, lerConteudo, temSegredos, temEncontro, segredosDeTeste, injetarSegredos, ERRO_ESPERADO } from './lib.mjs';
 
 const ROTEIRO = {
   inicio: ['frases', 'caminhada', 'carta-chegando', 'carta-espera', 'carta-abrindo', 'papel', 'musica'],
@@ -39,6 +41,7 @@ const ROTEIRO = {
   yourname: ['desenrolando', 'lendo'],
   segredos: ['enrolando', 'frase', 'escolhendo'],
   mao: ['enrolando', 'olha', 'mao-espera', 'seguindo'],
+  encontro: ['chegando', 'planos', 'maos', 'carta'],
   final: ['carta-chegando', 'carta-espera', 'carta-abrindo', 'desdobrando', 'escrevendo', 'fim'],
 };
 const TODAS = Object.keys(ROTEIRO);
@@ -49,7 +52,7 @@ const ASSENTAR = {
   frases: 4200, caminhada: 1500, 'carta-chegando': 1500, 'carta-espera': 700, 'carta-abrindo': 1500,
   papel: 900, musica: 2400, desenrolando: 900, lendo: 900, enrolando: 700, olha: 2600,
   'mao-espera': 900, seguindo: 2600, desdobrando: 1300, escrevendo: 3200, fim: 900,
-  frase: 1800, escolhendo: 1500,
+  frase: 1800, escolhendo: 1500, chegando: 900, planos: 2600, maos: 2600, carta: 1500,
 };
 // Etapas em que a carta fica parada esperando: aqui o tempo de assentar é real (não acelera).
 const PARADAS = new Set(['carta-espera', 'musica', 'lendo', 'mao-espera', 'fim', 'escolhendo']);
@@ -207,13 +210,14 @@ async function principal() {
   }
 
   const conteudo = lerConteudo(opcoes.segredos ? segredosDeTeste(opcoes.segredos, { falho: opcoes.segredosFalho }) : null);
-  const ORDEM = TODAS.filter((c) => c !== 'segredos' || temSegredos(conteudo));
+  const ORDEM = TODAS.filter((c) => (c !== 'segredos' || temSegredos(conteudo)) && (c !== 'encontro' || temEncontro(conteudo)));
   const execucoes = [];
   if (opcoes.fluxo) {
     execucoes.push({ cenas: ORDEM, rotulo: 'fluxo' });
   } else {
     for (const cena of opcoes.cena || ORDEM) {
       if (cena === 'segredos' && !temSegredos(conteudo)) throw new Error('a cena segredos não existe sem vídeos (use --segredos output/segredos-teste)');
+      if (cena === 'encontro' && !temEncontro(conteudo)) throw new Error('a cena encontro não existe sem quadros em encontro.quadros (js/content.js)');
       if (!ROTEIRO[cena]) throw new Error(`cena desconhecida: ${cena}`);
       execucoes.push({ cenas: [cena], rotulo: cena });
     }

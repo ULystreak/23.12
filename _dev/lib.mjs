@@ -162,6 +162,12 @@ export function temSegredos(conteudo) {
   return Array.isArray(itens) && itens.some((i) => i && typeof i.video === 'string' && i.video.trim());
 }
 
+/** A cena do encontro existe? (= temEncontro do diretor) */
+export function temEncontro(conteudo) {
+  const quadros = conteudo && conteudo.encontro && conteudo.encontro.quadros;
+  return Array.isArray(quadros) && quadros.some((q) => q && typeof q.imagem === 'string' && q.imagem.trim());
+}
+
 /**
  * Itens de teste para a cena dos segredos: um por .mp4 da pasta (caminho relativo à
  * raiz), mais um vídeo que não existe se `falho` (o 404 é esperado; ver ERRO_ESPERADO).

@@ -467,6 +467,84 @@ window.CONTEUDO = {
   },
 
   /* --------------------------------------------------------------------------
+     O ENCONTRO
+     Depois que ela segue o fio, a alameda escurece e estas imagens passam
+     sozinhas, uma de cada vez, como cenas de um filme: o fio leva até você.
+     No fim, o fio vermelho do site liga um dedinho ao outro, vem um clarão e
+     a última carta aparece.
+
+     COMO FUNCIONA
+     - As imagens passam na ordem em que estão aqui. Ela não precisa tocar em nada.
+     - Para tirar uma imagem, apague o bloco { ... } dela (com a vírgula do fim).
+     - Se a lista ficar vazia (quadros: []), esta parte não existe e a carta
+       vai direto do fio para a última carta, como antes.
+     - Imagem com o nome errado é pulada sozinha, sem aviso na tela.
+     - Use imagens deitadas (largas). Quanto maiores, mais nítidas ficam.
+
+     CAMPOS DE CADA IMAGEM
+     Os pontos são frações da imagem: x vai de 0 (borda esquerda) a 1 (borda
+     direita); y vai de 0 (topo) a 1 (base). 0.5 e 0.5 é o centro.
+       imagem: o caminho do arquivo em assets/images/
+       alt:    descrição curta, lida em voz alta por leitores de tela
+       foco:   onde a câmera começa olhando (opcional; sem ele, o centro)
+       ate:    para onde a câmera desliza devagar (opcional; sem ele, fica no foco)
+       fio:    só na primeira imagem: o ponto em que o fio vermelho da imagem
+               chega perto da borda de baixo. O fio do site sobe do pé da tela
+               e emenda nele ali (opcional)
+       dedo:   só nas duas imagens das mãos: onde está o dedinho com o fio.
+               As duas imagens que têm "dedo" voltam juntas no fim, e o fio do
+               site liga um dedinho ao outro. A primeira é a dela, a segunda a
+               sua (opcional; sem as duas, o clarão vem logo depois da última imagem)
+       aparar: corta uma tirinha de uma borda que veio com defeito (uma faixa
+               preta, por exemplo). Ex.: aparar: { base: 0.03 } tira 3% de
+               baixo. Também aceita topo, esquerda e direita (opcional)
+       fim:    fim: true marca a imagem que fecha a cena: ela entra depois das
+               mãos, e é dela que vem o clarão. Só uma imagem pode ter; esta
+               pode ser em pé (opcional; sem ela, o clarão vem das mãos)
+     ------------------------------------------------------------------------ */
+  encontro: {
+    quadros: [
+      {
+        imagem: 'assets/images/encontro-mitsuha-costas.webp',
+        alt: 'Ela, de costas, olha o caminho ao entardecer. Ao longe, ele espera; o fio vermelho vai dela até ele pelo chão.',
+        foco: { x: 0.37, y: 0.4 },
+        ate: { x: 0.74, y: 0.55 },
+        fio: { x: 0.655, y: 0.915 },
+        aparar: { base: 0.03 },
+      },
+      {
+        imagem: 'assets/images/encontro-2-ele-ve.webp',
+        alt: 'Ele, de costas, se vira e olha para trás. Ao longe, ela; o fio vermelho entre os dois.',
+        foco: { x: 0.42, y: 0.35 },
+        ate: { x: 0.6, y: 0.45 },
+      },
+      {
+        imagem: 'assets/images/encontro-mitsuha-mao.webp',
+        alt: 'Ela estende a mão, com o fio vermelho amarrado no dedinho.',
+        foco: { x: 0.47, y: 0.4 },
+        ate: { x: 0.68, y: 0.5 },
+        dedo: { x: 0.745, y: 0.57 },
+      },
+      {
+        imagem: 'assets/images/encontro-4-ele-mao.webp',
+        alt: 'Ele estende a mão, com o fio vermelho amarrado no dedinho.',
+        foco: { x: 0.52, y: 0.4 },
+        ate: { x: 0.27, y: 0.55 },
+        dedo: { x: 0.115, y: 0.78 },
+      },
+      {
+        // Arte de um artista: a assinatura dele fica no alto, junto do título
+        // do filme, e não é cortada. Para tirar o abraço, apague este bloco.
+        imagem: 'assets/images/encontro-5-abraco.webp',
+        alt: 'Os dois se abraçam sob o céu do fim da tarde, com o cometa lá no alto.',
+        foco: { x: 0.5, y: 0.42 },
+        ate: { x: 0.5, y: 0.56 },
+        fim: true,
+      },
+    ],
+  },
+
+  /* --------------------------------------------------------------------------
      FINAL
      A última carta abre numa folha em branco, e esta frase é escrita à mão,
      letra por letra. É a última coisa que ela lê.

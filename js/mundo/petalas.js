@@ -182,6 +182,7 @@ const VERTICE = /* glsl */ `
 
   uniform vec3 uCaixa;        // tamanho da caixa de ar
   uniform vec3 uCentro;       // centro da caixa (acompanha a câmera)
+  uniform float uDeriva;      // metros de chão que já passaram por ela (o passo de base): o ar fica, ela anda
   uniform float uDensidade;
   uniform vec2 uTamanho;      // menor e maior pétala (m)
   uniform vec3 uRalo;         // ao longe elas rareiam: x de onde, y até onde, z a fração que sobra
@@ -218,6 +219,7 @@ const VERTICE = /* glsl */ `
     // quem plana sobe um nada no fim de cada balanço, como folha
     p.y += (1.0 - gira) * (1.0 - bal * bal) * 0.035;
 
+    p.z += uDeriva;
     // A caixa acompanha a câmera: quem sai por um lado renasce pelo outro.
     p = mod(p - uCentro + 0.5 * uCaixa, uCaixa) - 0.5 * uCaixa + uCentro;
 
@@ -257,7 +259,7 @@ const VERTICE = /* glsl */ `
 
   #ifdef CHAO
   void main() {
-    vec3 p = vec3(aSemente.x * uCaixa.x, 0.0, aSemente.z * uCaixa.z);
+    vec3 p = vec3(aSemente.x * uCaixa.x, 0.0, aSemente.z * uCaixa.z + uDeriva);
     p.xz = mod(p.xz - uCentro.xz + 0.5 * uCaixa.xz, uCaixa.xz) - 0.5 * uCaixa.xz + uCentro.xz;
     p.y = 0.012;
 
@@ -494,6 +496,7 @@ export function criarPetalas(mundo, amb) {
     uTempo: { value: 0 },
     uCaixa: { value: new THREE.Vector3(LARGURA_MINIMA, ALTURA_CAIXA, FUNDO_CAIXA) },
     uCentro: { value: new THREE.Vector3() },
+    uDeriva: { value: 0 },
     uDensidade: { value: 0 },
     uTamanho: { value: new THREE.Vector2(0.07, 0.15) },
     uRalo: { value: new THREE.Vector3(3, 7.5, 0.28) },
@@ -513,6 +516,7 @@ export function criarPetalas(mundo, amb) {
   const matChao = material('CHAO', {
     uCaixa: { value: new THREE.Vector3(LARGURA_MINIMA + 2, 1, FUNDO_CAIXA + 1) },
     uCentro: { value: new THREE.Vector3() },
+    uDeriva: { value: 0 },
     uDensidade: { value: 0 },
     uTamanho: { value: new THREE.Vector2(0.07, 0.14) },
     uRalo: { value: new THREE.Vector3(3.5, 8, 0.32) },
@@ -827,6 +831,7 @@ export function criarPetalas(mundo, amb) {
         uc.uSopro.value = SOPRO.velocidade * SOPRO.calma * (1 - Math.exp(-desde / SOPRO.calma));
       }
       uc.uTempo.value = relogio;
+      uc.uDeriva.value = matChao.uniforms.uDeriva.value = mundo.deriva || 0;
       uc.uDesde.value = desde;
       uc.uDensidade.value = amortecer(uc.uDensidade.value, densidadeAlvo * tetoChuva, 0.9, dt);
       // A caixa segue o rig (não o balanço do passo): as bordas não tremem.

@@ -18,20 +18,21 @@ MOVIMENTO (js/nucleo/movimento.js)
 
 AMBIENTE: amb = { webgl, nivel:'alto'|'medio'|'baixo', reduzido, toque, ios, dprMax (2|1.5|1), rapido, android, mudo, forcado, params:URLSearchParams }. <html> recebe classes toque, ios, reduzido, sem-webgl e data-nivel.
 
-CONTEXTO: ctx = { conteudo, amb, mundo, som, musica, pergaminho, diretor, gsap, ScrollTrigger, recursos, estado }. ctx.ScrollTrigger chega undefined (o index.html não carrega mais o plugin; ver GLOBAIS). estado é livre (estado.envelope, estado.fio, estado.distanciaFinal, estado.folha, estado.seguidorFio).
+CONTEXTO: ctx = { conteudo, amb, mundo, som, musica, pergaminho, diretor, gsap, ScrollTrigger, recursos, estado }. ctx.ScrollTrigger chega undefined (o index.html não carrega mais o plugin; ver GLOBAIS). estado é livre (estado.envelope, estado.fio, estado.distanciaFinal, estado.folha, estado.seguidorFio, estado.cartaEscondida, estado.encontroQuadros).
 - recursos.imagem(url) → Promise<HTMLImageElement|null>; recursos.elementoImagem(url, alt='') → Promise<img novo|null>; recursos.precarregar(lista) → Promise; recursos.iniciar().
 
 DIRETOR (js/nucleo/diretor.js)
 - diretor.etapa(nome) publica em <html data-etapa>; diretor.etapa() devolve a atual. diretor.cena, .etapaAtual, .historico [{cena, etapa, t}], .ordem, .aoMudar(fn(cena, etapa)) → cancelar, .cenaInicial() → string, .aquecer(), .rodar(ctx, cenaInicial).
-- export voltarAoMundo(ctx) → Promise (enrola, solta a folha, manda embora e descarta estado.envelope). export ORDEM. export temSegredos(conteudo) → boolean (algum item de segredos com vídeo; sem isso o diretor pula a cena "segredos").
+- export voltarAoMundo(ctx) → Promise (enrola, solta a folha, manda embora e descarta estado.envelope). export ORDEM. export temSegredos(conteudo) → boolean (algum item de segredos com vídeo; sem isso o diretor pula a cena "segredos"). export temEncontro(conteudo) → boolean (algum quadro com imagem em encontro.quadros; sem isso o diretor pula a cena "encontro").
 - Cena = async (ctx, { frio }). Cena que lança exceção: o diretor limpa tudo e a próxima entra com frio: true.
 - window.__carta = { ctx, cena, etapa, historico, pronto: Promise<ctx>, gpu, erro }.
 - Nomes que o diretor importa: cenaAbertura (js/cenas/abertura.js), cenaCarta (js/cenas/carta.js), cenaMao (js/cenas/mao.js), cenaFinal (js/cenas/final.js), capitulo (js/capitulos/poppy.js e yourname.js).
-- Parâmetros: ?cena=inicio|poppy|carta2|yourname|segredos|mao|final (inválido → inicio), ?rapido=N (0.1 a 60), ?nivel=alto|medio|baixo, ?webgl=0, ?reduzido=1 (ou 0), ?mudo=1, ?musica=N (interno).
+- Parâmetros: ?cena=inicio|poppy|carta2|yourname|segredos|mao|encontro|final (inválido → inicio), ?rapido=N (0.1 a 60), ?nivel=alto|medio|baixo, ?webgl=0, ?reduzido=1 (ou 0), ?mudo=1, ?musica=N (interno).
 
 MUNDO (ctx.mundo; export async criarMundo({ amb, canvas, recipienteLeve }))
 - ok:boolean; THREE, renderer, cena, camera (PerspectiveCamera, 1,5 m, FOV 58° em pé a 42° deitado), rig (Group; a caminhada move rig.position.z); canvas; amb; gpu; tamanho { largura, altura, dpr }; ligado (getter); recipienteLeve.
 - aoQuadro(fn(dt, t)) → cancelar. ligar() / desligar().
+- deriva (getter): metros de chão que já passaram por baixo dela. O PASSO DE BASE: a alameda anda sempre (~0,42 m/s; 0,09 no reduzido), o rig e tudo o que está em mundo.cena andam junto com ela (as cenas não compensam nada); caminhar() acelera por cima e, enquanto é mais rápida, toma o lugar do passo de base (total = √(base² + caminhada²)).
 - caminhar({ distancia=6, duracao=5, curva? }) → Promise (em fila; no reduzido vira dissolvência).
 - ponteiro { x, y, ativo } em −1..1.
 - telaParaMundo(xNdc, yNdc, distancia=1) → Vector3 (distancia = profundidade no eixo da câmera).
@@ -40,7 +41,7 @@ MUNDO (ctx.mundo; export async criarMundo({ amb, canvas, recipienteLeve }))
 - petalas.rajada(posMundo, n=12); petalas.definirDensidade(k 0..1); petalas.objeto. Extras: petalas.definirFoco(metros) (plano de foco, padrão 3 m), petalas.comecar() e petalas.protagonistas() (só a abertura). No leve existem como no-op ou versão CSS; chame com ?. por segurança.
 - aoMudarNivel(fn(nivel)) → cancelar; aoRedimensionar(fn(tamanho)) → cancelar.
 - cena.fog: névoa das cartas, de 2,5 a 9,5 m (as coisas nascem dela); com a alameda, vai do branco para a cor da névoa da alameda (#ece0e6) quando ela entra, e o envelope/pétalas que estão dentro dela ficam transparentes em vez de virar mancha. Luzes: uma HemisphereLight e uma DirectionalLight.
-- mundo.alameda (js/mundo/alameda.js; null sem pagina.fundo ou sem WebGL): a alameda de cerejeiras em 3D, gerada no código (árvores por recursão, copas de cartões de flor com alpha-to-coverage, chão procedural num shader só, lago, postes e correntes, céu e névoa próprios, ~15 draw calls). Corredor infinito em −Z por vagas recicladas perto da câmera. API: pronta (Promise), surgir(s), atualizar(dt,t) (o mundo chama antes do render), tarde(k 0..1) (o entardecer da mão: luz, névoa, céu e cena.fog), nivel(n), afastar(metros, duracao=1.2) (nenhum cacho mais perto da câmera que isso; a folha final chama com a sua distância + 0,25; 0 volta ao padrão),  corNevoa, centro(z) (x do meio do caminho; |centro| ≤ 0,65 m, caminho de 3,5 m, chão em y = 0), contar(), custoMs.
+- mundo.alameda (js/mundo/alameda.js; null sem pagina.fundo ou sem WebGL): a alameda de cerejeiras em 3D, gerada no código (árvores por recursão, copas de cartões de flor com alpha-to-coverage, chão procedural num shader só, lago, postes e correntes, céu e névoa próprios, ~15 draw calls). Corredor infinito em −Z por vagas recicladas perto da câmera. API: pronta (Promise), surgir(s), atualizar(dt,t) (o mundo chama antes do render), tarde(k 0..1) (o entardecer da mão: luz, névoa, céu e cena.fog), nivel(n), afastar(metros, duracao=1.2) (nenhum cacho mais perto da câmera que isso; a folha final chama com a sua distância + 0,25; 0 volta ao padrão),  corNevoa, centro(z) (z do mundo, a deriva já descontada; x do meio do caminho; |centro| ≤ 0,65 m, caminho de 3,5 m, chão em y = 0), contar(), custoMs.
 - mundo.fundo: com WebGL e alameda, só os véus atrás do texto (#mundo-veus, por cima do canvas; html.com-fundo); sem WebGL, { ativo, pronto, cor, caminhada(d), atualizar(), ligar(), desligar() } com a imagem da alameda (#mundo-fundo atrás do mundo leve).
 - Modo leve (ok=false): THREE/renderer/camera null; rig e cena são objetoLeve(); telaParaMundo devolve vetorLeve com .px/.py; rajada aceita { px, py }; retanguloParaPose → null.
 
@@ -61,7 +62,7 @@ MUSICA (ctx.musica; export criarMusica({ conteudo, som, amb, recursos, mini }))
 
 FIO: criarFio(mundo, { curva: Vector3[] | {x,y,z}[] | THREE.Curve, largura=0.012 }) → { objeto, progresso(p?) → number, definirCurva(c), atualizar(dt, t), dispose() }.
 FOLHA: criarFolha(mundo) → { grupo, desdobrar() → Promise, escrever(texto) → Promise, atualizar(dt, t), dispose() }. Extras (final.js chama com checagem): assumir(papel) (aparece dobrada onde está o papel da carta), repousarFio() → Promise (o fio solto repousa no canto da folha), viver() (pétalas pousam de tempos em tempos).
-CENAS: cenaSegredos(ctx, { frio }) → Promise (js/cenas/segredos.js; enrolando → frase → escolhendo ⇄ assistindo; termina com o mundo aberto, sem carta e sem pergaminho); cenaAbertura(ctx) → Promise (etapa frases); cenaMao(ctx, { frio }) → Promise (enrolando → olha → mao-espera → seguindo; deixa estado.fio, estado.distanciaFinal, estado.envelope e estado.seguidorFio { parar(), soltar(duracao?) }, o seguidor que mantém o fio preso ao pulso e à carta até final:carta-abrindo); cenaFinal(ctx, { frio }) → nunca resolve.
+CENAS: cenaSegredos(ctx, { frio }) → Promise (js/cenas/segredos.js; enrolando → frase → escolhendo ⇄ assistindo; termina com o mundo aberto, sem carta e sem pergaminho); cenaAbertura(ctx) → Promise (etapa frases); cenaMao(ctx, { frio }) → Promise (enrolando → olha → mao-espera → seguindo; deixa estado.fio, estado.distanciaFinal, estado.envelope e estado.seguidorFio { parar(), soltar(duracao?) }, o seguidor que mantém o fio preso ao pulso e à carta até final:carta-abrindo); cenaEncontro(ctx, { frio }) → Promise (js/cenas/encontro.js; chegando → planos → maos → carta; resolve com a última carta à vista e fechada) e prepararEncontro(ctx) → Promise<quadros[]> (baixa os quadros; o diretor chama no começo da mão); entardecer(ctx, ligar|0..1, duracao) é exportado de mao.js; cenaFinal(ctx, { frio }) → nunca resolve.
 
 DOM DO ESQUELETO (index.html): canvas#mundo, div#mundo-leve, main#palco com #frases, p#dica[hidden], #acoes; section#pergaminho[hidden]; aside#mini[hidden].
 GANCHOS DE TESTE: [data-acao="faixa"], "continuar", "mini", "mini-alternar", "fechar-capitulo", "seguir-fio", "abrir-carta", "segredo" (com data-estado fechado|aberto|falhou), "fechar-segredo", "continuar-segredos"; em carta-espera um toque no centro da tela abre a carta.
@@ -75,6 +76,7 @@ CONTENT.JS (window.CONTEUDO)
 - yourname { titulo, subtitulo, capa, fundo, video, fechar, blocos: [{ tipo:'texto', texto } | { tipo:'cordao' } | { tipo:'imagem-cheia', arquivo, alt } | { tipo:'imagem', arquivo, alt, legenda } | { tipo:'par', dele, dela, legendaDele, legendaDela }] }
 - segredos { frase, continuar, fechar (aria-label do botão de fechar o vídeo), itens: [{ titulo, video, capa, nome }] } (item com video '' some; nenhum vídeo = a cena não existe)
 - mao { frase, imagem, ancoraFio { x, y }, botao, rotuloBotao } (rotuloBotao é o aria-label quando botao fica vazio)
+- encontro { quadros: [{ imagem, alt, foco {x,y}?, ate {x,y}?, fio {x,y}?, dedo {x,y}?, aparar { topo, base, esquerda, direita }?, fim? }] } (lista vazia = a cena não existe; foco → ate é a panorâmica; fio é onde o fio do quadro chega à base, para a emenda; os dois quadros com dedo são as mãos; fim: true é o plano final, que entra depois das mãos e de onde o clarão nasce)
 - final { frase }
 Campo de imagem/música vazio ('') não faz pedido e a peça some.
 ```

@@ -417,12 +417,19 @@ export function criarMundoLeve({ amb, canvas, recipienteLeve, fundo = null }) {
     ultimo = agora;
     tempo += dt;
     ponteiro.atualizar(dt);
+    // O passo de base (= mundo.js): ela está sempre andando; uma caminhada mais
+    // rápida toma o lugar dele. No movimento reduzido a foto fica parada.
+    if (!amb.reduzido) {
+      const caminhada = dt > 0 ? Math.min(4, Math.abs(rig.position.z - zAnterior) / dt) : 0;
+      deriva += (Math.hypot(PASSO_BASE, caminhada) - caminhada) * dt;
+    }
+    zAnterior = rig.position.z;
     for (const fn of ouvintes) {
       try { fn(dt, tempo); } catch (erro) { ouvintes.delete(fn); console.error('[carta] aoQuadro falhou', erro); }
     }
     // A foto da alameda: aproxima com o avanço e balança como algo a ~8 m.
     if (fundo && fundo.ativo) {
-      fundo.atualizar({ z: rig.position.z, roll: (balanco.rol * Math.PI) / 180, dx: balanco.x / 8, dy: balanco.y / 8 });
+      fundo.atualizar({ z: rig.position.z - deriva, roll: (balanco.rol * Math.PI) / 180, dx: balanco.x / 8, dy: balanco.y / 8 });
     }
   }
   function atualizarLaco() {
@@ -437,6 +444,9 @@ export function criarMundoLeve({ amb, canvas, recipienteLeve, fundo = null }) {
 
   // ---- caminhada: as camadas avançam ---------------------------------------------------
   const rig = objetoLeve();
+  const PASSO_BASE = 0.42;                             // m/s (= mundo.js)
+  let deriva = 0;
+  let zAnterior = 0;
   const balanco = { x: 0, y: 0, rol: 0 };              // o passo de agora, em px (a foto lê)
   let filaCaminhada = Promise.resolve();
   const degrau = (a, b, x) => { const t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); };
@@ -534,6 +544,7 @@ export function criarMundoLeve({ amb, canvas, recipienteLeve, fundo = null }) {
     tamanho: { get largura() { return innerWidth; }, get altura() { return innerHeight; }, dpr: 1 },
     ponteiro,
     get ligado() { return ligado; },
+    get deriva() { return deriva; },
 
     aoQuadro(fn) {
       ouvintes.add(fn);

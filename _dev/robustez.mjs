@@ -21,7 +21,7 @@
 
 import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
-import { abrir, RAIZ } from './lib.mjs';
+import { abrir, RAIZ, lerConteudo, temEncontro } from './lib.mjs';
 
 const FOTOS = path.join(RAIZ, 'output', 'robustez');
 await mkdir(FOTOS, { recursive: true });
@@ -32,6 +32,8 @@ const ESPERADO = [
   'carta2:enrolando', 'carta2:caminhada', 'carta2:carta-chegando', 'carta2:carta-espera', 'carta2:carta-abrindo', 'carta2:papel',
   'yourname:desenrolando', 'yourname:lendo',
   'mao:enrolando', 'mao:olha', 'mao:mao-espera', 'mao:seguindo',
+  // o encontro só existe com quadros em encontro.quadros (js/content.js); anda sozinho
+  ...(temEncontro(lerConteudo()) ? ['encontro:chegando', 'encontro:planos', 'encontro:maos', 'encontro:carta'] : []),
   'final:carta-chegando', 'final:carta-espera', 'final:carta-abrindo', 'final:desdobrando', 'final:escrevendo', 'final:fim',
 ];
 
@@ -54,8 +56,8 @@ async function agir(s, etapa, { curto = 6000 } = {}) {
 }
 
 /** Percorre o roteiro de `de` até `ate` (inclusive na espera, exclusive na ação). */
-async function percorrer(s, ate = 'final:fim', aoChegar = null, timeout = 90000) {
-  for (const passo of ESPERADO) {
+async function percorrer(s, ate = 'final:fim', aoChegar = null, timeout = 90000, roteiro = ESPERADO) {
+  for (const passo of roteiro) {
     await s.esperarEtapa(passo, timeout);
     if (aoChegar) await aoChegar(passo);
     if (passo === ate) return;
@@ -313,7 +315,8 @@ const casos = {
       try {
         await percorrer(s, 'final:fim', async (passo) => {
           if (/musica|lendo/.test(passo)) { await pausa(500); await foto(s, `faltando-${params.webgl === 0 ? 'leve-' : ''}${passo.replace(':', '-')}`); }
-        }, 40000);
+          // (sem nenhum quadro, o encontro faz só a chegada: a luz corre pelo fio e a carta aparece)
+        }, 40000, ESPERADO.filter((p) => !/^encontro:(planos|maos|carta)$/.test(p)));
       } catch (e) { erro = e; }
       ok(!erro, `tudo faltando ${JSON.stringify(params)}: chega ao fim (${erro ? String(erro.message).split('\n')[0] : 'sim'})`);
       const outros = s.erros.filter((e) => !/404/.test(e.texto));

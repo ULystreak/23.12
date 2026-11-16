@@ -14,6 +14,18 @@
 //   mundo.retanguloParaPose(rect, obj, { distancia }?) → { pai, posicao, quaternion, escala }
 //   mundo.petalas.rajada(posMundo, n) / .definirDensidade(k) / .definirFoco(metros)
 //   mundo.aoMudarNivel(fn(nivel))  → função que cancela
+//   mundo.deriva                   metros que o chão já andou por baixo dela (passo de base)
+//
+// O PASSO DE BASE. Ela está sempre andando: a alameda desliza por baixo do mundo
+// o tempo todo (mundo.deriva cresce a cada quadro). O `rig`, a câmera e tudo o
+// que as cenas põem no mundo (cartas, fio, folha) vivem num referencial que anda
+// junto com ela; por isso o que está "parado" continua na frente dela sem que
+// nenhuma cena precise compensar. Quem desliza é só o lugar: a alameda
+// (js/mundo/alameda.js recebe a deriva) e as pétalas, que passam por ela.
+// mundo.caminhar() acelera por cima disso: o rig avança no referencial, e
+// enquanto ele anda mais depressa que o passo de base a deriva quase para
+// (velocidade total = √(base² + caminhada²)): o chão fica preso ao fio que ela
+// segue, e a volta ao passo de base não tem solavanco.
 //
 // Além do contrato: mundo.amb, mundo.aoRedimensionar(fn), mundo.tamanho { largura, altura, dpr },
 // mundo.gpu (texto do renderer WebGL), mundo.ligado, mundo.recipienteLeve.
@@ -28,12 +40,17 @@ import { criarAlameda } from './alameda.js';
 export const ALTURA_OLHOS = 1.5;
 const FOV_EM_PE = 58;
 const FOV_DEITADO = 42;
-const CADENCIA_LENTA = 1.5;          // passos por segundo ao sair e ao chegar
+const CADENCIA_LENTA = 1.15;         // passos por segundo no passo de base (passeio)
 const CADENCIA_RAPIDA = 1.9;         // ... e no meio da caminhada
 const BALANCO_VERTICAL = 0.0125;     // ±1,25 cm: 2,5 cm de vale a pico
 const BALANCO_LATERAL = 0.007;       // ±0,7 cm
 const BALANCO_ROLAGEM = 0.0027;      // ±0,15°: 0,3° de um lado ao outro
 const VELOCIDADE_CALMA = 0.28;       // m/s: o avanço contínuo no movimento reduzido
+// O passo de base: ela está sempre andando. A alameda nunca para de vir ao
+// encontro dela, em todas as cenas; as caminhadas (mundo.caminhar) são
+// acelerações sobre este passo. Sereno: um passeio, não uma esteira.
+const PASSO_BASE = 0.42;             // m/s
+const PASSO_BASE_CALMO = 0.09;       // m/s no movimento reduzido (e sem balanço)
 const QUADRO_LENTO_MS = 22;         // acima disto por 2 s, a qualidade desce
 const JANELA_MS = 2000;
 const CARENCIA_MS = 1500;            // depois de (re)ligar, não mede (compilação de shaders etc.)
@@ -226,6 +243,8 @@ export async function criarMundo(opcoes) {
 
   const ponteiro = criarPonteiro(amb);
   const passo = { fase: 0, amplitude: 0, zAnterior: 0 };
+  let deriva = 0;                         // metros de chão que já passaram por baixo dela
+  const passoBase = amb.reduzido ? PASSO_BASE_CALMO : PASSO_BASE;
 
   function atualizarCamera(dt) {
     ponteiro.atualizar(dt);
@@ -233,8 +252,14 @@ export async function criarMundo(opcoes) {
     // Balanço de passo. A amplitude segue a velocidade real do rig (entra e sai
     // com suavidade); a cadência quase não muda: quem anda mais depressa alonga
     // o passo, não a frequência (~1,8 passo por segundo).
-    const velocidade = dt > 0 ? Math.abs(rig.position.z - passo.zAnterior) / dt : 0;
+    // (um salto do rig, como uma cena que recomeça, não é andar: limitado a 4 m/s)
+    const caminhada = dt > 0 ? Math.min(4, Math.abs(rig.position.z - passo.zAnterior) / dt) : 0;
     passo.zAnterior = rig.position.z;
+    // O passo de base: o chão anda sempre. Enquanto uma caminhada corre mais
+    // depressa que ele, quase todo o avanço é dela (soma em quadratura, sem quina).
+    const base = Math.hypot(passoBase, caminhada) - caminhada;
+    deriva += base * dt;
+    const velocidade = caminhada + base;
     const alvoAmp = amb.reduzido ? 0 : clamp(velocidade / 0.9);
     passo.amplitude = amortecer(passo.amplitude, alvoAmp, alvoAmp > passo.amplitude ? 3.4 : 2.2, dt);
     const a = passo.amplitude;
@@ -343,7 +368,7 @@ export async function criarMundo(opcoes) {
       // Um ouvinte que quebra não pode parar o mundo: sai da lista e o quadro segue.
       try { fn(dt, tempo); } catch (erro) { ouvintes.delete(fn); console.error('[carta] aoQuadro falhou', erro); }
     }
-    if (alameda) alameda.atualizar(dt, tempo);
+    if (alameda) alameda.atualizar(dt, tempo, deriva);
     renderer.render(cena, camera);
     medir(brutoMs, agora);
   }
@@ -509,6 +534,7 @@ export async function criarMundo(opcoes) {
     tamanho,
     ponteiro,
     get ligado() { return ligado; },
+    get deriva() { return deriva; },
 
     aoQuadro(fn) {
       ouvintes.add(fn);

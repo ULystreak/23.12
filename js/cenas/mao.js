@@ -20,7 +20,7 @@
 
 import { el, espera, svg, clamp, lerp, amortecer, semente, suave } from '../nucleo/util.js';
 import { curvas, revelarPalavras, ocultarPalavras } from '../nucleo/movimento.js';
-import { voltarAoMundo } from '../nucleo/diretor.js';
+import { voltarAoMundo, temEncontro } from '../nucleo/diretor.js';
 import { criarFio } from '../mundo/fio.js';
 import { criarEnvelope } from '../mundo/envelope.js';
 
@@ -1174,6 +1174,8 @@ export async function cenaMao(ctx, { frio } = {}) {
   let pararPose = () => {};
   let pararMagia = () => {};
   let clarear = null;                   // a tarde que clareia pela metade na caminhada
+  const haEncontro = temEncontro(ctx.conteudo);
+  let inteira = false;                  // chegou ao fim com o encontro por vir (o entardecer continua aceso)
   try {
     // 1. O capítulo fecha e a carta vai embora.
     diretor.etapa('enrolando');
@@ -1327,6 +1329,12 @@ export async function cenaMao(ctx, { frio } = {}) {
         mundo.cena.add(env.grupo);
       }
       estado.envelope = env;
+      // Com o encontro, a carta só aparece depois dele, de dentro do clarão: até lá
+      // fica escondida (o fio já termina nela).
+      if (haEncontro) {
+        estado.cartaEscondida = true;
+        if (mundo.ok) env.grupo.visible = false;
+      }
       cuidarDaCarta(ctx, env);
     };
     if (mundo.ok) criarCarta(2.4);
@@ -1475,7 +1483,9 @@ export async function cenaMao(ctx, { frio } = {}) {
     const andar = mundo.caminhar({ distancia: Math.max(0.5, CAMINHADA + RESTO - andado), duracao: DURACAO });
     // Andando, a tarde clareia pela metade: a alameda volta a ter cor (o rosa das
     // cerejeiras não fica cinza a caminhada inteira) e o fio ainda lê como luz.
-    if (magico) clarear = gsap.delayedCall(1.4, () => entardecer(ctx, 0.5, 4.2));
+    // Com o encontro por vir ela clareia menos: a caminhada já vai dar no crepúsculo dele,
+    // e a luz não pode ir ao dia e voltar em poucos segundos.
+    if (magico) clarear = gsap.delayedCall(1.4, () => entardecer(ctx, haEncontro ? 0.78 : 0.5, 4.2));
     // A câmera assenta no eixo da carta durante o fim da própria caminhada.
     const ALINHAR = calmo ? 0.3 : 1.8;
     const alinhada = espera((DURACAO - ALINHAR) * 1000).then(() => new Promise((ok) => {
@@ -1485,7 +1495,7 @@ export async function cenaMao(ctx, { frio } = {}) {
     if (!mundo.ok) {
       // Leve: a carta nasce do branco perto do fim e pousa quando ela para.
       await espera(DURACAO * 1000 * (calmo ? 0.1 : 0.72));
-      criarCarta(calmo ? 1.2 : 3.6);
+      criarCarta(haEncontro ? false : calmo ? 1.2 : 3.6);
     }
     await Promise.all([andar, extensao, alinhada]);
     if (saida && saida.progress) await new Promise((ok) => (saida.progress() >= 1 ? ok() : saida.eventCallback('onComplete', ok)));
@@ -1496,16 +1506,20 @@ export async function cenaMao(ctx, { frio } = {}) {
     olhar.k = 0;
 
     // 7. Chegada: a luz corre pelo fio inteiro até o laço da carta, que acende; e a luz do dia volta.
+    // (com o encontro, a chegada é dele: a luz corre pelo fio, o crepúsculo fecha e os quadros entram)
     const cartaAqui = estado.envelope;
-    if (fio.pulso) {
+    if (haEncontro) inteira = true;
+    else if (fio.pulso) {
       const chegou = fio.pulso({ de: 0, ate: 1.02, duracao: calmo ? 1.6 : 2.8, forca: 1.15, largura: 0.8, brasas: 20, curva: 'power1.inOut' });
       await espera(calmo ? 700 : 2200);
       cartaAqui?.brilharLaco?.(0.85, calmo ? 0.6 : 1.1);
       som.efeito('brilho');
       await chegou;
     }
-    entardecer(ctx, false, calmo ? 1.6 : 3.2);
-    gsap.to(luzFio, { halo: 0.12, duration: 3, ease: 'sine.inOut', onUpdate: () => fio.halo?.(luzFio.halo) });
+    if (!haEncontro) {
+      entardecer(ctx, false, calmo ? 1.6 : 3.2);
+      gsap.to(luzFio, { halo: 0.12, duration: 3, ease: 'sine.inOut', onUpdate: () => fio.halo?.(luzFio.halo) });
+    }
 
     pararPose();
     pararMedida();
@@ -1513,7 +1527,7 @@ export async function cenaMao(ctx, { frio } = {}) {
     mao.remove();
   } finally {
     clarear?.kill();
-    entardecer(ctx, false, 1.2);
+    if (!inteira) entardecer(ctx, false, 1.2);          // com o encontro, o crepúsculo fica para ele
     olhar.k = 0;
     pararPose();
     pararMagia();
@@ -1540,7 +1554,7 @@ const NEVOA_TARDE = '#8d7f95';
 const ZOOM_MERGULHO = 2.5;            // quanto o olhar chega perto do nó no mergulho
 const tarde = { k: 0, alvo: 0, base: null, tween: null };
 
-function entardecer(ctx, ligar, duracao = 2.6) {
+export function entardecer(ctx, ligar, duracao = 2.6) {
   const raiz = document.documentElement;
   // ligar: true (1), false (0) ou um nível 0..1 (na caminhada a tarde clareia pela metade)
   const alvo = typeof ligar === 'number' ? clamp(ligar, 0, 1) : (ligar ? 1 : 0);

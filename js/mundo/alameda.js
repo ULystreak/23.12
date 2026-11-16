@@ -1367,6 +1367,7 @@ export function criarAlameda(mundo) {
     uTempo: { value: 0 },
     uVao: { value: new THREE.Vector3(0, 1.6, 1.32) },
     uVaoZ: { value: 0 },
+    uDeriva: { value: 0 },
   };
   const uVento = { value: amb.reduzido ? 0.25 : 1 };
   const uEscala = { value: 1 };
@@ -1374,8 +1375,20 @@ export function criarAlameda(mundo) {
   const uDetalhe = { value: nivelAtual === 'baixo' ? 0 : 1 };
   const arvoresU = Array.from({ length: 12 }, () => new THREE.Vector4(1e4, 1e4, 1, 0));
 
+  // O passo de base (mundo.deriva): a alameda inteira desliza em +Z por baixo do
+  // mundo. Os shaders continuam trabalhando nas coordenadas DA ALAMEDA (o desenho
+  // do chão, o meio do caminho e as vagas não mudam); só a câmera é que é vista
+  // de lá: a posição dela recua a deriva e a matriz de visão a devolve.
+  const DERIVA_GLSL = `uniform float uDeriva;
+#define camA (cameraPosition - vec3(0.0, 0.0, uDeriva))
+#define viewA (viewMatrix * mat4(1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, uDeriva, 1.0))
+`;
+  const comDeriva = (glsl) => DERIVA_GLSL + glsl.replace(/cameraPosition/g, 'camA').replace(/viewMatrix/g, 'viewA');
+
   const materiais = [];
   const material = (op) => {
+    op.vertexShader = comDeriva(op.vertexShader);
+    op.fragmentShader = comDeriva(op.fragmentShader);
     const m = new THREE.ShaderMaterial(op);
     if ('alphaToCoverage' in op) {           // (e sem cobertura, o alfa que passa do discard também vazaria)
       // Com alpha-to-coverage o alfa do fragmento serve só para a cobertura, mas o
@@ -1629,9 +1642,13 @@ export function criarAlameda(mundo) {
 
   const camPos = new THREE.Vector3();
   let vaoIniciado = false;
-  function atualizar(dt, t) {
+  let derivaAtual = 0;
+  function atualizar(dt, t, deriva = 0) {
     comuns.uTempo.value = t;
+    derivaAtual = deriva;
+    comuns.uDeriva.value = deriva;
     camera.getWorldPosition(camPos);
+    camPos.z -= deriva;                    // daqui em diante, a câmera nas coordenadas da alameda
     // o vão acompanha o x da câmera devagar (o balanço do passo não mexe nos galhos)
     const vao = comuns.uVao.value;
     vao.x = vaoIniciado ? lerp(vao.x, camPos.x, 1 - Math.exp(-Math.min(dt, 0.1) * 0.8)) : camPos.x;
@@ -1699,7 +1716,8 @@ export function criarAlameda(mundo) {
       else v.set(alvo[0], alvo[1]);
     },
     corNevoa,
-    centro: centroCaminho,
+    /** x do meio do caminho na profundidade z DO MUNDO (a deriva do passo de base já descontada). */
+    centro: (z) => centroCaminho(z - derivaAtual),
     materiais,
     /** (testes) o mesmo deslocamento do vão que os shaders aplicam, num ponto do mundo. */
     vao(x, y, z) {

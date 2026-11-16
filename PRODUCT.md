@@ -31,7 +31,7 @@ A régua é a de um site premiado no Awwwards: direção de arte própria, movim
 ## Capabilities and Constraints
 
 - Todo texto, música e imagem editável em um único arquivo: `js/content.js`. O que está entre [colchetes] é exemplo.
-- Atalhos `?cena=inicio`, `poppy`, `carta2`, `yourname`, `mao`, `final`.
+- Atalhos `?cena=inicio`, `poppy`, `carta2`, `yourname`, `mao`, `encontro`, `final`.
 - Site estático, sem build, sem login, sem analytics, sem cookies. `noindex`. Título e prévia do link neutros ("Para você").
 - Fluido num Android intermediário; aparelho fraco, sem WebGL ou com movimento reduzido cai para uma versão mais leve, nunca quebrada.
 - Primeira tela aparece rápido; o resto carrega enquanto ela vê a abertura.
