@@ -36,11 +36,15 @@ import { clamp, lerp, semente } from '../nucleo/util.js';
 const MEIA_PISTA = 1.75;            // metade da largura do caminho
 const ESP_ARVORE = 4.6;             // entre duas cerejeiras do mesmo lado
 const ESP_POSTE = 2.0;
+const LAGO = 5.1;                   // a margem do lago à direita (do meio do caminho)
 const ATRAS = 9;                    // metros atrás da câmera que ainda existem (ela olha para trás no fim da mão)
 const ALCANCE = { alto: 46, medio: 42, baixo: 34 };      // metros à frente
 const CARTOES = { alto: 1000, medio: 800, baixo: 520 };   // cartões de flor por árvore
 const VARIANTES = 3;
 const SALGUEIRO_A_CADA = 38;
+// O atlas de flores: 4 × 2 ladrilhos de 512 px.
+const ATLAS = { colunas: 4, linhas: 2 };
+const LAD = { massas: [0, 1, 2], cachos: [3, 4, 7], salgueiro: 5, capim: 6 };
 
 // Cores (sRGB, os shaders da alameda trabalham direto nesse espaço).
 const NEVOA = [0.925, 0.878, 0.902];      // #ece0e6: a luz rosada no fundo do túnel
@@ -85,6 +89,28 @@ vec3 nevoar(vec3 cor, vec3 wp) {
 vec3 tardar(vec3 c) { return mix(c, c * vec3(0.52, 0.5, 0.66), uTarde); }
 // A alameda nasce do branco.
 vec3 acabar(vec3 c) { return mix(vec3(1.0), c, uSurgir); }
+
+// O vão do caminho: a câmera anda por baixo das pernadas, e um galho que passasse
+// rente a ela viraria uma lâmina escura cruzando a tela. Tudo o que está dentro
+// de um tubo em volta da linha dos olhos (uVao.xy: x da câmera, amortecido, e a
+// altura; uVao.z: o raio livre) é empurrado para fora, sem dobra: o raio r vai
+// para rMin + (rOut − rMin)·(r/rOut)^p, que vale rMin no eixo e tem derivada 1 em
+// rOut. Só perto da câmera em z (uVaoZ): ao longe as copas fecham o túnel
+// como na foto, e o galho sobe devagar enquanto ela se aproxima.
+uniform vec3 uVao;
+uniform float uVaoZ;
+vec3 abrirVao(vec3 wp) {
+  vec2 q = vec2(wp.x - uVao.x, wp.y - uVao.y);
+  float rOut = uVao.z + 1.0;
+  float r = length(q);
+  if (r >= rOut || uVao.z <= 0.0) return wp;
+  float p = rOut / (rOut - uVao.z);
+  float r2 = uVao.z + (rOut - uVao.z) * pow(r / rOut, p);
+  vec2 dir = r > 1e-4 ? q / r : vec2(0.0, 1.0);
+  // o pé do tronco não sai do lugar
+  q += dir * (r2 - r) * smoothstep(0.3, 1.1, wp.y) * (1.0 - smoothstep(2.5, 6.5, abs(wp.z - uVaoZ)));
+  return vec3(q.x + uVao.x, q.y + uVao.y, wp.z);
+}
 
 // Vento: balanço lento com fase pela posição, e um tremor mais rápido nas pontas.
 vec3 vento(vec3 wp, float flex, float semente, float forca) {
@@ -174,18 +200,26 @@ function texturaRuido(THREE) {
 }
 
 /**
- * Atlas 2×2 (512²): três cachos de flor de cerejeira (cinco pétalas com o
- * entalhe na ponta, base rosada, miolo escuro e estames) e um ladrilho de
- * ramos pendentes (salgueiro e capim, tingidos no shader).
+ * Atlas 4×2 (ladrilhos de 512²): três massas de flor (muitas flores pequenas em
+ * cachos encostados), três cachos soltos (um deles num raminho), os ramos
+ * pendentes do salgueiro e as folhas do capim (tingidos no shader). Cada flor:
+ * cinco pétalas com o entalhe na ponta, base rosada, miolo escuro e estames;
+ * algumas mais brancas, algumas mais rosadas, botões entre elas.
  */
 function texturaFlores(THREE) {
-  const L = 1024;
   const T = 512;
   const tela = document.createElement('canvas');
-  tela.width = L;
-  tela.height = L;
+  tela.width = T * ATLAS.colunas;
+  tela.height = T * ATLAS.linhas;
   const g = tela.getContext('2d');
   const r = semente(2312);
+  const noLadrilho = (i, fn) => {
+    g.save();
+    g.translate((i % ATLAS.colunas) * T, Math.floor(i / ATLAS.colunas) * T);
+    g.scale(T / 256, T / 256);
+    fn();
+    g.restore();
+  };
 
   function petala(raio) {
     g.beginPath();
@@ -197,112 +231,155 @@ function texturaFlores(THREE) {
     g.closePath();
   }
 
-  function flor(x, y, raio, giro, achatar, tom) {
+  // tom: 1 = flor da frente; < 1 = mais para dentro do cacho. branco: 0 = rosa, 1 = quase branca.
+  function flor(x, y, raio, giro, achatar, tom, branco = 0.4) {
     g.save();
     g.translate(x, y);
     g.rotate(giro);
     g.scale(1, achatar);
     const grad = g.createRadialGradient(0, 0, 0, 0, 0, raio);
-    const k = tom;                         // 1 = flor da frente; < 1 = mais para dentro do cacho
+    const k = tom;
     const c = (rr, gg, bb) => `rgb(${Math.round(rr * k)}, ${Math.round(gg * k)}, ${Math.round(bb * k)})`;
-    grad.addColorStop(0, c(236, 160, 188));
-    grad.addColorStop(0.28, c(246, 200, 218));
-    grad.addColorStop(0.72, c(250, 230, 239));
-    grad.addColorStop(1, c(246, 222, 233));
+    const b = (rosa, claro) => lerp(rosa, claro, branco);
+    grad.addColorStop(0, c(228, 140, 172));
+    grad.addColorStop(0.3, c(b(240, 248), b(178, 214), b(204, 228)));
+    grad.addColorStop(0.72, c(b(247, 252), b(214, 240), b(228, 245)));
+    grad.addColorStop(1, c(b(242, 250), b(200, 232), b(220, 240)));
+    const e = raio / 14;                     // linhas e pontos acompanham o tamanho da flor
     for (let i = 0; i < 5; i++) {
       g.save();
-      g.rotate((i / 5) * Math.PI * 2 + (r() - 0.5) * 0.25);
-      petala(raio * (0.92 + r() * 0.16));
+      g.rotate((i / 5) * Math.PI * 2 + (r() - 0.5) * 0.3);
+      petala(raio * (0.88 + r() * 0.22));
       g.fillStyle = grad;
       g.fill();
-      g.lineWidth = 0.6;
-      g.strokeStyle = c(240, 205, 220);
+      g.lineWidth = 0.5 * e;
+      g.strokeStyle = c(b(232, 242), b(186, 214), b(205, 228));
       g.stroke();
       g.restore();
     }
     // estames
-    g.lineWidth = 0.9;
+    g.lineWidth = 0.75 * e;
     for (let i = 0; i < 9; i++) {
       const a = r() * Math.PI * 2;
-      const l = raio * (0.22 + r() * 0.18);
-      g.strokeStyle = c(214, 120, 150);
+      const l = raio * (0.22 + r() * 0.2);
+      g.strokeStyle = c(206, 110, 142);
       g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(a) * l, Math.sin(a) * l); g.stroke();
-      g.fillStyle = r() < 0.5 ? c(240, 205, 130) : c(232, 150, 176);
-      g.beginPath(); g.arc(Math.cos(a) * l, Math.sin(a) * l, 1.1, 0, Math.PI * 2); g.fill();
+      g.fillStyle = r() < 0.5 ? c(236, 196, 120) : c(226, 140, 168);
+      g.beginPath(); g.arc(Math.cos(a) * l, Math.sin(a) * l, 1.0 * e, 0, Math.PI * 2); g.fill();
     }
-    g.fillStyle = c(222, 140, 166);
-    g.beginPath(); g.arc(0, 0, raio * 0.08, 0, Math.PI * 2); g.fill();
+    g.fillStyle = c(206, 118, 148);
+    g.beginPath(); g.arc(0, 0, raio * 0.1, 0, Math.PI * 2); g.fill();
     g.restore();
   }
 
-  // Ladrilhos 0 e 1: massas de flor (cachos encostados uns nos outros, com
-  // contorno irregular), para os cartões grandes da casca da copa.
-  // Ladrilho 2: um cacho pequeno, para as bordas. Coordenadas num ladrilho de 256
-  // (escalado ×2 no canvas).
-  function cachos(ox, oy, nCachos, raioCachos, porCacho, raioFlor, raioEspalha) {
+  // botão: uma gota rosa-forte, fechada
+  function botao(x, y, raio, giro) {
+    g.save();
+    g.translate(x, y);
+    g.rotate(giro);
+    g.fillStyle = 'rgb(214, 108, 146)';
+    g.beginPath(); g.ellipse(0, 0, raio * 0.55, raio, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = 'rgba(250, 205, 222, 0.7)';
+    g.beginPath(); g.ellipse(-raio * 0.15, -raio * 0.25, raio * 0.2, raio * 0.45, 0, 0, Math.PI * 2); g.fill();
+    g.restore();
+  }
+
+  // Cachos de flor num ladrilho de 256 (escalado ×2 no canvas): `centros` são os
+  // pontos de onde saem os pedúnculos; cada cacho tem o seu tom (uns mais brancos,
+  // outros mais rosados), e há botões entre as flores.
+  function cachos(centros, porCacho, raioFlor, raioEspalha) {
     const flores = [];
-    const centros = [];
-    for (let c = 0; c < nCachos; c++) {
-      const a = (c / nCachos) * Math.PI * 2 + r() * 1.2;
-      const d = raioCachos * (0.25 + 0.75 * Math.sqrt(r()));
-      centros.push({ x: ox + Math.cos(a) * d, y: oy + Math.sin(a) * d });
-    }
     for (const c of centros) {
       const n = porCacho + Math.floor(r() * 3);
+      const branco = r();
       for (let i = 0; i < n; i++) {
         const a = r() * Math.PI * 2;
         const d = Math.sqrt(r()) * raioEspalha;
-        flores.push({ x: c.x + Math.cos(a) * d, y: c.y + Math.sin(a) * d, raio: raioFlor * (0.8 + r() * 0.45), z: r(), cx: c.x, cy: c.y });
+        flores.push({
+          x: c.x + Math.cos(a) * d, y: c.y + Math.sin(a) * d, raio: raioFlor * (0.78 + r() * 0.42),
+          z: r(), cx: c.x, cy: c.y, branco: clamp(branco + (r() - 0.5) * 0.3), botao: r() < 0.12,
+        });
       }
     }
-    g.strokeStyle = 'rgb(112, 66, 62)';
-    g.lineWidth = 1.0;
+    // pedúnculos: finos, marrom-avermelhados, saindo do mesmo ponto
+    g.strokeStyle = 'rgb(104, 60, 58)';
+    g.lineWidth = raioFlor * 0.075;
     for (const f of flores) {
-      g.beginPath(); g.moveTo(f.cx, f.cy + 5); g.quadraticCurveTo((f.cx + f.x) / 2 + 3, (f.cy + f.y) / 2 + 4, f.x, f.y); g.stroke();
+      g.beginPath(); g.moveTo(f.cx, f.cy + raioFlor * 0.4); g.quadraticCurveTo((f.cx + f.x) / 2 + 2, (f.cy + f.y) / 2 + 3, f.x, f.y); g.stroke();
     }
     flores.sort((p, q) => p.z - q.z);
-    for (const f of flores) flor(f.x, f.y, f.raio, r() * 6.3, 0.5 + r() * 0.5, 0.74 + f.z * 0.26);
-    g.fillStyle = 'rgb(214, 104, 144)';
-    for (let i = 0; i < nCachos; i++) {
-      const c = centros[i];
-      if (r() < 0.5) { g.beginPath(); g.ellipse(c.x + (r() - 0.5) * 40, c.y + (r() - 0.5) * 40, 2.4, 3.6, r() * 3, 0, Math.PI * 2); g.fill(); }
+    for (const f of flores) {
+      if (f.botao) botao(f.x, f.y, f.raio * 0.38, r() * 6.3);
+      else flor(f.x, f.y, f.raio, r() * 6.3, 0.45 + r() * 0.55, 0.72 + f.z * 0.28, f.branco);
     }
   }
-  for (let t = 0; t < 3; t++) {
-    g.save();
-    g.translate((t % 2) * T, Math.floor(t / 2) * T);
-    g.scale(T / 256, T / 256);
-    if (t < 2) cachos(128, 128, 9 + Math.floor(r() * 2), 62, 9, 14, 27);
-    else cachos(128, 128, 3 + Math.floor(r() * 2), 58, 5, 17, 28);
-    g.restore();
+  // um disco de contorno irregular cheio de cachos pequenos (a casca da copa)
+  function massa(nCachos, raio) {
+    const centros = [];
+    for (let c = 0; c < nCachos; c++) {
+      const a = r() * Math.PI * 2;
+      const d = raio * Math.sqrt(0.04 + 0.96 * r());
+      centros.push({ x: 128 + Math.cos(a) * d, y: 128 + Math.sin(a) * d * 0.92 });
+    }
+    cachos(centros, 4, 9.5, 15);
   }
+  noLadrilho(0, () => massa(26, 82));
+  noLadrilho(1, () => massa(22, 76));
+  noLadrilho(2, () => massa(30, 88));
+  // cachos soltos, para as bordas e as pontas
+  noLadrilho(3, () => cachos([{ x: 100, y: 112 }, { x: 156, y: 104 }, { x: 128, y: 158 }, { x: 84, y: 166 }], 5, 12, 21));
+  noLadrilho(4, () => cachos([{ x: 128, y: 120 }, { x: 170, y: 150 }, { x: 92, y: 150 }], 6, 13, 22));
+  // um raminho com flores: a madeira aparece entre os cachos
+  noLadrilho(7, () => {
+    const pts = [];
+    for (let i = 0; i <= 6; i++) pts.push({ x: 30 + i * 33 + (r() - 0.5) * 10, y: 190 - i * 22 + (r() - 0.5) * 16 });
+    g.strokeStyle = 'rgb(70, 50, 48)';
+    g.lineCap = 'round';
+    for (let i = 0; i < pts.length - 1; i++) {
+      g.lineWidth = lerp(5, 1.6, i / 6);
+      g.beginPath(); g.moveTo(pts[i].x, pts[i].y); g.lineTo(pts[i + 1].x, pts[i + 1].y); g.stroke();
+    }
+    cachos(pts.slice(1).map((p) => ({ x: p.x + (r() - 0.5) * 8, y: p.y - 6 })), 3, 10.5, 13);
+  });
 
-  // ladrilho 3: ramos pendentes (salgueiro / capim), claros, tingidos no shader
-  {
-    g.save();
-    g.translate(T, T);
-    g.scale(T / 256, T / 256);
-    const ox = 0; const oy = 0;
+  // ramos pendentes (salgueiro): claros, tingidos no shader
+  noLadrilho(LAD.salgueiro, () => {
     const T2 = 256;
     for (let i = 0; i < 9; i++) {
-      const x0 = ox + 18 + i * 26 + (r() - 0.5) * 10;
+      const x0 = 18 + i * 26 + (r() - 0.5) * 10;
       const curva = (r() - 0.5) * 30;
       const tom = 170 + Math.floor(r() * 80);
       g.strokeStyle = `rgb(${tom}, ${tom}, ${tom - 20})`;
       g.fillStyle = `rgb(${tom}, ${tom}, ${tom - 18})`;
       g.lineWidth = 1.4;
-      g.beginPath(); g.moveTo(x0, oy + 2); g.quadraticCurveTo(x0 + curva, oy + T2 * 0.5, x0 + curva * 0.6, oy + T2 - 4); g.stroke();
+      g.beginPath(); g.moveTo(x0, 2); g.quadraticCurveTo(x0 + curva, T2 * 0.5, x0 + curva * 0.6, T2 - 4); g.stroke();
       for (let y = 8; y < T2 - 8; y += 7) {
         const tt = y / T2;
         const xa = lerp(x0, x0 + curva * 0.6, tt) + Math.sin(tt * 3) * curva * 0.3;
         const lado = (y / 7) % 2 ? 1 : -1;
         g.beginPath();
-        g.ellipse(xa + lado * 4, oy + y, 2.2, 7.5, lado * 0.5, 0, Math.PI * 2);
+        g.ellipse(xa + lado * 4, y, 2.2, 7.5, lado * 0.5, 0, Math.PI * 2);
         g.fill();
       }
     }
-    g.restore();
-  }
+  });
+  // capim: folhas finas e pontudas que nascem embaixo e se curvam (tom de 0,55 a 1, tingido no shader)
+  noLadrilho(LAD.capim, () => {
+    for (let i = 0; i < 26; i++) {
+      const x0 = 20 + r() * 216;
+      const curva = (r() - 0.5) * 70;
+      const alt = 150 + r() * 100;
+      const larg = 2.2 + r() * 2.2;
+      const tom = 140 + Math.floor(r() * 115);
+      g.fillStyle = `rgb(${tom}, ${tom}, ${Math.round(tom * 0.9)})`;
+      g.beginPath();
+      g.moveTo(x0 - larg, 256);
+      g.quadraticCurveTo(x0 - larg * 0.6 + curva * 0.3, 256 - alt * 0.55, x0 + curva, 256 - alt);
+      g.quadraticCurveTo(x0 + larg * 0.6 + curva * 0.3, 256 - alt * 0.55, x0 + larg, 256);
+      g.closePath();
+      g.fill();
+    }
+  });
 
   // Alfa pré-multiplicado: os mipmaps fazem a média só do que existe (sem clarear
   // nem escurecer as bordas ao longe); o shader divide de volta.
@@ -320,7 +397,7 @@ function texturaFlores(THREE) {
  * Um tubo ao longo de uma polilinha com raios variáveis e referencial de
  * transporte paralelo (não torce). Escreve em `saida` (arrays planos).
  */
-function tubo(THREE, pontos, raios, lados, flex, ao, saida) {
+function tubo(THREE, pontos, raios, lados, flex, ao, saida, rugas = 0, fase = 0) {
   const n = pontos.length;
   const tang = [];
   for (let i = 0; i < n; i++) {
@@ -350,7 +427,9 @@ function tubo(THREE, pontos, raios, lados, flex, ao, saida) {
       const a = (j / lados) * Math.PI * 2;
       aux.copy(normal).multiplyScalar(Math.cos(a)).addScaledVector(binormal, Math.sin(a));
       const p = pontos[i];
-      saida.pos.push(p.x + aux.x * raios[i], p.y + aux.y * raios[i], p.z + aux.z * raios[i]);
+      // seção retorcida: sulcos que torcem devagar ao longo do galho (casca velha)
+      const ri = raios[i] * (1 + rugas * (0.6 * Math.sin(a * 3 + v * 1.7 + fase) + 0.4 * Math.sin(a * 5 - v * 2.9 + fase * 1.3)));
+      saida.pos.push(p.x + aux.x * ri, p.y + aux.y * ri, p.z + aux.z * ri);
       saida.nor.push(aux.x, aux.y, aux.z);
       saida.uv.push(j / lados, v / 0.6);
       saida.flex.push(flex[i]);
@@ -399,21 +478,23 @@ function geometriaDeTubos(THREE, saida) {
 
 // ---- geometria: cartões (flores, salgueiro, capim) ---------------------------------------
 
-function novosCartoes() {
-  return { pos: [], uv: [], centro: [], cor: [], dados: [], nor: [], canto: [], idx: [] };
+/** Cada conjunto de cartões tem a sua semente: o mesmo layout a cada carregamento. */
+function novosCartoes(s = 1) {
+  return { pos: [], uv: [], centro: [], cor: [], dados: [], nor: [], canto: [], idx: [], r: semente(s * 7 + 3) };
 }
 
 /**
  * Um cartão: centro, tamanho (l × a), orientação (dois eixos), ladrilho do
- * atlas (0..3), cor (tinta), ao (0 = fundo do cacho, 1 = luz), flex embaixo e em cima.
+ * atlas (ver ATLAS), cor (tinta), ao (0 = fundo do cacho, 1 = luz), flex embaixo e em cima.
  */
 function cartao(saida, c, l, a, eixoX, eixoY, ladrilho, cor, ao, flexBaixo, flexCima, virar = 0, fracU = 1) {
   const base = saida.pos.length / 3;
-  const u0 = (ladrilho % 2) * 0.5;
-  const v0 = (1 - Math.floor(ladrilho / 2)) * 0.5;   // o canvas tem y para baixo; a textura, flipY
+  const u0 = (ladrilho % ATLAS.colunas) / ATLAS.colunas;
+  const v0 = (ATLAS.linhas - 1 - Math.floor(ladrilho / ATLAS.colunas)) / ATLAS.linhas;   // o canvas tem y para baixo; a textura, flipY
+  const lu = 1 / ATLAS.colunas; const lv = 1 / ATLAS.linhas;
   const cantos = [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]];
-  const sementeCartao = Math.random();
-  const offU = (Math.random() - 0.5) * (1 - fracU);
+  const sementeCartao = saida.r();
+  const offU = (saida.r() - 0.5) * (1 - fracU);
   for (const [x, y] of cantos) {
     saida.pos.push(
       c.x + eixoX.x * x * l + eixoY.x * y * a,
@@ -423,7 +504,7 @@ function cartao(saida, c, l, a, eixoX, eixoY, ladrilho, cor, ao, flexBaixo, flex
     // gira o uv dentro do ladrilho (cachos não ficam todos "em pé")
     const ux = x * fracU + offU; const uy = y;
     const m = 0.985;                       // um respiro para o filtro não pegar o vizinho
-    saida.uv.push(u0 + 0.25 + ux * 0.5 * m, v0 + 0.25 + uy * 0.5 * m);
+    saida.uv.push(u0 + lu * (0.5 + ux * m), v0 + lv * (0.5 + uy * m));
     saida.centro.push(c.x, c.y, c.z);
     saida.nor.push(eixoX.y * eixoY.z - eixoX.z * eixoY.y, eixoX.z * eixoY.x - eixoX.x * eixoY.z, eixoX.x * eixoY.y - eixoX.y * eixoY.x);
     saida.cor.push(cor[0], cor[1], cor[2]);
@@ -456,6 +537,13 @@ function geometriaDeCartoes(THREE, saida) {
  * longas, que sobem e depois se arqueiam; galhos e raminhos em volta. As flores
  * nascem em cachos ao longo dos galhos finos.
  */
+// Altura mínima de um galho conforme avança para o caminho (x local; o meio do
+// caminho fica a ~3 m do tronco): livre perto do tronco, 3,3 m por cima do caminho.
+function teto(x) {
+  const t = clamp((x - 0.9) / 1.3);
+  return 3.3 * t * t * (3 - 2 * t);
+}
+
 function gerarCerejeira(THREE, s, nCartoes) {
   const r = semente(s);
   const rand = (a, b) => a + (b - a) * r();
@@ -464,28 +552,49 @@ function gerarCerejeira(THREE, s, nCartoes) {
   const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
   function galho(p0, dir, comp, r0, r1, nivel, flex0, peso = 1) {
-    const segs = [6, 7, 4, 2][nivel];
-    const lados = [8, 6, 4, 3][nivel];
-    const torto = [0.16, 0.24, 0.3, 0.34][nivel];
+    const segs = [6, 9, 5, 2][nivel];
+    const lados = [8, 7, 4, 3][nivel];
+    const torto = [0.16, 0.2, 0.26, 0.34][nivel];
     const arco = [0, 0.3, 0.14, 0.05][nivel];
+    // ziguezague: a cerejeira cresce de gema em gema e o galho muda de rumo a cada nó
+    const quebra = [0, 0.2, 0.24, 0.26][nivel];
     const pts = [p0.clone()];
     const raios = [r0 * (nivel === 0 ? 1.45 : 1)];
     const flex = [flex0];
     const ao = [];
     const d = dir.clone().normalize();
     const fase = r() * 6.28;
+    const lateral = new THREE.Vector3().crossVectors(d, V(0, 1, 0));
+    if (lateral.lengthSq() < 1e-4) lateral.set(1, 0, 0);
+    lateral.normalize();
+    let sinal = r() < 0.5 ? 1 : -1;
     let p = p0.clone();
     for (let i = 1; i <= segs; i++) {
       d.x += rand(-torto, torto); d.y += rand(-torto, torto) * 0.6; d.z += rand(-torto, torto);
+      if (quebra > 0) {
+        if (r() < 0.8) sinal = -sinal;
+        d.addScaledVector(lateral, sinal * quebra * rand(0.5, 1.2));
+        d.y += sinal * quebra * rand(-0.15, 0.35);
+      }
       d.y = Math.max(-0.2, d.y - arco * (i / segs) * 1.4);   // o peso arqueia a pernada, sem despencar
       if (nivel === 1) {                    // e ela serpenteia (cerejeira velha)
-        d.x += Math.sin(i * 1.7 + fase) * 0.22; d.z += Math.cos(i * 1.3 + fase) * 0.22;
+        d.x += Math.sin(i * 1.7 + fase) * 0.16; d.z += Math.cos(i * 1.3 + fase) * 0.16;
       }
       d.normalize();
-      p = p.clone().addScaledVector(d, comp / segs);
+      p = p.clone().addScaledVector(d, (comp / segs) * rand(0.8, 1.2));
+      // por cima do caminho o galho sobe: perto da linha dos olhos ele passaria
+      // rente à câmera (o vão do shader só acerta o resto, de leve)
+      const minY = teto(p.x);
+      if (p.y < minY) {
+        p.y = lerp(p.y, minY, 0.85);
+        d.subVectors(p, pts[pts.length - 1]).normalize();
+      }
       pts.push(p);
       const t = i / segs;
-      raios.push(lerp(r0, r1, Math.pow(t, 0.8)) * (1 + (r() - 0.5) * 0.12));
+      // afina mais depressa no começo e vai até um fio; aqui e ali um nó (gema velha, corte)
+      let rr = lerp(r0, r1, Math.pow(t, 0.7)) * (1 + (r() - 0.5) * 0.12);
+      if (nivel <= 2 && i < segs && r() < 0.22) rr *= rand(1.15, 1.32);
+      raios.push(rr);
       flex.push(flex0 + (nivel === 0 ? 0 : t * [0, 0.25, 0.45, 0.6][nivel]));
     }
     for (let i = 0; i < pts.length; i++) {
@@ -493,8 +602,8 @@ function gerarCerejeira(THREE, s, nCartoes) {
       ao.push(clamp(0.35 + pts[i].y * 0.09 + nivel * 0.1, 0.3, 1));
     }
     raios[raios.length - 1] *= 0.4;        // a ponta afina
-    const [lp, lr, lf, la] = suavizar(THREE, pts, [raios, flex, ao], nivel >= 2 ? 1 : 2);
-    if (nivel < 3) tubo(THREE, lp, lr, lados, lf, la, tubos);   // os raminhos ficam por baixo das flores
+    const [lp, lr, lf, la] = suavizar(THREE, pts, [raios, flex, ao], [2, 2, 2, 1][nivel]);
+    if (nivel < 3) tubo(THREE, lp, lr, lados, lf, la, tubos, nivel === 1 ? 0.07 : 0.03, fase);   // os raminhos ficam por baixo das flores
 
     if (nivel >= 2 || (nivel === 1 && comp < 3)) {
       for (let i = 1; i < pts.length; i++) nos.push({ p: pts[i], peso: (nivel === 3 ? 1.4 : 1) * peso, flex: flex[i] });
@@ -535,23 +644,26 @@ function gerarCerejeira(THREE, s, nCartoes) {
       pts.push(p);
       raios.push(lerp(rTronco * 1.15, rTronco * 0.82, i / segs) * (1 + (r() - 0.5) * 0.14));
     }
-    const [tp, tr, tf, ta] = suavizar(THREE, pts, [raios, pts.map(() => 0), pts.map((q) => clamp(0.4 + q.y * 0.18, 0.4, 0.85))], 2);
-    tubo(THREE, tp, tr, 9, tf, ta, tubos);
+    // o tronco fecha num domo logo acima de onde as pernadas nascem (sem a boca do tubo aparecendo)
+    const ptsT = [...pts, pts[segs].clone().addScaledVector(d, rTronco * 0.55)];
+    const raiosT = [...raios, rTronco * 0.3];
+    const [tp, tr, tf, ta] = suavizar(THREE, ptsT, [raiosT, ptsT.map(() => 0), ptsT.map((q) => clamp(0.4 + q.y * 0.18, 0.4, 0.85))], 2);
+    tubo(THREE, tp, tr, 12, tf, ta, tubos, 0.13, r() * 6.28);
     // pernadas
     const topo = pts[pts.length - 1];
     const n = 3 + Math.floor(r() * 2);
     for (let i = 0; i < n; i++) {
       // a primeira vai para o caminho, longa: é ela que fecha o túnel
       const az = i === 0 ? rand(-0.35, 0.35) : (i / n) * Math.PI * 2 + rand(-0.4, 0.4);
-      const el = i === 0 ? rand(0.6, 0.82) : rand(0.6, 1.05);
+      const el = i === 0 ? rand(0.72, 0.92) : rand(0.6, 1.05);
       const dir = V(Math.cos(az) * Math.cos(el), Math.sin(el), Math.sin(az) * Math.cos(el));
-      const comp = i === 0 ? rand(4.0, 4.8) : rand(2.6, 3.6);
+      const comp = i === 0 ? rand(3.7, 4.4) : rand(2.6, 3.6);
       galho(topo.clone().addScaledVector(dir, rTronco * 0.3), dir, comp, rTronco * 0.62, rTronco * 0.16, 1, 0.08, i === 0 ? 1.7 : 1);
     }
   }
 
   // ---- cartões de flor ----
-  const cartoes = novosCartoes();
+  const cartoes = novosCartoes(s);
   let pesoTotal = 0;
   for (const n of nos) pesoTotal += n.peso;
   // copa: centro e extensão, para a oclusão falsa
@@ -570,6 +682,7 @@ function gerarCerejeira(THREE, s, nCartoes) {
     const g = () => (r() + r() + r() - 1.5) * 0.8;
     const c = V(no.p.x + g() * 0.5, no.p.y + g() * 0.32 + 0.12, no.p.z + g() * 0.5);
     if (c.y < 2.0) c.y = 2.0 + r() * 0.3;
+    if (c.y < teto(c.x) - 0.25) c.y = teto(c.x) - 0.25 + r() * 0.3;
     // luz de céu nublado: o alto e a borda da copa claros, a barriga (o que se vê
     // de baixo) e o miolo em malva; dentro de cada cacho, de cima para baixo
     const fora = clamp(Math.hypot((c.x - centro.x) / (ext.x * 0.5 + 0.5), (c.z - centro.z) / (ext.z * 0.5 + 0.5)));
@@ -584,10 +697,10 @@ function gerarCerejeira(THREE, s, nCartoes) {
     ey.crossVectors(nrm, ex).normalize();
     // 60% massas grandes (casca da copa), 40% cachos pequenos (bordas e pontas)
     const massa = r() < 0.6;
-    const tam = massa ? rand(0.6, 0.88) : rand(0.3, 0.42);
+    const tam = massa ? rand(0.56, 0.84) : rand(0.3, 0.42);
     const v = Math.pow(r(), 1.3);
     const cor = [lerp(rosaClaro[0], rosa[0], v), lerp(rosaClaro[1], rosa[1], v), lerp(rosaClaro[2], rosa[2], v)];
-    cartao(cartoes, c, tam, tam, ex, ey, massa ? Math.floor(r() * 2) : 2, cor, ao, no.flex + 0.35, no.flex + 0.45, 0.72);
+    cartao(cartoes, c, tam, tam, ex, ey, (massa ? LAD.massas : LAD.cachos)[Math.floor(r() * 3) % 3], cor, ao, no.flex + 0.35, no.flex + 0.45, 0.72);
   }
   // os cartões numa ordem qualquer: o nível baixo desenha só os primeiros
   return { tronco: geometriaDeTubos(THREE, tubos), copa: geometriaDeCartoes(THREE, cartoes) };
@@ -616,7 +729,7 @@ function gerarSalgueiro(THREE, s) {
     }
     tubo(THREE, pts, pts.map((_, k) => lerp(0.13, 0.03, k / 5)), 5, pts.map((_, k) => k * 0.1), pts.map(() => 0.7), tubos);
   }
-  const cartoes = novosCartoes();
+  const cartoes = novosCartoes(s);
   const ex = V(); const ey = V(0, 1, 0);
   for (let i = 0; i < 420; i++) {
     const o = pontas[Math.floor(r() * pontas.length)];
@@ -628,7 +741,7 @@ function gerarSalgueiro(THREE, s) {
     const v = r();
     const cor = [lerp(0.55, 0.72, v), lerp(0.66, 0.82, v), lerp(0.38, 0.5, v)];
     const alto = clamp((c.y + comp * 0.5) / 5);
-    cartao(cartoes, c, rand(0.25, 0.4), comp, ex, ey, 3, cor, 0.35 + alto * 0.55, 1.6, 0.4, 0, 0.45);
+    cartao(cartoes, c, rand(0.25, 0.4), comp, ex, ey, LAD.salgueiro, cor, 0.35 + alto * 0.55, 1.6, 0.4, 0, 0.45);
   }
   return { tronco: geometriaDeTubos(THREE, tubos), copa: geometriaDeCartoes(THREE, cartoes) };
 }
@@ -636,17 +749,21 @@ function gerarSalgueiro(THREE, s) {
 /** Uma touceira de capim na margem do lago. */
 function gerarCapim(THREE, s) {
   const r = semente(s);
-  const cartoes = novosCartoes();
+  const cartoes = novosCartoes(s);
   const ex = new THREE.Vector3(); const ey = new THREE.Vector3();
-  for (let i = 0; i < 44; i++) {
-    const alt = 0.45 + r() * 0.6;
-    const c = new THREE.Vector3((r() - 0.5) * 1.6, alt * 0.5, (r() - 0.5) * 1.6);
+  for (let i = 0; i < 36; i++) {
+    const alt = 0.4 + r() * 0.55;
+    const c = new THREE.Vector3((r() - 0.5) * 1.6, alt * 0.5 - 0.02, (r() - 0.5) * 1.6);
     const az = r() * Math.PI;
     ex.set(Math.cos(az), 0, Math.sin(az));
     ey.set((r() - 0.5) * 0.25, 1, (r() - 0.5) * 0.25).normalize();
+    // verde-oliva com pontas palha (como os juncos da margem na foto)
     const v = r();
-    const cor = [lerp(0.3, 0.4, v), lerp(0.27, 0.36, v), lerp(0.16, 0.22, v)];
-    cartao(cartoes, c, 0.1 + r() * 0.08, alt, ex, ey, 3, cor, 0.45 + r() * 0.35, 0, 1.2, 0, 0.25);
+    const palha = r() < 0.35 ? 1 : 0;
+    const cor = palha
+      ? [lerp(0.5, 0.6, v), lerp(0.42, 0.5, v), lerp(0.26, 0.32, v)]
+      : [lerp(0.3, 0.4, v), lerp(0.36, 0.44, v), lerp(0.17, 0.23, v)];
+    cartao(cartoes, c, 0.26 + r() * 0.16, alt, ex, ey, LAD.capim, cor, 0.45 + r() * 0.35, 0, 1.2, 0, 0.5);
   }
   return geometriaDeCartoes(THREE, cartoes);
 }
@@ -710,16 +827,26 @@ function gerarCorrente(THREE) {
   return g;
 }
 
-/** Arbusto: uma esfera amassada por ruído. */
+/**
+ * Arbusto / sebe podada: uma caixa de cantos bem redondos (superelipsoide) com
+ * calombos de ramagem em duas escalas e a base achatada no chão. Cada instância
+ * estica de um jeito (sebe comprida, touceira), então os calombos variam junto.
+ */
 function gerarArbusto(THREE) {
-  const g = new THREE.SphereGeometry(1, 14, 9);
+  const g = new THREE.SphereGeometry(1, 22, 14);
   const p = g.attributes.position;
   const v = new THREE.Vector3();
+  const e = 3.2;                              // expoente: 2 = esfera, maior = mais caixa
   for (let i = 0; i < p.count; i++) {
     v.fromBufferAttribute(p, i);
-    const k = 1 + 0.16 * Math.sin(v.x * 3.1 + v.y * 1.7) * Math.cos(v.z * 2.7 - v.y * 2.1) + 0.07 * Math.sin(v.x * 9 + v.z * 7);
+    const n = Math.pow(Math.abs(v.x) ** e + Math.abs(v.y) ** e + Math.abs(v.z) ** e, 1 / e);
+    v.divideScalar(Math.max(n, 1e-4));
+    const k = 1
+      + 0.09 * Math.sin(v.x * 4.1 + v.y * 2.3) * Math.cos(v.z * 3.7 - v.y * 2.9)
+      + 0.06 * Math.sin(v.x * 9.3 + v.z * 7.1 + 1.7) * Math.sin(v.y * 8.2 - v.z * 3.3)
+      + 0.035 * Math.sin(v.x * 17.0 - v.y * 13.0 + v.z * 15.0);
     v.multiplyScalar(k);
-    if (v.y < -0.35) v.y = -0.35;
+    if (v.y < -0.3) v.y = -0.3 - (v.y + 0.3) * 0.08;
     p.setXYZ(i, v.x, v.y, v.z);
   }
   g.computeVertexNormals();
@@ -820,23 +947,40 @@ void main() {
   ilum *= 1.0 - 0.1 * smoothstep(W - 0.2, W + 1.5, adx) * sob;
   cor *= ilum;
 
-  // ---- o lago à direita, com o reflexo das copas ----
-  float lx = dx - (7.6 + (nA.g - 0.5) * 4.0);
+  // ---- o lago à direita, logo atrás da fileira de troncos ----
+  // O reflexo é o da outra margem: olhando a água num ângulo e abaixo do
+  // horizonte, ela devolve o que está e acima dele (céu no alto, a faixa rosa
+  // das copas da outra margem logo acima do horizonte, troncos e juncos na linha
+  // d'água), com o ângulo em volta (azimute) desenhando colunas que as ondinhas tremem.
+  float lx = dx - (${LAGO.toFixed(2)} + (nA.g - 0.5) * 1.5);
   if (lx > -0.8) {
     vec3 Vn = V / max(dist, 0.001);
     float rasante = 1.0 - clamp(-Vn.y, 0.0, 1.0);
-    float fres = 0.25 + 0.75 * pow(rasante, 5.0);
+    float fres = 0.15 + 0.85 * pow(rasante, 5.0);
     vec2 q = vec2(p.x * 0.45, p.y * 0.11) + vec2(uTempo * 0.006, uTempo * 0.018);
     float ond = texture2D(uRuido, q).g;
     float ond2 = texture2D(uRuido, vec2(p.x * 1.3, p.y * 0.4) - uTempo * 0.02).r;
-    vec3 ceuR = mix(uNevoa, uCeu, 0.5);
-    float rosaR = (1.0 - smoothstep(0.5, 7.5, lx)) * smoothstep(0.32, 0.62, ond + (ond2 - 0.5) * 0.25);
-    vec3 agua = mix(vec3(0.36, 0.4, 0.42), ceuR, fres);
-    agua = mix(agua, vec3(0.88, 0.67, 0.79), rosaR * 0.7);
-    agua = mix(agua, vec3(0.42, 0.37, 0.34), (1.0 - smoothstep(0.0, 1.6, lx)) * 0.35 * (1.0 - longe));
+    float tremor = (ond - 0.5) * 0.05 + (ond2 - 0.5) * 0.03;
+    float e = -Vn.y + tremor * (0.4 + rasante);                 // o ângulo refletido acima do horizonte
+    float az = atan(Vn.x, -Vn.z) + tremor * 0.25;
+    float colA = texture2D(uRuido, vec2(az * 0.9, 0.17)).r;       // a silhueta das copas (altura por azimute)
+    float colB = texture2D(uRuido, vec2(az * 3.1, 0.61)).b;       // troncos
+    vec3 ceuR = mix(uNevoa, uCeu, smoothstep(0.05, 0.4, e));
+    float topo = 0.09 + 0.13 * colA;                              // até onde vai a copa da outra margem
+    float copa = 1.0 - smoothstep(topo - 0.02, topo + 0.02, e);
+    vec3 rosaR = mix(vec3(0.8, 0.55, 0.68), vec3(0.9, 0.7, 0.8), colA);
+    vec3 refl = mix(ceuR, rosaR, copa * 0.85);
+    // linha d'água: juncos palha e troncos escuros
+    float banco = 1.0 - smoothstep(0.012, 0.03, e);
+    refl = mix(refl, mix(vec3(0.62, 0.52, 0.38), vec3(0.22, 0.19, 0.2), smoothstep(0.7, 0.85, colB)), banco * 0.8);
+    refl = mix(refl, vec3(0.2, 0.17, 0.19), smoothstep(0.82, 0.92, colB) * (1.0 - smoothstep(0.02, 0.07, e)) * copa * 0.6);
+    vec3 agua = mix(vec3(0.27, 0.3, 0.31), refl * 0.86, fres);   // a água devolve menos luz que o céu
+    // brilho das ondinhas e a margem rasa, mais escura e terrosa
+    agua *= 0.94 + 0.12 * smoothstep(0.55, 0.8, ond2);
+    agua = mix(agua, vec3(0.34, 0.31, 0.27), (1.0 - smoothstep(0.0, 0.9, lx)) * 0.4 * (1.0 - longe));
     float margem = smoothstep(-0.8, -0.15, lx);
     float naAgua = smoothstep(-0.03, 0.03, lx);
-    cor = mix(cor, vec3(0.3, 0.28, 0.24) * (0.8 + 0.4 * nC.r), margem * (1.0 - naAgua));
+    cor = mix(cor, vec3(0.3, 0.28, 0.22) * (0.8 + 0.4 * nC.r), margem * (1.0 - naAgua));
     cor = mix(cor, agua, naAgua);
   }
 
@@ -855,17 +999,20 @@ varying vec3 vW;
 varying vec3 vN;
 varying vec2 vUv;
 varying float vAo;
+varying float vFlex;
 void main() {
   mat4 m = modelMatrix;
   #ifdef USE_INSTANCING
     m = m * instanceMatrix;
   #endif
   vec4 w = m * vec4(position, 1.0);
+  w.xyz = abrirVao(w.xyz);
   w.xyz += vento(w.xyz, aFlex, 0.0, uVento);
   vW = w.xyz;
   vN = normalize(mat3(m) * normal);
   vUv = uv;
   vAo = aAo;
+  vFlex = aFlex;
   gl_Position = projectionMatrix * viewMatrix * w;
 }
 `;
@@ -874,31 +1021,54 @@ const FRAG_TRONCO = /* glsl */ `
 ${COMUM}
 uniform sampler2D uRuido;
 uniform vec3 uCasca;
+uniform float uDetalhe;
 varying vec3 vW;
 varying vec3 vN;
 varying vec2 vUv;
 varying float vAo;
+varying float vFlex;
 void main() {
-  // Galho que passa rente à câmera (ela anda por baixo das pernadas) viraria uma
-  // lâmina preta cruzando a tela: dissolve antes, por cobertura (MSAA) ou pontilhado.
-  float perto = smoothstep(1.8, 3.6, length(vW - cameraPosition));
-  perto = mix(1.0, perto, smoothstep(1.9, 2.6, vW.y));      // só os galhos acima da cabeça; o tronco fica
+  // O vão (abrirVao) já tira os galhos de perto da câmera; se ainda assim algum
+  // chegar a menos de ~1,6 m (a câmera sobe ou desvia), ele se dissolve em vez de
+  // virar um recorte escuro: por cobertura (MSAA) ou pontilhado.
+  float dist = length(vW - cameraPosition);
+  // (acima da cabeça a dissolvência começa mais longe: de baixo, a pernada perto
+  // é uma faixa larga e escura; ela se desfaz aos poucos, e as flores ficam)
+  float perto = mix(smoothstep(1.05, 1.75, dist), smoothstep(1.4, 2.7, dist), smoothstep(2.1, 2.8, vW.y));
+  perto = mix(1.0, perto, smoothstep(1.6, 2.2, vW.y));      // só os galhos acima da cabeça; o tronco fica
   #ifdef SEM_COBERTURA
     float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
     if (perto < ign) discard;
   #else
     if (perto < 0.02) discard;
   #endif
-  vec3 n = normalize(vN);
-  float a = texture2D(uRuido, vec2(vUv.x * 0.5, vUv.y * 0.12)).r;
-  float b = texture2D(uRuido, vec2(vUv.x * 1.0, vUv.y * 1.6)).b;   // lenticelas: riscos na horizontal
-  float m = texture2D(uRuido, vec2(vUv.x * 0.7, vUv.y * 0.3) + 0.4).g;
-  vec3 cor = uCasca * (0.7 + 0.6 * a);
-  cor = mix(cor, vec3(0.3, 0.27, 0.25), smoothstep(0.78, 0.95, b) * 0.55);
-  // líquen cinza-esverdeado em manchas
-  cor = mix(cor, vec3(0.36, 0.37, 0.33), smoothstep(0.62, 0.8, texture2D(uRuido, vUv * vec2(0.8, 0.25) + 0.13).r) * 0.45);
-  // musgo embaixo, do lado úmido
-  cor = mix(cor, vec3(0.2, 0.24, 0.14), smoothstep(0.55, 0.75, m) * (1.0 - smoothstep(0.3, 1.6, vW.y)) * 0.6);
+  vec3 n0 = normalize(vN);
+  vec3 n = n0;
+  // uv: x dá a volta no galho, y corre ao longo dele (1 = 0,6 m)
+  vec4 c1 = texture2D(uRuido, vec2(vUv.x * 0.5, vUv.y * 0.11));          // manchas largas
+  vec4 c2 = texture2D(uRuido, vec2(vUv.x * 1.0, vUv.y * 1.6));           // lenticelas (riscos na horizontal)
+  vec4 c3 = texture2D(uRuido, vec2(vUv.x * 1.5, vUv.y * 0.42) + 0.37);   // placas e fissuras
+  float fissura = 1.0 - smoothstep(0.02, 0.24, c3.a);
+  // aspereza: relevo da casca pelas derivadas da tela (sem mapa de normais)
+  float relevo = uDetalhe * (1.0 - smoothstep(5.0, 16.0, dist));
+  if (relevo > 0.01) {
+    float alt = c3.r * 0.5 + (1.0 - fissura) * 0.5 + c2.b * 0.15;
+    vec3 dpx = dFdx(vW); vec3 dpy = dFdy(vW);
+    vec3 r1 = cross(dpy, n); vec3 r2 = cross(n, dpx);
+    float det = dot(dpx, r1);
+    vec3 grad = sign(det) * (dFdx(alt) * r1 + dFdy(alt) * r2) * 0.022 * relevo;
+    n = normalize(abs(det) * n - grad);
+  }
+  // casca escura com variação: placas cinzentas, partes marrom-avermelhadas
+  vec3 cor = uCasca * (0.62 + 0.75 * c1.r);
+  cor = mix(cor, vec3(0.25, 0.165, 0.145), smoothstep(0.55, 0.85, c1.g) * 0.55);
+  cor = mix(cor, vec3(0.36, 0.35, 0.34), smoothstep(0.62, 0.86, texture2D(uRuido, vUv * vec2(0.8, 0.25) + 0.13).r) * 0.5);
+  cor *= mix(1.0, 0.5, fissura);
+  cor = mix(cor, vec3(0.3, 0.27, 0.25), smoothstep(0.78, 0.95, c2.b) * 0.5);
+  // musgo: em cima das pernadas grossas e no pé do tronco, onde a água escorre
+  float musgo = smoothstep(0.48, 0.72, c1.b * 0.55 + c3.g * 0.45);
+  float onde = max(smoothstep(0.2, 0.75, n0.y) * (1.0 - smoothstep(0.12, 0.35, vFlex)), 1.0 - smoothstep(0.25, 1.3, vW.y));
+  cor = mix(cor, vec3(0.2, 0.26, 0.12) * (0.75 + 0.6 * c2.r), musgo * onde * 0.8);
   // céu nublado: luz de cima, um pouco do lado; o rosa das copas rebate embaixo
   float ceu = 0.45 + 0.55 * (n.y * 0.5 + 0.5);
   float lado = 0.85 + 0.25 * max(dot(n, normalize(vec3(-0.3, 0.4, 0.8))), 0.0);
@@ -906,7 +1076,7 @@ void main() {
   // por baixo da copa o galho recebe o rosa que as flores rebatem (não é um recorte preto)
   cor += vec3(0.075, 0.04, 0.055) * max(-n.y, 0.0) * vAo;
   // dentro da copa a luz é a das flores: os galhos altos são malva-escuro, não recortes pretos
-  cor = mix(cor, vec3(0.33, 0.25, 0.28) * (0.8 + 0.4 * a), smoothstep(2.0, 3.8, vW.y) * 0.55);
+  cor = mix(cor, vec3(0.4, 0.31, 0.34) * (0.8 + 0.4 * c1.r), smoothstep(2.0, 3.8, vW.y) * 0.6);
   cor = tardar(cor);
   cor = nevoar(cor, vW);
   gl_FragColor = vec4(acabar(cor), perto);
@@ -927,12 +1097,13 @@ varying vec3 vCor;
 varying float vAo;
 varying vec3 vN;
 varying float vCy;
+varying float vFlor;
 void main() {
   mat4 m = modelMatrix;
   #ifdef USE_INSTANCING
     m = m * instanceMatrix;
   #endif
-  vec3 c = (m * vec4(aCentro, 1.0)).xyz;
+  vec3 c = abrirVao((m * vec4(aCentro, 1.0)).xyz);
   // Os cachos se viram em boa parte para a câmera (aDados.w): a copa fica cheia de
   // qualquer ângulo, e dois cartões grandes quase nunca se cruzam numa reta.
   float escalaM = length(m[0].xyz);
@@ -950,6 +1121,7 @@ void main() {
   vUv = uv;
   vCor = aCor;
   vAo = aDados.x;
+  vFlor = step(0.01, aDados.w);               // só as flores se viram para a câmera
   gl_Position = projectionMatrix * viewMatrix * w;
 }
 `;
@@ -964,12 +1136,14 @@ varying vec3 vCor;
 varying float vAo;
 varying vec3 vN;
 varying float vCy;
+varying float vFlor;
 void main() {
   vec4 t = texture2D(uFlor, vUv);
   // Desfazer o pré-multiplicado só onde o alfa tem informação: nos texels quase
   // transparentes (bordas e mipmaps) a divisão de valores de 8 bits estoura para o
   // branco e contorna cada cacho com um fio claro. Ali vale o tom médio da pétala.
-  vec3 tomPetala = vec3(0.93, 0.78, 0.85);
+  // (a folhagem, tingida, tem o seu tom médio: sem isso o capim ganhava um contorno rosa-claro)
+  vec3 tomPetala = mix(vec3(0.78, 0.78, 0.72), vec3(0.93, 0.78, 0.85), vFlor);
   t.rgb = mix(tomPetala, min(t.rgb / max(t.a, 0.004), vec3(1.0)), smoothstep(0.12, 0.55, t.a));
   vec3 V = normalize(vW - cameraPosition);
   // rente à lente o cacho vira um borrão chapado: some antes (uPerto: de onde a onde;
@@ -1056,19 +1230,41 @@ varying vec3 vN;
 varying vec2 vUv;
 void main() {
   vec3 n = normalize(vN);
-  float f1 = texture2D(uRuido, vW.xz * 2.6 + vW.y * 1.3).b;
-  float f3 = texture2D(uRuido, vW.zx * 5.1 - vW.y * 2.2).a;
-  float f2 = texture2D(uRuido, vW.xz * 0.4 + vW.y * 0.3).r;
-  vec3 cor = mix(vec3(0.17, 0.23, 0.13), vec3(0.36, 0.44, 0.26), f2);
-  cor *= 0.62 + 0.55 * f1;
-  cor *= mix(0.55, 1.05, smoothstep(0.0, 0.25, f3));        // vãos escuros entre as folhas
-  float luz = 0.5 + 0.55 * (n.y * 0.5 + 0.5);
-  cor *= luz * mix(0.55, 1.0, smoothstep(0.0, 0.7, vW.y));
-  // pétalas que caíram nas folhas
-  cor = mix(cor, vec3(0.93, 0.74, 0.83), smoothstep(0.86, 0.95, f1) * smoothstep(0.0, 0.6, n.y) * 0.7);
+  vec3 V = normalize(cameraPosition - vW);
+  // projeção pelo eixo dominante da normal (o topo podado e os lados não esticam o desenho)
+  vec3 an = abs(n);
+  vec2 uv = an.y > max(an.x, an.z) ? vW.xz : (an.x > an.z ? vW.zy : vW.xy);
+  vec4 tufo = texture2D(uRuido, uv * 0.3 + 0.21);    // tufos (~10 cm): b = cada um, a = a borda entre eles
+  vec4 folha = texture2D(uRuido, uv * 1.7 + 0.57);   // folhas (~2 cm)
+  vec4 manchas = texture2D(uRuido, uv * 0.11 + 0.83); // manchas maiores de luz e sombra
+  float dist = length(vW - cameraPosition);
+  float fino = 1.0 - smoothstep(7.0, 20.0, dist);
+  // cada folha inclina para um lado: a luz pega umas e não outras
+  n = normalize(n + (vec3(folha.b, 0.5, fract(folha.b * 7.3)) - 0.5) * 1.1 * fino);
+  // verde de buxo: escuro no fundo dos tufos, amarelado onde a folha pega luz
+  float tom = tufo.b * 0.3 + manchas.r * 0.3 + folha.b * 0.4 * fino;
+  vec3 cor = mix(vec3(0.13, 0.2, 0.09), vec3(0.4, 0.5, 0.22), tom);
+  cor *= mix(0.6, 1.0, smoothstep(0.0, 0.18, tufo.a) * 0.6 + manchas.g * 0.4);     // os vãos entre os tufos, macios
+  cor *= mix(1.0, mix(0.62, 1.12, smoothstep(0.0, 0.22, folha.a)) * (0.85 + 0.3 * folha.g), fino);   // e entre as folhas
+  float luz = 0.5 + 0.6 * (n.y * 0.5 + 0.5);
+  cor *= luz * mix(0.5, 1.0, smoothstep(0.0, 0.6, vW.y));
+  // pontas novas, verde-claro, nas folhas viradas para cima
+  cor = mix(cor, vec3(0.55, 0.64, 0.3), smoothstep(0.7, 0.95, folha.b) * smoothstep(0.2, 0.8, n.y) * 0.6 * fino);
+  // pétalas que caíram nas folhas (do tamanho de uma folha, esparsas)
+  cor = mix(cor, vec3(0.93, 0.76, 0.84), step(0.93, folha.b) * smoothstep(0.75, 0.95, tufo.b) * smoothstep(0.3, 0.8, normalize(vN).y) * fino);
+  // o contorno não é liso: no perfil, só as folhas de fora ficam
+  float perfil = 1.0 - smoothstep(0.03, 0.22, abs(dot(normalize(vN), V)));
+  float cheio = smoothstep(0.0, 0.25, tufo.a) * 0.6 + folha.b * 0.25 + 0.15;
+  float a = cheio - perfil * 0.8 + 0.4;
+  a = (a - 0.5) / max(fwidth(a), 0.0001) + 0.5;
+  #ifdef SEM_COBERTURA
+    if (a < 0.5) discard;
+  #else
+    if (a < 0.02) discard;
+  #endif
   cor = tardar(cor);
   cor = nevoar(cor, vW);
-  gl_FragColor = vec4(acabar(cor), 1.0);
+  gl_FragColor = vec4(acabar(cor), clamp(a, 0.0, 1.0));
 }
 `;
 
@@ -1169,6 +1365,8 @@ export function criarAlameda(mundo) {
     uTarde: { value: 0 },
     uSurgir: { value: 0 },
     uTempo: { value: 0 },
+    uVao: { value: new THREE.Vector3(0, 1.6, 1.32) },
+    uVaoZ: { value: 0 },
   };
   const uVento = { value: amb.reduzido ? 0.25 : 1 };
   const uEscala = { value: 1 };
@@ -1219,7 +1417,7 @@ export function criarAlameda(mundo) {
   const matTronco = material({
     vertexShader: VERT_TRONCO,
     fragmentShader: FRAG_TRONCO,
-    uniforms: { ...comuns, uRuido: { value: ruido }, uVento, uCasca: { value: new THREE.Vector3(0.15, 0.12, 0.112) } },
+    uniforms: { ...comuns, uRuido: { value: ruido }, uVento, uCasca: { value: new THREE.Vector3(0.15, 0.12, 0.112) }, uDetalhe },
     alphaToCoverage: cobertura,
     defines: cobertura ? {} : { SEM_COBERTURA: '' },
   });
@@ -1239,7 +1437,13 @@ export function criarAlameda(mundo) {
     side: THREE.DoubleSide,
     defines: { ELO: '', COM_UV: '' },
   });
-  const matArbusto = material({ vertexShader: VERT_SIMPLES, fragmentShader: FRAG_ARBUSTO, uniforms: { ...comuns, uRuido: { value: ruido } } });
+  const matArbusto = material({
+    vertexShader: VERT_SIMPLES,
+    fragmentShader: FRAG_ARBUSTO,
+    uniforms: { ...comuns, uRuido: { value: ruido } },
+    alphaToCoverage: cobertura,
+    defines: cobertura ? {} : { SEM_COBERTURA: '' },
+  });
 
   // ---- as árvores: algumas variantes, reaproveitadas por instância ----
   const MAX_ARVORES = 2 * Math.ceil((ATRAS + ALCANCE.alto) / ESP_ARVORE + 2);
@@ -1319,7 +1523,7 @@ export function criarAlameda(mundo) {
         if (z > zPerto || z < zLonge) continue;
         const x = centroCaminho(z) + lado * (MEIA_PISTA + 1.0 + h(k, lado, 2) * 0.75);
         const v = variantes[Math.floor(h(k, lado, 3) * VARIANTES) % VARIANTES];
-        const giro = (lado > 0 ? Math.PI : 0) + (h(k, lado, 4) - 0.5) * 0.9;
+        const giro = (lado > 0 ? Math.PI : 0) + (h(k, lado, 4) - 0.5) * 0.6;
         const s = 0.86 + h(k, lado, 5) * 0.3;
         por(v.tronco, v.n, x, 0, z, giro, s);
         por(v.copa, v.n, x, 0, z, giro, s);
@@ -1376,18 +1580,19 @@ export function criarAlameda(mundo) {
     postes.count = correntes.count = n;
     postes.instanceMatrix.needsUpdate = correntes.instanceMatrix.needsUpdate = true;
 
-    // arbustos (sebe à esquerda; alguns baixos à direita, antes do lago)
+    // arbustos (sebe à esquerda; à direita, poucos e baixos: entre os troncos aparece o lago)
     n = 0;
     const b0 = Math.floor(-zPerto / 2.6);
     for (let k = b0; k <= b0 + Math.ceil((zPerto - zLonge) / 2.6) && n < 48; k++) {
       const z = -k * 2.6 + (h(k, 3, 1) - 0.5) * 1.2;
       const esq = h(k, 3, 2) < 0.78;
-      if (!esq && h(k, 3, 7) < 0.5) continue;
-      const x = centroCaminho(z) + (esq ? -(4.3 + h(k, 3, 3) * 2.2) : 5.3 + h(k, 3, 3) * 1.2);
-      const s = 0.4 + h(k, 3, 4) * 0.5;
-      pos.set(x, 0.12, z);
-      q.setFromAxisAngle(eixoY, h(k, 3, 5) * 6.28);
-      esc.set(s * (1.1 + h(k, 3, 6)), s * 0.62, s * (1.1 + h(k, 3, 8)));
+      if (!esq && h(k, 3, 7) < 0.75) continue;
+      const x = centroCaminho(z) + (esq ? -(4.3 + h(k, 3, 3) * 2.2) : 3.9 + h(k, 3, 3) * 0.4);
+      const s = esq ? 0.45 + h(k, 3, 4) * 0.4 : 0.3 + h(k, 3, 4) * 0.2;
+      pos.set(x, 0.1, z);
+      // à esquerda, sebes podadas compridas ao longo do caminho; à direita, touceiras
+      q.setFromAxisAngle(eixoY, esq ? (h(k, 3, 5) - 0.5) * 0.5 : h(k, 3, 5) * 6.28);
+      esc.set(s * (1.0 + h(k, 3, 6) * 0.5), s * (0.68 + h(k, 3, 9) * 0.2), s * (esq ? 1.3 + h(k, 3, 8) * 0.9 : 1.1 + h(k, 3, 8) * 0.5));
       mat.compose(pos, q, esc);
       arbustos.setMatrixAt(n++, mat);
     }
@@ -1400,7 +1605,7 @@ export function criarAlameda(mundo) {
     for (let k = c0; k <= c0 + Math.ceil((zPerto - zLonge) / 2.3) && n < 40; k++) {
       if (h(k, 4, 1) < 0.25) continue;
       const z = -k * 2.3 + (h(k, 4, 2) - 0.5) * 1.5;
-      const x = centroCaminho(z) + 7.0 + h(k, 4, 3) * 1.6;
+      const x = centroCaminho(z) + LAGO - 0.3 + h(k, 4, 3) * 1.1;
       por(capim, n++, x, 0, z, h(k, 4, 4) * 6.28, 0.8 + h(k, 4, 5) * 0.5);
     }
     capim.count = n;
@@ -1423,9 +1628,15 @@ export function criarAlameda(mundo) {
   // ---- o quadro ------------------------------------------------------------------------
 
   const camPos = new THREE.Vector3();
+  let vaoIniciado = false;
   function atualizar(dt, t) {
     comuns.uTempo.value = t;
     camera.getWorldPosition(camPos);
+    // o vão acompanha o x da câmera devagar (o balanço do passo não mexe nos galhos)
+    const vao = comuns.uVao.value;
+    vao.x = vaoIniciado ? lerp(vao.x, camPos.x, 1 - Math.exp(-Math.min(dt, 0.1) * 0.8)) : camPos.x;
+    vaoIniciado = true;
+    comuns.uVaoZ.value = camPos.z;
     ceu.position.copy(camPos);
     chao.position.set(Math.round(camPos.x), 0, Math.round(camPos.z));
     const vaga = Math.floor(camPos.z / 2);
@@ -1490,6 +1701,21 @@ export function criarAlameda(mundo) {
     corNevoa,
     centro: centroCaminho,
     materiais,
+    /** (testes) o mesmo deslocamento do vão que os shaders aplicam, num ponto do mundo. */
+    vao(x, y, z) {
+      const { x: cx, y: cy, z: rMin } = comuns.uVao.value;
+      const rOut = rMin + 1.0;
+      let qx = x - cx; let qy = y - cy;
+      const r = Math.hypot(qx, qy);
+      if (r < rOut && rMin > 0) {
+        const r2 = rMin + (rOut - rMin) * Math.pow(r / rOut, rOut / (rOut - rMin));
+        const dx = r > 1e-4 ? qx / r : 0; const dy = r > 1e-4 ? qy / r : 1;
+        const t = clamp((y - 0.3) / 0.8); const w = t * t * (3 - 2 * t);
+        const tz = clamp((Math.abs(z - comuns.uVaoZ.value) - 2.5) / 4); const wz = 1 - tz * tz * (3 - 2 * tz);
+        qx += dx * (r2 - r) * w * wz; qy += dy * (r2 - r) * w * wz;
+      }
+      return [qx + cx, qy + cy, z];
+    },
     contar() {
       let cartoes = 0;
       for (const v of variantes) cartoes += v.copa.count * (v.copa.geometry.drawRange.count === Infinity ? v.indices : v.copa.geometry.drawRange.count) / 6;

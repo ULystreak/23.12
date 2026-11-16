@@ -19,7 +19,7 @@ const url = await s.page.evaluate(({ z, qual }) => {
   cam.fov = 66; cam.aspect = 1; cam.updateProjectionMatrix();
   m.renderer.setPixelRatio(1);
   m.renderer.setSize(window.innerWidth, window.innerHeight, false);
-  m.alameda.atualizar(0, 12.0);
+  m.alameda.atualizar(0, 17.0);
   m.renderer.render(m.cena, cam);
   return m.canvas.toDataURL('image/webp', qual);
 }, { z: Number(z), qual: Number(qual) });
