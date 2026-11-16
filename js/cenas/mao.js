@@ -53,16 +53,74 @@ function desvio(s) {
 
 // =============================================================================
 // A mão desenhada a nanquim (quando conteudo.mao.imagem está vazio).
-// Mão esquerda, palma para cima, em primeira pessoa: o antebraço entra por
-// baixo, o polegar abre para a esquerda. Tudo é gerado aqui: dedos paramétricos,
-// traço de largura variável (um polígono que cresce ao longo da linha).
-// Coordenadas no viewBox 320 × 460.
+// PRIMEIRA PESSOA: é a mão esquerda dela, erguida à frente do rosto para olhar o
+// pulso. O antebraço entra pela borda de baixo da tela (largo, perto dos olhos),
+// sobe em diagonal e afina até o pulso; a palma está voltada para ela, deitada
+// para trás (em escorço), os dedos relaxados apontam para longe e curvam um
+// pouco de volta, o polegar abre para a esquerda.
+//
+// Nada é desenhado "de frente": a mão é modelada no espaço dela
+//   u  para o lado do mínimo        v  do pulso para os dedos
+//   w  para fora da palma (na direção dos olhos)
+// com o pulso na origem, e uma câmera de perspectiva (VISTA) projeta tudo no
+// viewBox. O escorço da palma, os dedos que encurtam e o antebraço que alarga
+// saem da projeção, não de ajuste à mão. O traço de largura variável (um
+// polígono que cresce ao longo da linha) é feito já em 2D.
 // =============================================================================
 
-const VB_L = 320;
-const VB_A = 460;
+const VB_L = 400;
+const VB_A = 500;
 const TINTA = '#2a1b22';
 const SVGNS = 'http://www.w3.org/2000/svg';
+const GRAU = Math.PI / 180;
+
+const VISTA = {
+  inclinacao: 45,        // quanto a palma deita para trás (0 = de frente, o "pare" de outra pessoa)
+  guinada: -7,           // a palma vira um pouco: o lado do polegar fica mais perto
+  rolo: 12,              // o conjunto inclina: o braço vem de baixo, pela esquerda
+  dobra: 7,              // o antebraço vem ainda mais na direção dos olhos que a palma
+  desvio: 10,            // e chega mais de lado que a mão (o pulso quebra um pouco)
+  distancia: 980,        // dos olhos ao pulso, na unidade do desenho (~35 cm)
+  escala: 1.1,
+  cx: 212,               // onde o pulso cai no viewBox
+  cy: 250,
+};
+
+/** Espaço da mão → [x, y] no viewBox (e o fator de perspectiva, para quem quiser). */
+const projetar = (() => {
+  const ct = Math.cos(VISTA.inclinacao * GRAU); const st = Math.sin(VISTA.inclinacao * GRAU);
+  const cg = Math.cos(VISTA.guinada * GRAU); const sg = Math.sin(VISTA.guinada * GRAU);
+  const cr = Math.cos(VISTA.rolo * GRAU); const sr = Math.sin(VISTA.rolo * GRAU);
+  return (p) => {
+    const u = p[0]; const v = p[1]; const w = p[2] || 0;
+    const x1 = u * cg + w * sg;
+    const w1 = -u * sg + w * cg;
+    const y2 = v * ct + w1 * st;
+    const z2 = -v * st + w1 * ct;                      // + = na direção dos olhos
+    const s = VISTA.distancia / Math.max(120, VISTA.distancia - z2);
+    const X = x1 * s; const Y = y2 * s;
+    return [VISTA.cx + (X * cr + Y * sr) * VISTA.escala, VISTA.cy - (-X * sr + Y * cr) * VISTA.escala, s];
+  };
+})();
+
+/** Ponto do antebraço: L para o cotovelo, e para o lado do mínimo, h para fora da pele. */
+const braco = (() => {
+  const cb = Math.cos(VISTA.dobra * GRAU); const sb = Math.sin(VISTA.dobra * GRAU);
+  const cd = Math.cos(VISTA.desvio * GRAU); const sd = Math.sin(VISTA.desvio * GRAU);
+  const A = [-sd * cb, -cd * cb, sb];
+  const T = [cd, -sd, 0];
+  const N = [sd * sb, cd * sb, cb];
+  return (L, e, h = 0) => [L * A[0] + e * T[0] + h * N[0], L * A[1] + e * T[1] + h * N[1], L * A[2] + e * T[2] + h * N[2]];
+})();
+/** Meia largura do antebraço a L do pulso: mais fino logo abaixo da mão, encorpa para o cotovelo. */
+const meioBraco = (L) => 44.5 + 14 * suave(L / 250) + 3 * Math.sin(Math.PI * clamp(L / 380));
+const BRACO_FIM = 372;               // até onde o antebraço é desenhado (bem abaixo da borda da tela)
+
+const mais = (p, a, k, b = null, kb = 0) => [
+  p[0] + a[0] * k + (b ? b[0] * kb : 0),
+  p[1] + a[1] * k + (b ? b[1] * kb : 0),
+  (p[2] || 0) + (a[2] || 0) * k + (b ? (b[2] || 0) * kb : 0),
+];
 
 /** Catmull-Rom uniforme: pontos de controle → polilinha densa. */
 function catmull(pts, passos = 7) {
@@ -87,24 +145,27 @@ function catmull(pts, passos = 7) {
 }
 
 /**
- * Um dedo visto pela palma. Devolve os lados e a ponta como listas de pontos e
- * o eixo (para os vincos).
- *   base [x, y], angulo (graus, 0 = para cima, + = horário), comprimento,
- *   largBase, largPonta, curva (rad ao longo do dedo), juntas (frações do eixo)
+ * Um dedo visto pela palma, no espaço da mão (3D). Devolve os lados e a ponta
+ * como listas de pontos e o eixo (para os vincos).
+ *   base [u, v, w], angulo (graus no plano da palma, 0 = para os dedos, + = para o mínimo),
+ *   comprimento, largBase, largPonta, curva (rad ao longo do dedo, no plano),
+ *   juntas (frações do eixo), flexao (graus em cada dobra: na base e em cada
+ *   junta; o dedo relaxado sai do plano da palma e volta na direção dela)
  */
-function dedo({ base, angulo, comprimento, largBase, largPonta, curva = 0, juntas = [0.37, 0.69], polpa = 0.05 }) {
+function dedo({ base, angulo, comprimento, largBase, largPonta, curva = 0, juntas = [0.37, 0.69], polpa = 0.05, flexao = [0, 0, 0] }) {
   const passos = 28;
   const eixo = [];
-  let x = base[0];
-  let y = base[1];
+  let p = [base[0], base[1], base[2] || 0];
   for (let i = 0; i <= passos; i++) {
     const t = i / passos;
-    const th = (angulo * Math.PI) / 180 + curva * t;
-    const dx = Math.sin(th);
-    const dy = -Math.cos(th);
-    eixo.push({ t, x, y, dx, dy });
-    x += dx * (comprimento / passos);
-    y += dy * (comprimento / passos);
+    const th = angulo * GRAU + curva * t;
+    let f = flexao[0] || 0;
+    juntas.forEach((j, k) => { f += (flexao[k + 1] || 0) * suave((t - j + 0.08) / 0.16); });
+    f *= GRAU;
+    const d = [Math.sin(th) * Math.cos(f), Math.cos(th) * Math.cos(f), Math.sin(f)];
+    const n = [Math.cos(th), -Math.sin(th), 0];            // para o lado do mínimo
+    eixo.push({ p, d, n });
+    p = mais(p, d, comprimento / passos);
   }
   const pontoEm = (t) => {
     const f = clamp(t) * passos;
@@ -112,7 +173,8 @@ function dedo({ base, angulo, comprimento, largBase, largPonta, curva = 0, junta
     const r = f - i;
     const a = eixo[i];
     const b = eixo[i + 1];
-    return { x: lerp(a.x, b.x, r), y: lerp(a.y, b.y, r), dx: lerp(a.dx, b.dx, r), dy: lerp(a.dy, b.dy, r) };
+    const mix = (x, y) => [lerp(x[0], y[0], r), lerp(x[1], y[1], r), lerp(x[2], y[2], r)];
+    return { p: mix(a.p, b.p), d: mix(a.d, b.d), n: mix(a.n, b.n) };
   };
   // Meia largura: afina para a ponta, com as polpas de cada falange um pouco cheias.
   const limites = [0, ...juntas, 1];
@@ -134,53 +196,64 @@ function dedo({ base, angulo, comprimento, largBase, largPonta, curva = 0, junta
   const direita = [];
   for (let i = 0; i <= 12; i++) {
     const t = (i / 12) * tc;
-    const p = pontoEm(t);
+    const q = pontoEm(t);
     const h = meia(t);
-    // normal esquerda = (dy, −dx); o lado de fora da curva da polpa é um pouco mais cheio
-    esquerda.push([p.x + p.dy * h * 1.03, p.y - p.dx * h * 1.03]);
-    direita.push([p.x - p.dy * h * 0.97, p.y + p.dx * h * 0.97]);
+    // o lado de fora da curva da polpa é um pouco mais cheio
+    esquerda.push(mais(q.p, q.n, -h * 1.03));
+    direita.push(mais(q.p, q.n, h * 0.97));
   }
   const c = pontoEm(tc);
   const hc = meia(tc);
   const ponta = [];
   for (let i = 1; i < 8; i++) {
     const fi = (i / 8) * Math.PI;
-    const lado = Math.cos(fi);
-    const frente = Math.sin(fi) * 1.22;
-    ponta.push([c.x + c.dy * hc * lado + c.dx * hc * frente, c.y - c.dx * hc * lado + c.dy * hc * frente]);
+    ponta.push(mais(c.p, c.n, -hc * Math.cos(fi), c.d, hc * Math.sin(fi) * 1.22));
   }
   return { esquerda, direita: direita.reverse(), ponta, pontoEm, meia };
 }
 
-/** Pontos dos dedos e do contorno da mão (tudo à mão, em unidades do viewBox). */
+/** Pontos dos dedos, do contorno da mão, do antebraço e do cordão: modelados em 3D, devolvidos já no viewBox. */
 function geometriaMao() {
-  // Dedos relaxados: afinam bem para a ponta, a última falange encurta (estão
-  // um pouco dobrados para cima, na direção dela), e cada um pende para o médio.
+  // Dedos relaxados: afinam para a ponta e saem do plano da palma, um pouco mais
+  // a cada junta e a cada dedo (o mínimo é o que mais fecha): vistos por ela, as
+  // primeiras falanges encurtam e as pontas voltam, com a polpa à mostra.
   const juntas = [0.42, 0.75];
-  const polegar = dedo({ base: [100.5, 234], angulo: -40, comprimento: 80, largBase: 44, largPonta: 25.5, curva: 0.3, juntas: [0.52], polpa: 0.09 });
-  const indicador = dedo({ base: [136, 171], angulo: -7.5, comprimento: 108, largBase: 30.5, largPonta: 19.5, curva: 0.12, juntas, polpa: 0.075 });
-  const medio = dedo({ base: [166, 164.5], angulo: -0.5, comprimento: 119, largBase: 31, largPonta: 20.5, curva: 0.04, juntas, polpa: 0.075 });
-  const anelar = dedo({ base: [195.5, 169.5], angulo: 6, comprimento: 110, largBase: 29.5, largPonta: 19.5, curva: -0.07, juntas, polpa: 0.075 });
-  const minimo = dedo({ base: [222.5, 186], angulo: 17, comprimento: 82, largBase: 25, largPonta: 16.5, curva: -0.16, juntas, polpa: 0.08 });
+  const polegar = dedo({ base: [-63, 64, 15], angulo: -51, comprimento: 79, largBase: 41, largPonta: 24.5, curva: 0.34, juntas: [0.52], polpa: 0.09, flexao: [15, 20] });
+  const indicador = dedo({ base: [-29, 130, 0], angulo: -8.5, comprimento: 106, largBase: 30.5, largPonta: 19.5, curva: 0.12, juntas, polpa: 0.075, flexao: [12, 25, 16] });
+  const medio = dedo({ base: [1.5, 136.5, 0], angulo: -1.5, comprimento: 117, largBase: 31, largPonta: 20.5, curva: 0.04, juntas, polpa: 0.075, flexao: [15, 29, 18] });
+  const anelar = dedo({ base: [31, 131.5, 0], angulo: 6, comprimento: 108, largBase: 29.5, largPonta: 19.5, curva: -0.07, juntas, polpa: 0.075, flexao: [18, 33, 20] });
+  const minimo = dedo({ base: [58, 115, 0], angulo: 16, comprimento: 81, largBase: 25, largPonta: 16.5, curva: -0.16, juntas, polpa: 0.08, flexao: [22, 37, 22] });
   const dedos = [indicador, medio, anelar, minimo];
 
   // Vale entre dois dedos: um pouco abaixo do meio das bases.
   const vale = (a, b) => {
     const pa = a.direita[a.direita.length - 1];
     const pb = b.esquerda[0];
-    return [(pa[0] + pb[0]) / 2, Math.max(pa[1], pb[1]) + 4.5];
+    return [(pa[0] + pb[0]) / 2, Math.min(pa[1], pb[1]) - 4.5, (pa[2] + pb[2]) / 2];
   };
   const v1 = vale(indicador, medio);
   const v2 = vale(medio, anelar);
   const v3 = vale(anelar, minimo);
 
-  const pulsoE = [112.5, 301];
-  const pulsoD = [216.5, 301];
-  const antebracoE = [pulsoE, [108.5, 332], [104, 370], [100, 412], [97.5, 446]];
-  const antebracoD = [pulsoD, [220.5, 332], [225.5, 370], [229.5, 412], [232, 446]];
-  const tenar = [pulsoE, [104, 291], [93.5, 277.5], [86, 263.5], polegar.esquerda[0]];
-  const teia = [polegar.direita[polegar.direita.length - 1], [116.5, 207], [119, 189.5], indicador.esquerda[0]];
-  const hipotenar = [minimo.direita[minimo.direita.length - 1], [238.5, 206], [240.5, 236], [236.5, 266], [228, 287.5], pulsoD];
+  // Antebraço: as duas bordas, do cotovelo (fora da tela) até o pulso. Do lado do
+  // mínimo, o ossinho do pulso (a cabeça da ulna) faz um calombo logo abaixo da mão.
+  const ulna = (L) => 3.4 * Math.exp(-(((L - 12) / 8.5) ** 2));
+  const antebracoE = [];
+  const antebracoD = [];
+  const NB = 22;
+  for (let i = 0; i <= NB; i++) {
+    const L = BRACO_FIM * Math.pow(1 - i / NB, 1.25);
+    // do lado do polegar, o músculo do antebraço enche um pouco a borda mais abaixo
+    antebracoE.push(braco(L, -meioBraco(L) - 4.5 * Math.sin(Math.PI * clamp((L - 30) / 300))));
+    antebracoD.push(braco(L, meioBraco(L) + ulna(L)));
+  }
+  const pulsoE = antebracoE[NB];
+  const pulsoD = antebracoD[NB];
+  // a eminência tenar: a base cheia do polegar, que sai do pulso e emenda no dedo sem quina
+  const tenar = [pulsoE, [-51.5, 9, 3], [-61, 21, 8], [-69.5, 34, 12], polegar.esquerda[1]];
+  const polegarE = polegar.esquerda.slice(2);
+  const teia = [polegar.direita[polegar.direita.length - 1], [-48.5, 93, 5], [-46, 111.5, 0], indicador.esquerda[0]];
+  const hipotenar = [minimo.direita[minimo.direita.length - 1], [74, 95, 0], [76, 66, 0], [70.5, 37, 0], [59, 14, 0], pulsoD];
 
   // Traços do contorno, na ordem em que o desenho acontece.
   const sem = (lista) => lista.slice(1);
@@ -188,46 +261,40 @@ function geometriaMao() {
   // do alto da ponta. A pena levanta ali, como quem desenha de verdade.
   const subida = (d, antes) => [...antes, ...d.esquerda, ...d.ponta.slice(0, 5)];
   const descida = (d, depois) => [...d.ponta.slice(3), ...d.direita, ...depois];
+  const P = (lista) => lista.map((q) => projetar(q));
   const tracos = {
-    antebracoE: antebracoE,
+    antebracoE: P(antebracoE),
+    antebracoD: P(antebracoD),
     polegar: [
-      [...tenar, ...sem(polegar.esquerda), ...polegar.ponta.slice(0, 5)],
-      [...polegar.ponta.slice(3), ...polegar.direita, teia[1]],
+      P([...tenar, ...polegarE, ...polegar.ponta.slice(0, 5)]),
+      P([...polegar.ponta.slice(3), ...polegar.direita, teia[1]]),
     ],
     dedos: [
-      [subida(indicador, [teia[1], teia[2]]), descida(indicador, [v1])],
-      [subida(medio, [v1]), descida(medio, [v2])],
-      [subida(anelar, [v2]), descida(anelar, [v3])],
-      [subida(minimo, [v3]), descida(minimo, sem(hipotenar))],
+      [P(subida(indicador, [teia[1], teia[2]])), P(descida(indicador, [v1]))],
+      [P(subida(medio, [v1])), P(descida(medio, [v2]))],
+      [P(subida(anelar, [v2])), P(descida(anelar, [v3]))],
+      [P(subida(minimo, [v3])), P(descida(minimo, sem(hipotenar)))],
     ],
-    antebracoD: antebracoD,
   };
 
   // Silhueta fechada (para a parte branca que tapa o mundo e para a aguada).
-  const silhueta = [
-    ...antebracoE.slice().reverse(),
-    ...sem(tenar), ...sem(polegar.esquerda), ...polegar.ponta, ...polegar.direita,
+  const silhueta = P([
+    ...antebracoE,
+    ...sem(tenar), ...polegarE, ...polegar.ponta, ...polegar.direita,
     teia[1], teia[2], ...indicador.esquerda, ...indicador.ponta, ...indicador.direita,
     v1, ...medio.esquerda, ...medio.ponta, ...medio.direita,
     v2, ...anelar.esquerda, ...anelar.ponta, ...anelar.direita,
     v3, ...minimo.esquerda, ...minimo.ponta, ...minimo.direita,
-    ...sem(hipotenar), ...sem(antebracoD),
-  ];
+    ...sem(hipotenar), ...sem(antebracoD.slice().reverse()),
+  ]);
 
   // Vincos curtos das juntas (vistos pela palma): na base, duplo na primeira junta, simples na segunda.
   const vincos = [];
   const vinco = (d, t, abertura, curvar, desloc = 0) => {
-    const p = d.pontoEm(t);
+    const q = d.pontoEm(t);
     const h = d.meia(t) * abertura;
-    const nx = p.dy;
-    const ny = -p.dx;
-    const cx = p.x + nx * h * desloc;
-    const cy = p.y + ny * h * desloc;
-    return [
-      [cx + nx * h, cy + ny * h],
-      [cx + p.dx * curvar, cy + p.dy * curvar],
-      [cx - nx * h * 0.9, cy - ny * h * 0.9],
-    ];
+    const c = mais(q.p, q.n, -h * desloc);
+    return P([mais(c, q.n, -h), mais(c, q.d, curvar), mais(c, q.n, h * 0.9)]);
   };
   dedos.forEach((d, i) => {
     vincos.push(vinco(d, 0.035, 0.6, 2.2, i % 2 ? 0.08 : -0.06));
@@ -239,21 +306,60 @@ function geometriaMao() {
   vincos.push(vinco(polegar, 0.548, 0.34, 1.6, -0.1));
 
   const linhas = {
-    pulso1: [[127, 296.5], [150, 300.5], [177, 301.5], [203, 297]],
-    pulso2: [[136, 307], [162, 310.5], [189, 308.5]],
-    vida: [[120.5, 203.5], [124.5, 224], [130, 247], [138.5, 271], [149, 292]],
-    cabeca: [[121.5, 206], [140, 214], [165, 222.5], [192, 233], [213, 245]],
-    coracao: [[238, 213], [220, 206.5], [198, 200.5], [177, 195], [157, 184.5]],
-    hipotenar: [[230, 254], [222.5, 262], [219, 275]],
+    // a dobra do pulso (duas pregas) e as linhas da palma
+    pulso1: P([[-33, 6], [-13, 1.5], [11, 0.5], [34, 5]]),
+    pulso2: P([braco(7.5, -26), braco(10, -4), braco(8.5, 22)]),
+    vida: P([[-44, 97.5, 1], [-39.5, 77, 2], [-34, 54, 3], [-26, 30, 2], [-14, 11, 0]]),
+    cabeca: P([[-43, 95, 1], [-24.5, 87], [0.5, 78.5], [27.5, 68], [48.5, 56]]),
+    coracao: P([[73.5, 88], [55.5, 94.5], [33.5, 100.5], [12.5, 106], [-7.5, 116.5]]),
+    hipotenar: P([[65.5, 47], [58, 39], [54.5, 26]]),
+    // os dois tendões do pulso, que saltam quando a mão está aberta para cima
+    tendao1: P([braco(31, -9.5), braco(56, -11), braco(86, -13.5), braco(118, -16.5)]),
+    tendao2: P([braco(33, 3.5), braco(54, 4.5), braco(78, 5), braco(98, 5)]),
+    // o ossinho do pulso (ulna): uma vírgula por dentro do calombo
+    ulna: P([braco(3.5, 37), braco(10, 40.5), braco(18, 40), braco(24, 36.5)]),
   };
-  // Hachura curta no lado da sombra (borda do mínimo), como quem desenha sabe fazer.
+  // Hachura curta no lado da sombra (a borda do mínimo), como quem desenha sabe fazer.
   const hachuras = [];
-  for (let i = 0; i < 5; i++) {
-    const y = 226 + i * 9.5;
-    hachuras.push([[235.5 - i * 0.6, y], [229 - i * 0.4, y + 6.5]]);
-  }
+  for (let i = 0; i < 5; i++) hachuras.push(P([[71 - i * 0.6, 75 - i * 9.5], [64.5 - i * 0.4, 68.5 - i * 9.5]]));
 
-  return { tracos, silhueta, vincos, linhas, hachuras };
+  // A sombra própria: a luz vem do alto, pela esquerda, e a aguada escurece para o
+  // lado do mínimo (um degradê atravessado na mão e no braço, dentro da silhueta).
+  const sombra = [projetar(braco(40, -6)), projetar(braco(40, meioBraco(40) + 6))];
+
+  // O akai ito: uma volta no pulso. O pulso é um cilindro achatado visto meio de
+  // topo, então a parte da frente da volta é um arco de elipse que sobe no meio
+  // e some atrás do braço nas duas bordas. O nó fica em cima, um pouco para o lado
+  // do mínimo (o peso das pontas puxa a volta para lá), e as duas pontas caem
+  // dele com a gravidade: a curta deita sobre o pulso, a comprida escorrega pela
+  // borda e pende no ar, fora do braço (é dela que o fio do caminho continua).
+  const L_FIO = 21;
+  const ALTO = 25;                               // quanto o pulso salta do plano (a meia espessura dele)
+  const anel = (a) => {
+    const L = L_FIO + 3.5 * Math.cos(a);
+    return braco(L, (meioBraco(L) + 1.2) * Math.cos(a), ALTO * Math.sin(a));
+  };
+  const volta = [];
+  for (let i = 0; i <= 26; i++) volta.push(anel(Math.PI * (1 - i / 26)));
+  const A_NO = 68 * GRAU;
+  const no = projetar(anel(A_NO));
+  const rel = (lista) => lista.map(([x, y]) => [no[0] + x, no[1] + y]);
+  const esq = projetar(anel(Math.PI));
+  const dir = projetar(anel(0));
+  const meio = projetar(anel(Math.PI / 2));
+  const cordao = {
+    volta: P(volta),
+    no: [no[0], no[1]],
+    pontaCurta: rel([[0, 2], [3.5, 10], [8.5, 19.5], [12, 30], [12.5, 40]]),
+    pontaLonga: rel([[1.5, 0.5], [11, 4.5], [21.5, 12.5], [29, 23.5], [32.5, 36], [33.5, 47], [33, 56]]),
+    faixa: {
+      cx: (esq[0] + dir[0]) / 2, cy: ((esq[1] + dir[1]) / 2 + meio[1]) / 2,
+      rx: Math.hypot(dir[0] - esq[0], dir[1] - esq[1]) * 0.72,
+      angulo: Math.atan2(dir[1] - esq[1], dir[0] - esq[0]) / GRAU,
+    },
+  };
+
+  return { tracos, silhueta, vincos, linhas, hachuras, sombra, cordao };
 }
 
 /**
@@ -261,7 +367,7 @@ function geometriaMao() {
  * largura (entrada, saída e uma pressão que varia), e `desenhar(p)` monta o
  * polígono só até a fração p do comprimento.
  */
-function criarTraco(pontos, { peso = 2.2, entrada = 10, saida = 14, minimo = 0.22, seed = 1, cor = TINTA, opacidade = 0.94, passos = 7 } = {}) {
+function criarTraco(pontos, { peso = 2.2, entrada = 10, saida = 14, minimo = 0.22, seed = 1, cor = TINTA, opacidade = 0.94, passos = 7, afinar = 1 } = {}) {
   const linha = catmull(pontos, passos);
   const n = linha.length;
   const acum = new Float32Array(n);
@@ -284,7 +390,8 @@ function criarTraco(pontos, { peso = 2.2, entrada = 10, saida = 14, minimo = 0.2
     const pressao = 0.8 + 0.16 * Math.sin(s * 0.045 + fases[0]) + 0.08 * Math.sin(s * 0.13 + fases[1]) + 0.05 * Math.sin(s * 0.31 + fases[2]);
     const ent = minimo + (1 - minimo) * suave(s / Math.max(1, entrada));
     const sai = saida > 0 ? minimo * 0.5 + (1 - minimo * 0.5) * suave((total - s) / saida) : 1;
-    meia[i] = (peso / 2) * pressao * ent * sai;
+    // afinar < 1: o traço perde peso ao longo do caminho (o que se afasta dos olhos fica mais fino)
+    meia[i] = (peso / 2) * pressao * ent * sai * lerp(1, afinar, s / total);
   }
 
   const caminho = document.createElementNS(SVGNS, 'path');
@@ -326,13 +433,8 @@ function caminhoFechado(pontos, passos = 4) {
   return `M${d.map((p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join('L')}Z`;
 }
 
-// O akai ito no pulso: a volta na frente do pulso, o nó do lado do mínimo e duas pontas.
-const CORDAO = {
-  volta: [[109.5, 315.5], [133, 322], [163, 325.5], [193, 323.5], [221, 317.5]],
-  no: [222.5, 318.5],
-  pontaCurta: [[223, 317], [229.5, 309.5], [236, 307.5], [240, 309.5]],
-  pontaLonga: [[223.5, 320.5], [230, 333], [236.5, 347], [240, 361], [240.5, 375.5]],
-};
+// O akai ito no pulso (a geometria dele vem de geometriaMao: a volta, o nó e as duas pontas).
+const ESCALA_NO = 1.32;
 const FIO_COR = '#d7192d';
 const FIO_ESCURO = '#8f0b1d';
 const FIO_CLARO = '#ff9a93';
@@ -442,17 +544,10 @@ function criarCordao(pontos, { peso = 4.6, seed = 7, passos = 8 } = {}) {
 /** Monta o desenho inteiro. Devolve o <svg>, as partes animáveis e onde fica a ponta solta. */
 function montarDesenho(amb) {
   const g = geometriaMao();
+  const fx = g.cordao.faixa;
   const raiz = svg(`
     <svg class="mao-desenho" viewBox="0 0 ${VB_L} ${VB_A}" aria-hidden="true" focusable="false">
       <defs>
-        <linearGradient id="mao-esvai" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
-          <stop offset="0" stop-color="#fff"/>
-          <stop offset="0.64" stop-color="#fff"/>
-          <stop offset="0.86" stop-color="#000"/>
-        </linearGradient>
-        <mask id="mao-mascara" maskUnits="userSpaceOnUse" x="-20" y="-20" width="${VB_L + 40}" height="${VB_A + 40}">
-          <rect x="-20" y="-20" width="${VB_L + 40}" height="${VB_A + 40}" fill="url(#mao-esvai)"/>
-        </mask>
         <radialGradient id="mao-brilho" cx="0.5" cy="0.5" r="0.5">
           <stop offset="0" stop-color="#fff4d6" stop-opacity="0.95"/>
           <stop offset="0.28" stop-color="#ffc77a" stop-opacity="0.62"/>
@@ -466,16 +561,25 @@ function montarDesenho(amb) {
           <stop offset="0.74" stop-color="#e2283f" stop-opacity="0.32"/>
           <stop offset="1" stop-color="#d7192d" stop-opacity="0"/>
         </radialGradient>
+        <clipPath id="mao-recorte"><path class="mao-recorte-forma"/></clipPath>
+        <linearGradient id="mao-sombra" gradientUnits="userSpaceOnUse" x1="${g.sombra[0][0].toFixed(1)}" y1="${g.sombra[0][1].toFixed(1)}" x2="${g.sombra[1][0].toFixed(1)}" y2="${g.sombra[1][1].toFixed(1)}">
+          <stop offset="0" stop-color="#d49f8d" stop-opacity="0"/>
+          <stop offset="0.55" stop-color="#d49f8d" stop-opacity="0.1"/>
+          <stop offset="1" stop-color="#cf9684" stop-opacity="0.34"/>
+        </linearGradient>
       </defs>
-      <g class="mao-fundo" mask="url(#mao-mascara)">
+      <g class="mao-fundo">
         <path class="mao-silhueta" fill="#ffffff"/>
-        <path class="mao-aguada" fill="#f3d3c8" fill-opacity="0.34" transform="translate(2.6 3.4)"/>
+        <g clip-path="url(#mao-recorte)">
+          <path class="mao-aguada" fill="#f3d3c8" fill-opacity="0.36" transform="translate(2.6 3.4)"/>
+          <path class="mao-sombra-braco" fill="url(#mao-sombra)"/>
+        </g>
         <path class="mao-aguada-borda" fill="none" stroke="#dcaa9b" stroke-width="1" stroke-opacity="0.42" transform="translate(2.6 3.4)"/>
       </g>
       <g class="mao-tinta"></g>
       <g class="mao-luz" opacity="0">
-        <ellipse class="mao-luz-faixa" cx="166" cy="322" rx="78" ry="16" fill="url(#mao-brilho)" opacity="0.7"/>
-        <circle class="mao-luz-no" cx="${CORDAO.no[0]}" cy="${CORDAO.no[1]}" r="44" fill="url(#mao-brilho)"/>
+        <ellipse class="mao-luz-faixa" cx="${fx.cx.toFixed(1)}" cy="${fx.cy.toFixed(1)}" rx="${fx.rx.toFixed(1)}" ry="19" transform="rotate(${fx.angulo.toFixed(1)} ${fx.cx.toFixed(1)} ${fx.cy.toFixed(1)})" fill="url(#mao-brilho)" opacity="0.7"/>
+        <circle class="mao-luz-no" cx="${g.cordao.no[0].toFixed(1)}" cy="${g.cordao.no[1].toFixed(1)}" r="48" fill="url(#mao-brilho)"/>
       </g>
       <g class="mao-cordao"></g>
       <g class="mao-brasas"></g>
@@ -483,8 +587,10 @@ function montarDesenho(amb) {
 
   const silhuetaD = caminhoFechado(g.silhueta);
   raiz.querySelector('.mao-silhueta').setAttribute('d', silhuetaD);
+  raiz.querySelector('.mao-recorte-forma').setAttribute('d', silhuetaD);
   raiz.querySelector('.mao-aguada').setAttribute('d', silhuetaD);
   raiz.querySelector('.mao-aguada-borda').setAttribute('d', silhuetaD);
+  raiz.querySelector('.mao-sombra-braco').setAttribute('d', silhuetaD);
   const fundo = raiz.querySelector('.mao-fundo');
   const tinta = raiz.querySelector('.mao-tinta');
   const camadaCordao = raiz.querySelector('.mao-cordao');
@@ -500,39 +606,42 @@ function montarDesenho(amb) {
     }
   };
   const tr = g.tracos;
-  // Antebraço: desenhado do pulso para baixo, esvaindo (o desenho não termina, se dissolve).
-  // Luz do alto à esquerda: o lado de subida (luz) é mais fino; o de descida, na sombra, mais cheio.
-  juntar([tr.antebracoE.slice()], contorno, { peso: 1.9, entrada: 6, saida: 95, minimo: 0.05 });
-  juntar([tr.polegar[0]], contorno, { peso: 1.75, entrada: 14, saida: 9, minimo: 0.18 });
-  juntar([tr.polegar[1]], contorno, { peso: 2.2, entrada: 8, saida: 12, minimo: 0.18 });
+  // Antebraço: entra por baixo, de fora da tela, e sobe até o pulso. O que está
+  // perto dos olhos leva o traço mais cheio; ele afina com a distância.
+  // Luz do alto à esquerda: o lado da luz é mais fino; o da sombra, mais cheio.
+  juntar([tr.antebracoE], contorno, { peso: 2.5, entrada: 2, saida: 16, minimo: 0.5, afinar: 0.62 });
+  juntar([tr.antebracoD], contorno, { peso: 3.1, entrada: 2, saida: 12, minimo: 0.5, afinar: 0.66 });
+  juntar([tr.polegar[0]], contorno, { peso: 1.9, entrada: 14, saida: 9, minimo: 0.18 });
+  juntar([tr.polegar[1]], contorno, { peso: 2.35, entrada: 8, saida: 12, minimo: 0.18 });
   for (const [sobe, desce] of tr.dedos) {
     juntar([sobe], contorno, { peso: 1.7, entrada: 10, saida: 9, minimo: 0.16 });
     juntar([desce], contorno, { peso: 2.25, entrada: 7, saida: 12, minimo: 0.16 });
   }
-  juntar([tr.antebracoD.slice()], contorno, { peso: 2.3, entrada: 6, saida: 95, minimo: 0.05 });
 
   const detalhes = [];
-  juntar([g.linhas.pulso1, g.linhas.pulso2], detalhes, { peso: 1.15, entrada: 14, saida: 18, minimo: 0.1, opacidade: 0.8 });
+  juntar([g.linhas.pulso1, g.linhas.pulso2], detalhes, { peso: 1.2, entrada: 14, saida: 18, minimo: 0.1, opacidade: 0.8 });
   juntar([g.linhas.vida, g.linhas.cabeca, g.linhas.coracao], detalhes, { peso: 1.45, entrada: 16, saida: 26, minimo: 0.08, opacidade: 0.86 });
-  juntar([g.linhas.hipotenar], detalhes, { peso: 1.0, entrada: 6, saida: 10, minimo: 0.1, opacidade: 0.6 });
+  juntar([g.linhas.hipotenar, g.linhas.ulna], detalhes, { peso: 1.05, entrada: 6, saida: 10, minimo: 0.1, opacidade: 0.62 });
+  juntar([g.linhas.tendao1, g.linhas.tendao2], detalhes, { peso: 1.15, entrada: 22, saida: 40, minimo: 0.06, opacidade: 0.5 });
   const vincos = [];
   juntar(g.vincos, vincos, { peso: 1.05, entrada: 3, saida: 4, minimo: 0.15, opacidade: 0.78, passos: 6 });
-  juntar(g.hachuras, vincos, { peso: 0.8, entrada: 2, saida: 2.5, minimo: 0.2, opacidade: 0.45, passos: 3 });
+  juntar(g.hachuras, vincos, { peso: 0.85, entrada: 2, saida: 2.5, minimo: 0.2, opacidade: 0.42, passos: 3 });
 
   // O cordão vermelho e o nó.
-  const volta = criarCordao(CORDAO.volta, { peso: 4.8 });
-  const curta = criarCordao(CORDAO.pontaCurta, { peso: 4.1 });
+  const C = g.cordao;
+  const volta = criarCordao(C.volta, { peso: 5.6, passos: 3 });
+  const curta = criarCordao(C.pontaCurta, { peso: 4.6 });
   const caudaG = document.createElementNS(SVGNS, 'g');
-  const longa = criarCordao(CORDAO.pontaLonga, { peso: 4.3 });
-  caudaG.append(longa.grupo);
+  const longa = criarCordao(C.pontaLonga, { peso: 4.9 });
+  caudaG.append(curta.grupo, longa.grupo);
   const no = svg(`<svg><g class="mao-no">
       <ellipse cx="0" cy="0" rx="5.6" ry="4" transform="rotate(-28)" fill="${FIO_COR}" stroke="${FIO_ESCURO}" stroke-width="0.9"/>
       <ellipse cx="1.8" cy="2.2" rx="4.4" ry="3.1" transform="rotate(34)" fill="${FIO_COR}" stroke="${FIO_ESCURO}" stroke-width="0.9"/>
       <path d="M-3.4 -1.2 Q0 1.4 3.6 -0.6 M-1.6 3 Q1.2 1 4.4 2.6" fill="none" stroke="${FIO_ESCURO}" stroke-width="0.8" stroke-linecap="round"/>
       <path d="M-3 -2.8 Q-0.6 -3.9 2 -3.2" fill="none" stroke="${FIO_CLARO}" stroke-width="0.8" stroke-linecap="round" stroke-opacity="0.8"/>
     </g></svg>`).firstElementChild;
-  no.setAttribute('transform', `translate(${CORDAO.no[0]} ${CORDAO.no[1]}) scale(0)`);
-  camadaCordao.append(volta.grupo, curta.grupo, caudaG, no);
+  no.setAttribute('transform', `translate(${C.no[0].toFixed(2)} ${C.no[1].toFixed(2)}) scale(0)`);
+  camadaCordao.append(volta.grupo, caudaG, no);
 
   return {
     raiz,
@@ -541,7 +650,8 @@ function montarDesenho(amb) {
     detalhes,
     vincos,
     cordao: { volta, curta, longa, caudaG, no },
-    no: CORDAO.no,
+    no: C.no,
+    escalaNo: ESCALA_NO,
     pontaSolta: longa.ponta,             // em unidades do viewBox, antes do balanço
     reduzido: amb.reduzido,
     luz: raiz.querySelector('.mao-luz'),
@@ -1111,7 +1221,7 @@ export async function cenaMao(ctx, { frio } = {}) {
     if (invade > 0) mao.style.top = `${mao.offsetTop + Math.min(invade, innerHeight * 0.14)}px`;
 
     // Pose da mão (aplicada por quadro) e onde está a ponta solta do fio, em px.
-    const pose = { y: calmo ? 0 : 54, rot: calmo ? 0 : 1.6, opacidade: 0, respiro: calmo ? 0.25 : 1, balanco: 0, caudaKick: 0, zoom: 1, luz: 0 };
+    const pose = { y: calmo ? 0 : 96, rot: calmo ? 0 : 2.4, opacidade: 0, respiro: calmo ? 0.25 : 1, balanco: 0, caudaKick: 0, zoom: 1, luz: 0 };
     const caixa = { left: 0, top: 0, width: 1, height: 1 };
     const medir = () => {
       // offset* ignora o transform: é a caixa de repouso.
@@ -1123,10 +1233,15 @@ export async function cenaMao(ctx, { frio } = {}) {
       foto.width = (imagem && imagem.offsetWidth) || caixa.width;
       foto.height = (imagem && imagem.offsetHeight) || caixa.height;
       // o centro do véu: o ponto para onde o zoom vai (perto do laço)
-      veu.style.setProperty('--vx', `${(caixa.left + caixa.width * 0.69).toFixed(0)}px`);   // = ORIGEM_X
-      veu.style.setProperty('--vy', `${(caixa.top + caixa.height * 0.69).toFixed(0)}px`);  // = ORIGEM_Y
+      veu.style.setProperty('--vx', `${(caixa.left + caixa.width * ORIGEM_X).toFixed(0)}px`);
+      veu.style.setProperty('--vy', `${(caixa.top + caixa.height * ORIGEM_Y).toFixed(0)}px`);
     };
     const foto = { left: 0, top: 0, width: 1, height: 1 };
+    // O zoom e o véu giram em volta do nó do laço (no desenho, onde a projeção o pôs;
+    // com a imagem do autor, o ponto de sempre, igual ao transform-origin do css).
+    const ORIGEM_X = desenho ? desenho.no[0] / VB_L : 0.69;
+    const ORIGEM_Y = desenho ? desenho.no[1] / VB_A : 0.69;
+    if (desenho) corpo.style.transformOrigin = `${(ORIGEM_X * 100).toFixed(2)}% ${(ORIGEM_Y * 100).toFixed(2)}%`;
     medir();
     const pararMedida = mundo.aoRedimensionar(medir);
     const ouvirJanela = () => medir();
@@ -1136,8 +1251,9 @@ export async function cenaMao(ctx, { frio } = {}) {
     const ponta = { x: 0, y: 0 };
     let anguloCauda = 0;
     let tPose = 0;
-    const ORIGEM_X = 0.69;                // = transform-origin do .mao-corpo (css/mao.css)
-    const ORIGEM_Y = 0.69;
+    // O que está vivo na pose neste quadro (respiração e o olhar que acompanha o
+    // dedo): o começo do fio 3D usa os mesmos números, para não descolar do nó.
+    const vivo = { x: 0, y: 0, rot: 0 };
     function pulsoPx() {
       let vx; let vy;
       if (desenho) {
@@ -1155,18 +1271,26 @@ export async function cenaMao(ctx, { frio } = {}) {
       const oy = caixa.top + caixa.height * ORIGEM_Y;
       const x = (foto.left + foto.width * vx - ox) * pose.zoom;
       const y = (foto.top + foto.height * vy - oy) * pose.zoom;
-      const r = (pose.rot * Math.PI) / 180;
-      ponta.x = ox + x * Math.cos(r) - y * Math.sin(r);
-      ponta.y = oy + x * Math.sin(r) + y * Math.cos(r) + pose.y;
+      const r = ((pose.rot + vivo.rot) * Math.PI) / 180;
+      ponta.x = ox + x * Math.cos(r) - y * Math.sin(r) + vivo.x;
+      ponta.y = oy + x * Math.sin(r) + y * Math.cos(r) + pose.y + vivo.y;
       return ponta;
     }
 
     const caudaG = desenho && desenho.cordao.caudaG;
+    const folga = { x: 0, y: 0 };
     pararPose = mundo.aoQuadro((dt, t) => {
       tPose = t;
-      const respira = Math.sin(t * 1.15) * 2.2 * pose.respiro;
-      const gira = Math.sin(t * 0.83 + 0.6) * 0.35 * pose.respiro;
-      corpo.style.transform = `translate3d(0, ${(pose.y + respira).toFixed(2)}px, 0) rotate(${(pose.rot + gira).toFixed(3)}deg) scale(${pose.zoom.toFixed(4)})`;
+      // Primeira pessoa: a mão é dela. Respira com ela e, como está perto dos
+      // olhos, desliza um pouco contra o olhar quando o dedo (ou o ponteiro) anda.
+      const pt = mundo.ponteiro;
+      const olho = pt && pt.ativo && !calmo ? pose.respiro : 0;
+      folga.x = amortecer(folga.x, olho ? clamp(pt.x, -1, 1) * -9 : 0, 2.6, dt);
+      folga.y = amortecer(folga.y, olho ? clamp(pt.y, -1, 1) * 5 : 0, 2.6, dt);
+      vivo.x = folga.x;
+      vivo.y = folga.y + Math.sin(t * 1.15) * 2.4 * pose.respiro;
+      vivo.rot = Math.sin(t * 0.83 + 0.6) * 0.38 * pose.respiro + folga.x * 0.045;
+      corpo.style.transform = `translate3d(${vivo.x.toFixed(2)}px, ${(pose.y + vivo.y).toFixed(2)}px, 0) rotate(${(pose.rot + vivo.rot).toFixed(3)}deg) scale(${pose.zoom.toFixed(4)})`;
       corpo.style.opacity = pose.opacidade.toFixed(3);
       if (desenho) {
         // a luz do nó respira devagar enquanto está acesa
@@ -1177,7 +1301,7 @@ export async function cenaMao(ctx, { frio } = {}) {
       if (caudaG) {
         const vento = calmo ? 1.2 : 4.5;
         anguloCauda = (Math.sin(t * 1.55) * 0.7 + Math.sin(t * 2.6 + 1.1) * 0.3) * vento * pose.balanco + pose.caudaKick;
-        caudaG.setAttribute('transform', `rotate(${anguloCauda.toFixed(2)} ${desenho.no[0]} ${desenho.no[1]})`);
+        caudaG.setAttribute('transform', `rotate(${anguloCauda.toFixed(2)} ${desenho.no[0].toFixed(2)} ${desenho.no[1].toFixed(2)})`);
       }
     });
     void tPose;
@@ -1292,7 +1416,11 @@ export async function cenaMao(ctx, { frio } = {}) {
       // O mergulho: o olhar chega ao pulso, a estrela nasce do nó e desenha o fio
       // no ar; a câmera vai atrás dela; depois recua e sobe, e o fio inteiro
       // aparece serpenteando pela alameda até sumir na névoa, com a luz correndo nele.
-      saida = mergulhar(gsap, { pose, caixa, cam, olhar, fio, seguidor, mundo, som, olharMao, z0 });
+      // Quanto a mão desce para sair inteira do quadro, como quem abaixa o braço: as
+      // pontas dos dedos (no alto da caixa, já com o zoom do mergulho) passam da borda de baixo.
+      const noY = caixa.top + caixa.height * ORIGEM_Y;
+      const descer = caixa.height * ORIGEM_Y * ZOOM_MERGULHO + Math.max(0, mundo.tamanho.altura - noY) + 48;
+      saida = mergulhar(gsap, { pose, descer, cam, olhar, fio, seguidor, mundo, som, olharMao, z0 });
       await saida.pronto;
       andado = Math.max(0, z0 - mundo.rig.position.z);
       extensao = Promise.resolve();
@@ -1409,6 +1537,7 @@ export async function cenaMao(ctx, { frio } = {}) {
 // =============================================================================
 
 const NEVOA_TARDE = '#8d7f95';
+const ZOOM_MERGULHO = 2.5;            // quanto o olhar chega perto do nó no mergulho
 const tarde = { k: 0, alvo: 0, base: null, tween: null };
 
 function entardecer(ctx, ligar, duracao = 2.6) {
@@ -1445,7 +1574,7 @@ function entardecer(ctx, ligar, duracao = 2.6) {
 /**
  * O mergulho (só com WebGL e sem movimento reduzido). Devolve a timeline com
  * `.pronto` (Promise): resolve quando o plano aberto terminou e a caminhada pode começar.
- *   0,0  o olhar mergulha no pulso: a mão cresce em volta do nó, a lente abre
+ *   0,0  o olhar mergulha no pulso: a mão cresce em volta do nó (ZOOM_MERGULHO), a lente abre
  *        (as pétalas da frente viram luz macia)
  *   0,9  a estrela nasce do nó, num clarão que assenta
  *   1,1  ela desenha o fio no ar, numa curva larga; o olhar vai atrás dela, de perto,
@@ -1453,7 +1582,7 @@ function entardecer(ctx, ligar, duracao = 2.6) {
  *   4,4  a câmera recua e sobe; o fio assenta no chão de perto para longe e a
  *        estrela corre até sumir na névoa; um pulso de luz percorre o fio inteiro
  */
-function mergulhar(gsap, { pose, caixa, cam, olhar, fio, seguidor, mundo, som, olharMao, z0 }) {
+function mergulhar(gsap, { pose, descer, cam, olhar, fio, seguidor, mundo, som, olharMao, z0 }) {
   const rig = mundo.rig.position;
   const petalas = mundo.petalas;
   const ar = seguidor.ar;
@@ -1472,7 +1601,7 @@ function mergulhar(gsap, { pose, caixa, cam, olhar, fio, seguidor, mundo, som, o
 
   const tl = gsap.timeline();
   // 1. o mergulho no pulso
-  tl.to(pose, { zoom: 2.5, duration: 2.6, ease: 'power2.inOut' }, 0)
+  tl.to(pose, { zoom: ZOOM_MERGULHO, duration: 2.6, ease: 'power2.inOut' }, 0)
     .to(cam, { inclinacao: olharMao * 1.4, duration: 2.6, ease: curvas.branco.camera, overwrite: 'auto' }, 0)
     .to(pose, { caudaKick: -12, duration: 0.5, ease: 'sine.inOut' }, 0.45)
     .to(pose, { caudaKick: 0, duration: 1.8, ease: curvas.branco.entrar }, 0.95)
@@ -1484,8 +1613,9 @@ function mergulhar(gsap, { pose, caixa, cam, olhar, fio, seguidor, mundo, som, o
     .to(ponta, { s: 4.6, duration: 3.8, ease: 'sine.inOut', onUpdate: aplicarPonta }, 1.1)
     .to(olhar, { k: 1, duration: 1.8, ease: 'sine.inOut' }, 1.3)
     .to(pose, { respiro: 0, duration: 1.0, ease: 'none' }, 1.8)
-    .to(pose, { y: caixa.height * 1.3 + 120, zoom: 3.1, rot: -3, duration: 1.7, ease: 'power2.in' }, 2.0)
-    .to(pose, { opacidade: 0, duration: 0.2, ease: 'none' }, 3.6)
+    // a mão sai de quadro para baixo (o braço abaixa): sem crescer mais, até a última ponta de dedo passar da borda
+    .to(pose, { y: descer, rot: -3, duration: 1.75, ease: 'power2.in' }, 1.9)
+    .to(pose, { opacidade: 0, duration: 0.15, ease: 'none' }, 3.65)
     .to(rig, { z: z0 - 2.3, duration: 3.6, ease: 'power2.inOut' }, 1.6)
     // 4. o plano aberto: recua e sobe, e o fio inteiro aparece
     .to(olhar, { k: 0, duration: 2.8, ease: 'sine.inOut' }, 4.5)
@@ -1535,7 +1665,7 @@ function desenharMao(gsap, { pose, desenho, imagem, calmo }) {
       desenhar(cordao.volta, 0.3, 0.6, 'none');
       desenhar(cordao.curta, 0.5, 0.4, 'none');
       desenhar(cordao.longa, 0.5, 0.5, 'none');
-      tl.set(cordao.no, { attr: { transform: `translate(${desenho.no[0]} ${desenho.no[1]}) scale(1)` } }, 0.5);
+      tl.set(cordao.no, { attr: { transform: `translate(${desenho.no[0].toFixed(2)} ${desenho.no[1].toFixed(2)}) scale(${desenho.escalaNo})` } }, 0.5);
       tl.to(pose, { balanco: 1, duration: 0.8, ease: 'none' }, 0.6);
       return;
     }
@@ -1550,8 +1680,8 @@ function desenharMao(gsap, { pose, desenho, imagem, calmo }) {
     contorno.forEach((traco, i) => {
       const d = clamp(traco.comprimento / VEL, 0.32, 1.25);
       const ultimo = i === contorno.length - 1;
-      desenhar(traco, t, d, i === 0 || ultimo ? curvas.branco.entrar : 'power1.inOut');
-      t += d * (i === 0 ? 0.45 : 0.62);
+      desenhar(traco, t, d, i < 2 || ultimo ? curvas.branco.entrar : 'power1.inOut');
+      t += d * (i === 0 ? 0.3 : 0.62);
     });
     const fimContorno = t + 0.3;
     tl.to(fundo, { opacity: 1, duration: 1.5, ease: curvas.branco.entrar }, fimContorno - 0.9);
@@ -1565,7 +1695,7 @@ function desenharMao(gsap, { pose, desenho, imagem, calmo }) {
     const tCordao = t2 + vincos.length * 0.035 + 0.05;
     desenhar(cordao.volta, tCordao, 0.85, curvas.branco.camera);
     tl.to(cordao.no, {
-      attr: { transform: `translate(${desenho.no[0]} ${desenho.no[1]}) scale(1)` },
+      attr: { transform: `translate(${desenho.no[0].toFixed(2)} ${desenho.no[1].toFixed(2)}) scale(${desenho.escalaNo})` },
       duration: 0.5, ease: curvas.branco.entrar,
     }, tCordao + 0.72);
     desenhar(cordao.curta, tCordao + 0.82, 0.35, curvas.branco.entrar);

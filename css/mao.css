@@ -1,17 +1,25 @@
 /* ============================================================================
    A MÃO
-   "Olha a sua mão.": a mão dela, desenhada a nanquim, com o akai ito no pulso,
-   por cima do mundo branco. O antebraço entra por baixo e se dissolve antes do
-   botão; a parte branca da silhueta tapa as pétalas que passam atrás dela.
+   "Olha a sua mão.": a mão dela, em primeira pessoa, desenhada a nanquim, com
+   o akai ito no pulso, por cima do mundo. O antebraço entra pela borda de baixo
+   da tela (a caixa passa da borda: o braço sai do quadro, não termina) e sobe
+   em diagonal até a mão; a parte branca da silhueta tapa as pétalas que passam
+   atrás dela.
    ========================================================================== */
 
+:root {
+  /* A caixa do desenho (viewBox 400 × 500, js/cenas/mao.js). Tamanho pela altura
+     da tela: mão e antebraço ocupam a metade de baixo; as pontas dos dedos ficam
+     abaixo da frase. */
+  --mao-l: min(calc(var(--tela) * 0.462), 102vw, 560px);
+  --mao-a: calc(var(--mao-l) * 1.25);
+  --mao-x: 49%;                        /* onde fica o meio da caixa */
+}
 .mao {
-  /* Tamanho pela altura da tela: as pontas dos dedos ficam abaixo do horizonte
-     (onde o fio vai sumir) e o pulso bem acima do botão. */
-  --mao-l: min(calc(var(--tela) * 0.335), 84vw, 400px);
   position: absolute;
-  left: calc(43% - var(--mao-l) * 0.5);
-  top: calc(var(--tela) * 0.355);
+  left: calc(var(--mao-x) - var(--mao-l) * 0.5);
+  /* 7% da caixa fica abaixo da borda: é por ali que o antebraço sai do quadro */
+  top: calc(var(--tela) - var(--mao-a) * 0.93);
   width: var(--mao-l);
   pointer-events: none;
 }
@@ -44,7 +52,7 @@
 html.entardecer #mundo-fundo::after { opacity: var(--entardecer-k, 1); }
 
 .mao-corpo {
-  transform-origin: 69% 69%;          /* = ORIGEM_X/ORIGEM_Y (o nó do laço) em js/cenas/mao.js: o zoom chega perto do laço */
+  transform-origin: 69% 69%;          /* com a imagem do autor; no desenho o js põe aqui o nó do laço (o zoom chega perto dele) */
   opacity: 0;
   will-change: transform, opacity;
 }
@@ -56,7 +64,13 @@ html.entardecer #mundo-fundo::after { opacity: var(--entardecer-k, 1); }
   overflow: visible;
 }
 
-/* Com a imagem do autor: nunca desce até o botão, qualquer que seja a proporção dela. */
+/* Com a imagem do autor: a caixa de antes (centrada, entre a frase e o botão);
+   nunca desce até o botão, qualquer que seja a proporção dela. */
+.mao-com-imagem {
+  --mao-l: min(calc(var(--tela) * 0.335), 84vw, 400px);
+  left: calc(43% - var(--mao-l) * 0.5);
+  top: calc(var(--tela) * 0.355);
+}
 .mao-com-imagem .mao-corpo > img {
   width: auto;
   max-width: 100%;
@@ -70,7 +84,16 @@ html.entardecer #mundo-fundo::after { opacity: var(--entardecer-k, 1); }
   flex-direction: column;
   gap: 2px;
   padding: 10px 10px 8px;
+  /* O antebraço ocupa o meio da base da tela: o botão fica ao lado dele, do lado
+     para onde as pontas do fio caem, no alcance do polegar direito. */
+  left: calc(var(--mao-l) * 0.3);
+  /* um pouco abaixo da linha das ações, livre da ponta do fio; no iPhone a área
+     segura já sobe as ações, e o botão desce o mesmo tanto (continua acima dela) */
+  top: calc(30px + min(var(--seguro-base), 36px));
 }
+@media (min-width: 700px) { .botao-fio { left: calc(var(--mao-l) * 0.44); top: 0; } }
+/* Com a imagem do autor a mão não chega à base: o botão fica no centro, como antes. */
+#palco:has(.mao-com-imagem) .botao-fio { left: 0; top: 0; }
 .botao-fio-texto {
   display: block;
   opacity: 0;
@@ -112,8 +135,9 @@ html.entardecer #mundo-fundo::after { opacity: var(--entardecer-k, 1); }
 html.reduzido .botao-fio-texto { transform: none; transition-duration: 0.6s; }
 html.reduzido .botao-fio-linha path { transition-duration: 0.6s; transition-delay: 0s; }
 
-/* Celular deitado: a mão menor e mais baixa, para caber entre a frase e o botão. */
+/* Celular deitado: a mão menor, à esquerda, abaixo da frase; o botão ao lado dela. */
 @media (orientation: landscape) and (max-height: 520px) {
-  /* abaixo da frase (que ocupa o terço de cima) e à esquerda do botão */
-  .mao { --mao-l: min(calc(var(--tela) * 0.26), 30vw); left: calc(25% - var(--mao-l) * 0.5); top: calc(var(--tela) * 0.43); }
+  :root { --mao-l: min(calc(var(--tela) * 0.52), 34vw); --mao-x: 27%; }
+  .mao-com-imagem { --mao-l: min(calc(var(--tela) * 0.26), 30vw); left: calc(25% - var(--mao-l) * 0.5); top: calc(var(--tela) * 0.43); }
+  .botao-fio { left: 0; top: 0; }
 }
