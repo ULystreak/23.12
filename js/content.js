@@ -544,7 +544,7 @@ window.CONTEUDO = {
         imagem: 'assets/images/encontro-4-ele-mao.webp',
         alt: 'Ele estende a mão, com o fio vermelho amarrado no dedinho.',
         foco: { x: 0.52, y: 0.4 },
-        ate: { x: 0.27, y: 0.55 },
+        ate: { x: 0.27, y: 0.46 },
         dedo: { x: 0.115, y: 0.78 },
       },
       {

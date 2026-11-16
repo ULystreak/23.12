@@ -281,7 +281,7 @@ export async function cenaEncontro(ctx, { frio } = {}) {
       ];
     } else {
       const w = Math.min(L, 1680);
-      const h = Math.round(Math.min(A * 0.58, w / 2.3));
+      const h = Math.round(Math.min(A * 0.66, w / 2.2));   // faixa alta o bastante para um rosto caber inteiro no miolo
       geo.faixa = { x: Math.round((L - w) / 2), y: Math.round((A - h) * 0.46), w, h };
       const mw = Math.min(L * 0.44, 760);
       const mh = Math.min(A * 0.6, mw * 0.72);

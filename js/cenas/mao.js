@@ -39,8 +39,9 @@ const TOQUE = 1.4;
 const ANTECIPA = 1.5;                // a câmera olha este tanto adiante na curva
 const LADO = 0.56;                   // de que lado o fio chega à carta (m à direita do eixo)
 // Ele, no fim do fio (só com o encontro por vir e com WebGL): de pé, um pouco
-// além de onde a última carta vai aparecer; ela para a ~3,8 m dele.
-const ELE_ATRAS = 2.55;              // metros além da carta
+// além de onde a última carta vai aparecer; ela para a ~5,2 m dele
+// (ele com pouco mais de um quarto da altura da tela, ainda envolto na névoa).
+const ELE_ATRAS = 4.0;               // metros além da carta
 const ELE_X = 0.1;                   // o eixo do corpo (m à direita do eixo do caminho): a mão do fio fica do lado em que o fio chega
 
 // =============================================================================

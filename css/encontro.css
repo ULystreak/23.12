@@ -76,22 +76,26 @@
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 15%, #000 85%, transparent 100%);
   mask-image: linear-gradient(to bottom, transparent 0%, #000 15%, #000 85%, transparent 100%);
 }
-/* deitado, um quadro em pé: janela alta, dissolvida nos quatro lados */
-.encontro:not(.enc-em-pe) .enc-faixa.enc-faixa-alta {
-  -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 58%, rgba(0, 0, 0, 0.55) 80%, transparent 100%);
-  mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 58%, rgba(0, 0, 0, 0.55) 80%, transparent 100%);
-  -webkit-mask-composite: initial;
-  mask-composite: initial;
-}
-.encontro:not(.enc-em-pe) .enc-faixa:not(.enc-faixa-alta) {
+/* deitado: o miolo do quadro é opaco (rostos inteiros); só uma margem estreita
+   se dissolve na alameda, nos quatro lados */
+.encontro:not(.enc-em-pe) .enc-faixa {
   -webkit-mask-image:
-    linear-gradient(to bottom, transparent 0%, #000 13%, #000 87%, transparent 100%),
-    linear-gradient(to right, transparent 0%, #000 9%, #000 91%, transparent 100%);
+    linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.75) 3%, #000 6%, #000 94%, rgba(0, 0, 0, 0.75) 97%, transparent 100%),
+    linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.75) 2.5%, #000 5%, #000 95%, rgba(0, 0, 0, 0.75) 97.5%, transparent 100%);
   -webkit-mask-composite: source-in;
   mask-image:
-    linear-gradient(to bottom, transparent 0%, #000 13%, #000 87%, transparent 100%),
-    linear-gradient(to right, transparent 0%, #000 9%, #000 91%, transparent 100%);
+    linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.75) 3%, #000 6%, #000 94%, rgba(0, 0, 0, 0.75) 97%, transparent 100%),
+    linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.75) 2.5%, #000 5%, #000 95%, rgba(0, 0, 0, 0.75) 97.5%, transparent 100%);
   mask-composite: intersect;
+}
+/* um quadro em pé (janela alta no meio): a margem dos lados é um pouco maior */
+.encontro:not(.enc-em-pe) .enc-faixa.enc-faixa-alta {
+  -webkit-mask-image:
+    linear-gradient(to bottom, transparent 0%, #000 7%, #000 93%, transparent 100%),
+    linear-gradient(to right, transparent 0%, #000 9%, #000 91%, transparent 100%);
+  mask-image:
+    linear-gradient(to bottom, transparent 0%, #000 7%, #000 93%, transparent 100%),
+    linear-gradient(to right, transparent 0%, #000 9%, #000 91%, transparent 100%);
 }
 .enc-faixa > img,
 .enc-mao > img {
@@ -115,8 +119,8 @@
   opacity: 0;
   visibility: hidden;
   will-change: transform, opacity;
-  -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 52%, rgba(0, 0, 0, 0.6) 76%, transparent 100%);
-  mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 52%, rgba(0, 0, 0, 0.6) 76%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 70%, rgba(0, 0, 0, 0.6) 86%, transparent 100%);
+  mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 70%, rgba(0, 0, 0, 0.6) 86%, transparent 100%);
 }
 .enc-em-pe .enc-mao {
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 20%, #000 80%, transparent 100%);
