@@ -13,7 +13,7 @@
 #entrada-senha:empty,
 #entrada-musica:empty { display: none; }
 
-/* No celular o teclado numérico cobre a metade de baixo: as casas ficam no terço de cima. */
+/* No celular o teclado cobre a metade de baixo: o campo fica no terço de cima. */
 @media (pointer: coarse) {
   #entrada-senha {
     align-items: start;
@@ -25,15 +25,15 @@
 }
 
 .senha {
-  --casa: clamp(44px, 13vw, 58px);
-  --vao: clamp(12px, 4vw, 20px);
   display: grid;
   justify-items: center;
-  gap: 26px;
+  gap: 22px;
+  width: min(100%, 320px);
   will-change: opacity;
 }
 .senha-frase,
-.senha-dica {
+.senha-dica,
+.senha-erro {
   margin: 0;
   max-width: 18em;
   font-family: var(--fonte-titulo);
@@ -44,32 +44,34 @@
   text-align: center;
   text-wrap: balance;
 }
-.senha-dica { min-height: 1.5em; font-size: 0.9375rem; color: rgba(255, 255, 255, 0.62); }
-.senha-dica:empty { min-height: 0; }
+.senha-dica { font-size: 0.9375rem; color: rgba(255, 255, 255, 0.62); }
+.senha-erro { font-size: 0.875rem; letter-spacing: 0.12em; color: #ff6b7a; }
+.senha-dica:empty,
+.senha-erro:empty { display: none; }
 
-.senha-quadro { position: relative; }
-.senha-casas {
-  position: relative;
-  display: flex;
-  gap: var(--vao);
-  padding-bottom: 2px;
-}
-.senha-casa {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: var(--casa);
-  height: calc(var(--casa) * 1.32);
-}
-.senha-digito {
-  font-family: var(--fonte-titulo);
-  font-size: calc(var(--casa) * 0.86);
-  line-height: 1;
-  font-variant-numeric: lining-nums tabular-nums;
+/* O campo: uma linha só, sem casas, para não entregar o tamanho da senha. */
+.senha-quadro { position: relative; width: 100%; }
+.senha-campo {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 10px 44px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: #fff;
-  will-change: transform, opacity;
+  caret-color: #fff;
+  font-family: var(--fonte-titulo);
+  font-size: 1.75rem;            /* 16 px ou mais: o Safari do iPhone não dá zoom no campo */
+  line-height: 1.3;
+  letter-spacing: 0.18em;
+  text-align: center;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
 }
-/* O traço embaixo de cada casa: três camadas de opacidade, nunca de cor (só opacity anima). */
+.senha-campo:disabled { pointer-events: none; opacity: 1; -webkit-text-fill-color: #fff; }
 .senha-traco {
   position: absolute;
   left: 0;
@@ -77,18 +79,36 @@
   bottom: 0;
   height: 1px;
   background: #fff;
-  opacity: 0.26;
+  opacity: 0.3;
   transition: opacity 320ms linear;
 }
-.senha-casa[data-cheia] .senha-traco { opacity: 0.5; }
-.senha-casa[data-vez] .senha-traco { opacity: 0.95; animation: senha-vez 1.9s ease-in-out infinite; }
-@keyframes senha-vez {
-  0%, 100% { opacity: 0.95; }
-  50% { opacity: 0.3; }
-}
-.senha[data-certa] .senha-traco { opacity: 0; animation: none; transition-duration: 600ms; }
+.senha-campo:focus ~ .senha-traco { opacity: 0.7; }
+.senha[data-certa] .senha-traco { opacity: 0; transition-duration: 600ms; }
 
-/* O fio vermelho que corre por baixo dos números quando ela acerta. */
+/* A setinha de confirmar: só aparece quando há algo escrito. */
+.senha-ir {
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 1.375rem;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 240ms linear, transform 160ms ease-out;
+  -webkit-tap-highlight-color: transparent;
+}
+.senha[data-tem] .senha-ir { opacity: 0.8; pointer-events: auto; }
+.senha-ir:active { transform: scale(0.94); }
+.senha[data-certa] .senha-ir { opacity: 0; pointer-events: none; }
+
+/* O fio vermelho que corre por baixo do campo quando ela acerta. */
 .senha-fio {
   position: absolute;
   left: -6px;
@@ -103,31 +123,8 @@
   transform-origin: 0 50%;
 }
 
-/* O campo de verdade: por cima das casas, invisível. É ele que recebe o toque e o teclado. */
-.senha-campo {
-  position: absolute;
-  inset: -22px -26px;
-  width: calc(100% + 52px);
-  height: calc(100% + 44px);
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: transparent;
-  caret-color: transparent;
-  font-size: 1.25rem;            /* 16 px ou mais: o Safari do iPhone não dá zoom no campo */
-  text-align: center;
-  opacity: 0;
-  outline: none;
-  -webkit-appearance: none;
-  appearance: none;
-  -webkit-tap-highlight-color: transparent;
-}
-.senha-campo:disabled { pointer-events: none; }
-
-/* Errou: as casas tremem de leve e os números se apagam. */
-.senha[data-erro] .senha-casas { animation: senha-tremor 0.46s cubic-bezier(0.36, 0.07, 0.19, 0.97); }
+/* Errou: o campo treme de leve e o que foi escrito se apaga. */
+.senha[data-erro] .senha-quadro { animation: senha-tremor 0.46s cubic-bezier(0.36, 0.07, 0.19, 0.97); }
 @keyframes senha-tremor {
   0%, 100% { transform: translateX(0); }
   18% { transform: translateX(-8px); }
@@ -135,9 +132,8 @@
   58% { transform: translateX(-4px); }
   78% { transform: translateX(2px); }
 }
-html.reduzido .senha[data-erro] .senha-casas { animation: senha-pisca 0.46s linear; }
+html.reduzido .senha[data-erro] .senha-quadro { animation: senha-pisca 0.46s linear; }
 @keyframes senha-pisca { 50% { opacity: 0.3; } }
-html.reduzido .senha-casa[data-vez] .senha-traco { animation: none; }
 
 /* O carrossel de música ocupa a largura toda (as capas vizinhas espiam pelas bordas);
    com a tela deitada, o que não couber rola, para o continuar nunca ficar fora de alcance. */

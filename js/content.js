@@ -62,9 +62,9 @@ window.CONTEUDO = {
      ritual, só ela sabe o número. Os atalhos ?cena=... pulam esta tela.
      ------------------------------------------------------------------------ */
   senha: {
-    // Os números que abrem a carta. Só algarismos, entre aspas.
-    // 8035 = os dias que ela está viva ao fazer 22 anos.
-    // O campo fica com tantas casas quantos forem os algarismos daqui.
+    // A senha que abre a carta, entre aspas. Pode ter números, letras, o que
+    // você quiser. 8035 = os dias que ela está viva ao fazer 22 anos.
+    // O campo não mostra quantos caracteres a senha tem.
     // Deixe vazio ('') para a carta abrir sem pedir senha.
     codigo: '8035',
 
@@ -72,9 +72,17 @@ window.CONTEUDO = {
     // [Só você sabe.]
     frase: '',
 
-    // Aparece baixinho depois de algumas tentativas erradas (opcional; '' = nada).
-    // [Quantos dias você já viveu?]
-    dica: '',
+    // O aviso que aparece toda vez que ela erra.
+    erro: 'Senha errada.',
+
+    // As dicas, na ordem: a primeira aparece depois do 1º erro, a segunda
+    // depois do 2º, a terceira depois do 3º. Do 4º erro em diante fica a
+    // última. Pode pôr mais ou menos linhas; [] = nenhuma dica.
+    dicas: [
+      'sao numeros....',
+      'eu ja te falei qual senha seria',
+      'o numero de dias da sua idade',
+    ],
 
     // Nome do campo, lido em voz alta por leitores de tela (não aparece escrito).
     rotulo: 'Senha',
