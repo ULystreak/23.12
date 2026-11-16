@@ -315,7 +315,11 @@ export async function cenaCartas(ctx, { frio } = {}) {
       'aria-label': String(rotulos.carta || 'Carta {n}').replace('{n}', String(item.i + 1)),
       dataset: { acao: 'carta-chao', id: item.carta.id, estado: 'fechada', tipo: item.carta.tipo },
     });
-    if (item.ultima) desenho.classList.add('carta-chao-surpresinha');
+    if (item.ultima) {
+      desenho.classList.add('carta-chao-surpresinha');
+      // A Surpresinha é a última: fica trancada até as outras terem sido abertas.
+      if (itens.length > 1) { desenho.dataset.trancada = '1'; botao.setAttribute('aria-disabled', 'true'); }
+    }
     item.botao = botao;
     item.desenho = desenho;
     item.nome = nome;
@@ -659,6 +663,13 @@ export async function cenaCartas(ctx, { frio } = {}) {
   let ocupado = false;
   async function abrirCarta(item) {
     if (ocupado || visorAberto || inventario.aberto || diretor.etapa() !== 'escolhendo') return;
+    if (item.ultima && itens.some((o) => o !== item && !abertas.has(o.carta.id))) {
+      // Ainda não: a carta só balança, sem abrir.
+      item.desenho.removeAttribute('data-negou');
+      void item.desenho.offsetWidth;
+      item.desenho.dataset.negou = '1';
+      return;
+    }
     ocupado = true;
     diretor.etapa('assistindo');
     som.destravar?.();
@@ -675,6 +686,11 @@ export async function cenaCartas(ctx, { frio } = {}) {
     inventario.guardar({ id: carta.id, tipo: carta.tipo, titulo: carta.nome, abrir: () => mostrar(carta) });
     inventario.mostrarBotao();
     atualizarSeguir();
+    const ult = itens.find((o) => o.ultima);
+    if (ult && itens.every((o) => o === ult || abertas.has(o.carta.id))) {
+      delete ult.desenho.dataset.trancada;
+      ult.botao.removeAttribute('aria-disabled');
+    }
     ocupado = false;
     diretor.etapa('escolhendo');
     escreverNome(item);

@@ -515,7 +515,7 @@ const casos = {
     ok(b.depois.dpr < b.antes.dpr || b.depois.nivel !== b.antes.nivel, `ficou lento no meio: qualidade desce (${JSON.stringify(b.antes)} → ${JSON.stringify(b.depois)})`);
   },
 
-  /** A bolsa: abre só na espera, não deixa a carta abrir por baixo, relê sem mudar a etapa. */
+  /** A bolsa: abre na caminhada e na espera, não deixa a carta abrir por baixo, relê sem mudar a etapa. */
   async bolsa() {
     const s = await abrir({ cena: 'carta2', vp: 'iphone', params: { rapido: 6 } });
     const inv = () => s.page.evaluate(() => {
@@ -523,13 +523,14 @@ const casos = {
       const r = document.getElementById('inventario');
       return { aberto: i.aberto, itens: i.itens.map((x) => x.id), folha: r.hasAttribute('data-aberto'), oculto: r.hidden, etapa: `${window.__carta.cena}:${window.__carta.etapa}` };
     });
-    // em movimento (a caminhada até a carta) a bolsa não abre
+    // a bolsa já abre enquanto ela anda até a carta (o botão acabou de aparecer)
     await s.esperarEtapa('carta2:caminhada');
     await s.page.waitForSelector('[data-acao="inventario"]', { state: 'visible', timeout: 10000 });
     await s.page.locator('[data-acao="inventario"]').tap({ force: true, timeout: 3000 }).catch(() => {});
     await pausa(300);
     let e = await inv();
-    ok(!e.aberto && !e.folha && e.itens.join() === 'carta-poppy', `bolsa: fechada durante a caminhada, só com o que ela já guardou (${JSON.stringify(e)})`);
+    ok(e.aberto && e.folha && e.itens.join() === 'carta-poppy', `bolsa: abre durante a caminhada, só com o que ela já guardou (${JSON.stringify(e)})`);
+    await s.page.locator('[data-acao="inventario-fechar"]').tap({ force: true, timeout: 3000 }).catch(() => {});
     await s.esperarEtapa('carta2:carta-espera');
     await pausa(400);
     // toques repetidos no botão: termina num estado coerente

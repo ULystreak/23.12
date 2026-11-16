@@ -36,7 +36,7 @@ const CAPITULOS = ['poppy', 'yourname'];
  * Etapas em que ela pode abrir a bolsa: só as de espera, em que nada está em
  * movimento e a folha está livre para reabrir uma carta.
  */
-const BOLSA_LIVRE = new Set(['carta2:carta-espera', 'mao:mao-espera', 'cartas:escolhendo']);
+const BOLSA_LIVRE = new Set(['carta2:caminhada', 'carta2:carta-chegando', 'carta2:carta-espera', 'mao:mao-espera', 'cartas:escolhendo']);
 
 /**
  * Cenas que só existem quando o content.js tem o que mostrar. Pulada, a cena nem
@@ -314,7 +314,7 @@ export function criarDiretor() {
         tirarEntrada();
         semearBolsa(ctx, ORDEM[comeco]);
       }
-      // A bolsa só abre nas etapas de espera; na última folha o botão sai de cena.
+      // A bolsa abre na caminhada até a segunda carta e nas etapas de espera; na última folha o botão sai de cena.
       diretor.aoMudar((cena, etapa) => {
         ctx.inventario.liberar(BOLSA_LIVRE.has(`${cena}:${etapa}`));
         if (cena === 'final' && etapa === 'desdobrando') ctx.inventario.esconderBotao();

@@ -396,3 +396,16 @@ html.reduzido .visor-carregando .visor-tela::after { animation: none; opacity: 0
   .visor-nome { font-size: 1.25rem; }
   .visor-cartao { min-height: min(var(--maxA), 200px); padding: 16px 22px; gap: 10px; }
 }
+
+/* A Surpresinha fica por último: trancada até as outras serem abertas. Um toque antes
+   da hora só faz a carta balançar. */
+.carta-chao-vento { transition: opacity 600ms linear; }
+.carta-chao-desenho[data-trancada] .carta-chao-vento { opacity: 0.5; }
+.carta-chao-desenho[data-negou] .carta-chao-vento { animation: carta-chao-negou 0.46s cubic-bezier(0.36, 0.07, 0.19, 0.97); }
+@keyframes carta-chao-negou {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  45% { transform: translateX(5px); }
+  70% { transform: translateX(-3px); }
+}
+html.reduzido .carta-chao-desenho[data-negou] .carta-chao-vento { animation: none; }
