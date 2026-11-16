@@ -1,0 +1,398 @@
+/* As cartas do chão (js/cenas/cartas.js): as cartas dos amigos caídas entre ela
+   e ele, o visor (vídeo, galeria ou cartão de exemplo) e o botão de seguir.
+   As cartas são botões de verdade, deitados no chão por uma matriz de
+   perspectiva que o JS calcula com a lente do mundo. Só transform e opacity. */
+
+.cartas-chao { position: absolute; inset: 0; pointer-events: none; }
+.cartas-chao-campo {
+  position: absolute;
+  inset: 0;
+  /* clip, não hidden: uma caixa hidden ainda rola por programa (foco, testes), e as
+     cartas em perspectiva criam área de rolagem; o clip não rola nunca */
+  overflow: hidden;
+  overflow: clip;
+  perspective: 800px;                  /* o JS põe a distância focal da câmera */
+  perspective-origin: 50% 50%;
+}
+
+/* ---- a carta ------------------------------------------------------------- */
+/* o botão: uma caixa plana e invisível sobre o desenho (o JS a põe no lugar) */
+.carta-chao {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  background: none;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+/* o desenho, deitado no chão pela matriz que o JS calcula */
+.carta-chao-desenho {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: block;
+  color: var(--tinta);
+  opacity: 0;
+  pointer-events: none;
+  transform-origin: 50% 50%;
+  will-change: transform, opacity;
+}
+.carta-chao-sombra {
+  position: absolute;
+  inset: 18% -5% -20% -5%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(36, 18, 30, 0.42), rgba(36, 18, 30, 0.16) 62%, rgba(36, 18, 30, 0) 100%);
+}
+/* o vento: a borda de lá da carta levanta um nada e volta (por dentro do botão,
+   para o botão em si ficar parado no chão) */
+.carta-chao-vento {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transform-origin: 50% 100%;
+  animation: cc-vento 3.1s ease-in-out infinite alternate;
+}
+@keyframes cc-vento {
+  from { transform: scaleY(0.985) skewX(-0.5deg); }
+  to { transform: scaleY(1.05) skewX(0.7deg); }
+}
+.carta-chao-face {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transition: transform var(--dur-ui) var(--curva-ui);
+}
+.carta-chao:active + .carta-chao-desenho .carta-chao-face { transform: scale(0.96); }
+@media (hover: hover) and (pointer: fine) {
+  .carta-chao:hover + .carta-chao-desenho .carta-chao-face { transform: translate3d(0, -4%, 0) scale(1.03); }
+}
+.carta-chao:focus-visible { outline: none; }
+.carta-chao:focus-visible + .carta-chao-desenho .carta-chao-face { outline: 2px solid var(--fio); outline-offset: 4px; border-radius: 3px; }
+
+.carta-chao-papel,
+.carta-chao-fio {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.cc-folha { fill: var(--papel, #fbf7f0); stroke: var(--tinta); stroke-width: 1.5; stroke-linejoin: round; }
+.cc-dobra { fill: none; stroke: var(--papel-linha, #e3d9c8); stroke-width: 1.3; stroke-linecap: round; }
+.cc-aba { fill: #fffdf8; stroke: var(--tinta); stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+.cc-fio { fill: none; stroke: var(--fio); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.cc-fio-sombra path { fill: none; stroke: rgba(42, 27, 34, 0.2); stroke-width: 3; stroke-linecap: round; }
+.cc-no { fill: var(--fio); stroke: var(--fio-escuro, #a80f22); stroke-width: 0.9; }
+.cc-lacre { fill: var(--fio); stroke: var(--fio-escuro, #a80f22); stroke-width: 1; stroke-linejoin: round; }
+.carta-chao-fio { transition: opacity 0.6s linear; }
+/* aberta: o fio foi desamarrado; fica o nome de quem mandou */
+.carta-chao-desenho:not([data-estado="fechada"]) .carta-chao-fio { opacity: 0; }
+.carta-chao-desenho:not([data-estado="fechada"]) .cc-aba { fill: var(--papel, #fbf7f0); }
+
+.carta-chao-nome {
+  position: absolute;
+  left: 7%; right: 7%;
+  top: 46%;
+  height: 46%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  white-space: nowrap;
+  font-family: var(--fonte-mao);
+  font-weight: 600;
+  font-size: calc(var(--b, 120px) * 0.19);
+  line-height: 1.1;
+  color: var(--tinta);
+  transform: rotate(-3deg);
+}
+.cc-linha { display: inline-block; white-space: nowrap; }
+.cc-palavra { display: inline-block; white-space: nowrap; }
+.cc-letra { display: inline-block; }
+
+.cartas-chao-frase {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: calc(var(--seguro-base) + clamp(56px, 10vh, 104px));
+  max-width: none;
+  margin: 0;
+  padding: 0 max(28px, var(--seguro-dir)) 0 max(28px, var(--seguro-esq));
+  font-family: var(--fonte-titulo);
+  font-size: clamp(1.25rem, 5vw, 1.75rem);
+  line-height: 1.45;
+  letter-spacing: 0.02em;
+  text-align: center;
+  text-wrap: balance;
+  /* a cena é de entardecer (chão escuro): letra clara com sombra escura lê melhor
+     que tinta escura com brilho branco */
+  color: #fffaf4;
+  text-shadow: 0 1px 2px rgba(30, 14, 34, 0.9), 0 0 12px rgba(30, 14, 34, 0.75), 0 0 26px rgba(30, 14, 34, 0.55);
+}
+
+/* ---- o botão de seguir em frente ------------------------------------------ */
+.cartas-chao-seguir {
+  padding: 10px 18px 12px;
+  border-radius: 999px;
+  background: rgba(255, 253, 249, 0.86);
+  box-shadow: 0 6px 22px rgba(36, 18, 30, 0.18);
+  font-size: var(--texto-pequeno);
+  opacity: 0;
+  transition: opacity 0.9s linear, transform var(--dur-ui) var(--curva-ui);
+}
+.cartas-chao-seguir::after { left: 18px; right: 18px; bottom: 8px; transform: scaleX(0); transition-duration: 1.1s; }
+.cartas-chao-seguir-visivel { opacity: 0.62; }
+/* todas abertas: o botão ganha a frente */
+.cartas-chao-seguir[data-destaque] { opacity: 1; font-size: var(--texto-subtitulo); }
+.cartas-chao-seguir[data-destaque]::after { transform: scaleX(1); }
+@media (hover: hover) and (pointer: fine) {
+  .cartas-chao-seguir-visivel:hover { opacity: 1; }
+}
+
+/* ---- o visor ---------------------------------------------------------------- */
+.carta-chao-visor {
+  --maxL: calc(100vw - var(--seguro-esq) - var(--seguro-dir) - 44px);
+  --maxA: calc(var(--tela) - var(--seguro-topo) - var(--seguro-base) - 214px);
+  --aspecto: 0.5625;                   /* antes de saber o tamanho do vídeo: celular em pé */
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: calc(var(--seguro-topo) + 26px) calc(var(--seguro-dir) + 22px) calc(var(--seguro-base) + 92px) calc(var(--seguro-esq) + 22px);
+  pointer-events: auto;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.visor-veu {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 50% 46%, rgba(30, 16, 28, 0.74), rgba(18, 9, 18, 0.9));
+}
+.visor-quadro {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: 100%;
+  will-change: transform, opacity;
+}
+.visor-papel {
+  position: relative;
+  padding: 9px 9px 22px;
+  border-radius: 3px;
+  background: var(--papel, #fbf7f0);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 18px 50px rgba(10, 4, 10, 0.5), 0 2px 6px rgba(10, 4, 10, 0.35);
+  transform: rotate(-0.6deg);
+}
+.visor-nome {
+  margin: 0;
+  min-height: 1.4em;
+  font-family: var(--fonte-mao);
+  font-weight: 600;
+  font-size: clamp(1.375rem, 5.4vw, 1.875rem);
+  line-height: 1.3;
+  color: #fff6ec;
+  text-align: center;
+  transform: rotate(-1.2deg);
+}
+
+/* vídeo */
+.visor-tela {
+  position: relative;
+  width: min(var(--maxL) - 18px, var(--maxA) * var(--aspecto), 880px);
+  aspect-ratio: var(--aspecto);
+  overflow: hidden;
+  border-radius: 2px;
+  background: #1a1016;
+  cursor: pointer;
+}
+.visor-video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.visor-pausa,
+.visor-tocar {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 72px; height: 72px;
+  margin: -36px 0 0 -36px;
+}
+.visor-pausa { opacity: 0; transition: opacity 0.25s linear; pointer-events: none; }
+.visor-pausa path { fill: none; stroke: #fff; stroke-width: 3.2; stroke-linecap: round; filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.5)); }
+.visor-pausado .visor-pausa { opacity: 0.92; }
+.visor-tocar { border: 0; border-radius: 50%; background: rgba(20, 10, 16, 0.5); }
+.visor-tocar svg { width: 100%; height: 100%; }
+.visor-tocar path { fill: #fff; }
+.visor-tela::after {                   /* carregando: um ponto de luz que respira */
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 14px; height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+}
+.visor-carregando .visor-tela::after { animation: visor-respira 1.2s ease-in-out infinite alternate; }
+@keyframes visor-respira {
+  from { opacity: 0.15; transform: scale(0.7); }
+  to { opacity: 0.8; transform: scale(1.15); }
+}
+.visor-progresso {
+  position: absolute;
+  left: 12px; right: 12px; bottom: 9px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--papel-linha, #e3d9c8);
+  overflow: hidden;
+}
+.visor-progresso-fio {
+  display: block;
+  width: 100%; height: 100%;
+  border-radius: 3px;
+  background: var(--fio);
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+/* o cartão de exemplo (ou só o nome, quando o vídeo não carregou) */
+.carta-chao-visor[data-tipo="vazio"] .visor-papel { padding: 12px; }
+.visor-cartao {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  width: min(var(--maxL) - 24px, 320px);
+  min-height: min(var(--maxA), 380px);
+  padding: 28px 22px;
+  border: 1.5px dashed var(--papel-linha, #e3d9c8);
+  border-radius: 2px;
+}
+.cartao-glifo { width: 76px; height: 57px; }
+.cartao-glifo path { fill: none; stroke: var(--fio); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.carta-chao-vazio {
+  margin: 0;
+  font-family: var(--fonte-mao);
+  font-weight: 600;
+  font-size: clamp(1.25rem, 5vw, 1.5rem);
+  line-height: 1.45;
+  color: var(--tinta);
+  text-align: center;
+  text-wrap: balance;
+}
+
+/* galeria */
+.visor-galeria { padding: 9px 9px 30px; }
+.carta-chao-galeria {
+  display: flex;
+  width: min(var(--maxL) - 18px, 760px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  outline: none;
+}
+.carta-chao-galeria::-webkit-scrollbar { display: none; }
+.galeria-item {
+  flex: 0 0 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 0;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+}
+.galeria-midia { display: grid; place-items: center; width: 100%; }
+.galeria-midia img,
+.galeria-midia video {
+  display: block;
+  max-width: 100%;
+  max-height: calc(var(--maxA) - 40px);
+  border-radius: 2px;
+  background: #1a1016;
+  -webkit-user-drag: none;
+}
+.galeria-item figcaption {
+  padding: 0 10px;
+  font-family: var(--fonte-mao);
+  font-weight: 600;
+  font-size: 1.125rem;
+  line-height: 1.35;
+  color: var(--tinta);
+  text-align: center;
+  text-wrap: balance;
+}
+.galeria-pontos {
+  position: absolute;
+  left: 0; right: 0; bottom: 11px;
+  display: flex;
+  justify-content: center;
+  gap: 7px;
+}
+.galeria-pontos[hidden] { display: none; }
+.galeria-ponto {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--tinta);
+  opacity: 0.22;
+  transition: opacity 0.3s linear, transform 0.3s var(--curva-ui);
+}
+.galeria-ponto[data-atual] { opacity: 1; background: var(--fio); transform: scale(1.3); }
+.galeria-seta {
+  position: absolute;
+  top: calc(50% - 32px);
+  width: 44px; height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 253, 249, 0.9);
+  box-shadow: 0 2px 10px rgba(10, 4, 10, 0.3);
+  transition: opacity 0.25s linear;
+}
+.galeria-seta svg { width: 24px; height: 24px; margin: 10px; display: block; }
+.galeria-seta path { fill: none; stroke: var(--tinta); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.galeria-seta[data-lado="anterior"] { left: -14px; }
+.galeria-seta[data-lado="proxima"] { right: -14px; transform: scaleX(-1); }
+.galeria-seta[disabled] { opacity: 0; pointer-events: none; }
+/* no celular ela passa com o dedo: as setas ficam para quem usa mouse ou teclado */
+@media (hover: none) and (pointer: coarse) {
+  .galeria-seta { opacity: 0; pointer-events: none; }
+}
+
+/* fechar: embaixo, no meio, onde o polegar alcança (e longe do disco da música) */
+.carta-chao-fechar {
+  position: absolute;
+  left: calc(50% - 26px);
+  bottom: calc(var(--seguro-base) + 22px);
+  width: 52px; height: 52px;
+  padding: 0;
+  border: 1.5px solid rgba(255, 246, 236, 0.5);
+  border-radius: 50%;
+  background: rgba(255, 253, 249, 0.1);
+  cursor: pointer;
+}
+.carta-chao-fechar svg { display: block; width: 28px; height: 28px; margin: 10.5px; }
+.carta-chao-fechar path { fill: none; stroke: #fff6ec; stroke-width: 2; stroke-linecap: round; }
+.carta-chao-fechar:focus-visible { outline: 2px solid #fff6ec; outline-offset: 2px; }
+
+html.reduzido .carta-chao-face { transition: none; }
+html.reduzido .carta-chao-vento { animation: none; }
+html.reduzido .visor-carregando .visor-tela::after { animation: none; opacity: 0.6; }
+
+/* celular deitado: menos margem em volta do visor */
+@media (orientation: landscape) and (max-height: 520px) {
+  .carta-chao-visor {
+    --maxA: calc(var(--tela) - var(--seguro-topo) - var(--seguro-base) - 96px);
+    padding-top: calc(var(--seguro-topo) + 12px);
+    padding-bottom: calc(var(--seguro-base) + 12px);
+  }
+  .carta-chao-fechar { left: auto; right: calc(var(--seguro-dir) + 18px); bottom: calc(50% - 26px); }
+  .visor-quadro { gap: 4px; }
+  .visor-nome { font-size: 1.25rem; }
+  .visor-cartao { min-height: min(var(--maxA), 200px); padding: 16px 22px; gap: 10px; }
+}

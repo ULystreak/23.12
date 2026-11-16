@@ -18,13 +18,16 @@
    - Imagens ficam em assets/images/ e músicas em assets/music/.
 
    COMO TESTAR UMA PARTE SÓ
-   Abra o site com um destes finais no endereço:
+   Abra o site com um destes finais no endereço (os atalhos pulam a senha):
+     ?cena=senha      a tela preta com a senha (é como o site abre sem atalho)
+     ?cena=musica     a escolha da música, na tela preta
      ?cena=inicio     as frases, a caminhada e a primeira carta
-     ?cena=poppy      o capítulo do jogo
+     ?cena=poppy      o capítulo do jogo e a carta indo para o bolso
      ?cena=carta2     a segunda carta
-     ?cena=yourname   o capítulo do filme
-     ?cena=segredos   os bilhetes com os vídeos (só se houver algum vídeo)
-     ?cena=mao        "Olha a sua mão." e o fio
+     ?cena=yourname   o capítulo do filme e a carta indo para o bolso
+     ?cena=mao        "Olha a sua mão.", o fio e a corrida até você
+     ?cena=cartas     as cartas no chão (os vídeos dos amigos e a Surpresinha)
+     ?cena=encontro   as imagens do encontro
      ?cena=final      a última carta
    ========================================================================== */
 
@@ -50,6 +53,34 @@ window.CONTEUDO = {
   },
 
   /* --------------------------------------------------------------------------
+     SENHA
+     A primeira coisa que ela vê: a tela toda preta e um campo para os números.
+     Errou, o campo treme de leve e esvazia; acertou, a tela se desfaz e vem a
+     escolha da música.
+
+     Não é segurança de verdade (quem abrir este arquivo lê a senha): é um
+     ritual, só ela sabe o número. Os atalhos ?cena=... pulam esta tela.
+     ------------------------------------------------------------------------ */
+  senha: {
+    // Os números que abrem a carta. Só algarismos, entre aspas.
+    // 8035 = os dias que ela está viva ao fazer 22 anos.
+    // O campo fica com tantas casas quantos forem os algarismos daqui.
+    // Deixe vazio ('') para a carta abrir sem pedir senha.
+    codigo: '8035',
+
+    // Frase pequena acima do campo (opcional; '' = só o campo, sem frase).
+    // [Só você sabe.]
+    frase: '',
+
+    // Aparece baixinho depois de algumas tentativas erradas (opcional; '' = nada).
+    // [Quantos dias você já viveu?]
+    dica: '',
+
+    // Nome do campo, lido em voz alta por leitores de tela (não aparece escrito).
+    rotulo: 'Senha',
+  },
+
+  /* --------------------------------------------------------------------------
      ABERTURA
      As frases aparecem uma de cada vez no mundo branco, palavra por palavra,
      e somem antes da caminhada. Pode ter mais de duas: é só acrescentar outra
@@ -67,11 +98,13 @@ window.CONTEUDO = {
 
   /* --------------------------------------------------------------------------
      MÚSICA
-     Depois de abrir a primeira carta, ela escolhe uma música. A música toca em
-     repetição, baixinha, até o fim.
+     Depois da senha, ainda na tela preta, ela escolhe uma música passando as
+     capas para o lado com o dedo. Quando ela confirma, a música começa e o
+     mundo branco com as árvores aparece. A música toca em repetição, baixinha,
+     até o fim.
      ------------------------------------------------------------------------ */
   musica: {
-    // Frase no alto da folha, acima das capas.
+    // Frase no alto, acima das capas.
     titulo: 'Escolhe a nossa música.',
 
     // Texto do botão que aparece depois que ela escolhe.
@@ -89,6 +122,9 @@ window.CONTEUDO = {
       volume: 'Volume',
       // Nome da lista de músicas dentro do mini seletor (só aparece com duas ou mais).
       trocar: 'Trocar de música',
+      // Nomes das setas do seletor de capas (só existem com duas ou mais músicas).
+      anterior: 'Música anterior',
+      proxima: 'Próxima música',
       // Só é usado se o texto do botão "continuar" lá de cima ficar vazio (''):
       // aí o botão vira só o desenho, e este nome é lido em voz alta por
       // leitores de tela.
@@ -234,10 +270,10 @@ window.CONTEUDO = {
       },
     ],
 
-    // Texto do botão que fecha o capítulo e leva para a próxima carta. É o
-    // botão de parar do videocassete. Se ficar vazio (''), o botão continua
-    // lá, só com o desenho.
-    fechar: 'Fechar este capítulo',
+    // Texto do botão do fim do capítulo: ela guarda esta carta no bolso (e a
+    // carta passa a morar na bolsa, no canto de baixo). É o botão de parar do
+    // videocassete. Se ficar vazio (''), o botão continua lá, só com o desenho.
+    fechar: 'Guardar no bolso',
   },
 
   /* --------------------------------------------------------------------------
@@ -342,106 +378,45 @@ window.CONTEUDO = {
       },
     ],
 
-    fechar: 'Fechar este capítulo',
+    // Texto do botão do fim do capítulo: ela guarda esta carta no bolso. É ao
+    // guardar esta que o fio vermelho aparece.
+    fechar: 'Guardar no bolso',
 
     // Só é usado se o texto de cima ficar vazio (''): aí o fecho vira só o fio
     // sublinhado, e este nome é lido em voz alta por leitores de tela.
-    // [Fechar este capítulo]
-    rotuloFechar: 'Fechar este capítulo',
+    rotuloFechar: 'Guardar no bolso',
   },
 
   /* --------------------------------------------------------------------------
-     SEGREDOS (os vídeos)
-     Depois do segundo capítulo, antes de "Olha a sua mão.": o mundo volta, uma
-     frase aparece e alguns envelopinhos amarrados com o fio vermelho chegam
-     flutuando, cada um com "Segredo 1", "Segredo 2"... escrito à mão. Ela toca
-     num, o fio desamarra, o bilhete se abre e vira o vídeo. Quando o vídeo
-     acaba (ou ela fecha), o bilhete volta e o NOME de quem gravou é escrito
-     nele, letra por letra. Quando ela já viu todos, aparece o botão de seguir.
-
-     Enquanto nenhum item tiver vídeo (todos com video: ''), esta parte inteira
-     NÃO aparece: do capítulo do filme a carta vai direto para a mão.
-
-     COMO COLOCAR UM VÍDEO
-     1. Ponha o arquivo na pasta assets/videos/ (crie a pasta se não existir).
-        Use nomes simples, sem espaço nem acento: assets/videos/ana.mp4
-     2. Escreva o caminho no campo video do item: video: 'assets/videos/ana.mp4'
-     3. Escreva no campo nome quem gravou (é o que aparece escrito à mão).
-
-     FORMATO DO VÍDEO
-     - MP4 (vídeo H.264 e som AAC). É o que o iPhone grava quando a câmera está
-       em "Mais compatível" e o que qualquer app de compressão gera.
-       Vídeo .mov ou HEVC do iPhone: converta para MP4 antes (veja abaixo).
-     - Pode ser em pé ou deitado: a carta mede sozinha e ajusta a moldura.
-     - Até uns 25 MB cada (o GitHub aceita até 100 MB por arquivo, mas ela vai
-       abrir no 4G: quanto mais leve, mais rápido começa). Um vídeo de 1 minuto
-       em 720p fica com uns 10 a 15 MB.
-
-     COMO COMPRIMIR
-     - Pelo celular: um app de comprimir vídeo (por exemplo "Video Compressor")
-       exportando em MP4, 720p.
-     - Pelo computador, com o HandBrake (grátis): predefinição "Fast 720p30".
-     - Pelo computador, com o ffmpeg (uma linha só no terminal):
-         ffmpeg -i original.mov -vf "scale=w=1280:h=1280:force_original_aspect_ratio=decrease:force_divisible_by=2" -c:v libx264 -crf 26 -preset slow -pix_fmt yuv420p -c:a aac -b:a 128k -movflags +faststart assets/videos/ana.mp4
-       Serve para vídeo em pé e deitado: o lado maior fica com no máximo
-       1280 px. O "+faststart" faz o vídeo começar antes de baixar inteiro.
-
-     CAMPOS DE CADA ITEM
-       titulo: o que vem escrito no bilhete antes de abrir ('Segredo 1')
-       video:  o caminho do .mp4 ('' = este bilhete não aparece)
-       capa:   imagem opcional mostrada enquanto o vídeo carrega
-               (assets/images/..., '' se não tiver)
-       nome:   quem gravou; é escrito à mão no bilhete quando o vídeo termina
-
-     Se um vídeo não carregar (arquivo com nome errado, por exemplo), o
-     bilhete mostra só o nome e conta como visto: nada trava.
+     O BOLSO E A BOLSA (o inventário)
+     Quando ela toca em "Guardar no bolso" no fim de um capítulo, a mão dela
+     (com o uniforme de verão da Mitsuha) leva a carta até o bolso da saia.
+     Depois da primeira carta guardada aparece o botão da bolsa, no canto de
+     baixo, à direita: ali fica tudo o que ela já guardou (as duas cartas e
+     cada carta do chão que ela já abriu). Tocar num item abre de novo.
      ------------------------------------------------------------------------ */
-  segredos: {
-    // A frase que aparece no alto, palavra por palavra.
-    frase: '[Algumas pessoas também queriam te dizer uma coisa.]',
+  inventario: {
+    // O título no alto da bolsa aberta.
+    titulo: 'Sua bolsa',
 
-    // Texto do botão que aparece quando ela já viu todos.
-    continuar: 'Seguir',
+    // O nome de cada carta dentro da bolsa.
+    cartaPoppy: 'A carta do jogo',
+    cartaYourname: 'A carta do filme',
 
-    // Nome do botão de fechar o vídeo (não aparece escrito; é lido em voz
-    // alta por leitores de tela).
-    fechar: 'Fechar o vídeo',
-
-    // Os bilhetes, na ordem. Para ter mais, copie um bloco { ... }, com a
-    // vírgula do fim. Exemplo de um item pronto:
-    //
-    // {
-    //   titulo: 'Segredo 1',
-    //   video: 'assets/videos/ana.mp4',
-    //   capa: '',
-    //   nome: 'Ana',
-    // },
-    itens: [
-      {
-        titulo: 'Segredo 1',
-        video: '',
-        capa: '',
-        nome: '[Nome de quem gravou]',
-      },
-      {
-        titulo: 'Segredo 2',
-        video: '',
-        capa: '',
-        nome: '[Nome de quem gravou]',
-      },
-      {
-        titulo: 'Segredo 3',
-        video: '',
-        capa: '',
-        nome: '[Nome de quem gravou]',
-      },
-    ],
+    // Nomes lidos em voz alta por leitores de tela (não aparecem escritos).
+    rotulos: {
+      abrir: 'Abrir a bolsa',
+      fechar: 'Fechar a bolsa',
+      // Dito enquanto a animação do bolso acontece.
+      guardando: 'Você guarda a carta no bolso.',
+    },
   },
 
   /* --------------------------------------------------------------------------
      A MÃO
-     Depois do segundo capítulo, uma frase e a mão dela com o fio vermelho no
-     pulso. O botão faz o fio virar o caminho até a última carta.
+     Quando ela guarda a segunda carta no bolso, o fio vermelho aparece: uma
+     frase e a mão dela com o fio no pulso. O botão faz o fio virar o caminho e
+     ela CORRE por ele até você. Perto de você, as cartas do chão.
      ------------------------------------------------------------------------ */
   mao: {
     // A frase funciona melhor curta, em uma linha só: uma frase longa quebra
@@ -482,8 +457,114 @@ window.CONTEUDO = {
   },
 
   /* --------------------------------------------------------------------------
+     A CORRIDA
+     Depois de "Seguir o fio" ela corre pela alameda até você: o fio esticado
+     à frente, as pétalas passando, você ficando maior. Ela desacelera ao
+     chegar, e as cartas estão no chão entre vocês dois.
+     ------------------------------------------------------------------------ */
+  corrida: {
+    // Quantos segundos ela corre. Entre 5 e 10 fica bom.
+    segundos: 7,
+  },
+
+  /* --------------------------------------------------------------------------
+     AS CARTAS DO CHÃO (os vídeos dos amigos e a Surpresinha)
+     Quando ela chega perto de você, há cartas no chão. No chão elas NÃO têm
+     nome: ela toca numa, o vídeo toca, e só quando ela fecha o NOME de quem
+     gravou aparece escrito à mão na carta. Cada carta aberta vai para a bolsa.
+     Depois da primeira carta aberta aparece, discreto, o botão de seguir em
+     frente; quando ela já abriu todas, ele ganha destaque.
+
+     A ordem das cartas é a ordem desta lista. A última, a Surpresinha, é
+     diferente: em vez de um vídeo só, é uma sequência de fotos e vídeos de
+     vocês, que ela passa para o lado.
+
+     ENQUANTO O VÍDEO NÃO CHEGA
+     Carta com video: '' aparece do mesmo jeito e abre um cartão com o texto
+     do campo "vazio" aqui embaixo ("[vídeo de Sariel vem aqui]"), para você
+     ver tudo funcionando. Para uma carta NÃO aparecer, apague o bloco dela.
+
+     COMO COLOCAR UM VÍDEO
+     1. Ponha o arquivo na pasta assets/videos/ (crie a pasta se não existir).
+        Use nomes simples, sem espaço nem acento: assets/videos/sariel.mp4
+     2. Escreva o caminho no campo video da pessoa:
+        video: 'assets/videos/sariel.mp4'
+
+     FORMATO DO VÍDEO
+     - MP4 (vídeo H.264 e som AAC). É o que o iPhone grava quando a câmera está
+       em "Mais compatível" e o que qualquer app de compressão gera.
+       Vídeo .mov ou HEVC do iPhone: converta para MP4 antes (veja abaixo).
+     - Pode ser em pé ou deitado: a carta mede sozinha e ajusta a moldura.
+     - Até uns 25 MB cada (o GitHub aceita até 100 MB por arquivo, mas ela vai
+       abrir no 4G: quanto mais leve, mais rápido começa). Um vídeo de 1 minuto
+       em 720p fica com uns 10 a 15 MB.
+
+     COMO COMPRIMIR
+     - Pelo celular: um app de comprimir vídeo (por exemplo "Video Compressor")
+       exportando em MP4, 720p.
+     - Pelo computador, com o HandBrake (grátis): predefinição "Fast 720p30".
+     - Pelo computador, com o ffmpeg (uma linha só no terminal):
+         ffmpeg -i original.mov -vf "scale=w=1280:h=1280:force_original_aspect_ratio=decrease:force_divisible_by=2" -c:v libx264 -crf 26 -preset slow -pix_fmt yuv420p -c:a aac -b:a 128k -movflags +faststart assets/videos/sariel.mp4
+       Serve para vídeo em pé e deitado: o lado maior fica com no máximo
+       1280 px. O "+faststart" faz o vídeo começar antes de baixar inteiro.
+
+     Se um vídeo não carregar (arquivo com nome errado, por exemplo), a carta
+     mostra só o nome e conta como vista: nada trava.
+     ------------------------------------------------------------------------ */
+  cartasChao: {
+    // Frase que aparece no alto quando ela chega (opcional; '' = sem frase).
+    frase: '[Algumas pessoas também queriam te dizer uma coisa.]',
+
+    // Texto do botão de seguir em frente.
+    seguir: 'Seguir em frente',
+
+    // O cartão que abre quando a carta ainda não tem vídeo (ou a Surpresinha
+    // ainda não tem nada). {nome} é trocado pelo nome da carta.
+    vazio: '[vídeo de {nome} vem aqui]',
+    vazioSurpresinha: '[os nossos momentos vêm aqui]',
+
+    // Nomes lidos em voz alta por leitores de tela (não aparecem escritos).
+    rotulos: {
+      // {n} é trocado pelo número da carta (ela ainda não sabe de quem é).
+      carta: 'Carta {n}',
+      fechar: 'Fechar',
+      anterior: 'Anterior',
+      proxima: 'Próxima',
+    },
+
+    // As cartas dos amigos, na ordem.
+    //   nome:  quem gravou; aparece escrito à mão na carta DEPOIS que ela abre
+    //   video: o .mp4 dentro de assets/videos/ ('' = ainda não chegou)
+    //   capa:  imagem opcional mostrada enquanto o vídeo carrega ('' se não tiver)
+    itens: [
+      { nome: 'Sariel', video: '', capa: '' },
+      { nome: 'Ana', video: '', capa: '' },
+      { nome: 'Mirai', video: '', capa: '' },
+      { nome: 'Alpha', video: '', capa: '' },
+      { nome: 'Pocoyoh', video: '', capa: '' },
+      { nome: 'Nup', video: '', capa: '' },
+    ],
+
+    // A última carta do chão: os momentos de vocês dois, em fotos e vídeos que
+    // ela passa para o lado. Para tirar a Surpresinha, deixe o nome vazio ('').
+    surpresinha: {
+      nome: 'Surpresinha',
+
+      // As fotos e os vídeos, na ordem em que aparecem. Fotos em
+      // assets/images/, vídeos em assets/videos/. Exemplos de linhas prontas:
+      //
+      //   { foto: 'assets/images/nos-1.webp', legenda: '[O dia em que...]' },
+      //   { video: 'assets/videos/nos-1.mp4', legenda: '' },
+      //
+      // "legenda" é opcional (pode ficar '' ou nem existir).
+      midias: [
+      ],
+    },
+  },
+
+  /* --------------------------------------------------------------------------
      O ENCONTRO
-     Depois que ela segue o fio, a alameda escurece e estas imagens passam
+     Depois que ela vê as cartas do chão e segue em frente, a alameda escurece e estas imagens passam
      sozinhas, uma de cada vez, como cenas de um filme: o fio leva até você.
      No fim, o fio vermelho do site liga um dedinho ao outro, vem um clarão e
      a última carta aparece.

@@ -1,6 +1,6 @@
 // Boot: detecta o ambiente, monta o contexto e entrega ao diretor.
 //
-//   ctx = { conteudo, amb, mundo, som, musica, pergaminho, diretor, gsap, ScrollTrigger }
+//   ctx = { conteudo, amb, mundo, som, musica, pergaminho, inventario, bolso, diretor, gsap, ScrollTrigger }
 // mais dois apoios: ctx.recursos (pré-carga e imagens) e ctx.estado (objeto livre
 // para uma cena deixar algo para a seguinte, como o envelope e o fio).
 
@@ -12,6 +12,8 @@ import { criarRecursos } from './nucleo/recursos.js';
 import { criarSom } from './som.js';
 import { criarMusica } from './musica.js';
 import { criarPergaminho } from './pergaminho.js';
+import { criarInventario } from './inventario.js';
+import { criarBolso } from './cenas/bolso.js';
 import { criarMundo } from './mundo/mundo.js';
 
 // O diretor nasce primeiro: é ele que instala window.__carta (com a Promise `pronto`).
@@ -64,8 +66,18 @@ async function iniciar() {
     mini: document.getElementById('mini'),
   });
 
+  // A bolsa (o que ela guardou) e a animação da carta indo para o bolso.
+  const inventario = criarInventario({
+    conteudo, amb, som, recursos,
+    raiz: document.getElementById('inventario'),
+  });
+  const bolso = criarBolso({
+    conteudo, amb, som, mundo,
+    raiz: document.getElementById('bolso'),
+  });
+
   const ctx = {
-    conteudo, amb, mundo, som, musica, pergaminho, diretor, gsap, ScrollTrigger,
+    conteudo, amb, mundo, som, musica, pergaminho, inventario, bolso, diretor, gsap, ScrollTrigger,
     recursos,
     estado: {},
   };

@@ -11,42 +11,74 @@
 //   contexto   perda e devolução do contexto WebGL; perda definitiva → recarrega no modo leve
 //   params     ?cena= e outros parâmetros inválidos
 //   faltando   todas as imagens e a música respondendo 404
-//   teclado    Tab e Enter abrem a carta e escolhem a música
+//   teclado    a senha pelo teclado; Tab e Enter escolhem a música e abrem a carta
 //   audio      nada de áudio antes do toque; depois, GainNode em 0,30; pausa e retoma
 //   quebra     capítulo que não carrega e ouvinte de quadro que lança exceção
 //   vazio      content.js vazio (só informa onde parou)
+//   bolsa      a bolsa sob toques repetidos, Esc e giro do aparelho: reler não muda a etapa, nada abre por baixo
 //   qualidade  travado em 30 fps desde o início não baixa a qualidade; ficar lento no meio baixa
 //
 // Capturas em output/robustez/. Código de saída ≠ 0 se algo falhar.
 
 import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
-import { abrir, RAIZ, lerConteudo, temEncontro } from './lib.mjs';
+import { abrir, RAIZ, lerConteudo, temEncontro, temCartas, senhaDoConteudo } from './lib.mjs';
 
 const FOTOS = path.join(RAIZ, 'output', 'robustez');
 await mkdir(FOTOS, { recursive: true });
 
+// Roteiro 2 (_dev/ROTEIRO2.md): a carta começa na tela preta (senha e música).
+const CONTEUDO = lerConteudo();
 const ESPERADO = [
-  'inicio:frases', 'inicio:caminhada', 'inicio:carta-chegando', 'inicio:carta-espera', 'inicio:carta-abrindo', 'inicio:papel', 'inicio:musica',
-  'poppy:desenrolando', 'poppy:lendo',
-  'carta2:enrolando', 'carta2:caminhada', 'carta2:carta-chegando', 'carta2:carta-espera', 'carta2:carta-abrindo', 'carta2:papel',
-  'yourname:desenrolando', 'yourname:lendo',
-  'mao:enrolando', 'mao:olha', 'mao:mao-espera', 'mao:seguindo',
+  ...(senhaDoConteudo(CONTEUDO) ? ['senha:senha', 'senha:senha-certa'] : []),
+  'musica:musica', 'musica:entrando',
+  'inicio:frases', 'inicio:caminhada', 'inicio:carta-chegando', 'inicio:carta-espera', 'inicio:carta-abrindo', 'inicio:papel',
+  'poppy:desenrolando', 'poppy:lendo', 'poppy:enrolando', 'poppy:guardando',
+  'carta2:caminhada', 'carta2:carta-chegando', 'carta2:carta-espera', 'carta2:carta-abrindo', 'carta2:papel',
+  'yourname:desenrolando', 'yourname:lendo', 'yourname:enrolando', 'yourname:guardando',
+  'mao:olha', 'mao:mao-espera', 'mao:correndo',
+  // as cartas do chão: uma é aberta e fechada (assistindo), e ela segue em frente
+  ...(temCartas(CONTEUDO) ? ['cartas:pousando', 'cartas:escolhendo', 'cartas:assistindo', 'cartas:escolhendo', 'cartas:seguindo'] : []),
   // o encontro só existe com quadros em encontro.quadros (js/content.js); anda sozinho
-  ...(temEncontro(lerConteudo()) ? ['encontro:chegando', 'encontro:planos', 'encontro:maos', 'encontro:carta'] : []),
+  ...(temEncontro(CONTEUDO) ? ['encontro:chegando', 'encontro:planos', 'encontro:maos', 'encontro:carta'] : []),
   'final:carta-chegando', 'final:carta-espera', 'final:carta-abrindo', 'final:desdobrando', 'final:escrevendo', 'final:fim',
 ];
 
 const falhas = [];
 const ok = (cond, msg) => { if (!cond) falhas.push(msg); console.log(`${cond ? 'ok   ' : 'FALHA'} ${msg}`); };
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
-const historico = (s) => s.page.evaluate(() => window.__carta.historico.map((h) => `${h.cena}:${h.etapa}`));
+/**
+ * O histórico, com as cartas do chão normalizadas: ela pode abrir quantas quiser (cada uma
+ * é um par assistindo → escolhendo); para comparar com ESPERADO fica só o primeiro par.
+ */
+const historico = async (s) => {
+  const h = await s.page.evaluate(() => window.__carta.historico.map((x) => `${x.cena}:${x.etapa}`));
+  const saida = [];
+  let pares = 0;
+  for (let i = 0; i < h.length; i++) {
+    if (h[i] === 'cartas:assistindo' && h[i + 1] === 'cartas:escolhendo') {
+      if (pares++ > 0) { i++; continue; }
+    }
+    saida.push(h[i]);
+  }
+  return saida;
+};
 const foto = (s, nome) => s.page.screenshot({ path: path.join(FOTOS, `${nome}.png`), scale: 'css' });
 
 /** Faz o que a etapa pede para seguir adiante (tolerante: se já foi feito, segue). */
 async function agir(s, etapa, { curto = 6000 } = {}) {
   const tentar = (seletor) => s.acionar(seletor, curto).catch(() => {});
-  if (etapa === 'carta-espera') await s.tocarCentro();
+  // fill em vez de digitar: funciona mesmo com toques tirando o foco do campo (caso spam)
+  if (etapa === 'senha') await s.page.locator('[data-acao="senha"]').first().fill(senhaDoConteudo(CONTEUDO), { timeout: curto }).catch(() => {});
+  else if (etapa === 'escolhendo') {
+    // primeira vez: abre uma carta; depois de uma aberta, segue em frente
+    const abertas = await s.page.locator('[data-acao="carta-chao"]:not([data-estado="fechada"])').count();
+    await tentar(abertas ? '[data-acao="seguir-cartas"]' : '[data-acao="carta-chao"][data-estado="fechada"]');
+  } else if (etapa === 'assistindo') {
+    await tentar('[data-acao="fechar-carta"]');
+    await s.page.waitForFunction(() => window.__carta.etapa === 'escolhendo', null, { timeout: 20000, polling: 50 }).catch(() => {});
+  }
+  else if (etapa === 'carta-espera') await s.tocarCentro();
   else if (etapa === 'musica') { await tentar('[data-acao="faixa"]'); await tentar('[data-acao="continuar"]'); }
   else if (etapa === 'lendo') {
     await s.page.evaluate(() => { const r = window.__carta.ctx.pergaminho.rolagem; r.irPara(r.el.scrollHeight, { imediato: true }); });
@@ -123,7 +155,7 @@ const casos = {
         && Math.abs(m.aspecto - esperado.width / esperado.height) < 0.01
         && Math.abs(m.buffer[0] - m.tam.largura * m.tam.dpr) <= 2;
       ok(bate, `resize em ${passo}: canvas ${m.css.join('×')} buffer ${m.buffer.join('×')} aspecto ${m.aspecto} fov ${m.fov} ligado ${m.ligado}`);
-      if (/carta-espera|musica|lendo|mao-espera|fim|carta-abrindo|papel|seguindo|desdobrando/.test(passo)) await foto(s, `resize-${String(n).padStart(2, '0')}-${passo.replace(':', '-')}`);
+      if (/carta-espera|musica|lendo|mao-espera|fim|carta-abrindo|papel|correndo|escolhendo|desdobrando/.test(passo)) await foto(s, `resize-${String(n).padStart(2, '0')}-${passo.replace(':', '-')}`);
       // o alvo do toque acompanha a tela nova
       if (passo.endsWith('carta-espera')) {
         const { width, height } = s.page.viewportSize();
@@ -156,7 +188,7 @@ const casos = {
 
   // 3. Aba oculta e visível (simulada: document.hidden + visibilitychange).
   async aba() {
-    const s = await abrir({ vp: 'celular', params: { rapido: 1 }, preparar: async (page) => {
+    const s = await abrir({ vp: 'celular', params: { rapido: 1 }, entrar: true, preparar: async (page) => {
       await page.addInitScript(() => {
         let oculto = false;
         Object.defineProperty(Document.prototype, 'hidden', { configurable: true, get() { return oculto; } });
@@ -265,7 +297,7 @@ const casos = {
     ok(modo.ok === false && modo.cena === 'carta2' && modo.tocando === false, `depois de recarregar: modo leve, cena carta2, música esperando o toque (${JSON.stringify(modo)})`);
     let erro = null;
     try {
-      const resto = ESPERADO.slice(ESPERADO.indexOf('carta2:enrolando'));
+      const resto = ESPERADO.slice(ESPERADO.indexOf('carta2:caminhada'));
       for (const passo of resto) {
         await n.page.waitForFunction((alvo) => window.__carta.historico.some((h) => `${h.cena}:${h.etapa}` === alvo), passo, { timeout: 40000 });
         if (passo === 'carta2:carta-abrindo') {
@@ -296,9 +328,9 @@ const casos = {
   async params() {
     for (const [rotulo, cena, params] of [['cena=xyz', 'xyz', {}], ['cena vazia', '', { cena: '' }], ['rapido=abc nivel=xyz webgl=banana', undefined, { rapido: 'abc', nivel: 'xyz', webgl: 'banana' }], ['cena=FINAL', 'FINAL', {}]]) {
       const s = await abrir({ vp: 'celular', cena, params });
-      await s.esperarEtapa('frases', 15000);
+      await s.esperarEtapa('senha:senha', 15000);
       const e = await s.page.evaluate(() => ({ cena: window.__carta.cena, etapa: window.__carta.etapa, d: document.documentElement.dataset.cena, amb: { r: window.__carta.ctx.amb.rapido, n: window.__carta.ctx.amb.nivel, w: window.__carta.ctx.amb.webgl } }));
-      ok(e.cena === 'inicio' && e.d === 'inicio', `${rotulo} → cai em inicio (${JSON.stringify(e)})`);
+      ok(e.cena === 'senha' && e.d === 'senha', `${rotulo} → cai no começo, a senha (${JSON.stringify(e)})`);
       ok(s.erros.length === 0, `${rotulo}: sem erros`);
       await s.fechar();
     }
@@ -330,14 +362,12 @@ const casos = {
   // 7. Teclado.
   async teclado() {
     const s = await abrir({ vp: 'desktop', params: { rapido: 6 } });
-    await s.esperarEtapa('inicio:carta-espera');
-    // A carta já leva o foco ao alvo sozinha (foco solto no body); só tabula se não levou.
-    const jaNaCarta = await s.page.evaluate(() => document.activeElement?.dataset?.acao === 'abrir-carta');
-    if (!jaNaCarta) await s.page.keyboard.press('Tab');
-    const foco = await s.page.evaluate(() => document.activeElement?.dataset?.acao || document.activeElement?.tagName);
-    ok(foco === 'abrir-carta', `Tab foca o alvo da carta (${foco})`);
-    await s.page.keyboard.press('Enter');
-    await s.esperarEtapa('inicio:musica', 20000);
+    // A senha: no computador o campo já nasce com o foco; digitar basta.
+    await s.esperarEtapa('senha:senha');
+    const focoSenha = await s.page.evaluate(() => document.activeElement?.dataset?.acao);
+    ok(focoSenha === 'senha', `o campo da senha já tem o foco (${focoSenha})`);
+    await s.page.keyboard.type(senhaDoConteudo(CONTEUDO), { delay: 40 });
+    await s.esperarEtapa('musica:musica', 20000);
     await pausa(800);
     // A música já leva o foco à primeira faixa sozinha; só tabula se não levou.
     const jaNaFaixa = await s.page.evaluate(() => document.activeElement?.dataset?.acao === 'faixa');
@@ -348,6 +378,13 @@ const casos = {
     await s.page.keyboard.press('Tab');
     const foco3 = await s.page.evaluate(() => document.activeElement?.dataset?.acao);
     await foto(s, 'teclado-foco-continuar');
+    await s.page.keyboard.press('Enter');
+    await s.esperarEtapa('inicio:carta-espera', 40000);
+    // A carta já leva o foco ao alvo sozinha (foco solto no body); só tabula se não levou.
+    const jaNaCarta = await s.page.evaluate(() => document.activeElement?.dataset?.acao === 'abrir-carta');
+    if (!jaNaCarta) await s.page.keyboard.press('Tab');
+    const foco = await s.page.evaluate(() => document.activeElement?.dataset?.acao || document.activeElement?.tagName);
+    ok(foco === 'abrir-carta', `Tab foca o alvo da carta (${foco})`);
     await s.page.keyboard.press('Enter');
     await s.esperarEtapa('poppy:lendo', 20000);
     ok(foco2 === 'faixa' && foco3 === 'continuar', `Tab/Enter escolhe a música e continua (${foco2}, ${foco3})`);
@@ -367,13 +404,14 @@ const casos = {
         HTMLMediaElement.prototype.play = function (...a) { window.__plays++; return play.apply(this, a); };
       });
     } });
-    await s.esperarEtapa('inicio:carta-espera');
+    await s.esperarEtapa('senha:senha');
+    await pausa(600);
     const antes = await s.page.evaluate(() => ({ c: window.__contextos, p: window.__plays, e: { ...window.__carta.ctx.som.estado } }));
     ok(antes.c === 0 && antes.p === 0 && antes.e.destravado === false, `antes de qualquer toque: nenhum AudioContext, nenhum play (${JSON.stringify(antes)})`);
-    await s.tocarCentro();
-    await s.esperarEtapa('inicio:musica');
+    await s.digitarSenha();
+    await s.esperarEtapa('musica:musica');
     const meio = await s.page.evaluate(() => ({ c: window.__contextos, p: window.__plays, d: window.__carta.ctx.som.diagnostico() }));
-    ok(meio.c === 1 && meio.p === 0 && meio.d.contexto === 'running', `depois do toque na carta: contexto criado e rodando, música ainda não (${JSON.stringify(meio)})`);
+    ok(meio.c === 1 && meio.p === 0 && meio.d.contexto === 'running', `depois da senha: contexto criado e rodando, música ainda não (${JSON.stringify(meio)})`);
     await s.acionar('[data-acao="faixa"]');
     await pausa(2600);
     const tocando = await s.page.evaluate(() => {
@@ -382,6 +420,8 @@ const casos = {
     });
     ok(tocando.d.webAudio && Math.abs(tocando.d.ganho - 0.3) < 0.02 && !tocando.d.pausado && tocando.d.tempo > 1, `tocando: ganho ${tocando.d.ganho.toFixed(3)} (alvo 0,30), tempo ${tocando.d.tempo.toFixed(2)} s`);
     await s.acionar('[data-acao="continuar"]');
+    await s.esperarEtapa('inicio:carta-espera');
+    await s.tocarCentro();
     await s.esperarEtapa('poppy:lendo');
     await s.acionar('[data-acao="mini"]');
     await pausa(300);
@@ -401,7 +441,7 @@ const casos = {
 
   // 9. Cena que quebra (módulo do capítulo não carrega) e ouvinte de quadro que quebra.
   async quebra() {
-    const s = await abrir({ vp: 'celular', params: { rapido: 6 }, preparar: async (page) => {
+    const s = await abrir({ vp: 'celular', params: { rapido: 6 }, entrar: true, preparar: async (page) => {
       await page.route('**/js/capitulos/poppy.js', (r) => r.fulfill({ status: 404, body: '' }));
     } });
     await s.page.evaluate(() => {
@@ -413,7 +453,7 @@ const casos = {
     await pausa(500);
     ok(await s.page.evaluate(() => window.__quadros) > 10, 'ouvinte de quadro que lança exceção não para o mundo');
     let erro = null;
-    const etapas = ESPERADO.filter((p) => p !== 'poppy:lendo' && p !== 'carta2:enrolando' ? true : p !== 'poppy:lendo');
+    const etapas = ESPERADO.filter((p) => !/^(senha|musica):/.test(p) && !['poppy:lendo', 'poppy:enrolando', 'poppy:guardando'].includes(p));
     try {
       for (const passo of etapas) {
         await s.esperarEtapa(passo, 40000);
@@ -443,7 +483,8 @@ const casos = {
   // 11. Qualidade adaptativa: ritmo natural de 30 fps não é lentidão.
   async qualidade() {
     const medir = async (script, ms) => {
-      const s = await abrir({ vp: 'celular', preparar: (page) => page.addInitScript(script) });
+      // por ?cena=inicio: o mundo ligado desde a carga da página (atrás da tela preta ele fica desligado)
+      const s = await abrir({ vp: 'celular', cena: 'inicio', preparar: (page) => page.addInitScript(script) });
       const ler = () => s.page.evaluate(() => { const m = window.__carta.ctx.mundo; return { nivel: m.amb.nivel, dpr: m.tamanho.dpr }; });
       const antes = await ler();
       await pausa(ms);
@@ -472,6 +513,76 @@ const casos = {
     ok(a.depois.nivel === a.antes.nivel && a.depois.dpr === a.antes.dpr, `travado em 30 fps desde o início: qualidade mantida (${JSON.stringify(a.depois)})`);
     const b = await medir(sofrendo, 16000);
     ok(b.depois.dpr < b.antes.dpr || b.depois.nivel !== b.antes.nivel, `ficou lento no meio: qualidade desce (${JSON.stringify(b.antes)} → ${JSON.stringify(b.depois)})`);
+  },
+
+  /** A bolsa: abre só na espera, não deixa a carta abrir por baixo, relê sem mudar a etapa. */
+  async bolsa() {
+    const s = await abrir({ cena: 'carta2', vp: 'iphone', params: { rapido: 6 } });
+    const inv = () => s.page.evaluate(() => {
+      const i = window.__carta.ctx.inventario;
+      const r = document.getElementById('inventario');
+      return { aberto: i.aberto, itens: i.itens.map((x) => x.id), folha: r.hasAttribute('data-aberto'), oculto: r.hidden, etapa: `${window.__carta.cena}:${window.__carta.etapa}` };
+    });
+    // em movimento (a caminhada até a carta) a bolsa não abre
+    await s.esperarEtapa('carta2:caminhada');
+    await s.page.waitForSelector('[data-acao="inventario"]', { state: 'visible', timeout: 10000 });
+    await s.page.locator('[data-acao="inventario"]').tap({ force: true, timeout: 3000 }).catch(() => {});
+    await pausa(300);
+    let e = await inv();
+    ok(!e.aberto && !e.folha && e.itens.join() === 'carta-poppy', `bolsa: fechada durante a caminhada, só com o que ela já guardou (${JSON.stringify(e)})`);
+    await s.esperarEtapa('carta2:carta-espera');
+    await pausa(400);
+    // toques repetidos no botão: termina num estado coerente
+    for (let i = 0; i < 3; i++) await s.page.locator('[data-acao="inventario"]').tap({ force: true, timeout: 3000 }).catch(() => {});
+    await pausa(500);
+    e = await inv();
+    ok(e.aberto === e.folha, `bolsa: três toques seguidos no botão deixam a folha coerente (${JSON.stringify(e)})`);
+    if (!e.folha) await s.acionar('[data-acao="inventario"]');
+    await pausa(400);
+    // com a bolsa aberta, tocar no meio da tela (em cima da carta) não abre a carta
+    await s.tocarCentro();
+    await pausa(500);
+    e = await inv();
+    ok(e.etapa === 'carta2:carta-espera', `bolsa aberta: o toque no meio da tela não abre a carta por baixo (${e.etapa})`);
+    // relê o capítulo; toque duplo no item, giro do aparelho no meio
+    if (!(await inv()).folha) await s.acionar('[data-acao="inventario"]');
+    await pausa(400);
+    const item = s.page.locator('[data-acao="inventario-item"][data-id="carta-poppy"]');
+    await item.tap({ timeout: 5000 });
+    await item.tap({ force: true, timeout: 1000 }).catch(() => {});
+    await s.page.waitForFunction(() => document.getElementById('pergaminho').dataset.estado === 'aberto', null, { timeout: 30000 });
+    await s.page.setViewportSize({ width: 926, height: 428 });
+    await pausa(600);
+    await s.page.setViewportSize({ width: 428, height: 926 });
+    await pausa(600);
+    const lendo = await s.page.evaluate(() => ({
+      etapa: `${window.__carta.cena}:${window.__carta.etapa}`, pele: document.getElementById('mini').dataset.pele,
+      palco: getComputedStyle(document.getElementById('palco')).visibility, botao: getComputedStyle(document.querySelector('[data-acao="inventario"]')).opacity,
+      rotulo: (document.querySelector('[data-acao="fechar-capitulo"]') || {}).textContent || '',
+    }));
+    ok(lendo.etapa === 'carta2:carta-espera' && lendo.pele === 'poppy' && lendo.palco === 'hidden' && Number(lendo.botao) < 0.05,
+      `relendo pela bolsa: a etapa não muda, o mini veste o capítulo, o palco e o botão da bolsa saem da frente (${JSON.stringify(lendo)})`);
+    ok(!/fechar/i.test(lendo.rotulo), `o botão do fim do capítulo não diz "fechar" ("${lendo.rotulo.trim()}")`);
+    await foto(s, 'bolsa-relendo');
+    await s.fecharDaBolsa();
+    await pausa(500);
+    const volta = await s.page.evaluate(() => ({
+      etapa: `${window.__carta.cena}:${window.__carta.etapa}`, pele: document.getElementById('mini').dataset.pele,
+      palco: getComputedStyle(document.getElementById('palco')).visibility, mundo: window.__carta.ctx.mundo.ligado, aberto: window.__carta.ctx.inventario.aberto,
+    }));
+    ok(volta.etapa === 'carta2:carta-espera' && volta.pele === 'papel' && volta.palco === 'visible' && volta.mundo && !volta.aberto,
+      `depois de guardar de novo: tudo como estava (${JSON.stringify(volta)})`);
+    // Esc fecha a folha (teclado)
+    await s.acionar('[data-acao="inventario"]');
+    await pausa(300);
+    await s.page.keyboard.press('Escape');
+    await pausa(400);
+    ok(!(await inv()).aberto, 'Esc fecha a bolsa');
+    // e a carta do caminho ainda abre
+    await s.tocarCentro();
+    await s.esperarEtapa('carta2:papel', 30000).then(() => ok(true, 'depois da bolsa, a carta do caminho ainda abre'), () => ok(false, 'depois da bolsa, a carta do caminho não abriu'));
+    ok(s.erros.length === 0, `bolsa: sem erros (${JSON.stringify(s.erros).slice(0, 300)})`);
+    await s.fechar();
   },
 };
 

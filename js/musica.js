@@ -1,19 +1,23 @@
-// Música: o seletor na folha e o mini seletor fixo no canto (contrato 4.6).
+// Música: o carrossel de capas na tela preta e o mini seletor fixo no canto
+// (_dev/ROTEIRO2.md, 3b).
 //
-//   musica.escolher(perg.folha) → Promise   resolve quando ela escolheu e tocou em continuar
-//                                            (sem faixas válidas, resolve na hora)
+//   musica.escolher(recipiente) → Promise   recipiente = #entrada-musica. Resolve quando ela
+//                                            escolheu e tocou em continuar (sem faixas
+//                                            válidas, resolve na hora)
 //   musica.mostrarMini() / musica.esconderMini()
 //
-// Ganchos para os testes (não mudar): [data-acao="faixa"], [data-acao="continuar"],
-// [data-acao="mini"], [data-acao="mini-alternar"].
+// Ganchos para os testes (não mudar): [data-acao="faixa"] (o primeiro do DOM é a capa
+// do centro ao abrir), [data-acao="continuar"], [data-acao="mini"], [data-acao="mini-alternar"].
 //
-// NA FOLHA. A folha em branco vira o encarte de uma fita gravada para ela: o
-// título em cima e as faixas como uma lista escrita à mão, cada capa colada com
-// um pedaço de fita de papel. Com uma faixa só, a capa cresce e vira a capa de um
-// compacto, com o disco aparecendo de dentro. Tocar numa faixa faz a capa
-// descolar, o fio vermelho dar a volta no nome e a música entrar. No continuar, o
-// disco (ou a capa) voa até o canto e vira o mini seletor: a folha entrega um
-// elemento para o resto da carta.
+// NA TELA PRETA. Uma capa grande por vez, com o disco espiando de dentro dela. Ela
+// passa para o lado com o dedo: o trilho segue o dedo e, ao soltar, encaixa na capa
+// mais perto (no máximo uma por gesto; nas pontas ele resiste como um elástico). As
+// vizinhas espiam pela borda, menores e apagadas, e os pontos embaixo dizem quantas
+// há. No computador também valem as setas da tela, as do teclado e a roda de lado.
+// Tocar na capa do centro escolhe: o disco escorrega para fora e gira, o fio
+// vermelho dá a volta no nome e a música entra. Tocar numa vizinha só a traz para o
+// centro. No continuar, o disco voa até o canto e vira o mini seletor.
+// Funciona igual com uma faixa só (sem pontos, sem setas) e com muitas.
 //
 // NO CANTO. Um disco pequeno com a capa, girando enquanto toca, com o fio em
 // volta marcando o progresso. Abre num painel com tocar/pausar, a lista e o
@@ -27,6 +31,7 @@ import { curvas, revelarPalavras } from './nucleo/movimento.js';
 const ICONE_TOCAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.7 5.3c.2 4.5.1 8.9-.1 13.4 3.6-2 7-4.2 10.5-6.6-3.4-2.4-6.8-4.7-10.4-6.8z" fill="currentColor" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>';
 const ICONE_PAUSA = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.4 5.6c.2 4.2.1 8.5-.1 12.8M15.7 5.4c-.2 4.3-.1 8.6.1 13" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round"/></svg>';
 const ICONE_SETA = '<svg class="musica-seta" viewBox="0 0 44 20" aria-hidden="true"><path d="M2.5 11.2c9.2-2.3 22-2.8 37.6-1.3"/><path d="M32.4 3.6c2.7 2.2 5.2 4.1 7.9 6.2-3 1.7-5.7 3.5-8.5 6.1"/></svg>';
+const ICONE_PASSAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.2 4.6c2.5 2.3 5 4.7 7.4 7.3-2.5 2.5-4.9 5-7.2 7.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const ICONE_VOLUME = '<svg class="mini-volume-icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.4 9.4c1.2-.1 2.3-.1 3.4 0 1.5-1.2 2.9-2.3 4.3-3.5.2 4 .2 8.1 0 12.2-1.5-1.1-2.9-2.2-4.3-3.4-1.1.1-2.3.1-3.4 0-.1-1.8-.1-3.5 0-5.3z"/><path d="M14.4 9.6c1 1.5 1 3.4 0 4.9M17.2 7.3c2.2 2.9 2.2 6.6 0 9.5"/></svg>';
 
 const PERIODO_GIRO = 9000;       // ms por volta: o disco gira devagar
@@ -119,34 +124,6 @@ function caminhoDoSublinhado(l, a, sorte) {
     pontos.push([2 + (l - 4) * k, y + Math.sin(k * 5.2 + sorte() * 0.8) * 1.1 - (k > 0.86 ? (k - 0.86) * 16 : 0)]);
   }
   return caminhoSuave(pontos);
-}
-
-/**
- * O traço de tinta entre duas linhas da lista: um risco de pincel fino. Começa
- * carregado de tinta, afina aos poucos e termina seco (a ponta se parte em dois).
- */
-function tracoDeTinta(sorte) {
-  const cima = [];
-  const baixo = [];
-  const x0 = 2 + sorte() * 14;
-  const x1 = 298 - sorte() * 30;
-  const fase = sorte() * 6;
-  const passos = 12;
-  for (let i = 0; i <= passos; i++) {
-    const k = i / passos;
-    const x = x0 + (x1 - x0) * k;
-    const meio = 5 + Math.sin(k * 3.9 + fase) * 0.9 + (sorte() - 0.5) * 0.35;
-    // grosso logo depois do começo, afinando até o fim
-    const carga = Math.min(1, k * 9) * (1 - k) ** 0.8;
-    const meia = 0.2 + carga * (0.75 + sorte() * 0.5);
-    cima.push([x, meio - meia]);
-    baixo.unshift([x, meio + meia * 0.9]);
-  }
-  // o resto de tinta que a ponta seca ainda deixa, um pouco adiante
-  const xr = x1 + 3 + sorte() * 5;
-  const yr = cima[passos][1] + (sorte() - 0.5) * 0.8;
-  const resto = `M${n2(xr)} ${n2(yr)}C${n2(xr + 4)} ${n2(yr - 0.5)} ${n2(xr + 9)} ${n2(yr + 0.1)} ${n2(xr + 13)} ${n2(yr - 0.2)}C${n2(xr + 9)} ${n2(yr + 0.6)} ${n2(xr + 4)} ${n2(yr + 0.5)} ${n2(xr)} ${n2(yr)}Z`;
-  return svg(`<svg class="musica-traco" viewBox="0 0 320 10" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="${caminhoSuave([...cima, ...baixo, cima[0]])}Z${resto}"/></svg>`);
 }
 
 export function criarMusica({ conteudo, som, amb, recursos, mini }) {
@@ -345,7 +322,7 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
     };
   }
 
-  // ---- seletor na folha -------------------------------------------------------------------
+  // ---- carrossel na tela preta -------------------------------------------------------------------
 
   function escolher(folha) {
     if (!folha || !validas().length) return Promise.resolve();
@@ -369,25 +346,33 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
   }
 
   function montarSeletor(folha, faixas, capas, prontas, resolver) {
-    const unica = faixas.length === 1;
-    const limpar = [];                       // o que desfazer quando a folha for embora
+    const limpar = [];                       // o que desfazer quando o seletor for embora
     let terminado = false;
     let escolhida = null;
+    let atual = 0;                           // qual capa está no centro (posição em `vivas`)
+    let passo = 0;                           // px entre o centro de uma capa e o da vizinha
+    const pos = { x: 0 };                    // onde o trilho está, em capas (0 = a primeira no centro)
 
     const titulo = el('h2', 'musica-titulo');
-    const lista = el('ul', 'musica-lista');
+    const trilho = el('ul', 'car-trilho');
+    const janela = el('div', 'car-janela', trilho);
+    const seta = (dir, rotulo) => el('button', {
+      class: 'car-seta', type: 'button', 'aria-label': rotulo || '', dataset: { dir: String(dir) },
+    }, svg(ICONE_PASSAR));
+    const setaAntes = seta(-1, rotulos.anterior);
+    const setaDepois = seta(1, rotulos.proxima);
+    const palco = el('div', 'car-palco', [janela, setaAntes, setaDepois]);
+    const pontos = el('div', { class: 'car-pontos', 'aria-hidden': 'true' });
     const rotuloContinuar = el('span', 'musica-continuar-texto', dados.continuar || '');
     const continuar = el('button', {
       class: 'musica-continuar', type: 'button', dataset: { acao: 'continuar' },
     }, [rotuloContinuar, svg(ICONE_SETA)]);
     // Sem texto visível, a seta sozinha precisa de um nome para o leitor de tela.
     if (!dados.continuar && rotulos.continuar) continuar.setAttribute('aria-label', rotulos.continuar);
-    // Poucas faixas: linhas largas, capas maiores. De cinco em diante, linhas mais juntas (seis ainda cabem
-    // na tela do celular); passando disso, a lista rola dentro da folha.
-    const folga = faixas.length <= 3 ? 'larga' : faixas.length <= 4 ? 'media' : 'justa';
     const painel = el('div', {
-      class: 'musica', dataset: { modo: unica ? 'unica' : 'lista', quantas: String(faixas.length), folga },
-    }, [titulo, lista, continuar]);
+      class: 'musica carrossel', dataset: { quantas: String(faixas.length) },
+    }, [titulo, palco, pontos, continuar]);
+    if (faixas.length < 2) painel.dataset.unica = '';
 
     const sublinhado = criarFioDesenhado('musica-sublinhado', rotuloContinuar, { x: 4, y: 0 },
       (l) => caminhoDoSublinhado(l, 9, semente(77)));
@@ -396,53 +381,45 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
     continuar.disabled = true;
     // (o continuar fica escondido só depois da pintura de aquecimento, lá embaixo)
 
-    // ---- as linhas ----
+    // ---- as capas ----
     const linhas = faixas.map((faixa, posicao) => {
-      const sorte = semente(faixa.indice * 97 + 13);
-      const lado = posicao % 2 ? 1 : -1;
-      const angulo = unica ? -1.3 : lado * (1.2 + sorte() * 2.2);
-      const item = el('li', 'musica-item');
-      // Cada capa é colada de um jeito: o ângulo, o quanto a linha entra e onde a fita pegou.
-      // (Variáveis de CSS não passam pelo style{} do el(), que usa Object.assign.)
-      item.style.setProperty('--ang', `${n2(angulo)}deg`);
-      item.style.setProperty('--dx', `${Math.round(sorte() * 12)}px`);
-      item.style.setProperty('--fita-ang', `${n2(-angulo * 1.6 + (sorte() - 0.5) * 7)}deg`);
-      item.style.setProperty('--fita-x', `${Math.round((sorte() - 0.5) * 26)}%`);
+      const item = el('li', 'car-item');
+      const moldura = el('span', 'car-moldura', [
+        el('span', 'car-capa'),
+        el('span', 'car-tocar', svg(ICONE_TOCAR)),
+      ]);
+      const disco = criarDisco('disco-vinil car-disco');
+      // O trilho é por onde o disco escorrega para fora da capa (o CSS move o trilho; o voo move o disco).
+      const objeto = el('span', { class: 'car-objeto', 'aria-hidden': 'true' }, [el('span', 'car-disco-trilho', disco.no), moldura]);
+      disco.capa(faixa);
+      limpar.push(disco.giro.soltar);
 
-      const objeto = el('span', { class: 'musica-objeto', 'aria-hidden': 'true' });
-      const moldura = el('span', 'musica-moldura', [el('span', 'musica-capa'), el('i', 'musica-fita')]);
-      const disco = unica ? criarDisco('disco-vinil musica-disco') : null;
-      if (disco) {
-        // O trilho é por onde o disco escorrega para fora da capa (o CSS move o trilho; a entrada move o disco).
-        objeto.append(el('span', 'musica-disco-trilho', disco.no));
-        disco.capa(faixa);
-        limpar.push(disco.giro.soltar);
-      }
-
-      const nome = el('span', 'musica-nome', faixa.titulo || '');
-      const artista = faixa.artista ? el('span', 'musica-artista', faixa.artista) : null;
-      const texto = el('span', 'musica-texto', [nome, artista]);
+      const nome = el('span', 'car-nome', faixa.titulo || '');
+      const artista = faixa.artista ? el('span', 'car-artista', faixa.artista) : null;
+      const texto = el('span', 'car-texto', [nome, artista]);
       const laco = criarFioDesenhado('musica-laco', texto, folgaDoLaco,
         (l, a, f) => caminhoDoLaco(l, a, semente(faixa.indice * 31 + 5), f));
       texto.append(laco.no);
       limpar.push(laco.soltar);
 
       const botao = el('button', {
-        class: 'musica-faixa', type: 'button', 'aria-pressed': 'false',
+        class: 'car-faixa', type: 'button', 'aria-pressed': 'false',
         dataset: { acao: 'faixa', indice: String(faixa.indice) },
       }, [objeto, texto]);
       item.append(botao);
+      const ponto = el('i', 'car-ponto');
+      pontos.append(ponto);
 
-      const linha = { faixa, item, botao, objeto, moldura, disco, texto, nome, artista, laco, temCapa: false };
+      const linha = { faixa, item, botao, objeto, moldura, disco, texto, nome, artista, laco, ponto, temCapa: false };
 
       const receberCapa = (img, atrasada) => {
         if (terminado) return;
         if (img) {
+          img.draggable = false;
           moldura.firstChild.append(img);
-          if (!moldura.isConnected) objeto.append(moldura);
           linha.temCapa = true;
-          // Capa que chegou depois da folha: aparece devagar, no lugar.
-          if (atrasada && !gsap.isTweening(moldura)) gsap.fromTo(moldura, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.7, ease: 'none', clearProps: 'opacity,visibility' });
+          // Capa que chegou depois: aparece devagar, no lugar.
+          if (atrasada) gsap.fromTo(img, { opacity: 0 }, { opacity: 1, duration: 0.7, ease: 'none', clearProps: 'opacity' });
         }
         item.classList.toggle('sem-capa', !linha.temCapa);
       };
@@ -452,38 +429,211 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
         capas[posicao].then((img) => receberCapa(img, true));
       }
 
-      botao.addEventListener('click', () => aoEscolher(linha));
-      lista.append(item);
+      linha.botao = botao;
+      linha.acionar = () => {
+        const onde = vivas().indexOf(linha);
+        if (onde !== atual) { irPara(onde); return; }     // capa do lado: vem para o centro
+        aoEscolher(linha);
+      };
+      botao.addEventListener('click', () => {
+        // o dedo estava arrastando, ou o toque já foi atendido ao soltar o dedo (ver soltarDedo)
+        if (performance.now() < semClique) return;
+        linha.acionar();
+      });
+      trilho.append(item);
       return linha;
     });
+    const vivas = () => linhas.filter((l) => !l.item.hidden);
 
-    // Entre as linhas, um traço de tinta (nunca uma borda).
-    if (!unica) {
-      linhas.slice(0, -1).forEach((linha, i) => {
-        linha.traco = tracoDeTinta(semente(linha.faixa.indice * 53 + 7 + i));
-        linha.item.append(linha.traco);
+    // ---- o trilho: onde cada capa está ----
+    function medir() {
+      const [primeira] = vivas();
+      if (!primeira) return;
+      const largura = primeira.item.offsetWidth;
+      if (!largura) return;
+      passo = largura + (parseFloat(getComputedStyle(trilho).columnGap) || 0);
+      desenhar();
+    }
+    function desenhar() {
+      trilho.style.transform = `translate3d(${n2(-pos.x * passo)}px,0,0)`;
+      const lista = vivas();
+      for (let i = 0; i < lista.length; i++) {
+        // A do centro inteira; as vizinhas menores e apagadas, espiando pela borda.
+        const longe = clamp(Math.abs(i - pos.x));
+        const estilo = lista[i].item.style;
+        estilo.transform = calmo() ? '' : `scale(${n2(1 - 0.16 * longe)})`;
+        estilo.opacity = String(n2(1 - 0.66 * longe));
+      }
+    }
+    /** O que muda quando outra capa chega ao centro: os pontos, as setas e por onde o Tab passa. */
+    function marcarCentro() {
+      const lista = vivas();
+      lista.forEach((l, i) => {
+        l.botao.tabIndex = i === atual ? 0 : -1;
+        l.item.toggleAttribute('data-centro', i === atual);
+        l.ponto.toggleAttribute('data-atual', i === atual);
+        l.ponto.toggleAttribute('data-escolhida', l === escolhida);
+      });
+      setaAntes.disabled = atual <= 0;
+      setaDepois.disabled = atual >= lista.length - 1;
+      painel.toggleAttribute('data-unica', lista.length < 2);
+    }
+    function irPara(indice, { duracao } = {}) {
+      const max = vivas().length - 1;
+      atual = Math.round(clamp(indice, 0, Math.max(0, max)));
+      marcarCentro();
+      gsap.killTweensOf(pos);
+      gsap.to(pos, {
+        x: atual,
+        duration: duracao ?? (calmo() ? 0.25 : 0.62),
+        ease: calmo() ? 'none' : 'power3.out',       // chega depressa e assenta: o encaixe
+        onUpdate: desenhar,
       });
     }
+    const passar = (dir) => {
+      const antes = atual;
+      irPara(atual + dir);
+      if (atual !== antes) som.efeito('toque');
+      return atual !== antes;
+    };
+    setaAntes.addEventListener('click', () => { if (!terminado) passar(-1); });
+    setaDepois.addEventListener('click', () => { if (!terminado) passar(1); });
+
+    // ---- passar com o dedo: o trilho segue o dedo, e ao soltar encaixa na capa mais perto ----
+    let arrasto = null;
+    let semClique = 0;
+    janela.addEventListener('pointerdown', (e) => {
+      if (terminado || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      arrasto = { id: e.pointerId, x0: e.clientX, y0: e.clientY, p0: pos.x, vale: false, x: e.clientX, t: e.timeStamp, v: 0 };
+    });
+    janela.addEventListener('pointermove', (e) => {
+      const a = arrasto;
+      if (!a || e.pointerId !== a.id || !passo) return;
+      const dx = e.clientX - a.x0;
+      if (!a.vale) {
+        // Só vira arrasto quando o dedo anda de lado de verdade (um toque trêmulo continua toque).
+        if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(e.clientY - a.y0)) return;
+        a.vale = true;
+        a.x0 = e.clientX;
+        a.p0 = pos.x;
+        gsap.killTweensOf(pos);
+        try { janela.setPointerCapture(e.pointerId); } catch { /* segue sem captura */ }
+        painel.toggleAttribute('data-arrastando', true);
+        return;
+      }
+      const dt = e.timeStamp - a.t;
+      if (dt > 0) {
+        a.v = a.v * 0.55 + ((e.clientX - a.x) / dt) * 0.45;
+        a.x = e.clientX;
+        a.t = e.timeStamp;
+      }
+      let x = a.p0 - dx / passo;
+      const max = vivas().length - 1;
+      // Nas pontas (e com uma capa só) o trilho resiste, como um elástico.
+      if (x < 0) x *= 0.3;
+      else if (x > max) x = max + (x - max) * 0.3;
+      pos.x = x;
+      desenhar();
+    });
+    const soltarDedo = (e) => {
+      const a = arrasto;
+      if (!a || e.pointerId !== a.id) return;
+      arrasto = null;
+      if (!a.vale) {
+        // Toque parado com o dedo: atende já, sem esperar o "click". Logo depois de um
+        // arrasto o navegador às vezes engole o click do primeiro toque, e a capa do
+        // centro parecia não responder. O click que vier em seguida é ignorado.
+        if (e.type === 'pointerup' && e.pointerType === 'touch' && performance.now() >= semClique
+          && Math.abs(e.clientX - a.x0) < 10 && Math.abs(e.clientY - a.y0) < 10) {
+          const tocada = linhas.find((l) => l.botao && e.target instanceof Node && l.botao.contains(e.target));
+          if (tocada && !tocada.item.hidden) {
+            semClique = performance.now() + 700;
+            tocada.acionar();
+          }
+        }
+        return;
+      }
+      painel.toggleAttribute('data-arrastando', false);
+      semClique = performance.now() + 320;
+      // Parado há um instante, o dedo não está mais lançando: vale só a posição.
+      const v = e.timeStamp - a.t > 90 ? 0 : a.v;
+      const origem = Math.round(a.p0);
+      // Para onde o impulso levaria; no máximo uma capa por gesto. Arrastou mais de um
+      // quinto do caminho e soltou parado: também passa (não precisa chegar à metade).
+      const andou = pos.x - origem;
+      const lancado = Math.round(pos.x - (v * 190) / passo);
+      const alvo = clamp(Math.abs(andou) > 0.2 && lancado === origem ? origem + Math.sign(andou) : lancado, origem - 1, origem + 1);
+      const antes = atual;
+      irPara(alvo);
+      if (atual !== antes) som.efeito('toque');
+    };
+    janela.addEventListener('pointerup', soltarDedo);
+    janela.addEventListener('pointercancel', soltarDedo);
+    // No computador: a roda de lado (ou dois dedos no trackpad) passa uma capa por vez.
+    let roda = 0;
+    let rodaAte = 0;
+    janela.addEventListener('wheel', (e) => {
+      if (terminado || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      const agora = performance.now();
+      if (agora < rodaAte) return;
+      roda += e.deltaX;
+      if (Math.abs(roda) > 46) {
+        passar(Math.sign(roda));
+        roda = 0;
+        rodaAte = agora + 480;
+      }
+    }, { passive: false });
+    // Setas do teclado: passam a capa e o foco vai junto.
+    // (Ouvidas no documento: valem mesmo com o foco solto, enquanto o carrossel existir.)
+    const aoTeclar = (e) => {
+      if (terminado || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || e.altKey || e.ctrlKey || e.metaKey) return;
+      const ativo = document.activeElement;
+      if (ativo && ativo !== document.body && !painel.contains(ativo)) return;
+      const naFaixa = !!ativo?.closest?.('.car-faixa');
+      if (passar(e.key === 'ArrowRight' ? 1 : -1) && naFaixa) {
+        try { vivas()[atual].botao.focus({ preventScroll: true }); } catch { /* segue */ }
+      }
+      e.preventDefault();
+    };
+    document.addEventListener('keydown', aoTeclar);
+    limpar.push(() => document.removeEventListener('keydown', aoTeclar));
+    // O foco nunca rola a janela para o lado: quem posiciona as capas é o trilho.
+    const semRolar = () => { if (janela.scrollLeft) janela.scrollLeft = 0; };
+    janela.addEventListener('scroll', semRolar, { passive: true });
+    trilho.addEventListener('focusin', (e) => {
+      const onde = vivas().findIndex((l) => l.botao === e.target);
+      if (onde >= 0 && onde !== atual && !terminado) irPara(onde);
+    });
+    if ('ResizeObserver' in window) {
+      const ro = new ResizeObserver(medir);
+      ro.observe(janela);
+      limpar.push(() => ro.disconnect());
+    }
+    window.addEventListener('resize', medir, { passive: true });
+    limpar.push(() => window.removeEventListener('resize', medir));
+    limpar.push(() => gsap.killTweensOf(pos));
 
     // ---- escolher ----
     function marcar(linha) {
       const anterior = escolhida;
       escolhida = linha;
       for (const l of linhas) l.botao.setAttribute('aria-pressed', String(l === linha));
+      marcarCentro();
       if (anterior && anterior !== linha) anterior.laco.apagar();
       // Trocar de faixa: o laço se desfaz na antiga e só então se refaz na nova.
-      linha.laco.desenhar({ atraso: anterior && anterior !== linha && !calmo() ? 0.22 : 0.05 });
+      linha.laco.desenhar({ atraso: anterior && anterior !== linha && !calmo() ? 0.22 : 0.3 });
 
       if (continuar.disabled && !terminado) {
         continuar.disabled = false;
         gsap.fromTo(continuar,
           { autoAlpha: 0, y: calmo() ? 0 : 10 },
-          { autoAlpha: 1, y: 0, duration: 1.1, delay: 0.25, ease: curvas.branco.entrar, clearProps: 'transform' });
-        sublinhado.desenhar({ duracao: 0.8, atraso: 0.7 });
+          { autoAlpha: 1, y: 0, duration: 1.1, delay: 0.35, ease: curvas.branco.entrar, clearProps: 'transform' });
+        sublinhado.desenhar({ duracao: 0.8, atraso: 0.8 });
         if (!calmo() && temDesenho()) {
           gsap.fromTo(continuar.querySelectorAll('.musica-seta path'),
             { drawSVG: '0% 0%' },
-            { drawSVG: '0% 100%', duration: 0.5, stagger: 0.28, delay: 0.95, ease: 'power2.out' });
+            { drawSVG: '0% 100%', duration: 0.5, stagger: 0.28, delay: 1.05, ease: 'power2.out' });
         }
       }
     }
@@ -497,32 +647,47 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
       if (escolhida !== linha) marcar(linha);
     }
 
-    // O disco do compacto gira enquanto a faixa dele toca.
+    // O disco gira enquanto a faixa dele toca.
     const pararDeOuvir = som.aoMudar((estado) => {
-      for (const l of linhas) {
-        if (l.disco) l.disco.giro.definir(estado.tocando && estado.indice === l.faixa.indice);
-      }
+      for (const l of linhas) l.disco.giro.definir(estado.tocando && estado.indice === l.faixa.indice);
     });
     limpar.push(pararDeOuvir);
 
-    // ---- faixa que não toca: some da lista, em silêncio ----
+    // ---- faixa que não toca: some do carrossel, em silêncio ----
     const semFaixa = (indice) => {
       const linha = linhas.find((l) => l.faixa.indice === indice);
-      if (!linha || terminado) return;
+      if (!linha || terminado || linha.item.hidden) return;
       linha.botao.disabled = true;
       if (escolhida === linha) {
         escolhida = null;
+        linha.botao.setAttribute('aria-pressed', 'false');
         linha.laco.apagar();
         continuar.disabled = true;
         gsap.to(continuar, { autoAlpha: 0, duration: 0.3, ease: 'none', overwrite: true });
       }
       if (!validas().length) { encerrar(null); return; }
-      gsap.to(linha.item, { autoAlpha: 0, duration: 0.35, ease: 'none', onComplete: () => { linha.item.hidden = true; marcarRolagem(); } });
+      gsap.to(linha.botao, {
+        autoAlpha: 0, duration: 0.35, ease: 'none',
+        onComplete: () => {
+          if (terminado) return;
+          const noCentro = vivas()[atual];
+          linha.item.hidden = true;
+          linha.ponto.hidden = true;
+          // Quem estava no centro continua no centro (ou a vizinha, se era ela que saiu).
+          const lista = vivas();
+          const onde = lista.indexOf(noCentro);
+          atual = onde >= 0 ? onde : Math.min(atual, lista.length - 1);
+          pos.x = atual;
+          gsap.killTweensOf(pos);
+          marcarCentro();
+          medir();
+        },
+      });
     };
     aoDescartar.add(semFaixa);
     limpar.push(() => aoDescartar.delete(semFaixa));
 
-    // ---- continuar: a folha entrega o disco para o canto ----
+    // ---- continuar: o disco sai da capa e voa para o canto ----
     continuar.addEventListener('click', () => {
       if (terminado || !escolhida) return;
       som.efeito('toque');
@@ -532,27 +697,29 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
     async function encerrar(linha) {
       if (terminado) return;
       terminado = true;
+      arrasto = null;
+      painel.toggleAttribute('data-saindo', true);     // a brasa atrás da capa se apaga
       continuar.disabled = true;
+      setaAntes.disabled = true;
+      setaDepois.disabled = true;
       for (const l of linhas) l.botao.disabled = true;
 
-      const voa = linha && mini && !calmo() && (linha.disco || linha.temCapa) ? (linha.disco ? linha.disco.no : linha.moldura) : null;
-      const resto = [titulo, continuar, ...linhas.flatMap((l) => (l === linha ? [l.texto, l.traco] : [l.item]))]
-        .filter(Boolean);
+      const voa = linha && mini && !calmo() ? linha.disco.no : null;
+      const resto = [titulo, continuar, pontos, setaAntes, setaDepois, ...linhas.flatMap((l) => (l === linha ? [l.texto] : [l.item]))];
 
       try {
         if (voa) {
-          // O que não vai junto se apaga; o disco fica um instante sozinho na folha e então voa.
+          // Se ela confirmou olhando outra capa, a escolhida volta ao centro antes de o disco sair.
+          const onde = vivas().indexOf(linha);
+          if (onde >= 0 && onde !== atual) irPara(onde, { duracao: 0.45 });
+          // O que não vai junto se apaga; o disco fica um instante sozinho no preto e então voa.
           gsap.to(resto, { autoAlpha: 0, duration: 0.45, ease: 'none' });
-          if (linha.disco) {
-            // A capa se afasta para o outro lado e some depressa; o disco só levanta voo
-            // quando ela já não está lá (a cópia que voa fica na frente de tudo, e não
-            // pode parecer que o disco pulou de trás da capa para a frente dela).
-            gsap.to(linha.moldura, { xPercent: -12, rotation: -3, duration: 0.6, ease: curvas.branco.entrar });
-            gsap.to(linha.moldura, { autoAlpha: 0, duration: 0.34, ease: 'power1.out' });
-            await espera(520);
-          } else {
-            await espera(340);
-          }
+          // A capa se afasta para o outro lado e some depressa; o disco só levanta voo
+          // quando ela já não está lá (a cópia que voa fica na frente de tudo, e não
+          // pode parecer que o disco pulou de trás da capa para a frente dela).
+          gsap.to(linha.moldura, { xPercent: -12, rotation: -3, duration: 0.6, ease: curvas.branco.entrar });
+          gsap.to(linha.moldura, { autoAlpha: 0, duration: 0.34, ease: 'power1.out' });
+          await espera(560);
           await voarParaOCanto(linha, voa);
         } else {
           await new Promise((ok) => gsap.to(painel, { autoAlpha: 0, duration: 0.6, ease: 'none', onComplete: ok }));
@@ -570,30 +737,18 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
       resolver();
     }
 
-    // ---- a lista que não cabe rola dentro da folha ----
-    function marcarRolagem() {
-      if (unica) return;
-      const rola = lista.scrollHeight > lista.clientHeight + 2;
-      lista.toggleAttribute('data-rola', rola);
-    }
-    if ('ResizeObserver' in window && !unica) {
-      const ro = new ResizeObserver(marcarRolagem);
-      ro.observe(lista);
-      limpar.push(() => ro.disconnect());
-    }
-
     // ---- entra ----
-    // Antes de qualquer coisa se mexer, a folha inteira já no lugar final é pintada
+    // Antes de qualquer coisa se mexer, o seletor inteiro já no lugar final é pintado
     // uma vez quase transparente (0,002: nada que se veja). A primeira pintura das
-    // capas, do disco, da fita e das letras (decodificar a capa, montar os gradientes,
-    // as sombras, o recorte) cai aqui, com a folha ainda em branco e parada, e não no
-    // meio da capa pousando. É o mesmo cuidado do pergaminho antes do rolo sair.
+    // capas, dos discos e das letras (decodificar a capa, montar os gradientes, as
+    // sombras, o recorte) cai aqui, parada, e não no meio da capa chegando.
     folha.textContent = '';
     titulo.textContent = dados.titulo || '';
     painel.style.opacity = '0.002';
     painel.style.pointerEvents = 'none';
     folha.append(painel);
-    marcarRolagem();
+    marcarCentro();
+    medir();
     entrar().catch((erro) => {
       console.error(erro);
       painel.style.opacity = '';
@@ -601,47 +756,48 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
     });
 
     async function entrar() {
-      // quadro() resolve no rAF, antes da pintura: com dois, um quadro inteiro é pintado
-      // assim. (Pintar também o começo da entrada, em camadas próprias, foi medido e
-      // dobrou a espera sem tirar o último tranco: não vale.)
+      // quadro() resolve no rAF, antes da pintura: com dois, um quadro inteiro é pintado assim.
       await quadro();
       await quadro();
       gsap.set(continuar, { autoAlpha: 0 });
       painel.style.opacity = '';
       painel.style.pointerEvents = '';
       if (terminado || !painel.isConnected) return;
+      medir();
       animarEntrada();
     }
 
     function animarEntrada() {
-      // O foco que estava na carta sumiu com ela: vai para a primeira faixa (só se
-      // estava solto no body, para não tirar nada do lugar de ninguém).
-      // A carta pode sair um instante depois da folha chegar: confere de novo.
+      // Quem digitou a senha num teclado de verdade continua nele: o foco vai para a
+      // capa do centro (só se estava solto no body). No celular não: o anel de foco
+      // apareceria como se a faixa já estivesse escolhida.
       const focarPrimeira = () => {
         const ativo = document.activeElement;
-        if (!viaTeclado || terminado || !painel.isConnected || (ativo && ativo !== document.body)) return;
-        try { linhas[0].botao.focus({ preventScroll: true }); } catch { /* segue */ }
+        if (!viaTeclado || amb?.toque || terminado || !painel.isConnected || (ativo && ativo !== document.body)) return;
+        try { vivas()[atual].botao.focus({ preventScroll: true }); } catch { /* segue */ }
       };
       focarPrimeira();
       espera(700).then(focarPrimeira);
       revelarPalavras(titulo, dados.titulo || '', { intervalo: 0.12, duracao: 1.2 });
 
+      const depois = [pontos, setaAntes, setaDepois];
       if (calmo()) {
-        gsap.fromTo(linhas.map((l) => l.item), { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.8, stagger: 0.05, delay: 0.3, ease: 'none' });
+        gsap.fromTo([palco, ...depois], { opacity: 0 }, { opacity: 1, duration: 0.8, delay: 0.3, ease: 'none', clearProps: 'opacity' });
         return;
       }
-      if (unica) {
-        const [l] = linhas;
-        // A capa pousa na folha, a fita de papel prende, o disco escorrega para fora, o nome é escrito.
-        gsap.fromTo(l.moldura, { autoAlpha: 0, y: 26, scale: 1.05 }, { autoAlpha: 1, y: 0, scale: 1, duration: 1.5, delay: 0.3, ease: curvas.branco.entrar, clearProps: 'transform,opacity,visibility' });
-        gsap.fromTo(l.moldura.querySelector('.musica-fita'), { autoAlpha: 0, scaleX: 0.7 }, { autoAlpha: 1, scaleX: 1, duration: 0.7, delay: 1.0, ease: curvas.branco.entrar, clearProps: 'transform,opacity,visibility' });
-        if (l.disco) gsap.fromTo(l.disco.no, { autoAlpha: 0, xPercent: l.temCapa ? -24 : 0 }, { autoAlpha: 1, xPercent: 0, duration: 1.7, delay: 0.75, ease: curvas.branco.entrar, clearProps: 'transform,opacity,visibility' });
-        gsap.fromTo(l.nome, { clipPath: 'inset(-20% 100% -20% -6%)' }, { clipPath: 'inset(-20% -6% -20% -6%)', duration: 1.1, delay: 1.0, ease: 'power2.inOut', clearProps: 'clipPath' });
-        if (l.artista) gsap.fromTo(l.artista, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.9, delay: 1.7, ease: 'none', clearProps: 'opacity,visibility' });
-      } else {
-        // Linhas escalonadas; o toque já vale desde o primeiro quadro.
-        gsap.fromTo(linhas.map((l) => l.item), { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 1.0, stagger: 0.05, delay: 0.35, ease: curvas.branco.entrar, clearProps: 'transform,opacity' });
-        gsap.fromTo(linhas.map((l) => l.traco).filter(Boolean), { clipPath: 'inset(0% 100% 0% 0%)' }, { clipPath: 'inset(0% 0% 0% 0%)', duration: 0.9, stagger: 0.06, delay: 0.8, ease: 'power2.inOut', clearProps: 'clipPath' });
+      // As capas chegam do fundo do preto; os nomes sobem um pouco depois.
+      // (Só opacidade, nunca visibility: o toque e o foco já valem desde o primeiro quadro.)
+      gsap.fromTo(janela, { opacity: 0, y: 30, scale: 0.94 }, { opacity: 1, y: 0, scale: 1, duration: 1.6, delay: 0.35, ease: curvas.branco.entrar, clearProps: 'transform,opacity' });
+      gsap.fromTo(linhas.map((l) => l.texto), { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 1.1, delay: 1.0, ease: curvas.branco.entrar, clearProps: 'transform,opacity' });
+      gsap.fromTo(depois, { opacity: 0 }, { opacity: 1, duration: 0.9, delay: 1.3, ease: 'none', clearProps: 'opacity' });
+      // Com mais de uma, o trilho dá um passinho para o lado e volta: há mais capas ali.
+      if (linhas.length > 1) {
+        espera(2100).then(() => {
+          if (terminado || arrasto || escolhida || atual !== 0 || gsap.isTweening(pos)) return;
+          gsap.timeline()
+            .to(pos, { x: 0.2, duration: 0.55, ease: 'power2.out', onUpdate: desenhar })
+            .to(pos, { x: 0, duration: 0.9, ease: 'power3.inOut', onUpdate: desenhar });
+        });
       }
     }
   }
@@ -883,10 +1039,14 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
 
     // ---- a pele acompanha a cena ----
     const raiz = document.documentElement;
+    const folhaPele = document.getElementById('pergaminho');
     const vestir = () => {
       const { cena, etapa } = raiz.dataset;
       let pele = mini.dataset.pele || 'papel';
-      if (cena === 'poppy' || cena === 'yourname') pele = cena;
+      // Relendo um capítulo pela bolsa a cena é outra: quem diz o capítulo é a folha.
+      const relendo = folhaPele && folhaPele.hasAttribute('data-releitura') ? folhaPele.dataset.capitulo : '';
+      if (relendo === 'poppy' || relendo === 'yourname') pele = relendo;
+      else if (cena === 'poppy' || cena === 'yourname') pele = cena;
       // Enquanto o capítulo ainda está enrolando, o mini continua com a pele dele.
       else if (etapa && etapa !== 'enrolando') pele = 'papel';
       if (mini.dataset.pele !== pele) mini.dataset.pele = pele;
@@ -908,6 +1068,7 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
       assentar();
     };
     new MutationObserver(vestir).observe(raiz, { attributes: true, attributeFilter: ['data-cena', 'data-etapa'] });
+    if (folhaPele) new MutationObserver(vestir).observe(folhaPele, { attributes: true, attributeFilter: ['data-capitulo', 'data-releitura'] });
     vestir();
 
     // ---- o som manda no que o mini mostra ----

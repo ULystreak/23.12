@@ -31,18 +31,18 @@ import { criarEsteira } from './poppy/esteira.js';
 
 const CENAS = { maos: criarMaos, fita: criarFita, esteira: criarEsteira };
 
-// Enquanto ela escolhe a música (a folha parada, logo antes deste capítulo), o
-// fundo da fita se prepara em momentos ociosos: contexto WebGL, shader, fábrica
+// Enquanto ela olha a primeira carta parada à sua frente (logo antes deste
+// capítulo), o fundo da fita se prepara em momentos ociosos: contexto WebGL, shader, fábrica
 // desenhada e textura. Assim o quadro em que o capítulo monta fica leve.
 const pararVigia = (() => {
   const html = document.documentElement;
   if (html.classList.contains('sem-webgl') || window.CONTEUDO?.poppy?.fundo) return () => {};
   let espera = 0;
   const conferir = () => {
-    if (html.dataset.cena !== 'inicio' || html.dataset.etapa !== 'musica') return false;
+    if (html.dataset.cena !== 'inicio' || html.dataset.etapa !== 'carta-espera') return false;
     observador.disconnect();
-    // depois que a folha da música assentou
-    espera = setTimeout(aquecerFundo, 1500);
+    // depois que a carta pousou
+    espera = setTimeout(aquecerFundo, 600);
     return true;
   };
   const observador = new MutationObserver(conferir);
@@ -50,7 +50,8 @@ const pararVigia = (() => {
   return () => { observador.disconnect(); clearTimeout(espera); };
 })();
 
-const ICONE_PARAR = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4.5" y="4.5" width="15" height="15" rx="2.2"/></svg>';
+// A tecla do fim é a de tirar a fita do aparelho (ela vai para o bolso): o triângulo sobre a barra.
+const ICONE_PARAR = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3.6c.6 0 1.1.3 1.5.8l6 7.6c.9 1.2.1 2.9-1.5 2.9H6c-1.6 0-2.4-1.7-1.5-2.9l6-7.6c.4-.5.9-.8 1.5-.8z"/><rect x="4" y="17" width="16" height="3.6" rx="1.4"/></svg>';
 
 export const capitulo = {
   id: 'poppy',

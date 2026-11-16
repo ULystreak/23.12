@@ -1,0 +1,269 @@
+/* A bolsa (js/inventario.js): o botão no canto de baixo, à direita, e a folha com
+   o que ela já guardou.
+   O mini seletor de música mora no canto de CIMA, à direita (css/musica.css): a
+   bolsa fica embaixo e os dois não se encostam. O botão também não alcança #acoes
+   (centrado) nem a dica. Só transform e opacity são animados. */
+#inventario {
+  position: fixed;
+  right: calc(var(--seguro-dir) + 14px);
+  bottom: calc(var(--seguro-base) + 14px);
+  z-index: var(--z-mini);
+  font-family: var(--fonte-mao);
+  color: var(--tinta);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+#inventario[hidden] { display: none; }
+
+/* ---- o botão: uma bolsinha a tinta num disco de papel ---------------------- */
+.inventario-botao {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform var(--dur-ui) var(--curva-ui), opacity var(--dur-ui-lenta) var(--curva-ui);
+}
+/* (o disco é um pseudo-elemento: a sombra não é animada, só o botão inteiro) */
+.inventario-botao::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  background: var(--papel);
+  box-shadow:
+    0 0 0 1.5px rgba(42, 27, 34, 0.82),
+    0 6px 16px rgba(42, 27, 34, 0.18),
+    0 1px 3px rgba(42, 27, 34, 0.16);
+}
+.inventario-icone {
+  position: relative;
+  display: block;
+  width: 32px;
+  height: 32px;
+}
+.inventario-conta {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  background: var(--fio);
+  box-shadow: 0 0 0 2px #ffffff;
+  color: #ffffff;
+  font-family: var(--fonte-titulo);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 22px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.inventario-conta:empty { display: none; }
+.inventario-botao:active { transform: scale(0.94); }
+.inventario-botao:disabled { cursor: default; }
+/* Fora das esperas a bolsa fica à vista, quieta. */
+#inventario[data-quieto] .inventario-botao { opacity: 0.5; }
+/* Com uma carta da bolsa reaberta na frente, o botão não fica por cima do que ela lê. */
+#inventario[data-relendo] .inventario-botao { opacity: 0; pointer-events: none; }
+@media (hover: hover) and (pointer: fine) {
+  .inventario-botao:not(:disabled):hover { transform: translateY(-2px); }
+  .inventario-botao:not(:disabled):active { transform: scale(0.94); }
+}
+.inventario-botao.chegou { animation: inventario-chegar 620ms var(--curva-ui) both; }
+.inventario-botao.recebeu { animation: inventario-receber 520ms var(--curva-ui) both; }
+@keyframes inventario-chegar {
+  0% { opacity: 0; transform: translateY(14px) scale(0.6); }
+  60% { opacity: 1; transform: translateY(-3px) scale(1.06); }
+  100% { transform: none; }
+}
+@keyframes inventario-receber {
+  0% { transform: none; }
+  35% { transform: translateY(3px) scale(0.92, 0.9); }
+  70% { transform: translateY(-3px) scale(1.05); }
+  100% { transform: none; }
+}
+
+/* ---- a folha -------------------------------------------------------------- */
+/* Por trás da folha, a tela inteira: um toque fora fecha (e não chega ao mundo). */
+.inventario-fundo {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  background: rgba(42, 27, 34, 0.16);
+  opacity: 0;
+  transition: opacity 240ms var(--curva-ui);
+}
+.inventario-fundo[hidden], .inventario-folha[hidden] { display: none; }
+#inventario[data-aberto] .inventario-fundo { opacity: 1; }
+
+.inventario-folha {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  max-height: min(78vh, 78dvh);
+  padding: 18px max(20px, var(--seguro-dir)) calc(var(--seguro-base) + 22px) max(20px, var(--seguro-esq));
+  border-radius: 22px 22px 0 0;
+  background: var(--papel);
+  box-shadow: 0 -1px 0 rgba(42, 27, 34, 0.14), 0 -14px 40px rgba(42, 27, 34, 0.16);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  opacity: 0;
+  transform: translate3d(0, 28px, 0);
+  transition: transform 240ms var(--curva-ui), opacity 240ms var(--curva-ui);
+}
+#inventario[data-aberto] .inventario-folha {
+  opacity: 1;
+  transform: none;
+  transition-duration: 380ms, 260ms;
+}
+/* a alça da folha, no celular */
+.inventario-folha::before {
+  content: "";
+  display: block;
+  width: 40px;
+  height: 4px;
+  margin: -6px auto 10px;
+  border-radius: 2px;
+  background: rgba(42, 27, 34, 0.16);
+}
+.inventario-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 10px;
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--papel-linha);
+}
+.inventario-titulo {
+  margin: 0;
+  font-size: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem);
+  letter-spacing: 0.03em;
+}
+.inventario-fechar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-right: -10px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--tinta-suave);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.inventario-fechar svg { width: 24px; height: 24px; }
+.inventario-fechar:active { transform: scale(0.92); }
+
+.inventario-lista {
+  margin: 0;
+  padding: 6px 0 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px 10px;
+}
+.inventario-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 4px 6px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform var(--dur-ui) var(--curva-ui);
+}
+.inventario-item:active { transform: scale(0.95); }
+@media (hover: hover) and (pointer: fine) {
+  .inventario-item:hover { transform: translateY(-3px); }
+  .inventario-item:active { transform: scale(0.95); }
+  .inventario-fechar:hover { color: var(--tinta); }
+}
+/* a carta pequena: a cara do tema, ou o envelope branco das cartas do chão */
+.inventario-carta {
+  position: relative;
+  display: block;
+  width: min(100%, 104px);
+  aspect-ratio: 23 / 16;
+  border-radius: 3px;
+  background-size: 100% 100%;
+  box-shadow: 0 0 0 1px rgba(42, 27, 34, 0.5), 0 5px 12px rgba(42, 27, 34, 0.2);
+  overflow: hidden;
+}
+.inventario-carta > svg {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+}
+.inventario-carta-branca {
+  box-shadow: 0 5px 12px rgba(42, 27, 34, 0.14);
+  overflow: visible;
+}
+/* as cartas não ficam todas certinhas: cada uma pousou de um jeito */
+.inventario-lista li:nth-child(3n + 1) .inventario-carta { transform: rotate(-2.2deg); }
+.inventario-lista li:nth-child(3n + 2) .inventario-carta { transform: rotate(1.4deg); }
+.inventario-lista li:nth-child(3n) .inventario-carta { transform: rotate(-0.8deg); }
+.inventario-nome {
+  max-width: 100%;
+  font-size: 1rem;
+  line-height: 1.25;
+  text-align: center;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+/* Telas largas: a folha vira um cartão acima do botão, no canto. */
+@media (min-width: 720px) {
+  .inventario-fundo { background: rgba(42, 27, 34, 0.06); }
+  .inventario-folha {
+    left: auto;
+    right: calc(var(--seguro-dir) + 14px);
+    bottom: calc(var(--seguro-base) + 84px);
+    width: 400px;
+    max-height: min(70vh, 560px);
+    padding: 18px 22px 22px;
+    border-radius: 18px;
+    box-shadow: 0 0 0 1px rgba(42, 27, 34, 0.12), 0 18px 48px rgba(42, 27, 34, 0.18);
+    transform: translate3d(0, 14px, 0) scale(0.98);
+    transform-origin: 100% 100%;
+  }
+  .inventario-folha::before { display: none; }
+}
+/* Celular deitado: pouca altura, mais colunas. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .inventario-folha { max-height: 92vh; padding-top: 12px; }
+  .inventario-lista { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+
+html.reduzido .inventario-folha,
+html.reduzido .inventario-fundo,
+html.reduzido .inventario-botao,
+html.reduzido .inventario-item { transition-duration: 0.01ms; }
+html.reduzido .inventario-folha { transform: none; }
+html.reduzido .inventario-botao.chegou,
+html.reduzido .inventario-botao.recebeu { animation: none; }

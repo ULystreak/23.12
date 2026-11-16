@@ -14,7 +14,8 @@
   <meta property="og:image" content="https://ulystreak.github.io/23.12/assets/images/og-capa.jpg">
   <meta name="twitter:card" content="summary_large_image">
 
-  <meta name="theme-color" content="#ffffff">
+  <!-- Começa preta (a tela da senha); a carta troca para branco quando o mundo aparece. -->
+  <meta name="theme-color" content="#000000">
   <meta name="color-scheme" content="only light">
   <meta name="format-detection" content="telephone=no">
 
@@ -45,15 +46,35 @@
       font-weight: 400; font-size: clamp(1.625rem, 6.6vw, 2.75rem); line-height: 1.5; letter-spacing: 0.02em;
     }
     [hidden] { display: none !important; }
+    /* A tela preta da senha e da música: a primeira coisa que ela vê, por cima de tudo. */
+    #entrada { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; height: 100dvh; z-index: 60; background: #000; color: #fff; }
+    html.sem-entrada #entrada { display: none; }
   </style>
 
+  <!-- Atalho ?cena= de "inicio" em diante: a tela preta nem chega a aparecer.
+       (Mesma regra do diretor: só "senha", "musica" ou nenhum atalho válido passam por ela.) -->
+  <script>
+    (function () {
+      var c = new URLSearchParams(location.search).get('cena');
+      var semEntrada = ['inicio', 'poppy', 'carta2', 'yourname', 'mao', 'cartas', 'segredos', 'encontro', 'final'];
+      if (semEntrada.indexOf(c) >= 0) {
+        document.documentElement.className += ' sem-entrada';
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute('content', '#ffffff');
+      }
+    })();
+  </script>
+
   <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/senha.css">
   <link rel="stylesheet" href="css/mundo.css">
   <link rel="stylesheet" href="css/musica.css">
   <link rel="stylesheet" href="css/pergaminho.css">
   <link rel="stylesheet" href="css/poppy.css">
   <link rel="stylesheet" href="css/yourname.css">
-  <link rel="stylesheet" href="css/segredos.css">
+  <link rel="stylesheet" href="css/bolso.css">
+  <link rel="stylesheet" href="css/inventario.css">
+  <link rel="stylesheet" href="css/cartas.css">
   <link rel="stylesheet" href="css/mao.css">
   <link rel="stylesheet" href="css/encontro.css">
   <link rel="stylesheet" href="css/final.css">
@@ -94,9 +115,21 @@
   <!-- O mini seletor de música, fixo no canto depois que ela escolhe. -->
   <aside id="mini" hidden></aside>
 
+  <!-- A bolsa: o botão no canto de baixo, à direita, e a folha com o que ela guardou. -->
+  <aside id="inventario" hidden></aside>
+
+  <!-- A animação da carta indo para o bolso (primeira pessoa, por cima do mundo). -->
+  <div id="bolso" aria-hidden="true" hidden></div>
+
+  <!-- A tela preta do começo: a senha e, depois, a escolha da música. -->
+  <section id="entrada">
+    <div id="entrada-senha"></div>
+    <div id="entrada-musica"></div>
+  </section>
+
   <noscript>
     <style>
-      #mundo, #mundo-leve, #palco, #pergaminho, #mini { display: none; }
+      #mundo, #mundo-leve, #palco, #pergaminho, #mini, #inventario, #bolso, #entrada { display: none; }
       .sem-js {
         position: fixed; inset: 0; display: grid; place-items: center; padding: 32px;
         font-family: "Shippori Mincho", Georgia, serif; text-align: center; color: #2a1b22; background: #ffffff;

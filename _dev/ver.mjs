@@ -4,43 +4,49 @@
 // console, pedido que falhou ou etapa que não chegou.
 //
 //   node _dev/ver.mjs --cena poppy --vp celular,desktop --motor chromium,webkit --rapido 6 --ate lendo --fotos
-//   node _dev/ver.mjs --fluxo --rapido 6 --fotos            (de inicio até a frase final)
+//   node _dev/ver.mjs --fluxo --rapido 6 --fotos            (da senha até a frase final)
 //   node _dev/ver.mjs --cena inicio --video                 (grava em output/video/)
 //   node _dev/ver.mjs --cena final --params "webgl=0"       (parâmetros extras do endereço)
 //   node _dev/ver.mjs --cena inicio --quadros               (mede os quadros na última etapa)
 //
 // Opções
-//   --cena a,b      cenas a verificar (padrão: as seis)
+//   --cena a,b      cenas a verificar (padrão: todas)
 //   --vp a,b        celular (390×844) e/ou desktop (1440×900)        (padrão: celular)
 //   --motor a,b     chromium e/ou webkit                              (padrão: chromium)
 //   --rapido N      acelera a carta N vezes
 //   --ate etapa     para nesta etapa (padrão: a última da cena)
 //   --fotos         salva output/ver/<cena>-<vp>-<motor>-<etapa>.png a cada etapa
 //                   (no --fluxo: fluxo-<cena>-...; com --params: ...-<etapa>-<chave><valor>.png)
-//   --fluxo         roda a carta inteira, de inicio:frases até final:fim
+//   --fluxo         roda a carta inteira, de senha:senha até final:fim
 //   --video         grava output/video/<cena>-<vp>-<motor>.webm
 //   --params "a=1&b=2"   parâmetros extras (webgl=0, reduzido=1, nivel=baixo, mudo=1)
 //   --quadros       mede os quadros por 2 s na última etapa
 //   --timeout ms    limite por etapa (padrão: 90000)
-//   --segredos pasta  troca os vídeos do content.js (só na página, por page.route) por um
-//                   .mp4 de cada arquivo da pasta (ex.: output/segredos-teste)
-//   --segredos-falho  acrescenta um vídeo que não existe (o 404 dele é esperado)
+//   --videos pasta  põe vídeos nas cartas do chão (só na página, por page.route): um .mp4
+//                   da pasta por carta, na ordem (ex.: output/segredos-teste)
+//   --videos-falho  acrescenta um vídeo que não existe (o 404 dele é esperado)
 //
-// A cena "segredos" só existe com algum vídeo no content.js (ou com --segredos): sem
-// vídeo, ela sai do --fluxo e da lista padrão, como sai da carta. No --fluxo, com
-// vídeos, cada bilhete é aberto, o vídeo toca 1 s e é fechado; depois, "seguir".
+// Roteiro 2 (_dev/ROTEIRO2.md): sem atalho a carta começa na tela preta. O --fluxo
+// começa por ela (digita a senha do content.js e escolhe a música); "--cena x" entra
+// por ?cena=x, que pula a senha. Nas cartas do chão cada carta é aberta e fechada
+// (sem vídeo, abre o cartão de exemplo); depois, "seguir em frente". O --fluxo também
+// reabre pela bolsa a carta do Poppy (em carta2:carta-espera), a do Your Name (em
+// mao:mao-espera) e uma carta do chão e um capítulo (em cartas:escolhendo), e falha se a
+// etapa mudar, se faltar item na bolsa ou se o botão de seguir não ganhar destaque.
 // A cena "encontro" só existe com algum quadro em encontro.quadros; ela anda sozinha
 // (chegando → planos → maos → carta), sem toque nenhum.
 
-import { abrir, lerConteudo, temSegredos, temEncontro, segredosDeTeste, injetarSegredos, ERRO_ESPERADO } from './lib.mjs';
+import { abrir, lerConteudo, senhaDoConteudo, temCartas, temEncontro, videosDeTeste, injetarVideos, ERRO_ESPERADO } from './lib.mjs';
 
 const ROTEIRO = {
-  inicio: ['frases', 'caminhada', 'carta-chegando', 'carta-espera', 'carta-abrindo', 'papel', 'musica'],
-  poppy: ['desenrolando', 'lendo'],
-  carta2: ['enrolando', 'caminhada', 'carta-chegando', 'carta-espera', 'carta-abrindo', 'papel'],
-  yourname: ['desenrolando', 'lendo'],
-  segredos: ['enrolando', 'frase', 'escolhendo'],
-  mao: ['enrolando', 'olha', 'mao-espera', 'seguindo'],
+  senha: ['senha', 'senha-certa'],
+  musica: ['musica', 'entrando'],
+  inicio: ['frases', 'caminhada', 'carta-chegando', 'carta-espera', 'carta-abrindo', 'papel'],
+  poppy: ['desenrolando', 'lendo', 'enrolando', 'guardando'],
+  carta2: ['caminhada', 'carta-chegando', 'carta-espera', 'carta-abrindo', 'papel'],
+  yourname: ['desenrolando', 'lendo', 'enrolando', 'guardando'],
+  mao: ['olha', 'mao-espera', 'correndo'],
+  cartas: ['pousando', 'escolhendo', 'seguindo'],
   encontro: ['chegando', 'planos', 'maos', 'carta'],
   final: ['carta-chegando', 'carta-espera', 'carta-abrindo', 'desdobrando', 'escrevendo', 'fim'],
 };
@@ -52,16 +58,17 @@ const ASSENTAR = {
   frases: 4200, caminhada: 1500, 'carta-chegando': 1500, 'carta-espera': 700, 'carta-abrindo': 1500,
   papel: 900, musica: 2400, desenrolando: 900, lendo: 900, enrolando: 700, olha: 2600,
   'mao-espera': 900, seguindo: 2600, desdobrando: 1300, escrevendo: 3200, fim: 900,
-  frase: 1800, escolhendo: 1500, chegando: 900, planos: 2600, maos: 2600, carta: 1500,
+  escolhendo: 1500, chegando: 900, planos: 2600, maos: 2600, carta: 1500,
+  senha: 900, 'senha-certa': 500, entrando: 900, guardando: 900, correndo: 2600, pousando: 900, seguindo: 500,
 };
 // Etapas em que a carta fica parada esperando: aqui o tempo de assentar é real (não acelera).
-const PARADAS = new Set(['carta-espera', 'musica', 'lendo', 'mao-espera', 'fim', 'escolhendo']);
+const PARADAS = new Set(['senha', 'carta-espera', 'musica', 'lendo', 'mao-espera', 'fim', 'escolhendo']);
 
 function lerArgumentos(argv) {
   const opcoes = {
     cena: null, vp: ['celular'], motor: ['chromium'], rapido: null, ate: null,
     fotos: false, fluxo: false, video: false, params: {}, quadros: false, timeout: 90000,
-    segredos: null, segredosFalho: false,
+    videos: null, videosFalho: false,
   };
   const lista = (v) => String(v || '').split(',').map((s) => s.trim()).filter(Boolean);
   for (let i = 0; i < argv.length; i++) {
@@ -79,8 +86,8 @@ function lerArgumentos(argv) {
       case '--fluxo': opcoes.fluxo = true; break;
       case '--video': opcoes.video = true; break;
       case '--quadros': opcoes.quadros = true; break;
-      case '--segredos': opcoes.segredos = valor(); break;
-      case '--segredos-falho': opcoes.segredosFalho = true; break;
+      case '--videos': case '--segredos': opcoes.videos = valor(); break;
+      case '--videos-falho': case '--segredos-falho': opcoes.videosFalho = true; break;
       case '--ajuda': case '--help': case '-h': opcoes.ajuda = true; break;
       default: throw new Error(`opção desconhecida: ${arg}`);
     }
@@ -88,37 +95,81 @@ function lerArgumentos(argv) {
   return opcoes;
 }
 
-/** Abre cada bilhete, deixa o vídeo tocar 1 s, fecha; depois segue. */
-async function verSegredos(s, { fotos, prefixo, sufixo, timeout = 30000 }) {
+/** Abre cada carta do chão, deixa 1 s aberta, fecha (o nome aparece); depois segue em frente. */
+async function verCartas(s, { fotos, fluxo, prefixo, sufixo, timeout = 30000 }) {
   const etapaAgora = (alvo) => s.page.waitForFunction((e) => window.__carta.etapa === e, alvo, { timeout, polling: 50 });
-  const bilhetes = s.page.locator('[data-acao="segredo"]');
-  const n = await bilhetes.count();
+  const cartas = s.page.locator('[data-acao="carta-chao"]');
+  const n = await cartas.count();
+  let abaixou = false;
   for (let i = 0; i < n; i++) {
-    const b = bilhetes.nth(i);
-    if ((await b.getAttribute('data-estado')) === 'falhou') continue;
+    const c = cartas.nth(i);
+    if ((await c.getAttribute('data-estado')) !== 'fechada') continue;
     await etapaAgora('escolhendo');
-    if (s.perfil.toque) await b.tap(); else await b.click();
-    await etapaAgora('assistindo');
-    // Abriu (ou falhou no meio e voltou a escolher): espera um dos dois.
-    await s.page.waitForFunction(() => window.__carta.etapa === 'escolhendo'
-      || document.querySelector('.segredo-moldura-assentada'), null, { timeout, polling: 50 });
-    if (await s.page.evaluate(() => window.__carta.etapa === 'assistindo')) {
+    if (s.perfil.toque) await c.tap(); else await c.click();
+    // Abriu, ou falhou no meio e voltou a escolher (vídeo que não carrega): um dos dois.
+    await s.page.waitForFunction(() => document.querySelector('.carta-chao-visor')
+      || document.querySelector('[data-acao="carta-chao"][data-estado="falhou"]'), null, { timeout, polling: 50 });
+    if (await s.page.evaluate(() => !!document.querySelector('.carta-chao-visor'))) {
       await s.pausa(1000);
       if (fotos) await s.foto(`${prefixo}-assistindo${i + 1}${sufixo}`);
-      await s.acionar('[data-acao="fechar-segredo"]');
+      // Com um vídeo tocando a música abaixa (ou pausa, sem Web Audio); tem de voltar ao fechar.
+      if (await s.page.evaluate(() => { const v = document.querySelector('.carta-chao-visor video'); return !!v && !v.paused; })) {
+        const d = await s.page.evaluate(() => ({ ...window.__carta.ctx.som.diagnostico(), tocando: window.__carta.ctx.som.estado.tocando }));
+        if (d.tocando && !d.mudo && !d.pausado && !(d.abafo < 0.5)) throw new Error(`a música não abaixou durante o vídeo (abafo ${d.abafo})`);
+        abaixou = true;
+      }
+      await s.acionar('[data-acao="fechar-carta"]');
     }
     await etapaAgora('escolhendo');
+    if (abaixou) {
+      await s.pausa(900);
+      const d = await s.page.evaluate(() => ({ ...window.__carta.ctx.som.diagnostico(), tocando: window.__carta.ctx.som.estado.tocando }));
+      if (d.tocando && !d.mudo && (d.pausado || d.abafo < 0.9)) throw new Error(`a música não voltou depois do vídeo (pausada ${d.pausado}, abafo ${d.abafo})`);
+      abaixou = false;
+    }
+  }
+  const semNome = await s.page.evaluate(() => [...document.querySelectorAll('[data-acao="carta-chao"][data-estado="fechada"]')].length);
+  if (semNome) throw new Error(`${semNome} carta(s) do chão continuaram fechadas`);
+  if (!(await s.page.locator('[data-acao="seguir-cartas"][data-destaque]').count())) throw new Error('todas as cartas abertas e o botão de seguir não ganhou destaque');
+  // Tudo o que ela viu está na bolsa (2 capítulos + as cartas do chão) e reabre de lá.
+  if (fluxo && n) {
+    await etapaAgora('escolhendo');
+    await reabrirDaBolsa(s, 'chao-1', n + 2, { fotos, prefixo, sufixo });
+    await reabrirDaBolsa(s, 'carta-poppy', n + 2, { fotos, prefixo, sufixo });
   }
   if (fotos) {
     await s.pausa(600);
-    await s.foto(`${prefixo}-vistos${sufixo}`);
+    await s.foto(`${prefixo}-vistas${sufixo}`);
   }
-  await s.acionar('[data-acao="continuar-segredos"]', timeout);
+  await s.acionar('[data-acao="seguir-cartas"]', timeout);
+}
+
+/**
+ * No --fluxo: reabre um item pela bolsa e fecha. A cena e a etapa têm de continuar as
+ * mesmas, e a bolsa tem de mostrar exatamente `esperados` itens.
+ */
+async function reabrirDaBolsa(s, id, esperados, { fotos, prefixo, sufixo } = {}) {
+  const antes = await s.estado();
+  const itens = await s.page.evaluate(() => window.__carta.ctx.inventario.itens.map((i) => i.id));
+  if (!itens.includes(id)) throw new Error(`a bolsa não tem "${id}" (tem: ${itens.join(', ') || 'nada'})`);
+  if (esperados != null && itens.length !== esperados) throw new Error(`a bolsa devia ter ${esperados} item(ns) e tem ${itens.length}`);
+  await s.abrirDaBolsa(id);
+  if (fotos) { await s.pausa(900); await s.foto(`${prefixo}-bolsa-${id}${sufixo}`); }
+  await s.fecharDaBolsa();
+  const depois = await s.estado();
+  if (depois.cena !== antes.cena || depois.etapa !== antes.etapa) {
+    throw new Error(`reabrir "${id}" pela bolsa mudou a etapa: ${antes.cena}:${antes.etapa} → ${depois.cena}:${depois.etapa}`);
+  }
+  await s.pausa(200);
 }
 
 /** O que fazer em cada etapa para a carta seguir adiante. */
 async function agir(s, cena, etapa, extra = {}) {
-  if (etapa === 'carta-espera') {
+  if (etapa === 'senha') {
+    if (senhaDoConteudo()) await s.digitarSenha();
+  } else if (etapa === 'carta-espera') {
+    // Na segunda carta ela já tem a do Poppy na bolsa: relê e volta, e a carta do caminho ainda abre.
+    if (extra.fluxo && cena === 'carta2') await reabrirDaBolsa(s, 'carta-poppy', 1, extra);
     await s.tocarCentro();
   } else if (etapa === 'musica') {
     await s.acionar('[data-acao="faixa"]');
@@ -132,9 +183,10 @@ async function agir(s, cena, etapa, extra = {}) {
     await s.pausa(250);
     await s.acionar('[data-acao="fechar-capitulo"]');
   } else if (etapa === 'mao-espera') {
+    if (extra.fluxo) await reabrirDaBolsa(s, 'carta-yourname', 2, extra);
     await s.acionar('[data-acao="seguir-fio"]');
-  } else if (cena === 'segredos' && etapa === 'escolhendo') {
-    await verSegredos(s, extra);
+  } else if (cena === 'cartas' && etapa === 'escolhendo') {
+    await verCartas(s, extra);
   }
 }
 
@@ -150,10 +202,11 @@ async function rodar({ cenas, vp, motor, opcoes, rotulo }) {
   let s;
 
   try {
-    const itens = opcoes.segredos ? segredosDeTeste(opcoes.segredos, { falho: opcoes.segredosFalho }) : null;
+    const videos = opcoes.videos ? videosDeTeste(opcoes.videos, { falho: opcoes.videosFalho }) : null;
     s = await abrir({
-      cena: cenas[0] === 'inicio' ? undefined : cenas[0], vp, motor, params, video: opcoes.video,
-      preparar: itens ? (page) => injetarSegredos(page, itens) : null,
+      // O fluxo inteiro abre sem atalho (o começo de verdade: a tela preta); uma cena só entra por ?cena=.
+      cena: rotulo === 'fluxo' ? undefined : cenas[0], vp, motor, params, video: opcoes.video,
+      preparar: videos ? (page) => injetarVideos(page, videos) : null,
     });
   } catch (erro) {
     return { nome, ok: false, falhas: [`não abriu: ${erro.message}`], linhas, gpu: '' };
@@ -177,7 +230,7 @@ async function rodar({ cenas, vp, motor, opcoes, rotulo }) {
         }
         if (etapa === alvo) { chegouAoFim = true; break percurso; }
         await agir(s, cena, etapa, {
-          fotos: opcoes.fotos, prefixo: `${rotulo === 'fluxo' ? `fluxo-${cena}` : cena}-${vp}-${motor}`, sufixo,
+          fluxo: rotulo === 'fluxo', fotos: opcoes.fotos, prefixo: `${rotulo === 'fluxo' ? `fluxo-${cena}` : cena}-${vp}-${motor}`, sufixo,
         });
       }
     }
@@ -193,7 +246,7 @@ async function rodar({ cenas, vp, motor, opcoes, rotulo }) {
   if (!chegouAoFim && !falhas.length) falhas.push('não chegou à etapa pedida');
 
   for (const erro of s.erros) {
-    if (opcoes.segredosFalho && ERRO_ESPERADO.test(`${erro.texto} ${erro.onde || ""}`)) continue;   // o 404 de propósito
+    if (opcoes.videosFalho && ERRO_ESPERADO.test(`${erro.texto} ${erro.onde || ""}`)) continue;   // o 404 de propósito
     falhas.push(`${erro.tipo}: ${erro.texto}`);
   }
   const video = await s.fechar(opcoes.video ? nome : undefined);
@@ -209,14 +262,15 @@ async function principal() {
     return 0;
   }
 
-  const conteudo = lerConteudo(opcoes.segredos ? segredosDeTeste(opcoes.segredos, { falho: opcoes.segredosFalho }) : null);
-  const ORDEM = TODAS.filter((c) => (c !== 'segredos' || temSegredos(conteudo)) && (c !== 'encontro' || temEncontro(conteudo)));
+  const conteudo = lerConteudo(opcoes.videos ? videosDeTeste(opcoes.videos, { falho: opcoes.videosFalho }) : null);
+  const ORDEM = TODAS.filter((c) => (c !== 'senha' || senhaDoConteudo(conteudo)) && (c !== 'cartas' || temCartas(conteudo))
+    && (c !== 'encontro' || temEncontro(conteudo)));
   const execucoes = [];
   if (opcoes.fluxo) {
     execucoes.push({ cenas: ORDEM, rotulo: 'fluxo' });
   } else {
     for (const cena of opcoes.cena || ORDEM) {
-      if (cena === 'segredos' && !temSegredos(conteudo)) throw new Error('a cena segredos não existe sem vídeos (use --segredos output/segredos-teste)');
+      if (cena === 'cartas' && !temCartas(conteudo)) throw new Error('a cena cartas não existe sem cartas em cartasChao (js/content.js)');
       if (cena === 'encontro' && !temEncontro(conteudo)) throw new Error('a cena encontro não existe sem quadros em encontro.quadros (js/content.js)');
       if (!ROTEIRO[cena]) throw new Error(`cena desconhecida: ${cena}`);
       execucoes.push({ cenas: [cena], rotulo: cena });

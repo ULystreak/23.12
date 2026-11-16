@@ -302,6 +302,7 @@ export function criarSom(conteudo, amb) {
         contexto: ctx ? ctx.state : null,
         ganho: ganhoMusica ? ganhoMusica.gain.value : (audio ? audio.volume : 0),
         ganhoEfeitos: ganhoEfeitos ? ganhoEfeitos.gain.value : 0,
+        abafo: ganhoAbafar ? ganhoAbafar.gain.value : 1,      // 1 = música inteira; menor durante um vídeo (abafar)
         tempo: audio ? audio.currentTime : 0,
         duracao: audio && Number.isFinite(audio.duration) ? audio.duration : 0,
         pausado: audio ? audio.paused : true,

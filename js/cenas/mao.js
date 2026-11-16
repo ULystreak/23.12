@@ -1,9 +1,9 @@
-// A mão: o capítulo fecha, a carta vai embora, "Olha a sua mão.", a mão com o
-// akai ito, o botão, e o fio vira o caminho.
+// A mão: a carta do filme foi para o bolso e o fio aparece. "Olha a sua mão.",
+// a mão com o akai ito, o botão, o fio vira o caminho e ela CORRE até ele.
 //
 //   cenaMao(ctx, { frio }) → Promise   resolve quando ela chegou perto da última carta
 //
-// Etapas: enrolando → olha → mao-espera → seguindo
+// Etapas: olha → mao-espera → correndo   (contrato: _dev/ROTEIRO2.md)
 // Deixa para a cena final:
 //   ctx.estado.fio             o fio já desenhado (do pulso até a carta)
 //   ctx.estado.envelope        a última carta (criarEnvelope, amarracao 'fio'), parada
@@ -25,7 +25,7 @@ import { criarFio } from '../mundo/fio.js';
 import { criarEnvelope } from '../mundo/envelope.js';
 import { criarEle } from '../mundo/ele.js';
 
-const CAMINHADA = 26;                // metros andados nesta cena, seguindo o fio (uma caminhada longa: ~19 s)
+const CAMINHADA = 26;                // metros percorridos nesta cena, seguindo o fio (agora correndo: conteudo.corrida.segundos)
 const RESTO = 4;                     // metros que ficam para a cena final
 const PARADA = 1.25;                 // distância em que a última carta fica dela (= carta.js)
 const S_CARTA = CAMINHADA + RESTO + PARADA;
@@ -50,6 +50,29 @@ const ELE_X = 0.1;                   // o eixo do corpo (m à direita do eixo do
 // ela vê o fio correr), faz um S largo e chega à carta pelo lado direito: a
 // subida até a carta cai em diagonal, sem cortar a dica no centro da tela.
 // =============================================================================
+
+/**
+ * Curva da corrida: arranca depressa (ela viu o fio e foi), segura o passo e
+ * desacelera no último terço, até parar diante dele.
+ */
+const curvaDaCorrida = (() => {
+  const N = 96;
+  const ENTRADA = 0.2;
+  const CHEGADA = 0.4;
+  const tabela = new Float32Array(N + 1);
+  let soma = 0;
+  for (let i = 1; i <= N; i++) {
+    const t = (i - 0.5) / N;
+    soma += suave(t / ENTRADA) * suave((1 - t) / CHEGADA);
+    tabela[i] = soma;
+  }
+  for (let i = 1; i <= N; i++) tabela[i] /= soma;
+  return (p) => {
+    const x = clamp(p) * N;
+    const i = Math.min(N - 1, Math.floor(x));
+    return lerp(tabela[i], tabela[i + 1], x - i);
+  };
+})();
 
 function desvio(s) {
   const fim = suave((s - (S_CARTA - 4.75)) / 3.5);
@@ -1334,19 +1357,41 @@ export async function cenaMao(ctx, { frio } = {}) {
   const olhar = { k: 0, guinada: 0, inclinacao: 0 };
   let x0 = mundo.rig.position.x;
   let z0 = mundo.rig.position.z;
+  // A corrida: k de 0 (andando) a 1 (correndo). Por cima do passo do mundo vêm a
+  // passada (o corpo quica a cada pé no chão), o ombro que troca de lado, o
+  // tronco inclinado para a frente e a lente que abre um pouco com a velocidade.
+  const corrida = { k: 0, fase: 0, lente: false };
   const pararCamera = mundo.aoQuadro((dt) => {
+    const k = corrida.k;
     if (cam.guiar) {
       const s = z0 - mundo.rig.position.z;
       const alvoX = desvio(s + ANTECIPA) * 0.45;
-      cam.x = amortecer(cam.x, alvoX, 2.2, dt);
+      cam.x = amortecer(cam.x, alvoX, 2.2 + k, dt);
       const adiante = desvio(s + ANTECIPA + 2.4) * 0.6 - cam.x;
-      cam.guinada = amortecer(cam.guinada, -Math.atan2(adiante, 3.2) * 0.75, 2.4, dt);
+      // correndo, o olhar vira menos com a curva do fio: quem corre olha para onde vai
+      cam.guinada = amortecer(cam.guinada, -Math.atan2(adiante, 3.2) * (0.75 - 0.3 * k), 2.4, dt);
     }
     if (!mundo.ok) return;
-    mundo.rig.position.x = x0 + cam.x;
-    mundo.rig.position.y = cam.y;
+    let quique = 0; let ombro = 0; let arfar = 0; let rolo = 0;
+    if (k > 0.001) {
+      corrida.fase += Math.min(dt, 0.05) * 2.85;          // passadas por segundo
+      const c = corrida.fase * Math.PI * 2;
+      // cada pé no chão é um vale curto; o corpo passa mais tempo no ar
+      quique = (0.5 - Math.pow(Math.abs(Math.sin(c * 0.5)), 0.7)) * 0.07 * k;
+      ombro = Math.sin(c * 0.5) * 0.028 * k;
+      arfar = Math.cos(c + 0.5) * 0.007 * k - 0.035 * k;
+      rolo = Math.sin(c * 0.5 + 0.35) * 0.013 * k;
+    }
+    mundo.rig.position.x = x0 + cam.x + ombro;
+    mundo.rig.position.y = cam.y + quique;
     mundo.rig.rotation.y = lerp(cam.guinada, olhar.guinada, olhar.k);
-    mundo.camera.rotation.x += lerp(cam.inclinacao, olhar.inclinacao, olhar.k);
+    mundo.camera.rotation.x += lerp(cam.inclinacao, olhar.inclinacao, olhar.k) + arfar;
+    mundo.camera.rotation.z += rolo;
+    if (corrida.lente) {
+      mundo.camera.fov = fovPara(mundo.camera.aspect) + 9 * k;
+      mundo.camera.updateProjectionMatrix();
+      if (k <= 0.001) corrida.lente = false;
+    }
   });
 
   // Inclinação conforme a tela: deitada, o campo vertical é menor e precisa olhar mais para baixo.
@@ -1364,7 +1409,6 @@ export async function cenaMao(ctx, { frio } = {}) {
   let inteira = false;                  // chegou ao fim com o encontro por vir (o entardecer continua aceso)
   try {
     // 1. O capítulo fecha e a carta vai embora.
-    diretor.etapa('enrolando');
     if (frio) musica.mostrarMini();
     else if (ctx.pergaminho && ctx.pergaminho.estado === 'oculto') {
       // a cena anterior já enrolou o pergaminho e devolveu o mundo: só a carta que
@@ -1581,7 +1625,7 @@ export async function cenaMao(ctx, { frio } = {}) {
     await new Promise((ok) => botao.addEventListener('click', ok, { once: true }));
 
     // 5. O fio sai do pulso e vira o caminho.
-    diretor.etapa('seguindo');
+    diretor.etapa('correndo');
     botao.disabled = true;
     som.destravar();
     som.efeito('toque');
@@ -1682,29 +1726,39 @@ export async function cenaMao(ctx, { frio } = {}) {
       await espera(calmo ? 200 : 400);
     }
 
-    // 6. Ela caminha seguindo o fio, de uma vez só, até parar na frente da carta.
+    // 6. Ela CORRE seguindo o fio, de uma vez só, e desacelera até parar diante
+    // dele (a alguns passos: é ali, entre os dois, que as cartas estão no chão).
+    // Movimento reduzido: sem corrida nem balanço; a distância some numa dissolvência.
     cam.guiar = !calmo;
-    const DURACAO = magico ? 19 : 20;
+    const DURACAO = clamp(Number(conteudo.corrida && conteudo.corrida.segundos) || 7, 5, 10);
     if (!calmo) {
       gsap.timeline()
-        .to(cam, { inclinacao: olharMao * 0.45, y: 0, duration: 2.6, ease: curvas.branco.camera, overwrite: 'auto' })
-        .to(cam, { inclinacao: 0, duration: 3.0, ease: curvas.branco.camera }, DURACAO - 3.4);
+        .to(cam, { inclinacao: olharMao * 0.3, y: 0, duration: 1.3, ease: curvas.branco.camera, overwrite: 'auto' })
+        .to(cam, { inclinacao: 0, duration: 2.0, ease: curvas.branco.camera }, DURACAO - 2.2);
+      if (mundo.ok) {
+        corrida.lente = true;
+        gsap.timeline()
+          .to(corrida, { k: 1, duration: 1.1, ease: 'power2.out' }, 0)
+          .to(corrida, { k: 0, duration: DURACAO * 0.36, ease: 'sine.inOut' }, DURACAO * 0.62);
+      }
     } else {
       cam.inclinacao = 0;
     }
-    const andar = mundo.caminhar({ distancia: Math.max(0.5, CAMINHADA + RESTO - andado), duracao: DURACAO });
+    const andar = mundo.caminhar({
+      distancia: Math.max(0.5, CAMINHADA + RESTO - andado), duracao: DURACAO, curva: calmo ? undefined : curvaDaCorrida,
+    });
     // Andando, a tarde clareia pela metade: a alameda volta a ter cor (o rosa das
     // cerejeiras não fica cinza a caminhada inteira) e o fio ainda lê como luz.
     // Com o encontro por vir ela clareia menos: a caminhada já vai dar no crepúsculo dele,
     // e a luz não pode ir ao dia e voltar em poucos segundos.
-    // A caminhada é longa: depois de clarear, a tarde volta a cair aos poucos, e ela
-    // chega no fim do dia (com o encontro, quase no crepúsculo dele).
+    // Depois de clarear, a tarde volta a cair, e ela chega no fim do dia (com o
+    // encontro, quase no crepúsculo dele).
     if (magico) {
-      clarear = gsap.delayedCall(1.4, () => entardecer(ctx, haEncontro ? 0.58 : 0.4, 4.6));
-      escurecer = gsap.delayedCall(DURACAO * 0.36, () => entardecer(ctx, haEncontro ? 0.93 : 0.62, DURACAO * 0.6));
+      clarear = gsap.delayedCall(0.5, () => entardecer(ctx, haEncontro ? 0.58 : 0.4, DURACAO * 0.36));
+      escurecer = gsap.delayedCall(DURACAO * 0.42, () => entardecer(ctx, haEncontro ? 0.93 : 0.62, DURACAO * 0.56));
     }
-    // A câmera assenta no eixo da carta durante o fim da própria caminhada.
-    const ALINHAR = calmo ? 0.3 : 1.8;
+    // A câmera assenta no eixo da carta durante o fim da própria corrida.
+    const ALINHAR = calmo ? 0.3 : 1.5;
     const alinhada = espera((DURACAO - ALINHAR) * 1000).then(() => new Promise((ok) => {
       cam.guiar = false;
       gsap.to(cam, { x: 0, guinada: 0, duration: ALINHAR, ease: curvas.branco.camera, onComplete: ok });
@@ -1720,6 +1774,7 @@ export async function cenaMao(ctx, { frio } = {}) {
     mundo.petalas.magia?.(null);
     cam.guiar = false;
     cam.x = 0; cam.guinada = 0; cam.inclinacao = 0; cam.y = 0;
+    corrida.k = 0;
     olhar.k = 0;
 
     // 7. Chegada: a luz corre pelo fio inteiro até o laço da carta, que acende; e a luz do dia volta.
@@ -1758,8 +1813,13 @@ export async function cenaMao(ctx, { frio } = {}) {
     pararMagia();
     pararCamera();
     mundo.petalas.definirTempo?.(1);
+    mundo.petalas.definirDensidade(1);
     mundo.petalas.magia?.(null);
     if (mundo.ok) {
+      if (corrida.lente) {              // a lente da corrida volta ao normal
+        mundo.camera.fov = fovPara(mundo.camera.aspect);
+        mundo.camera.updateProjectionMatrix();
+      }
       mundo.rig.position.x = x0;
       mundo.rig.position.y = 0;
       mundo.rig.rotation.y = 0;

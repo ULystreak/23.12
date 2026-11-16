@@ -4,7 +4,7 @@ Este arquivo é só para você (não aparece no site). Tudo o que ela lê, ouve 
 
 ## 1. Editar os textos (`js/content.js`)
 
-Abra o arquivo num editor de texto simples (Bloco de Notas, VS Code, o próprio editor do GitHub). Ele é dividido em partes, na ordem em que ela vê: página, abertura, música, capítulo 1 (o jogo), capítulo 2 (o filme), os segredos (os vídeos), a mão, o encontro e o final. Cada parte tem um comentário em cima explicando o que é.
+Abra o arquivo num editor de texto simples (Bloco de Notas, VS Code, o próprio editor do GitHub). Ele é dividido em partes, na ordem em que ela vê: página, senha, abertura, música, capítulo 1 (o jogo), capítulo 2 (o filme), o bolso e a bolsa, a mão, a corrida, as cartas do chão (os vídeos), o encontro e o final. Cada parte tem um comentário em cima explicando o que é.
 
 Regras para não quebrar nada:
 
@@ -19,7 +19,23 @@ Se depois de salvar a página ficar toda branca e parada, quase sempre é uma v�
 
 Nos capítulos, os textos ficam numa lista chamada `blocos`. Você pode trocar a ordem, apagar ou repetir blocos (cada bloco vai de `{` até `},`). Os tipos possíveis estão explicados no comentário de cada capítulo.
 
-## 2. Músicas
+## 2. A senha
+
+A primeira coisa que ela vê é uma tela preta com quatro casas para um número. O número fica em `js/content.js`, na parte `senha`:
+
+```js
+codigo: '8035',
+```
+
+- Para **trocar**, mude os algarismos entre as aspas (só números; a quantidade de casas na tela acompanha).
+- Para **tirar** a senha, deixe `codigo: ''`: a carta começa direto na escolha da música.
+- `frase` é um texto opcional acima das casas e `dica` um texto que só aparece depois de três erros. Vazios (`''`), não aparecem.
+
+Não é segurança de verdade (quem abrir o arquivo vê o número): é só o primeiro gesto dela.
+
+## 3. Músicas
+
+Logo depois da senha, ainda na tela preta, ela escolhe a música passando as capas para o lado com o dedo (no computador, com as setas). Tocar na capa do meio começa a música; "Continuar" abre a alameda. Com uma música só também funciona; cada música que você acrescentar entra na fila, na ordem da lista.
 
 1. Coloque o `.mp3` em `assets/music/` (nome sem espaço e sem acento, ex.: `nossa-musica.mp3`).
 2. Coloque a capa na mesma pasta, de preferência **quadrada**, em `.webp` ou `.jpg`, até uns 600×600 px.
@@ -36,7 +52,7 @@ Nos capítulos, os textos ficam numa lista chamada `blocos`. Você pode trocar a
 
 Os nomes precisam ser **exatamente** iguais aos dos arquivos (maiúsculas contam). A música começa a ~30% do volume (`volumeInicial: 0.3`) e repete até o fim.
 
-## 3. Imagens
+## 4. Imagens
 
 Todas ficam em `assets/images/`. Prefira `.webp`, até ~350 KB e no máximo 1600 px no lado maior. Depois de salvar o arquivo, escreva o caminho no campo certo:
 
@@ -62,48 +78,56 @@ Os textos para gerar as que faltam estão em `_dev/prompts-imagens.md`. Sem elas
 Dois ajustes quando trocar imagens:
 
 - **`mao.escrito`**: o que aparece escrito à caneta na palma da mão dela, letra por letra, logo depois de "Olha a sua mão." (hoje `'eu te amo'`). Curto fica melhor: até umas quatro palavras pequenas. Vazio (`''`) deixa a mão sem nada escrito.
-- **`mao.ele`**: `true` faz você aparecer no fim do fio durante a caminhada (um rapaz de pé, de costas, desenhado pelo site, pequeno ao longe e maior conforme ela chega); `false` tira. Só aparece quando há imagens em `encontro.quadros`.
+- **`mao.ele`**: `true` faz você aparecer no fim do fio durante a corrida (um rapaz de pé, de costas, desenhado pelo site, pequeno ao longe e maior conforme ela chega); `false` tira. Só aparece quando há imagens em `encontro.quadros`.
 - **`mao.ancoraFio`** e **`fioDele` / `fioDela`** (no bloco `par`): dizem em que ponto da imagem o fio vermelho sai ou chega. `x` vai de 0 (esquerda) a 1 (direita), `y` de 0 (topo) a 1 (base). Se trocar a imagem, mude esses números até o fio sair do lugar certo.
 - **`alt`**: uma frase curta descrevendo a imagem, para quem usa leitor de tela.
 
 ### O encontro (as imagens depois do fio)
 
-Depois que ela segue o fio, a alameda escurece e as imagens da parte `encontro` do `content.js` passam sozinhas, como cenas de um filme; no fim, o fio vermelho do site liga o dedinho dela ao seu, vem um clarão e a última carta aparece. A lista `quadros` está na ordem em que as imagens passam:
+Depois que ela corre pelo fio, vê as cartas do chão e toca em "Seguir em frente", a alameda escurece e as imagens da parte `encontro` do `content.js` passam sozinhas, como cenas de um filme; no fim, o fio vermelho do site liga o dedinho dela ao seu, vem um clarão e a última carta aparece. A lista `quadros` está na ordem em que as imagens passam:
 
 - para **trocar** uma imagem, salve a nova em `assets/images/` e mude o `imagem` do bloco dela; use imagens deitadas (as maiores ficam mais nítidas);
 - `foco` e `ate` dizem de onde até onde a câmera desliza na imagem; `dedo` (só nas duas imagens das mãos) é onde está o dedinho com o fio; `fio` (só na primeira) é onde o fio vermelho da imagem chega perto da borda de baixo. Todos são frações: `x` de 0 (esquerda) a 1 (direita), `y` de 0 (topo) a 1 (base). Se trocar a imagem, ajuste esses números olhando com `?cena=encontro`;
-- para **tirar** esta parte, deixe a lista vazia (`quadros: []`): a carta vai direto do fio para a última carta.
+- para **tirar** esta parte, deixe a lista vazia (`quadros: []`): a carta vai direto das cartas do chão para a última carta.
 
 A última imagem da lista, a do abraço (`encontro-5-abraco.webp`), tem `fim: true`: ela entra depois das mãos e é dela que vem o clarão. Ela veio com o logotipo do filme e uma assinatura no alto, por isso tem `aparar: { topo: 0.18 }`, que corta essa parte. Para tirar o abraço, apague o bloco dela; o clarão volta a vir das mãos. O original (`encontro-5-abraco.png`) ficou na pasta, sem uso.
 
 As versões menores (`encontro-1-ela-ve.webp` e `encontro-3-ela-mao.webp`) ficaram na pasta sem uso: as duas imagens largas dela têm o dobro da resolução e dão mais espaço para a câmera deslizar.
 
-## 4. Vídeos dos amigos (os segredos)
+## 5. O bolso, a bolsa e a corrida
 
-Depois do capítulo do filme, antes de "Olha a sua mão.", podem aparecer bilhetes amarrados com o fio vermelho: "Segredo 1", "Segredo 2", "Segredo 3"... Ela toca num, o bilhete se abre e vira o vídeo (com som; a música abaixa sozinha). Quando o vídeo acaba ou ela fecha, o nome de quem gravou é escrito à mão no bilhete, e a música volta. Quando ela já viu todos, aparece o botão "Seguir".
+- No fim de cada capítulo o botão é **"Guardar no bolso"** (os textos são `poppy.fechar` e `yourname.fechar`). A carta vai para o bolso da saia e aparece o botão da **bolsa** no canto de baixo, à direita. Na bolsa ela encontra tudo o que já guardou e pode reabrir (as duas cartas e, mais adiante, cada carta do chão já aberta, com o nome).
+- Os nomes que aparecem na bolsa ficam na parte `inventario`: `titulo` (o título da bolsa), `cartaPoppy` e `cartaYourname`.
+- A corrida até você dura `corrida.segundos` (hoje 7; vale de 5 a 10).
 
-**Enquanto nenhum bilhete tiver vídeo, essa parte não aparece**: a carta vai direto do filme para a mão.
+## 6. Vídeos dos amigos (as cartas do chão)
+
+Depois de "Olha a sua mão." ela corre pelo fio até você, e perto de você há cartas no chão: Sariel, Ana, Mirai, Alpha, Pocoyoh, Nup e, por último, a Surpresinha. No chão elas não têm nome. Ela toca numa, o vídeo toca (com som; a música para e depois volta), e só quando ela fecha o nome de quem gravou aparece escrito na carta. Cada carta aberta vai para a bolsa, no canto de baixo. Depois da primeira carta aberta aparece o botão "Seguir em frente".
+
+**Carta que ainda não tem vídeo aparece do mesmo jeito** e abre um cartão escrito "[vídeo de Sariel vem aqui]", para você ver tudo funcionando antes de os vídeos chegarem.
 
 Para pôr um vídeo:
 
-1. Crie a pasta `assets/videos/` e ponha o arquivo lá, com nome simples, sem espaço e sem acento: `assets/videos/ana.mp4`.
-2. Em `js/content.js`, na parte `segredos`, preencha um item da lista `itens`:
+1. Crie a pasta `assets/videos/` e ponha o arquivo lá, com nome simples, sem espaço e sem acento: `assets/videos/sariel.mp4`.
+2. Em `js/content.js`, na parte `cartasChao`, escreva o caminho na linha da pessoa:
 
 ```js
-{
-  titulo: 'Segredo 1',
-  video: 'assets/videos/ana.mp4',
-  capa: '',
-  nome: 'Ana',
-},
+{ nome: 'Sariel', video: 'assets/videos/sariel.mp4', capa: '' },
 ```
 
-- `titulo`: o que vem escrito no bilhete fechado.
-- `video`: o caminho do vídeo. Vazio (`''`) = esse bilhete não aparece.
+- `nome`: quem gravou; só aparece depois que ela abre a carta.
+- `video`: o caminho do vídeo. Vazio (`''`) = abre o cartão de exemplo.
 - `capa`: uma imagem opcional que aparece enquanto o vídeo carrega (pode ficar `''`).
-- `nome`: quem gravou; é escrito à mão quando o vídeo termina.
-- Para ter mais bilhetes, copie um bloco `{ ... },` inteiro, com a vírgula. Até uns 6 cabem bem no celular.
-- O seu vídeo também pode ser um deles: o último costuma ser o melhor lugar.
+- Para tirar uma carta, apague a linha dela. Para ter mais uma, copie uma linha inteira, com a vírgula.
+
+A **Surpresinha** fica logo abaixo, em `surpresinha`: é uma sequência de fotos e vídeos de vocês que ela passa para o lado. Cada linha de `midias` é uma foto ou um vídeo:
+
+```js
+midias: [
+  { foto: 'assets/images/nos-1.webp', legenda: 'O dia em que...' },
+  { video: 'assets/videos/nos-1.mp4', legenda: '' },
+],
+```
 
 Formato e tamanho:
 
@@ -118,23 +142,27 @@ Como comprimir:
 - **No computador, ffmpeg** (uma linha; serve para vídeo em pé e deitado, o lado maior fica com no máximo 1280 px):
 
 ```
-ffmpeg -i original.mov -vf "scale=w=1280:h=1280:force_original_aspect_ratio=decrease:force_divisible_by=2" -c:v libx264 -crf 26 -preset slow -pix_fmt yuv420p -c:a aac -b:a 128k -movflags +faststart assets/videos/ana.mp4
+ffmpeg -i original.mov -vf "scale=w=1280:h=1280:force_original_aspect_ratio=decrease:force_divisible_by=2" -c:v libx264 -crf 26 -preset slow -pix_fmt yuv420p -c:a aac -b:a 128k -movflags +faststart assets/videos/sariel.mp4
 ```
 
-Se um vídeo não carregar (nome do arquivo errado, por exemplo), o bilhete mostra só o nome e conta como visto: nada trava. Depois de pôr os vídeos, teste com `?cena=segredos` no endereço, no iPhone, com som.
+Se um vídeo não carregar (nome do arquivo errado, por exemplo), a carta mostra só o nome e conta como vista: nada trava. Depois de pôr os vídeos, teste com `?cena=cartas` no endereço, no iPhone, com som.
 
-## 5. Ver uma parte só
+Os outros textos desta parte também estão em `cartasChao`: `frase` (aparece quando as cartas caem), `seguir` (o botão "Seguir em frente"), `vazio` (o cartão de exemplo; `{nome}` vira o nome da pessoa) e `vazioSurpresinha`.
 
-Coloque um destes finais no endereço para pular direto para uma parte:
+## 7. Ver uma parte só
+
+Sem nada no endereço, o site abre na tela preta da senha (o número está em `js/content.js`, na parte `senha`). Coloque um destes finais no endereço para pular direto para uma parte, sem senha:
 
 | Final do endereço | Parte |
 |---|---|
-| `?cena=inicio` | as frases, a caminhada e a primeira carta (com as músicas) |
-| `?cena=poppy` | capítulo 1, o jogo |
+| `?cena=senha` | a tela preta com a senha |
+| `?cena=musica` | a escolha da música, na tela preta |
+| `?cena=inicio` | as frases, a caminhada e a primeira carta |
+| `?cena=poppy` | capítulo 1, o jogo, e a carta indo para o bolso |
 | `?cena=carta2` | a segunda carta |
-| `?cena=yourname` | capítulo 2, o filme |
-| `?cena=segredos` | os bilhetes com os vídeos (só se houver algum vídeo) |
-| `?cena=mao` | "Olha a sua mão." e o fio |
+| `?cena=yourname` | capítulo 2, o filme, e a carta indo para o bolso |
+| `?cena=mao` | "Olha a sua mão.", o fio e a corrida até você |
+| `?cena=cartas` | as cartas no chão (os vídeos dos amigos e a Surpresinha) |
 | `?cena=encontro` | as imagens do encontro, o fio entre os dedinhos e o clarão (só se houver imagens em `encontro.quadros`) |
 | `?cena=final` | a última carta e a frase escrita à mão |
 
@@ -142,7 +170,7 @@ Para testar mais rápido, junte `&rapido=4` (tudo anda 4 vezes mais rápido). Pa
 
 O link que você manda para ela é o endereço **sem** nada no final.
 
-## 6. Testar no seu computador
+## 8. Testar no seu computador
 
 A carta precisa de um servidor (abrir o `index.html` com dois cliques não funciona). Qualquer servidor estático serve. O mais simples, com o Node instalado, na pasta do projeto:
 
@@ -152,7 +180,7 @@ npx serve
 
 Depois abra o endereço que ele mostrar (algo como `http://localhost:3000`). Para ver no celular, abra no navegador do celular o endereço de rede que o `serve` também mostra (os dois aparelhos no mesmo Wi-Fi).
 
-## 7. Publicar
+## 9. Publicar
 
 O site publica sozinho pelo **GitHub Pages**: tudo o que você enviar para o ramo **`main`** do repositório `ULystreak/23.12` vai ao ar em um ou dois minutos em:
 

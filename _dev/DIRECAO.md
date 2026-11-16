@@ -3,6 +3,8 @@
 Documento só de desenvolvimento (a pasta `_dev/` não é publicada). Leia junto com `PRODUCT.md`.
 Quem constrói uma cena lê isto inteiro antes de escrever código.
 
+> **Roteiro 2 (o que vale hoje).** A carta começa numa tela preta (senha, depois a música em carrossel), as duas cartas do caminho têm a cara do tema e vão para o bolso e para a bolsa, a caminhada pelo fio virou corrida e, perto dele, há cartas no chão (vídeos dos amigos e a Surpresinha). O contrato peça por peça (assinaturas, etapas, ganchos de teste) está em `_dev/ROTEIRO2.md`; as seções 2, 4.1 e os ganchos da seção 6 deste documento já estão na ordem nova. Onde um trecho antigo daqui disser outra coisa, vale o ROTEIRO2 e, acima dele, o código.
+
 ## 1. Contrato de direção
 
 **TESE.** Uma carta que é um lugar. Ela não lê uma página: ela anda até as cartas, e o que amarra tudo é um fio vermelho que só no fim ela percebe que estava ali o tempo todo. Recusa: página de rolagem com seções, hero com botão, cartões iguais.
@@ -17,21 +19,24 @@ Quem constrói uma cena lê isto inteiro antes de escrever código.
 
 **FIM.** Não revisado e não documentado é não terminado: este trabalho acaba com a revisão final, o veredito, o DESIGN.md e o LEIA-ME.md.
 
-## 2. As nove etapas
+## 2. As etapas
 
 | # | Etapa | `?cena=` | O que acontece | O que entrega para a próxima |
 |---|---|---|---|---|
-| 1 | Mundo branco | `inicio` | Branco, pétalas, duas frases palavra por palavra que somem | as pétalas e a câmera |
-| 2 | Caminhada | | A câmera anda com balanço de passo; pétalas passam; uma carta nasce da névoa branca e para na frente dela | a carta |
-| 3 | Primeira carta | | Envelope 3D, cordão vermelho, lacre de cera com coração. Flutua, segue o ponteiro/arrasto. No toque: lacre trinca, pétalas saltam, cordão solta, aba levanta, papel sai e cresce até ser a folha | o papel vira a folha DOM |
-| 4 | Música | | Na folha: as nossas músicas, cada uma com a capa. Tocar começa a ~30% em loop. Mini seletor fica fixo no canto | a folha |
-| 5 | Capítulo 1 | `poppy` | A folha desenrola de cima para baixo como pergaminho; dentro, a fábrica em VHS. Fim: "Fechar este capítulo" | o pergaminho |
-| 6 | Segunda carta | `carta2` | O pergaminho enrola, volta ao mundo branco, caminha até a carta com estrela no lacre | o papel |
-| 7 | Capítulo 2 | `yourname` | Capa, céu do dia à noite com a rolagem, cometa que se divide, cordão trançado, encontro de ponta a ponta, o par ligado pelo fio | o fio |
-| 7b | Segredos | `segredos` | Só com vídeos no `content.js`. O pergaminho enrola, o mundo volta, uma frase e bilhetes amarrados com o fio que nascem da névoa. Tocar: o fio desamarra, a carta de dentro vira a moldura do vídeo; ao fechar, o nome de quem gravou é escrito à mão. Todos vistos: "Seguir" | o mundo branco aberto, sem carta |
-| 8 | A mão | `mao` | Capítulo fecha, carta vai embora, "Olha a sua mão.", a mão com o akai ito, as palavras de `mao.escrito` escritas à caneta na palma, botão "Seguir o fio", o fio vira o caminho: uma caminhada longa (~30 m, ~19 s) com ele ao longe, no fim do fio | o fio é o caminho |
-| 8b | O encontro | `encontro` | Só com quadros em `encontro.quadros`. A caminhada pelo fio termina no crepúsculo, a luz corre pelo fio, a alameda escurece e os quadros entram sozinhos como planos de um filme (panorâmica lenta do `foco` ao `ate`); as duas mãos voltam juntas, o fio do site liga um dedinho ao outro, clarão | a última carta, que surge de dentro do clarão já com o fio no laço |
-| 9 | Última carta | `final` | Amarrada só com o fio. Folha em branco desdobra. Uma frase escrita à mão, letra por letra. Fica ali com as pétalas. Sem botão, sem "fim" | — |
+| 0a | Senha | `senha` | Tela toda preta (`#entrada`), uma casa por algarismo de `senha.codigo`, teclado numérico. Errou: tremor suave e as casas esvaziam. Acertou: o fio corre por baixo dos números e tudo se desfaz. É um ritual, não segurança | o preto |
+| 0b | Música | `musica` | Ainda no preto: carrossel de capas que passa para o lado (dedo, setas, teclado). Tocar na capa do centro escolhe e a música começa; "Continuar" leva o disco ao canto (o mini) e o preto se desfaz sobre a alameda | a música e o mundo |
+| 1 | Mundo e caminhada | `inicio` | A alameda já andando, pétalas, as frases de `abertura.frases` durante uns 10 s de caminhada; a primeira carta nasce da névoa e para na frente dela | a carta |
+| 2 | Carta do Poppy | | Envelope 3D com a cara do capítulo (fita de vídeo, botões de brinquedo, cordão vermelho e amarelo). No toque: lacre trinca, cordão solta, o papel sai e vira a folha | o papel vira a folha DOM |
+| 3 | Capítulo 1 | `poppy` | A folha desenrola; dentro, a fábrica em VHS. Fim: "Guardar no bolso" | a carta |
+| 4 | Bolso e bolsa | | A folha enrola e some (`enrolando`); em primeira pessoa, olhando para baixo, a mão dela leva a carta ao bolso da saia do uniforme (`guardando`, ~3 s, DOM/SVG). Aparece o botão da bolsa no canto inferior direito | o mundo aberto, a carta na bolsa |
+| 5 | Carta do Your Name | `carta2` | Anda mais um pouco; envelope com o céu do entardecer, cometa, cordão trançado e lacre dourado de estrela | o papel |
+| 6 | Capítulo 2 | `yourname` | Capa, céu do dia à noite, cometa, cordão, o par ligado pelo fio. Fim: "Guardar no bolso", e o bolso de novo | o fio |
+| 7 | A mão | `mao` | Ao guardar, o fio aparece: "Olha a sua mão.", a mão com o akai ito, `mao.escrito` na palma, "Seguir o fio". Ela **corre** pelo fio até ele (`correndo`, `corrida.segundos`), desacelera e para a ~5 m | o fio, ele, o entardecer |
+| 8 | Cartas do chão | `cartas` | Ela olha para o chão: as cartas de `cartasChao` caem entre os dois, sem nome. Tocar abre o vídeo (a música abaixa e volta), o cartão de exemplo ou a galeria da Surpresinha; ao fechar, o nome é escrito à mão na carta e ela vai para a bolsa. "Seguir em frente" aparece depois da primeira e ganha destaque com todas abertas | o mesmo estado que a mão deixou |
+| 8b | O encontro | `encontro` | Só com quadros em `encontro.quadros`. A luz corre pelo fio, a alameda escurece e os quadros entram sozinhos como planos de um filme; as duas mãos, o fio entre os dedinhos, clarão | a última carta, que surge de dentro do clarão já com o fio no laço |
+| 9 | Última carta | `final` | Amarrada só com o fio (branca, sem tema). Folha em branco desdobra. Uma frase escrita à mão. Sem botão, sem "fim" | — |
+
+A bolsa (`js/inventario.js`) abre só nas etapas de espera (`carta2:carta-espera`, `mao:mao-espera`, `cartas:escolhendo`) e mostra só o que já foi guardado; tocar num item reabre aquele conteúdo sem mudar cena nem etapa. Relendo um capítulo, o diretor põe `html.relendo` (o `#palco` da cena atual some) e o pergaminho marca `#pergaminho[data-capitulo][data-releitura]` (o mini veste a pele por aí); com uma carta reaberta na frente o botão da bolsa sai (`#inventario[data-relendo]`).
 
 ## 3. Gramática de movimento
 
@@ -56,7 +61,8 @@ js/nucleo/movimento.js   ← curvas nomeadas, revelarPalavras(), ocultarPalavras
 js/nucleo/diretor.js     ← ordem das cenas, ?cena=, etapa atual, gancho de teste
 js/nucleo/recursos.js    ← pré-carga em segundo plano; recurso que falta vira null, sem erro no console
 js/som.js                ← motor de áudio (Web Audio): música + efeitos
-js/musica.js             ← seletor de músicas na folha + mini seletor fixo
+js/musica.js             ← carrossel de músicas (na tela preta) + mini seletor fixo
+js/inventario.js         ← a bolsa: botão no canto inferior direito + folha com o que ela guardou
 js/mundo/mundo.js        ← renderer, cena, câmera, rig, laço, qualidade adaptativa, caminhada
 js/mundo/alameda.js      ← a alameda de cerejeiras em 3D (chão, árvores, copas, lago, postes, céu, névoa)
 js/mundo/fundo.js        ← sem WebGL: a imagem da alameda; com WebGL: os véus atrás do texto
@@ -69,37 +75,40 @@ js/mundo/folha.js        ← a última folha em 3D (desdobra + escrita à mão)
 js/pergaminho.js         ← a folha DOM: recebe o papel, desenrola, enrola, rolagem, fio de progresso
 js/capitulos/poppy.js    ← capítulo 1 (+ js/capitulos/poppy/*)
 js/capitulos/yourname.js ← capítulo 2 (+ js/capitulos/yourname/*)
+js/cenas/senha.js        ← a tela preta: o campo da senha e a saída do preto (sairDaEntrada)
 js/cenas/abertura.js     ← as frases (a caminhada até a carta é de carta.js; ver seção 6)
-js/cenas/carta.js        ← caminha, a carta chega, espera o toque, abre, entrega o papel (usada 3×)
-js/cenas/segredos.js     ← os vídeos dos amigos (bilhetes → moldura → nome escrito à mão)
-js/cenas/mao.js          ← "Olha a sua mão." + seguir o fio
+js/cenas/carta.js        ← caminha, a carta chega, espera o toque, abre, entrega o papel (usada 3×; as duas primeiras com tema)
+js/cenas/bolso.js        ← a carta indo para o bolso da saia (primeira pessoa, DOM/SVG)
+js/cenas/mao.js          ← "Olha a sua mão." + a corrida pelo fio até ele
+js/cenas/cartas.js       ← as cartas do chão (vídeo, cartão de exemplo, galeria da Surpresinha, nome escrito à mão)
 js/cenas/encontro.js     ← o encontro: os quadros como planos de filme, o fio entre os dedinhos, o clarão
 js/cenas/final.js        ← última carta + folha + frase
-css/base.css  css/mundo.css  css/musica.css  css/pergaminho.css  css/poppy.css  css/yourname.css  css/segredos.css  css/mao.css  css/encontro.css  css/final.css
+css/base.css  css/mundo.css  css/musica.css  css/pergaminho.css  css/poppy.css  css/yourname.css  css/senha.css  css/bolso.css  css/inventario.css  css/cartas.css  css/mao.css  css/encontro.css  css/final.css
 lib/                     ← three, gsap (+DrawSVGPlugin, CustomEase; ScrollTrigger e SplitText estão aqui mas não são carregados), lenis
-assets/fonts  assets/images  assets/music
+assets/fonts  assets/images  assets/music  assets/videos (o autor cria ao pôr o primeiro vídeo)
 _dev/                    ← este documento e as ferramentas de teste: ver.mjs, robustez.mjs, lib.mjs (não publicado)
 ```
 
 ### 4.1 Contexto e diretor
 
-`main.js` monta `ctx = { conteudo, amb, mundo, som, musica, pergaminho, diretor, gsap, ScrollTrigger }` e chama `diretor.rodar(ctx, cenaInicial)`. `ctx.ScrollTrigger` hoje chega `undefined` (ver "Bibliotecas" na seção 6).
+`main.js` monta `ctx = { conteudo, amb, mundo, som, musica, pergaminho, inventario, bolso, diretor, gsap, ScrollTrigger, recursos, estado }` e chama `diretor.rodar(ctx, cenaInicial)`. `ctx.ScrollTrigger` hoje chega `undefined` (ver "Bibliotecas" na seção 6).
 
-Cenas, na ordem: `inicio`, `poppy`, `carta2`, `yourname`, `segredos`, `mao`, `encontro`, `final`. `encontro` só existe quando algum item de `conteudo.encontro.quadros` tem `imagem` (`temEncontro(conteudo)`, exportado do diretor): com a lista vazia o diretor a pula e a mão entrega a carta como antes. `segredos` só existe quando algum item de `conteudo.segredos.itens` tem `video` (`temSegredos(conteudo)`, exportado do diretor): sem vídeo o diretor a pula sem publicar nada, e o fluxo é idêntico ao de antes. Cada uma é `async function(ctx, { frio })` que resolve quando a próxima deve começar. `frio: true` quando se entrou direto por `?cena=`: a cena monta sozinha as pré-condições (mundo branco parado, pergaminho aberto etc.). `final` nunca resolve.
+Cenas, na ordem: `senha`, `musica`, `inicio`, `poppy`, `carta2`, `yourname`, `mao`, `cartas`, `encontro`, `final`. O diretor pula `senha` quando `senha.codigo` não é só algarismos (`temSenha`), `cartas` quando não há carta com nome em `cartasChao` (`temCartas`) e `encontro` quando nenhum item de `encontro.quadros` tem `imagem` (`temEncontro`); os três são exportados do diretor, com `cartasDoChao(conteudo)`. Cada cena é `async function(ctx, { frio })` que resolve quando a próxima deve começar. Sem `?cena=` (ou com valor desconhecido) a carta começa em `senha`; `?cena=segredos` é apelido de `cartas`. `frio: true` quando se entrou direto por `?cena=` de `inicio` em diante: a tela preta nem aparece, a bolsa já vem com as cartas dos capítulos anteriores e a cena monta sozinha as pré-condições. `final` nunca resolve.
 
-O diretor publica o estado em `document.documentElement.dataset.cena` e `dataset.etapa` (via `diretor.etapa('nome')`). Etapas padrão:
+O diretor publica o estado em `document.documentElement.dataset.cena` e `dataset.etapa` (via `diretor.etapa('nome')`). Etapas:
 
-- `inicio`: `frases` → `caminhada` → `carta-chegando` → `carta-espera` → `carta-abrindo` → `papel` → `musica`
-- `poppy`: `desenrolando` → `lendo`
-- `carta2`: `enrolando` → `caminhada` → `carta-chegando` → `carta-espera` → `carta-abrindo` → `papel`
-- `yourname`: `desenrolando` → `lendo`
-- `segredos`: `enrolando` → `frase` → `escolhendo` → `assistindo` → `escolhendo` → … (cada vídeo aberto publica `assistindo`; ao fechar e escrever o nome, `escolhendo`)
-- `mao`: `enrolando` → `olha` → `mao-espera` → `seguindo`
+- `senha`: `senha` → `senha-certa`
+- `musica`: `musica` → `entrando` (o preto se desfazendo; o mundo só é ligado aqui)
+- `inicio`: `frases` → `caminhada` → `carta-chegando` → `carta-espera` → `carta-abrindo` → `papel`
+- `poppy` e `yourname`: `desenrolando` → `lendo` → `enrolando` → `guardando`
+- `carta2`: `caminhada` → `carta-chegando` → `carta-espera` → `carta-abrindo` → `papel`
+- `mao`: `olha` → `mao-espera` → `correndo`
+- `cartas`: `pousando` → `escolhendo` ⇄ `assistindo` → `seguindo` (cada carta aberta publica `assistindo`; ao fechar, `escolhendo`)
 - `encontro`: `chegando` → `planos` → `maos` → `carta` (anda sozinha, sem toque; sem nenhum quadro carregado publica só `chegando`; sem as duas imagens com `dedo`, pula `maos`)
 - `final`: `carta-chegando` → `carta-espera` → `carta-abrindo` → `desdobrando` → `escrevendo` → `fim`
 
 Gancho de teste, sempre presente e invisível: `window.__carta = { ctx, etapa, cena, pronto (Promise) }`.
-Parâmetros de teste: `?rapido=N` (acelera GSAP, `espera()` e a caminhada N vezes), `?nivel=alto|medio|baixo`, `?webgl=0`, `?reduzido=1`, `?mudo=1`. Valor inválido em qualquer parâmetro (inclusive `?cena=`) é ignorado. Há ainda `?musica=N`, de uso interno (ver "Rede de segurança" na seção 6).
+Parâmetros de teste: `?rapido=N` (acelera GSAP, `espera()` e a caminhada N vezes), `?nivel=alto|medio|baixo`, `?webgl=0`, `?reduzido=1`, `?mudo=1`. Valor inválido em qualquer parâmetro é ignorado (`?cena=` inválido começa do começo: a senha). Há ainda `?musica=N`, de uso interno (ver "Rede de segurança" na seção 6).
 
 ### 4.2 Ambiente (`amb`)
 
@@ -210,9 +219,9 @@ O esqueleto andante já existe e segue a seção 4. Esta seção só registra o 
 - *Recurso que falta.* Campo vazio (`''`) não faz pedido e não deixa rastro. Arquivo citado no `content.js` que não existe vira `null` sem exceção e sem buraco, mas o navegador registra o 404 da rede no console por conta própria (não há como suprimir): é o único aviso aceito.
 - *Texto fora do `content.js`.* A única exceção é o aviso do `<noscript>` no `index.html` (sem JavaScript o `content.js` não roda) e o título/descrição neutros do `<head>`.
 
-**Ganchos de teste (não mudar).** `[data-acao="faixa"]`, `[data-acao="continuar"]`, `[data-acao="mini"]`, `[data-acao="mini-alternar"]`, `[data-acao="fechar-capitulo"]`, `[data-acao="seguir-fio"]`, `[data-acao="segredo"]` (cada bilhete, com `data-estado="fechado|aberto|falhou"`), `[data-acao="fechar-segredo"]`, `[data-acao="continuar-segredos"]`; na etapa `carta-espera`, um toque no centro da tela abre a carta.
+**Ganchos de teste (não mudar).** `[data-acao="faixa"]`, `[data-acao="continuar"]`, `[data-acao="mini"]`, `[data-acao="mini-alternar"]`, `[data-acao="fechar-capitulo"]`, `[data-acao="seguir-fio"]`, `input[data-acao="senha"]` (digitar os algarismos basta), `[data-acao="inventario"]`, `[data-acao="inventario-item"][data-id]`, `[data-acao="inventario-fechar"]` (`#inventario[data-aberto]` com a folha aberta), `[data-acao="carta-chao"]` (com `data-id` e `data-estado="fechada|aberta|falhou"`), `[data-acao="fechar-carta"]`, `[data-acao="seguir-cartas"]` (com `data-destaque` quando todas foram abertas), `.carta-chao-visor[data-tipo="video|galeria|vazio"]`; na etapa `carta-espera`, um toque no centro da tela abre a carta.
 
-**Verificação.** `node _dev/ver.mjs --cena poppy --vp celular,desktop --motor chromium,webkit --rapido 6 --fotos` (capturas em `output/ver/`), `--fluxo` (a carta inteira), `--video`, `--quadros`, `--params "webgl=0&reduzido=1"`, `--ate etapa`. Robustez do núcleo: `node _dev/robustez.mjs` (todos os casos) ou `node _dev/robustez.mjs spam resize aba contexto params faltando teclado audio quebra qualidade`; rode `spam` e `resize` depois de mexer em qualquer cena. Para testes próprios: `import { abrir } from './_dev/lib.mjs'` (`esperarEtapa`, `foto`, `tocarCentro`, `acionar(seletor)`, `medirQuadros`, `erros`, `preparar(page)`).
+**Verificação.** `node _dev/ver.mjs --cena poppy --vp celular,desktop --motor chromium,webkit --rapido 6 --fotos` (capturas em `output/ver/`), `--fluxo` (a carta inteira, da senha a `final:fim`: digita a senha, escolhe a música, reabre cartas pela bolsa, abre e fecha as cartas do chão), `--videos pasta` (vídeos de teste nas cartas do chão), `--video`, `--quadros`, `--params "webgl=0&reduzido=1"`, `--ate etapa`. Robustez do núcleo: `node _dev/robustez.mjs` (todos os casos) ou `node _dev/robustez.mjs spam resize aba contexto params faltando teclado audio quebra qualidade`; rode `spam` e `resize` depois de mexer em qualquer cena. Para testes próprios: `import { abrir } from './_dev/lib.mjs'` (`esperarEtapa`, `foto`, `tocarCentro`, `acionar(seletor)`, `digitarSenha`, `passarEntrada`, `abrirDaBolsa(id)`, `fecharDaBolsa`, `medirQuadros`, `erros`, `preparar(page)`; `abrir({ entrar: true })` já passa pela senha e pela música).
 
 **Nomes que os arquivos congelados importam (não renomear).** `main.js`: `criarMundo` (`js/mundo/mundo.js`), `criarPergaminho`, `criarMusica`, `criarSom`. O `main.js` também lê `mundo.ok`, `mundo.canvas`, `mundo.ligado`, `mundo.gpu`, `perg.estado`, `som.estado.tocando`/`.indice`, `som.destravar()` e `som.tocar(i)`; o `diretor.js` usa `perg.receberPapel/desenrolar/esperarFechar/enrolar/soltar`, `musica.escolher/mostrarMini`, `mundo.ligar()`, `mundo.petalas.definirDensidade()`, `env.irEmbora()` e `env.dispose()`. `diretor.js`: `cenaAbertura`, `cenaCarta`, `cenaMao`, `cenaFinal` e `capitulo` (dos dois capítulos). Entre frentes: `final.js` usa `cenaCarta(..., { entregar: false, anunciarCaminhada: false })` e `criarFio`; envelope, fio e folha usam `mundo.amb`, `mundo.recipienteLeve`, `mundo.tamanho`, `mundo.aoRedimensionar` e `mundo.petalas.rajada`; `vetorLeve()` e `objetoLeve()` moram em `js/nucleo/util.js`. Convenção do modo leve: `telaParaMundo` devolve um vetor com `.px`/`.py` (px de tela) e `petalas.rajada` aceita `{ px, py }`. Os estilos da carta leve são aplicados pelo próprio `envelope.js`.
 
@@ -249,13 +258,14 @@ O esqueleto andante já existe e segue a seção 4. Esta seção só registra o 
 
 **A mão: o escrito, a caminhada longa e ele (`js/cenas/mao.js`, `js/mundo/ele.js`).**
 - *O escrito na palma* (`conteudo.mao.escrito`; vazio = nada; só na mão desenhada, não com `mao.imagem`). Depois de a mão se desenhar e antes de o fio acender (`verOFio`), as palavras são escritas na palma. São compostas no espaço da mão (`PALMA`: abaixo da linha da cabeça, inclinadas com ela, 1 a 3 linhas equilibradas, o corpo é o maior que cabe) e cada letra recebe a matriz de `projetar()` no ponto dela, com a concha da palma: deitam e encurtam com o escorço. `<text>` em Klee One 600 na camada `.mao-escrito`, por baixo das linhas da palma; cada letra é revelada da esquerda para a direita por um `clipPath` que anda (~0,3 s por letra, pausa entre palavras, som `caneta`), e depois há ~1,3 s parados mais os ~3 s do fio acendendo antes do botão. Leitor de tela: uma região viva `.so-leitor` recebe o texto. Movimento reduzido: o escrito inteiro em dissolvência (1,4 s). Sem etapa nova (tudo dentro de `olha`).
-- *A caminhada.* `CAMINHADA = 26` (+ `RESTO = 4`): 30 m em ~19 s (antes 12 m em 7,4 s). `desvio(s)` ganhou uma segunda onda e o trecho final é relativo a `S_CARTA`; o seguidor aguenta 128 pontos. A tarde: fecha no toque, clareia até 0,58 (0,4 sem encontro) nos primeiros segundos e, a partir de 36% da caminhada, volta a cair devagar até 0,93 (0,62): ela chega no fim do dia e o encontro só termina de fechar o crepúsculo.
+- *A caminhada (hoje, a corrida).* No Roteiro 2 o trecho depois do mergulho é a etapa `correndo`: os ~28 m em `conteudo.corrida.segundos` (7; aceita 5 a 10), com curva própria (arranca rápido, desacelera no último terço), passada, troca de ombro, tronco inclinado e a lente abrindo com a velocidade; ela para a 5,25 m dele, para as cartas caberem no chão entre os dois. No reduzido, a dissolvência do `mundo.caminhar`. O que segue descreve a caminhada lenta de antes (os números da tarde continuam valendo). `CAMINHADA = 26` (+ `RESTO = 4`): 30 m em ~19 s (antes 12 m em 7,4 s). `desvio(s)` ganhou uma segunda onda e o trecho final é relativo a `S_CARTA`; o seguidor aguenta 128 pontos. A tarde: fecha no toque, clareia até 0,58 (0,4 sem encontro) nos primeiros segundos e, a partir de 36% da caminhada, volta a cair devagar até 0,93 (0,62): ela chega no fim do dia e o encontro só termina de fechar o crepúsculo.
 - *Ele.* Com `temEncontro`, WebGL e `mao.ele !== false`, `criarEle(mundo)` põe a figura (de costas, pintada num canvas: não há corpo inteiro dele nas imagens da pasta para recortar) `ELE_ATRAS` metros além de onde a carta vai aparecer; ela para a ~3,8 m. O material usa os uniformes da névoa e da hora da alameda (`mundo.alameda.uniformes`), com a névoa 20% mais rala para o vulto se ler a 30 m. A ponta do fio prende na mão dele (`seguidor.ancorar`). Aparece no plano aberto do mergulho (5,2 s depois do toque). Sai em `mostrarCarta()` do encontro (debaixo do clarão), que devolve a ponta do fio à carta. Sem WebGL não existe; no movimento reduzido existe (a caminhada vira dissolvência).
 
-**Segredos (`js/cenas/segredos.js`, `css/segredos.css`).**
-- *Passagem.* A cena começa com `voltarAoMundo` (o pergaminho do filme enrola, a segunda carta vai embora) e termina com o mundo branco aberto, sem carta, sem pergaminho e com o mini visível. A mão, que entra em seguida com `frio: false`, chama `voltarAoMundo` de novo: com o pergaminho `oculto` e sem `estado.envelope`, isso não faz nada, e `mao:enrolando` passa direto para `olha`. Nada mudou em `mao.js`.
-- *Tudo em DOM* sobre o mundo (dentro de `#palco`, que o diretor limpa se a cena quebrar): a cena é a mesma com e sem WebGL. Os bilhetes flutuam por `mundo.aoQuadro` e seguem um pouco `mundo.ponteiro`.
-- *O vídeo.* Um `<video>` por item, `preload="metadata"` (só o tamanho e a duração; no iPhone nem isso, até o toque). O toque dela chama `play()` e `pause()` na hora (o gesto que o Safari exige) e o vídeo começa quando a moldura termina de abrir; se o navegador ainda recusar, aparece um botão de tocar no meio. `playsinline`, sem controles nativos: fechar (disco de papel na quina), barra de progresso em fio na margem de baixo, toque no vídeo pausa/continua; teclado: Tab fica dentro, Espaço/K pausa, Esc fecha, o foco volta ao bilhete. Vídeo que falha (`error`) conta como visto e o bilhete mostra só o nome.
-- *A moldura* fica no tamanho final desde o começo e abre por `clip-path: inset()` + `transform` (o vídeo nunca é esticado). Margens: as áreas seguras + `clamp(26px, 6,5% do lado menor, 64px)`.
-- *Música:* `som.abafar(0.04, 30 min)` durante o vídeo e `som.abafar(1, 0)` na volta; sem Web Audio, `som.pausar()`/`som.retomar()`. Se o iPhone tiver pausado o `<audio>` da música enquanto o vídeo tocava, a cena o religa ao fechar (confere `som.diagnostico().pausado`). O mini some durante o vídeo. Pétalas: densidade 0,35 e foco a 0,5 m durante o vídeo (o resto desfoca), de volta a 1 e 3 m depois; sem WebGL a imagem da alameda desfoca por CSS (`html.segredo-aberto`).
-- *Teste:* `node _dev/ver.mjs --fluxo --segredos output/segredos-teste [--segredos-falho]` injeta vídeos de teste no `content.js` servido (page.route, `injetarSegredos` em `_dev/lib.mjs`) sem tocar no arquivo; `lerConteudo`, `temSegredos` e `segredosDeTeste` também estão lá. Sem `--segredos` e sem vídeo no `content.js`, a cena sai do roteiro.
+**Cartas do chão (`js/cenas/cartas.js`, `css/cartas.css`; substituem a cena "segredos").**
+- *Passagem.* Entra depois de `mao:correndo`, com ele à frente, o fio na mão dele, a última carta escondida e o entardecer aceso; resolve em `seguindo` **sem mexer** em nada disso (o encontro e o final continuam dali). Fria (`?cena=cartas`): cria ele e o entardecer só para a cena.
+- *O chão.* Ela olha para baixo (a câmera desce até 20°, com ele ainda no quadro) e as cartas caem uma a uma. São desenhos DOM deitados no chão por `matrix3d`, com a mesma lente do mundo: iguais com e sem WebGL. Um arranjo para tela em pé e outro para deitada/computador (desenhados para 6 amigos + a Surpresinha). O botão de verdade (`[data-acao="carta-chao"]`) é uma caixa plana invisível sobre cada desenho.
+- *O visor* (`.carta-chao-visor`): a moldura de papel sai da carta e volta para ela. Vídeo sem controles do navegador (tocar pausa, linha de progresso, fecha sozinho ao acabar); sem arquivo, o cartão `cartasChao.vazio` ("[vídeo de Sariel vem aqui]"); a Surpresinha é uma galeria com encaixe por rolagem (`midias`: `foto` ou `video`, `legenda`), vazia mostra `vazioSurpresinha`. Vídeo que falha: a carta fica `falhou`, mostra só o nome, conta como aberta e vai para a bolsa. Fechar fica embaixo, no centro; o mini e o botão da bolsa somem enquanto o visor está aberto.
+- *Ao fechar:* `data-estado` muda antes de a etapa voltar a `escolhendo`, o fio da carta some, o nome é escrito letra por letra (Klee One, som `caneta`) e a carta entra na bolsa com um `abrir` que reabre o mesmo visor.
+- *Música:* `som.abafar(…)` enquanto o visor está aberto e `som.abafar(1, 0)` na volta; sem Web Audio, `som.pausar()`/`som.retomar()`. Se o iPhone tiver pausado a música durante o vídeo, a cena a religa ao fechar.
+- *Seguir em frente* (`[data-acao="seguir-cartas"]`): pílula discreta depois da primeira carta aberta; `data-destaque` quando todas foram abertas.
+- *Teste:* `node _dev/ver.mjs --cena cartas --vp iphone --videos output/segredos-teste [--videos-falho]` injeta vídeos de teste no `content.js` servido (page.route, `injetarVideos(page, videos, midias?)` em `_dev/lib.mjs`) sem tocar no arquivo.

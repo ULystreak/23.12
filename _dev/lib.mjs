@@ -146,20 +146,34 @@ export function subirServidor(raiz = RAIZ) {
 
 /**
  * O content.js como a página vê (window.CONTEUDO), avaliado aqui no Node.
- * `segredos` (opcional) troca a lista de vídeos, como injetarSegredos faz na página.
+ * `videos` (opcional) põe vídeos nas cartas do chão, como injetarVideos faz na página.
  */
-export function lerConteudo(segredos = null) {
+export function lerConteudo(videos = null) {
   const janela = {};
   vm.runInNewContext(readFileSync(path.join(RAIZ, 'js', 'content.js'), 'utf8'), { window: janela });
   const c = janela.CONTEUDO || {};
-  if (segredos) c.segredos = { ...(c.segredos || {}), itens: segredos };
+  if (videos && c.cartasChao && Array.isArray(c.cartasChao.itens)) {
+    c.cartasChao.itens.forEach((item, i) => { if (videos[i]) item.video = videos[i]; });
+  }
   return c;
 }
 
-/** A cena dos segredos existe? (= temSegredos do diretor) */
-export function temSegredos(conteudo) {
-  const itens = conteudo && conteudo.segredos && conteudo.segredos.itens;
-  return Array.isArray(itens) && itens.some((i) => i && typeof i.video === 'string' && i.video.trim());
+/** A senha do content.js ('' = a carta abre sem pedir). */
+export function senhaDoConteudo(conteudo = lerConteudo()) {
+  const codigo = conteudo && conteudo.senha && conteudo.senha.codigo;
+  return typeof codigo === 'string' && /^\d+$/.test(codigo.trim()) ? codigo.trim() : '';
+}
+
+/** Quantas cartas há no chão (= cartasDoChao do diretor: amigos com nome + Surpresinha). */
+export function contarCartas(conteudo) {
+  const d = (conteudo && conteudo.cartasChao) || {};
+  const amigos = (Array.isArray(d.itens) ? d.itens : []).filter((i) => i && typeof i.nome === 'string' && i.nome.trim()).length;
+  const surpresa = d.surpresinha && typeof d.surpresinha.nome === 'string' && d.surpresinha.nome.trim() ? 1 : 0;
+  return amigos + surpresa;
+}
+/** A cena das cartas do chão existe? (= temCartas do diretor) */
+export function temCartas(conteudo) {
+  return contarCartas(conteudo) > 0;
 }
 
 /** A cena do encontro existe? (= temEncontro do diretor) */
@@ -169,33 +183,29 @@ export function temEncontro(conteudo) {
 }
 
 /**
- * Itens de teste para a cena dos segredos: um por .mp4 da pasta (caminho relativo à
- * raiz), mais um vídeo que não existe se `falho` (o 404 é esperado; ver ERRO_ESPERADO).
+ * Vídeos de teste para as cartas do chão: o caminho (relativo à raiz) de cada .mp4
+ * da pasta, na ordem; a carta 1 recebe o primeiro, a 2 o segundo... Com `falho`,
+ * mais um vídeo que não existe (o 404 é esperado; ver ERRO_ESPERADO).
  */
-export function segredosDeTeste(pasta, { falho = false } = {}) {
+export function videosDeTeste(pasta, { falho = false } = {}) {
   const absoluta = path.resolve(RAIZ, pasta);
   const relativa = path.relative(RAIZ, absoluta).split(path.sep).join('/');
-  const arquivos = readdirSync(absoluta).filter((a) => a.toLowerCase().endsWith('.mp4')).sort();
-  const itens = arquivos.map((a, i) => ({
-    titulo: `Segredo ${i + 1}`,
-    video: `${relativa}/${a}`,
-    capa: '',
-    nome: `Teste ${a.replace(/\.mp4$/i, '').replace(/-/g, ' ')}`,
-  }));
-  if (falho) itens.push({ titulo: `Segredo ${itens.length + 1}`, video: `${relativa}/nao-existe.mp4`, capa: '', nome: 'Vídeo que falhou' });
-  return itens;
+  const videos = readdirSync(absoluta).filter((a) => a.toLowerCase().endsWith('.mp4')).sort().map((a) => `${relativa}/${a}`);
+  if (falho) videos.push(`${relativa}/nao-existe.mp4`);
+  return videos;
 }
-/** O 404 do vídeo que falta de propósito (segredosDeTeste com falho). */
+/** O 404 do vídeo que falta de propósito (videosDeTeste com falho). */
 export const ERRO_ESPERADO = /nao-existe\.mp4/;
 
 /**
- * Troca a lista de vídeos do content.js servido à página, sem tocar no arquivo.
+ * Põe vídeos nas cartas do chão do content.js servido à página, sem tocar no arquivo.
  * Chame dentro de `preparar(page)`.
  */
-export async function injetarSegredos(page, itens) {
+export async function injetarVideos(page, videos, midias = null) {
   const original = readFileSync(path.join(RAIZ, 'js', 'content.js'), 'utf8');
+  // `midias` (opcional): a lista da Surpresinha, [{ foto | video, legenda }], para ver a galeria cheia.
   const corpo = `${original}
-;window.CONTEUDO.segredos = Object.assign({}, window.CONTEUDO.segredos, { itens: ${JSON.stringify(itens)} });
+;(function (v, m) { var d = window.CONTEUDO.cartasChao || {}; (d.itens || []).forEach(function (item, i) { if (v[i]) item.video = v[i]; }); if (m && d.surpresinha) d.surpresinha.midias = m; })(${JSON.stringify(videos || [])}, ${JSON.stringify(midias)});
 `;
   await page.route(/\/js\/content\.js(\?.*)?$/, (rota) => rota.fulfill({
     status: 200, contentType: 'text/javascript; charset=utf-8', body: corpo, headers: { 'Cache-Control': 'no-store' },
@@ -204,14 +214,18 @@ export async function injetarSegredos(page, itens) {
 
 /**
  * Abre a carta.
- *   cena    'inicio' | 'poppy' | 'carta2' | 'yourname' | 'segredos' | 'mao' | 'final' (omitido = começo)
+ *   cena    'senha' | 'musica' | 'inicio' | 'poppy' | 'carta2' | 'yourname' | 'mao' | 'cartas' | 'encontro' | 'final'
+ *           (omitido = o começo de verdade: a tela preta da senha)
+ *   entrar  true: sem `cena`, já digita a senha e escolhe a música (a sessão é entregue
+ *           a caminho de inicio:frases, com a música tocando). Para testes que não são
+ *           sobre a entrada.
  *   vp      'celular' (390×844, DPR 3, toque) | 'desktop' (1440×900)
  *   motor   'chromium' | 'webkit'
  *   params  parâmetros extras do endereço: { rapido: 6, webgl: 0, reduzido: 1, nivel: 'baixo', mudo: 1 }
  *   video   true grava em output/video/
  *   preparar  async (page) => {} chamado antes de carregar a página (para page.route, addInitScript etc.)
  */
-export async function abrir({ cena, vp = 'celular', motor = 'chromium', params = {}, video = false, preparar = null } = {}) {
+export async function abrir({ cena, vp = 'celular', motor = 'chromium', params = {}, video = false, preparar = null, entrar = false } = {}) {
   const perfil = VIEWPORTS[vp];
   if (!perfil) throw new Error(`vp desconhecido: ${vp}`);
   const pw = carregarPlaywright();
@@ -307,6 +321,58 @@ export async function abrir({ cena, vp = 'celular', motor = 'chromium', params =
       }, nome, { timeout, polling: 50 });
     },
 
+    /** Digita a senha do content.js no campo da tela preta (etapa senha:senha). */
+    async digitarSenha(codigo = senhaDoConteudo()) {
+      const campo = page.locator('[data-acao="senha"]').first();
+      await campo.waitFor({ state: 'visible', timeout: 20000 });
+      if (perfil.toque) await campo.tap(); else await campo.click();
+      await page.keyboard.type(codigo, { delay: 40 });
+    },
+
+    /** Da tela preta até o mundo: senha (se houver), música e continuar. Só no começo de verdade. */
+    async passarEntrada(timeout = 30000) {
+      const cenaAgora = await page.evaluate(() => window.__carta.cena);
+      if (cenaAgora === 'senha') {
+        await sessao.esperarEtapa('senha:senha', timeout);
+        await sessao.digitarSenha();
+      } else if (cenaAgora !== 'musica') return;
+      await sessao.esperarEtapa('musica:musica', timeout);
+      const temFaixa = await page.locator('[data-acao="faixa"]').first().waitFor({ state: 'visible', timeout: 8000 }).then(() => true, () => false);
+      if (temFaixa) {
+        await sessao.acionar('[data-acao="faixa"]');
+        await sessao.acionar('[data-acao="continuar"]');
+      }
+      await sessao.esperarEtapa('musica:entrando', timeout);
+    },
+
+    /**
+     * Abre a bolsa e toca num item ('carta-poppy', 'carta-yourname', 'chao-1'…): o capítulo
+     * ou a carta do chão reabre na frente. Só funciona nas etapas em que a bolsa abre
+     * (carta2:carta-espera, mao:mao-espera, cartas:escolhendo).
+     */
+    async abrirDaBolsa(id, timeout = 30000) {
+      await sessao.acionar('[data-acao="inventario"]', timeout);
+      await page.waitForFunction(() => document.getElementById('inventario').hasAttribute('data-aberto'), null, { timeout, polling: 50 });
+      await sessao.acionar(`[data-acao="inventario-item"][data-id="${id}"]`, timeout);
+      await page.waitForFunction(() => !!document.querySelector('.carta-chao-visor')
+        || document.getElementById('pergaminho').dataset.estado === 'aberto', null, { timeout, polling: 50 });
+    },
+    /** Fecha o que abrirDaBolsa abriu e espera a bolsa ficar livre de novo. A cena e a etapa não mudam. */
+    async fecharDaBolsa(timeout = 30000) {
+      if (await page.evaluate(() => !!document.querySelector('.carta-chao-visor'))) {
+        await sessao.acionar('[data-acao="fechar-carta"]', timeout);
+      } else {
+        await page.evaluate(() => {
+          const rolagem = window.__carta.ctx.pergaminho.rolagem;
+          rolagem.irPara(rolagem.el.scrollHeight, { imediato: true });
+        });
+        await pausa(250);
+        await sessao.acionar('[data-acao="fechar-capitulo"]', timeout);
+      }
+      await page.waitForFunction(() => !window.__carta.ctx.inventario.aberto && !document.querySelector('.carta-chao-visor')
+        && document.getElementById('pergaminho').hidden, null, { timeout, polling: 50 });
+    },
+
     /** Cena e etapa neste instante. */
     estado() {
       return page.evaluate(() => ({ cena: window.__carta.cena, etapa: window.__carta.etapa }));
@@ -380,5 +446,6 @@ export async function abrir({ cena, vp = 'celular', motor = 'chromium', params =
     },
   };
 
+  if (entrar && !cena) await sessao.passarEntrada();
   return sessao;
 }

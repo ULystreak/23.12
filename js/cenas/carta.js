@@ -1,9 +1,10 @@
 // A carta: caminha, a carta chega, espera o toque, abre e entrega o papel.
 // Usada três vezes (coração, estrela e a última, amarrada só com o fio).
 //
-//   cenaCarta(ctx, { lacre, amarracao, distancia, entregar = true, anunciarCaminhada = true })
+//   cenaCarta(ctx, { tema, lacre, amarracao, distancia, entregar = true, anunciarCaminhada = true })
 //     → Promise<{ env, papel, parar }>
 //
+//   tema               'poppy' | 'yourname' | null: a cara da carta (null = a carta branca, a última)
 //   lacre              'coracao' | 'estrela' | null
 //   amarracao          'cordao' | 'fio'
 //   distancia          metros de caminhada até a carta (0 = ela já está na frente)
@@ -35,7 +36,13 @@ const LONGE = 2.6;                 // metros além do ponto de parada de onde a 
 // Ela já usou o teclado? (só então o foco levado até a carta pede o anel; um toque nunca o vê)
 let usouTeclado = false;
 if (typeof window !== 'undefined') {
-  window.addEventListener('keydown', () => { usouTeclado = true; }, { once: true, capture: true });
+  // (digitar a senha na tela preta não conta: no iPhone o teclado numérico também dispara keydown)
+  const aoTeclar = (e) => {
+    if (e.target && e.target.closest && e.target.closest('#entrada')) return;
+    usouTeclado = true;
+    window.removeEventListener('keydown', aoTeclar, true);
+  };
+  window.addEventListener('keydown', aoTeclar, true);
 }
 
 /** Distância (m) em que a carta para: ~72% da largura no celular em pé, ~28% no computador. */
@@ -58,20 +65,20 @@ function poseParada(mundo, zOlhos) {
 }
 
 export async function cenaCarta(ctx, opcoes = {}) {
-  const { lacre = 'coracao', amarracao = 'cordao', distancia = 7, entregar = true, anunciarCaminhada = true } = opcoes;
+  const { tema = null, lacre = 'coracao', amarracao = 'cordao', distancia = 7, entregar = true, anunciarCaminhada = true } = opcoes;
   const { mundo, diretor, pergaminho, som, estado } = ctx;
   const gsap = window.gsap;
 
   const duracao = distancia > 0 ? 2.4 + distancia * 0.6 : 0;
   const anterior = estado.envelope;
   const reaproveitar = !!(anterior && !anterior.aberto && anterior.amarracao === amarracao
-    && (anterior.lacre ?? null) === (lacre ?? null));
+    && (anterior.lacre ?? null) === (lacre ?? null) && (anterior.tema ?? null) === (tema ?? null));
   if (anterior && !reaproveitar) {
     // sobrou uma carta de antes: vai embora no branco
     estado.envelope = null;
     Promise.resolve(anterior.irEmbora?.()).catch(() => {}).then(() => anterior.dispose?.());
   }
-  const env = reaproveitar ? anterior : criarEnvelope(mundo, { lacre, amarracao, chegada: false });
+  const env = reaproveitar ? anterior : criarEnvelope(mundo, { tema, lacre, amarracao, chegada: false });
   estado.envelope = env;
   env.aoMarco = (nome) => {
     if (nome === 'lacre') som.efeito('lacre');
@@ -238,16 +245,19 @@ function esperarToque(ctx, env) {
     };
 
     // Toque é apertar e soltar no mesmo lugar: arrastar a carta para girá-la não abre.
+    // (o mini da música e a bolsa são dela: um toque neles, ou com a bolsa aberta, não é na carta)
+    const foraDaCarta = (e) => !!(ctx.inventario?.aberto
+      || (e.target && e.target.closest && e.target.closest('#mini, #inventario')));
     let apertou = null;
     const aoApertar = (e) => {
-      if (e.target && e.target.closest && e.target.closest('#mini')) return;
+      if (foraDaCarta(e)) return;
       apertou = { x: e.clientX, y: e.clientY };
       const ndc = pxParaNdc(e.clientX, e.clientY);
       if (env.acertou(ndc.x, ndc.y)) env.pressionar?.(true);
     };
     const aoCancelar = () => { apertou = null; env.pressionar?.(false); };
     const aoSoltar = (e) => {
-      if (e.target && e.target.closest && e.target.closest('#mini')) return;
+      if (foraDaCarta(e)) { apertou = null; return; }
       const arrastou = apertou && Math.hypot(e.clientX - apertou.x, e.clientY - apertou.y) > 14;
       apertou = null;
       if (arrastou) { env.pressionar?.(false); return; }
@@ -259,6 +269,6 @@ function esperarToque(ctx, env) {
     window.addEventListener('pointerdown', aoApertar);
     window.addEventListener('pointerup', aoSoltar);
     window.addEventListener('pointercancel', aoCancelar);
-    alvo.addEventListener('click', concluir);   // teclado (Enter/Espaço) e leitores de tela
+    alvo.addEventListener('click', () => { if (!ctx.inventario?.aberto) concluir(); });   // teclado (Enter/Espaço) e leitores de tela
   });
 }

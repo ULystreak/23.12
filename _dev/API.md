@@ -1,5 +1,7 @@
 # API real do esqueleto
 
+> **Roteiro 2:** este resumo já está na ordem nova (senha → música → inicio → poppy → carta2 → yourname → mao → cartas → encontro → final). O contrato peça por peça continua em `_dev/ROTEIRO2.md`.
+
 Resumo do que existe de fato no código, escrito por quem verificou o esqueleto. Complementa as seções 4 e 6 de `_dev/DIRECAO.md`; se houver divergência, vale o código.
 
 ```
@@ -18,16 +20,18 @@ MOVIMENTO (js/nucleo/movimento.js)
 
 AMBIENTE: amb = { webgl, nivel:'alto'|'medio'|'baixo', reduzido, toque, ios, dprMax (2|1.5|1), rapido, android, mudo, forcado, params:URLSearchParams }. <html> recebe classes toque, ios, reduzido, sem-webgl e data-nivel.
 
-CONTEXTO: ctx = { conteudo, amb, mundo, som, musica, pergaminho, diretor, gsap, ScrollTrigger, recursos, estado }. ctx.ScrollTrigger chega undefined (o index.html não carrega mais o plugin; ver GLOBAIS). estado é livre (estado.envelope, estado.fio, estado.distanciaFinal, estado.folha, estado.seguidorFio, estado.cartaEscondida, estado.encontroQuadros).
+CONTEXTO: ctx = { conteudo, amb, mundo, som, musica, pergaminho, inventario, bolso, diretor, gsap, ScrollTrigger, recursos, estado }. ctx.ScrollTrigger chega undefined (o index.html não carrega mais o plugin; ver GLOBAIS). estado é livre (estado.envelope, estado.fio, estado.distanciaFinal, estado.folha, estado.seguidorFio, estado.cartaEscondida, estado.encontroQuadros).
 - recursos.imagem(url) → Promise<HTMLImageElement|null>; recursos.elementoImagem(url, alt='') → Promise<img novo|null>; recursos.precarregar(lista) → Promise; recursos.iniciar().
 
 DIRETOR (js/nucleo/diretor.js)
 - diretor.etapa(nome) publica em <html data-etapa>; diretor.etapa() devolve a atual. diretor.cena, .etapaAtual, .historico [{cena, etapa, t}], .ordem, .aoMudar(fn(cena, etapa)) → cancelar, .cenaInicial() → string, .aquecer(), .rodar(ctx, cenaInicial).
-- export voltarAoMundo(ctx) → Promise (enrola, solta a folha, manda embora e descarta estado.envelope). export ORDEM. export temSegredos(conteudo) → boolean (algum item de segredos com vídeo; sem isso o diretor pula a cena "segredos"). export temEncontro(conteudo) → boolean (algum quadro com imagem em encontro.quadros; sem isso o diretor pula a cena "encontro").
+- ORDEM = senha, musica, inicio, poppy, carta2, yourname, mao, cartas, encontro, final. Etapas: senha (senha → senha-certa); musica (musica → entrando); inicio e carta2 (caminhada → carta-chegando → carta-espera → carta-abrindo → papel; inicio começa em frases); poppy e yourname (desenrolando → lendo → enrolando → guardando); mao (olha → mao-espera → correndo); cartas (pousando → escolhendo ⇄ assistindo → seguindo); encontro (chegando → planos → maos → carta); final (carta-chegando → carta-espera → carta-abrindo → desdobrando → escrevendo → fim).
+- O capítulo (cenaCapitulo no diretor): desenrolar → esperarFechar → enrolar → soltar → bolso.guardar({ tema, envelope }) → inventario.guardar(item) + mostrarBotao(). Reler pela bolsa (reler no diretor): html.relendo (o #palco some), receberPapel → desenrolar(capitulo, { releitura: true }) → esperarFechar → enrolar → soltar, sem mudar cena nem etapa. A bolsa só abre em carta2:carta-espera, mao:mao-espera e cartas:escolhendo (BOLSA_LIVRE); em final:desdobrando o botão sai.
+- export voltarAoMundo(ctx) → Promise (enrola, solta a folha, manda embora e descarta estado.envelope). export ORDEM. export temSenha(conteudo) → boolean (senha.codigo só com algarismos; sem isso a carta começa pela música). export cartasDoChao(conteudo) → [{ id: 'chao-N' | 'chao-surpresinha', nome, tipo: 'video' | 'galeria', video, capa, midias }] e temCartas(conteudo) → boolean (sem carta com nome o diretor pula a cena "cartas"). export temEncontro(conteudo) → boolean (algum quadro com imagem em encontro.quadros; sem isso o diretor pula a cena "encontro").
 - Cena = async (ctx, { frio }). Cena que lança exceção: o diretor limpa tudo e a próxima entra com frio: true.
 - window.__carta = { ctx, cena, etapa, historico, pronto: Promise<ctx>, gpu, erro }.
-- Nomes que o diretor importa: cenaAbertura (js/cenas/abertura.js), cenaCarta (js/cenas/carta.js), cenaMao (js/cenas/mao.js), cenaFinal (js/cenas/final.js), capitulo (js/capitulos/poppy.js e yourname.js).
-- Parâmetros: ?cena=inicio|poppy|carta2|yourname|segredos|mao|encontro|final (inválido → inicio), ?rapido=N (0.1 a 60), ?nivel=alto|medio|baixo, ?webgl=0, ?reduzido=1 (ou 0), ?mudo=1, ?musica=N (interno).
+- Nomes que o diretor importa: cenaSenha e sairDaEntrada (js/cenas/senha.js), cenaAbertura (js/cenas/abertura.js; exporta também aquecerAbertura), cenaCarta (js/cenas/carta.js), cenaMao (js/cenas/mao.js), cenaCartas (js/cenas/cartas.js), cenaEncontro e prepararEncontro (js/cenas/encontro.js), cenaFinal (js/cenas/final.js), capitulo (js/capitulos/poppy.js e yourname.js).
+- Parâmetros: ?cena=senha|musica|inicio|poppy|carta2|yourname|mao|cartas|encontro|final (segredos = cartas; inválido ou ausente → senha; de inicio em diante pula a tela preta e a bolsa já vem com as cartas dos capítulos anteriores), ?rapido=N (0.1 a 60), ?nivel=alto|medio|baixo, ?webgl=0, ?reduzido=1 (ou 0), ?mudo=1, ?musica=N (interno).
 
 MUNDO (ctx.mundo; export async criarMundo({ amb, canvas, recipienteLeve }))
 - ok:boolean; THREE, renderer, cena, camera (PerspectiveCamera, 1,5 m, FOV 58° em pé a 42° deitado), rig (Group; a caminhada move rig.position.z); canvas; amb; gpu; tamanho { largura, altura, dpr }; ligado (getter); recipienteLeve.
@@ -45,12 +49,12 @@ MUNDO (ctx.mundo; export async criarMundo({ amb, canvas, recipienteLeve }))
 - mundo.fundo: com WebGL e alameda, só os véus atrás do texto (#mundo-veus, por cima do canvas; html.com-fundo); sem WebGL, { ativo, pronto, cor, caminhada(d), atualizar(), ligar(), desligar() } com a imagem da alameda (#mundo-fundo atrás do mundo leve).
 - Modo leve (ok=false): THREE/renderer/camera null; rig e cena são objetoLeve(); telaParaMundo devolve vetorLeve com .px/.py; rajada aceita { px, py }; retanguloParaPose → null.
 
-ENVELOPE: criarEnvelope(mundo, { lacre:'coracao'|'estrela'|null, amarracao:'cordao'|'fio', chegada? }) → env
+ENVELOPE: criarEnvelope(mundo, { lacre:'coracao'|'estrela'|null, amarracao:'cordao'|'fio', chegada?, tema:'poppy'|'yourname'|null }) → env (tema null = a carta branca; env.tema; aquecerEnvelope(mundo, { lacre, amarracao, tema }); imagemDoTema(tema, largura) → canvas com a face da carta, usado pelo bolso e pela bolsa)
 - env.grupo (Object3D), env.papel (Mesh; no leve, div com .visible), env.atualizar(dt, t), env.acertou(xNdc, yNdc) → boolean, env.ancoraFio (getter → Vector3), env.abrir() → Promise<{ papel }>, env.entregarPapel(rect) → Promise, env.irEmbora() → Promise, env.dispose(). Extras: env.chegar({ duracao, distancia, atraso }) → Promise (nasce da névoa e pousa), env.aoMarco = fn(nome) ('lacre' | 'papel'), env.pressionar(bool), env.caixaTela(), env.lacre, env.amarracao, env.aberto.
-- cenaCarta(ctx, { lacre='coracao', amarracao='cordao', distancia=7, entregar=true, anunciarCaminhada=true }) → Promise<{ env, papel, parar }>. Etapas: caminhada → carta-chegando → carta-espera → carta-abrindo → papel. Deixa o envelope em ctx.estado.envelope.
+- cenaCarta(ctx, { tema, lacre='coracao', amarracao='cordao', distancia=7, entregar=true, anunciarCaminhada=true }) → Promise<{ env, papel, parar }>. Etapas: caminhada → carta-chegando → carta-espera → carta-abrindo → papel. Deixa o envelope em ctx.estado.envelope.
 
 PERGAMINHO (ctx.pergaminho; export criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }))
-- retanguloAlvo() → DOMRect; receberPapel() → Promise; folha (Element); desenrolar(capitulo) → Promise; esperarFechar() → Promise; enrolar() → Promise; soltar() → Promise; estado: 'oculto'|'folha'|'aberto'; el.
+- retanguloAlvo() → DOMRect; receberPapel() → Promise; folha (Element); desenrolar(capitulo, { releitura=false }) → Promise (marca #pergaminho[data-capitulo] e, na releitura, [data-releitura]); esperarFechar() → Promise; enrolar() → Promise; soltar() → Promise; estado: 'oculto'|'folha'|'aberto'; el.
 - rolagem = { el, y, progresso (0..1), aoRolar(fn(progresso, y)) → cancelar, irPara(y, { imediato=false }) }.
 - Capítulo: export const capitulo = { id, montar(raiz, api) → { destruir() } } (montar pode ser async). api = { conteudo, amb, som, rolagem, fundo, gsap, ScrollTrigger, recursos, fechar() }. api.ScrollTrigger chega undefined por padrão; o pergaminho só aplica ScrollTrigger.defaults({ scroller: rolagem.el }) se o plugin já estiver em window quando ele é criado. Capítulo que carregar o plugin no próprio montar registra (gsap.registerPlugin) e passa scroller: api.rolagem.el à mão.
 - Extras: #pergaminho[data-estado="folha|abrindo|aberto|fechando|saindo"] (sem atributo = oculto), para o CSS.
@@ -58,24 +62,32 @@ PERGAMINHO (ctx.pergaminho; export criarPergaminho({ raiz, mundo, amb, som, cont
 SOM (ctx.som; export criarSom(conteudo, amb))
 - destravar() → Promise; tocar(indice) → Promise<boolean>; pausar(); retomar(); volume(v?) → number; estado { destravado, tocando, indice, volume, falhou }; aoMudar(fn(estado)) → cancelar; efeito('lacre'|'papel'|'desenrolar'|'toque'|'caneta'|'fita'|'mola'|'brilho'); abafar(fator=0.4, ms=600); faixas; diagnostico(); progresso() → 0..1 da faixa; aoTempo(fn(progresso, segundos, duracao)) → cancelar.
 MUSICA (ctx.musica; export criarMusica({ conteudo, som, amb, recursos, mini }))
-- escolher(folhaEl) → Promise (sem faixa com arquivo, resolve na hora); mostrarMini(); esconderMini(). Para o CSS: #mini[data-pele="papel|poppy|yourname"], #mini[data-quieto] (recolhido na margem durante a rolagem), #mini[data-longe] (mão e final).
+- escolher(recipiente) → Promise (o diretor passa #entrada-musica, na tela preta; carrossel de capas; sem faixa com arquivo, resolve na hora); mostrarMini(); esconderMini(). Para o CSS: #mini[data-pele="papel|poppy|yourname"] (segue data-cena e, na releitura pela bolsa, #pergaminho[data-capitulo][data-releitura]), #mini[data-quieto] (recolhido na margem durante a rolagem), #mini[data-longe] (mão e final).
+
+INVENTARIO (ctx.inventario; export criarInventario({ conteudo, amb, som, recursos, raiz: #inventario }))
+- guardar({ id, tipo:'carta'|'video'|'galeria', titulo, tema?, abrir }) → boolean (true se novo); tem(id); itens (cópia); mostrarBotao() / esconderBotao(); liberar(sim) (só o diretor); abrirFolha() → boolean / fecharFolha(); aberto (folha aberta OU item reaberto na frente; as cenas ignoram toques no mundo enquanto isso); aoMudar(fn(itens)) → cancelar. Para o CSS: #inventario[data-aberto], [data-quieto] (não pode abrir agora), [data-relendo] (item reaberto: o botão sai da frente).
+BOLSO (ctx.bolso; export criarBolso({ conteudo, amb, som, mundo, raiz: #bolso }))
+- guardar({ tema, envelope }) → Promise (~3 s; primeira pessoa, a mão leva a carta ao bolso da saia; DOM/SVG; descarta o envelope; nunca rejeita; no reduzido, dissolvência curta); ocupado.
 
 FIO: criarFio(mundo, { curva: Vector3[] | {x,y,z}[] | THREE.Curve, largura=0.012 }) → { objeto, progresso(p?) → number, definirCurva(c), atualizar(dt, t), dispose() }.
 ELE: criarEle(mundo) → { grupo (pés na origem), ancora(saida?) → Vector3 (a mão que segura o fio, no mundo), mostrar(duracao=3), sair(duracao=0.8) → Promise (some e se descarta), dispose() } | null sem WebGL (js/mundo/ele.js). Figura pintada num canvas, plano em pé com sombra de contato; o material usa mundo.alameda.uniformes (uNevoa, uCeu, uDens, uTarde, por referência).
 FOLHA: criarFolha(mundo) → { grupo, desdobrar() → Promise, escrever(texto) → Promise, atualizar(dt, t), dispose() }. Extras (final.js chama com checagem): assumir(papel) (aparece dobrada onde está o papel da carta), repousarFio() → Promise (o fio solto repousa no canto da folha), viver() (pétalas pousam de tempos em tempos).
-CENAS: cenaSegredos(ctx, { frio }) → Promise (js/cenas/segredos.js; enrolando → frase → escolhendo ⇄ assistindo; termina com o mundo aberto, sem carta e sem pergaminho); cenaAbertura(ctx) → Promise (etapa frases); cenaMao(ctx, { frio }) → Promise (enrolando → olha → mao-espera → seguindo; deixa estado.fio, estado.distanciaFinal, estado.envelope e estado.seguidorFio { parar(), soltar(duracao?), ancorar(Vector3|null) }, o seguidor que mantém o fio preso ao pulso e à carta até final:carta-abrindo; com o encontro por vir e WebGL deixa também estado.ele (criarEle), com a ponta do fio presa à mão dele por ancorar(); mostrarCarta() do encontro o tira e devolve a ponta à carta); cenaEncontro(ctx, { frio }) → Promise (js/cenas/encontro.js; chegando → planos → maos → carta; resolve com a última carta à vista e fechada) e prepararEncontro(ctx) → Promise<quadros[]> (baixa os quadros; o diretor chama no começo da mão); entardecer(ctx, ligar|0..1, duracao) é exportado de mao.js; cenaFinal(ctx, { frio }) → nunca resolve.
+CENAS: cenaSenha(ctx, { frio }) → Promise (senha → senha-certa; resolve com o campo já fora e o preto ainda lá) e sairDaEntrada(ctx) → Promise (o preto se desfaz, #entrada sai do DOM, theme-color vira branco); cenaCartas(ctx, { frio }) → Promise (js/cenas/cartas.js; pousando → escolhendo ⇄ assistindo → seguindo; não mexe no fio, nele, na carta escondida nem no entardecer); cenaAbertura(ctx, { frio }) → Promise (etapa frases); cenaMao(ctx, { frio }) → Promise (olha → mao-espera → correndo; a corrida dura conteudo.corrida.segundos e ela para a 5,25 m dele; deixa estado.fio, estado.distanciaFinal, estado.envelope e estado.seguidorFio { parar(), soltar(duracao?), ancorar(Vector3|null) }, o seguidor que mantém o fio preso ao pulso e à carta até final:carta-abrindo; com o encontro por vir e WebGL deixa também estado.ele (criarEle), com a ponta do fio presa à mão dele por ancorar(); mostrarCarta() do encontro o tira e devolve a ponta à carta); cenaEncontro(ctx, { frio }) → Promise (js/cenas/encontro.js; chegando → planos → maos → carta; resolve com a última carta à vista e fechada) e prepararEncontro(ctx) → Promise<quadros[]> (baixa os quadros; o diretor chama no começo da mão); entardecer(ctx, ligar|0..1, duracao) é exportado de mao.js; cenaFinal(ctx, { frio }) → nunca resolve.
 
-DOM DO ESQUELETO (index.html): canvas#mundo, div#mundo-leve, main#palco com #frases, p#dica[hidden], #acoes; section#pergaminho[hidden]; aside#mini[hidden].
-GANCHOS DE TESTE: [data-acao="faixa"], "continuar", "mini", "mini-alternar", "fechar-capitulo", "seguir-fio", "abrir-carta", "segredo" (com data-estado fechado|aberto|falhou), "fechar-segredo", "continuar-segredos"; em carta-espera um toque no centro da tela abre a carta.
+DOM DO ESQUELETO (index.html): canvas#mundo, div#mundo-leve, main#palco com #frases, p#dica[hidden], #acoes; section#pergaminho[hidden]; aside#mini[hidden]; aside#inventario[hidden]; div#bolso[hidden]; section#entrada > #entrada-senha + #entrada-musica (preto, z-index 60, no CSS crítico; html.sem-entrada nos atalhos).
+GANCHOS DE TESTE: input[data-acao="senha"], [data-acao="faixa"], "continuar", "mini", "mini-alternar", "fechar-capitulo" (o botão "Guardar no bolso"), "seguir-fio", "abrir-carta", "inventario", "inventario-item" (com data-id), "inventario-fechar", "carta-chao" (com data-id e data-estado fechada|aberta|falhou), "fechar-carta", "seguir-cartas" (data-destaque com todas abertas); .carta-chao-visor[data-tipo="video|galeria|vazio"]; em carta-espera um toque no centro da tela abre a carta.
 GLOBAIS: gsap, CustomEase, DrawSVGPlugin, Lenis, CONTEUDO. ScrollTrigger e SplitText ficam em lib/ mas o index.html não os carrega (nenhum capítulo usa, e o ScrollTrigger mantinha um rAF rodando a carta inteira): quem precisar carrega no próprio montar (ex.: injetar <script src="lib/ScrollTrigger.min.js"> e esperar o load) e registra. O núcleo (movimento.js, main.js) e o pergaminho funcionam sem eles; nunca use window.ScrollTrigger/SplitText sem checar.
 
 CONTENT.JS (window.CONTEUDO)
 - pagina { titulo, fundo } (fundo: a imagem da alameda, usada só sem WebGL; com WebGL a alameda é 3D. '' volta ao mundo branco nos dois modos. Refazer a imagem: node _dev/alameda-imagem.mjs)
+- senha { codigo, frase, dica, rotulo } (codigo só com algarismos; vazio = sem senha; frase e dica podem ficar vazias)
 - abertura { frases: string[], dicaCarta }
-- musica { titulo, continuar, volumeInicial, rotulos { abrir, pausar, tocar, volume, trocar, continuar }, faixas: [{ titulo, artista, arquivo, capa }] } (rotulos.continuar é o aria-label quando musica.continuar fica vazio)
+- musica { titulo, continuar, volumeInicial, rotulos { abrir, pausar, tocar, volume, trocar, continuar, anterior, proxima }, faixas: [{ titulo, artista, arquivo, capa }] } (rotulos.continuar é o aria-label quando musica.continuar fica vazio)
 - poppy { titulo, subtitulo, fundo, fechar, blocos: [{ tipo:'texto', texto } | { tipo:'imagem', arquivo, alt, legenda } | { tipo:'cena', cena:'maos'|'fita'|'esteira', etiqueta?, data?, itens? }] }
 - yourname { titulo, subtitulo, capa, fundo, video, fechar, blocos: [{ tipo:'texto', texto } | { tipo:'cordao' } | { tipo:'imagem-cheia', arquivo, alt } | { tipo:'imagem', arquivo, alt, legenda } | { tipo:'par', dele, dela, legendaDele, legendaDela }] }
-- segredos { frase, continuar, fechar (aria-label do botão de fechar o vídeo), itens: [{ titulo, video, capa, nome }] } (item com video '' some; nenhum vídeo = a cena não existe)
+- inventario { titulo, cartaPoppy, cartaYourname, rotulos { abrir, fechar, guardando } }
+- corrida { segundos } (7; aceita 5 a 10)
+- cartasChao { frase, seguir, vazio ('{nome}' vira o nome), vazioSurpresinha, rotulos { carta, fechar, anterior, proxima }, itens: [{ nome, video, capa }], surpresinha { nome, midias: [{ foto | video, legenda }] } } (carta sem vídeo aparece e abre o cartão de exemplo; nenhuma carta com nome = a cena não existe). poppy.fechar, yourname.fechar e yourname.rotuloFechar valem 'Guardar no bolso'.
 - mao { frase, escrito, imagem, ancoraFio { x, y }, botao, rotuloBotao, ele } (escrito: o que é escrito à caneta na palma, só na mão desenhada, '' = nada; rotuloBotao é o aria-label quando botao fica vazio; ele: false tira a figura dele do fim do fio)
 - encontro { quadros: [{ imagem, alt, foco {x,y}?, ate {x,y}?, fio {x,y}?, dedo {x,y}?, aparar { topo, base, esquerda, direita }?, fim? }] } (lista vazia = a cena não existe; foco → ate é a panorâmica; fio é onde o fio do quadro chega à base, para a emenda; os dois quadros com dedo são as mãos; fim: true é o plano final, que entra depois das mãos e de onde o clarão nasce)
 - final { frase }
@@ -87,9 +99,9 @@ Campo de imagem/música vazio ('') não faz pedido e a peça some.
 Na raiz do repositório (ou do seu worktree) (Playwright é achado sozinho nesta sessão; fora dela, defina CARTA_PW com o caminho de node_modules/playwright). Tudo abaixo termina com código 0 e zero erro de console.
 
 Cenas e fluxo (capturas em output/ver/):
-- node _dev/ver.mjs --vp celular,desktop --rapido 6 --fotos (as seis cenas no Chromium)
+- node _dev/ver.mjs --vp iphone,desktop --rapido 6 --fotos (as dez cenas no Chromium, cada uma por ?cena=)
 - node _dev/ver.mjs --vp celular --motor webkit --rapido 6 --fotos
-- node _dev/ver.mjs --fluxo --vp celular,desktop --rapido 6 --fotos --quadros (inicio:frases até final:fim)
+- node _dev/ver.mjs --fluxo --vp iphone,desktop --rapido 6 --fotos (senha:senha até final:fim: digita a senha, escolhe a música, relê as cartas pela bolsa, abre e fecha as cartas do chão)
 - node _dev/ver.mjs --fluxo --vp celular --motor webkit --rapido 6 --fotos
 - node _dev/ver.mjs --fluxo --vp celular,desktop --rapido 6 --fotos --params "webgl=0"
 - node _dev/ver.mjs --fluxo --vp celular --rapido 6 --fotos --params "reduzido=1"
@@ -98,14 +110,14 @@ Cenas e fluxo (capturas em output/ver/):
 - Uma cena só: `node _dev/ver.mjs --cena poppy --vp celular,desktop --motor chromium,webkit --rapido 6 --fotos [--ate etapa] [--video]`
 
 Robustez do núcleo (capturas em output/robustez/):
-- node _dev/robustez.mjs (todos os casos, uns 6 minutos, 88 verificações)
+- node _dev/robustez.mjs (todos os casos, uns 10 minutos)
 - node _dev/robustez.mjs spam resize (rodar depois de mexer em qualquer cena); demais casos: aba contexto params faltando teclado audio quebra vazio qualidade
 
-Segredos (vídeos de teste em output/segredos-teste, injetados por page.route; o content.js não muda):
-- node _dev/ver.mjs --fluxo --vp iphone,desktop --rapido 6 --segredos output/segredos-teste [--segredos-falho] [--fotos]
-- node _dev/ver.mjs --cena segredos --vp iphone --motor webkit --segredos output/segredos-teste --fotos
-- lib.mjs: lerConteudo(itens?), temSegredos(c), segredosDeTeste(pasta, { falho }), injetarSegredos(page, itens), ERRO_ESPERADO; sessao.perfil.
+Cartas do chão (vídeos de teste em output/segredos-teste, injetados por page.route; o content.js não muda):
+- node _dev/ver.mjs --fluxo --vp iphone,desktop --rapido 6 --videos output/segredos-teste [--videos-falho] [--fotos]
+- node _dev/ver.mjs --cena cartas --vp iphone --motor webkit --videos output/segredos-teste --fotos
+- lib.mjs: lerConteudo(videos?), senhaDoConteudo(c), temCartas(c), contarCartas(c), temEncontro(c), videosDeTeste(pasta, { falho }), injetarVideos(page, videos, midias?) (midias = a lista da Surpresinha), ERRO_ESPERADO; sessao.perfil.
 
-Testes próprios: import { abrir } from './_dev/lib.mjs' → sessão com esperarEtapa('cena:etapa'), foto(nome), tocar(x,y)/tocarCentro(), acionar(seletor), medirQuadros(ms), estado(), erros, page, fechar(); abrir aceita { cena, vp, motor, params, video, preparar(page) }.
+Testes próprios: import { abrir } from './_dev/lib.mjs' → sessão com esperarEtapa('cena:etapa'), foto(nome), tocar(x,y)/tocarCentro(), acionar(seletor), digitarSenha(), passarEntrada(), abrirDaBolsa(id) / fecharDaBolsa(), medirQuadros(ms), estado(), erros, page, fechar(); abrir aceita { cena, vp, motor, params, video, preparar(page), entrar } (sem cena = a tela preta; entrar: true já passa pela senha e pela música).
 
 Arquivos centrais: _dev/DIRECAO.md (contrato; seção 6 atualizada), _dev/ver.mjs, _dev/robustez.mjs, _dev/lib.mjs, js/main.js, js/nucleo/*.js, js/mundo/mundo.js.

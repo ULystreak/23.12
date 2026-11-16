@@ -6,7 +6,12 @@
 //   perg.retanguloAlvo() → DOMRect      onde o papel 3D deve pousar
 //   perg.receberPapel() → Promise       a folha aparece exatamente ali (troca invisível)
 //   perg.folha                          elemento em branco (o seletor de música é montado aqui)
-//   perg.desenrolar(capitulo) → Promise desenrola de cima para baixo e libera a rolagem
+//   perg.desenrolar(capitulo, { releitura }) → Promise   desenrola de cima para baixo e libera a rolagem.
+//                                       Enquanto um capítulo está montado, #pergaminho tem
+//                                       data-capitulo="<id>" (quem veste a pele do capítulo fora
+//                                       dele, como o mini da música, deve ler este atributo: numa
+//                                       releitura pela bolsa, data-cena é o da cena atual) e, na
+//                                       releitura, também data-releitura.
 //   perg.enrolar() → Promise            enrola de volta até virar a folha em branco
 //   perg.soltar() → Promise             a folha vai embora e o mundo volta
 //   perg.rolagem → { el, progresso, y, aoRolar(fn(progresso, y)), irPara(y, { imediato }) }
@@ -643,6 +648,7 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
     rolagemEl.removeAttribute('aria-labelledby');
     travarRolagem(false);
     delete raiz.dataset.capitulo;
+    delete raiz.dataset.releitura;
     if (palco) palco.removeAttribute('aria-hidden');
   }
 
@@ -782,7 +788,7 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
       if (estado === 'folha' && !saindo && cobreTela()) mundo.desligar();
     },
 
-    async desenrolar(capitulo) {
+    async desenrolar(capitulo, { releitura = false } = {}) {
       if (estado === 'aberto') await perg.enrolar();
       if (estado === 'oculto') await perg.receberPapel();
       if (!camada.hidden) {            // sobra de uma abertura que quebrou no meio
@@ -811,6 +817,7 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
       camada.hidden = false;
       revelar(0);
       raiz.dataset.capitulo = capitulo.id || '';
+      if (releitura) raiz.dataset.releitura = ''; else delete raiz.dataset.releitura;
       publicar('abrindo');
       medir();
       let montado = null;

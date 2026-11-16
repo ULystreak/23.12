@@ -1,0 +1,156 @@
+/* A tela preta do começo: a senha (js/cenas/senha.js) e o lugar do seletor de música
+   (o carrossel em si está em css/musica.css). O preto de #entrada está no CSS
+   crítico do index.html. Só transform e opacity são animados. */
+
+#entrada-senha,
+#entrada-musica {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: calc(var(--seguro-topo) + 24px) max(24px, var(--seguro-dir)) calc(var(--seguro-base) + 24px) max(24px, var(--seguro-esq));
+}
+#entrada-senha:empty,
+#entrada-musica:empty { display: none; }
+
+/* No celular o teclado numérico cobre a metade de baixo: as casas ficam no terço de cima. */
+@media (pointer: coarse) {
+  #entrada-senha {
+    align-items: start;
+    padding-top: calc(var(--seguro-topo) + min(26vh, 240px));
+  }
+}
+@media (pointer: coarse) and (max-height: 520px) {
+  #entrada-senha { padding-top: calc(var(--seguro-topo) + 9vh); }
+}
+
+.senha {
+  --casa: clamp(44px, 13vw, 58px);
+  --vao: clamp(12px, 4vw, 20px);
+  display: grid;
+  justify-items: center;
+  gap: 26px;
+  will-change: opacity;
+}
+.senha-frase,
+.senha-dica {
+  margin: 0;
+  max-width: 18em;
+  font-family: var(--fonte-titulo);
+  font-size: 1.0625rem;
+  line-height: 1.5;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.74);
+  text-align: center;
+  text-wrap: balance;
+}
+.senha-dica { min-height: 1.5em; font-size: 0.9375rem; color: rgba(255, 255, 255, 0.62); }
+.senha-dica:empty { min-height: 0; }
+
+.senha-quadro { position: relative; }
+.senha-casas {
+  position: relative;
+  display: flex;
+  gap: var(--vao);
+  padding-bottom: 2px;
+}
+.senha-casa {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--casa);
+  height: calc(var(--casa) * 1.32);
+}
+.senha-digito {
+  font-family: var(--fonte-titulo);
+  font-size: calc(var(--casa) * 0.86);
+  line-height: 1;
+  font-variant-numeric: lining-nums tabular-nums;
+  color: #fff;
+  will-change: transform, opacity;
+}
+/* O traço embaixo de cada casa: três camadas de opacidade, nunca de cor (só opacity anima). */
+.senha-traco {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: #fff;
+  opacity: 0.26;
+  transition: opacity 320ms linear;
+}
+.senha-casa[data-cheia] .senha-traco { opacity: 0.5; }
+.senha-casa[data-vez] .senha-traco { opacity: 0.95; animation: senha-vez 1.9s ease-in-out infinite; }
+@keyframes senha-vez {
+  0%, 100% { opacity: 0.95; }
+  50% { opacity: 0.3; }
+}
+.senha[data-certa] .senha-traco { opacity: 0; animation: none; transition-duration: 600ms; }
+
+/* O fio vermelho que corre por baixo dos números quando ela acerta. */
+.senha-fio {
+  position: absolute;
+  left: -6px;
+  right: -6px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--fio);
+  box-shadow: 0 0 14px rgba(215, 25, 45, 0.6);
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+}
+
+/* O campo de verdade: por cima das casas, invisível. É ele que recebe o toque e o teclado. */
+.senha-campo {
+  position: absolute;
+  inset: -22px -26px;
+  width: calc(100% + 52px);
+  height: calc(100% + 44px);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+  font-size: 1.25rem;            /* 16 px ou mais: o Safari do iPhone não dá zoom no campo */
+  text-align: center;
+  opacity: 0;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.senha-campo:disabled { pointer-events: none; }
+
+/* Errou: as casas tremem de leve e os números se apagam. */
+.senha[data-erro] .senha-casas { animation: senha-tremor 0.46s cubic-bezier(0.36, 0.07, 0.19, 0.97); }
+@keyframes senha-tremor {
+  0%, 100% { transform: translateX(0); }
+  18% { transform: translateX(-8px); }
+  38% { transform: translateX(7px); }
+  58% { transform: translateX(-4px); }
+  78% { transform: translateX(2px); }
+}
+html.reduzido .senha[data-erro] .senha-casas { animation: senha-pisca 0.46s linear; }
+@keyframes senha-pisca { 50% { opacity: 0.3; } }
+html.reduzido .senha-casa[data-vez] .senha-traco { animation: none; }
+
+/* O carrossel de música ocupa a largura toda (as capas vizinhas espiam pelas bordas);
+   com a tela deitada, o que não couber rola, para o continuar nunca ficar fora de alcance. */
+#entrada-musica {
+  grid-template-columns: minmax(0, 1fr);   /* o trilho de capas é mais largo que a tela: não alarga a coluna */
+  place-items: start stretch;
+  padding-left: 0;
+  padding-right: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+#entrada-musica > * { margin: auto; }
+
+/* Enquanto a tela preta existe, o disco que voa e o mini ficam por cima dela. */
+html:not(.sem-entrada) #mini { z-index: 62; }

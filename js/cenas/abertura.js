@@ -1,24 +1,51 @@
-// Abertura: branco total, um segundo de silêncio, as pétalas começam a cair e as
-// frases aparecem palavra por palavra. Cada frase vai embora como se o vento a
-// levasse, para o mesmo lado em que as pétalas caem.
+// Abertura: o mundo branco aparece, as pétalas começam a cair e as frases surgem
+// palavra por palavra, com ela já andando (o passo de base do mundo). Cada frase vai
+// embora como se o vento a levasse, para o mesmo lado em que as pétalas caem.
 //
-//   cenaAbertura(ctx, { frio }) → Promise   resolve quando a última frase começa a ir embora
+//   cenaAbertura(ctx, { frio }) → Promise   resolve quando a última frase acabou de aparecer
+//   aquecerAbertura(ctx) → Promise          prepara a primeira carta e as pétalas (uma vez só)
 //
 // Etapa publicada aqui: `frases`. A caminhada até a carta (etapas `caminhada` e
-// `carta-chegando`) é feita por cenaCarta, para a câmera ter um movimento só; por
-// isso a Promise resolve um instante depois de a última frase começar a sair: a
-// saída dela e o primeiro passo se sobrepõem.
+// `carta-chegando`) é feita por cenaCarta, para a câmera ter um movimento só.
+//
+// O RITMO (roteiro 2): do mundo aparecer até a carta surgir ao longe são uns 10 s.
+// Por isso, vindo da tela preta, não há mais o segundo de branco parado (o preto se
+// desfazendo já é o silêncio, e a carta é aquecida durante ele, por aquecerAbertura);
+// uma frase começa enquanto a anterior ainda vai embora; e a última fica na tela
+// durante o começo da caminhada, saindo sozinha pouco antes de a carta nascer da névoa.
+// Pelo atalho ?cena=inicio (frio) o segundo de branco continua, para o aquecimento caber.
 
 import { el, espera } from '../nucleo/util.js';
 import { curvas, revelarPalavras } from '../nucleo/movimento.js';
 import { aquecerEnvelope } from '../mundo/envelope.js';
 
-const SILENCIO = 1000;          // ms de branco puro antes de tudo
+const SILENCIO = 1000;          // ms de branco puro antes de tudo (só pelo atalho; vindo do preto não há)
 const FOCO_DO_COMECO = 1.1;     // m: as primeiras pétalas nascem fora de foco...
 const FOCO_DO_MUNDO = 3;        // ... e o foco assenta aqui quando a primeira palavra aparece
 
 /** Tempo de leitura: um respiro fixo mais um tanto por letra. */
-const tempoDeLer = (texto) => 1700 + texto.length * 30;
+const tempoDeLer = (texto) => 1250 + texto.length * 28;
+const ENTRE_FRASES = 1150;      // ms entre uma frase começar a sair e a seguinte começar a aparecer
+
+/**
+ * Prepara a primeira carta (texturas, shaders) e o programa das pétalas soltas, uma
+ * vez só. Chamado pela tela preta enquanto ela se desfaz e, de novo, pela abertura
+ * (que então só espera o que já está em andamento).
+ */
+let aquecimento = null;
+export function aquecerAbertura(ctx) {
+  if (!aquecimento) {
+    const { mundo } = ctx;
+    // Um quadro antes, para o que está na tela (o preto, o branco) já ter sido pintado.
+    aquecimento = new Promise((r) => requestAnimationFrame(r))
+      .then(() => Promise.all([
+        aquecerEnvelope(mundo, { tema: 'poppy', lacre: 'coracao', amarracao: 'cordao' }),
+        mundo.petalas?.preparar?.(),         // as protagonistas, logo adiante, usam o programa das soltas
+      ]))
+      .catch(() => {});
+  }
+  return aquecimento;
+}
 
 /**
  * A frase vai embora com o vento: cada palavra deriva para o lado em que as
@@ -58,7 +85,7 @@ function levarPeloVento(frase, amb) {
   });
 }
 
-export async function cenaAbertura(ctx) {
+export async function cenaAbertura(ctx, { frio = false } = {}) {
   const { conteudo, diretor, mundo, recursos, amb } = ctx;
   const palco = document.getElementById('frases');
   const petalas = mundo.petalas;
@@ -66,21 +93,19 @@ export async function cenaAbertura(ctx) {
 
   diretor.etapa('frases');
 
-  // Branco total e um segundo de silêncio; a fonte da frase termina de chegar nesse tempo.
   petalas.definirDensidade(0);
   petalas.definirFoco?.(FOCO_DO_COMECO);
   const fonte = document.fonts && document.fonts.load
     ? document.fonts.load('400 32px "Shippori Mincho"', frases[0] || 'a').catch(() => {})
     : null;
-  // No branco parado, a primeira carta é preparada (texturas, shaders): o primeiro
-  // passo da caminhada não paga por isso. Um quadro antes, para o branco já estar na tela.
-  const aquecer = new Promise((r) => requestAnimationFrame(r))
-    .then(() => Promise.all([
-      aquecerEnvelope(mundo, { lacre: 'coracao', amarracao: 'cordao' }),
-      petalas.preparar?.(),                  // as protagonistas, logo adiante, usam o programa das soltas
-    ]))
-    .catch(() => {});
-  await Promise.all([espera(SILENCIO), Promise.race([fonte, espera(1800)]), Promise.race([aquecer, espera(2400)])]);
+  // A primeira carta é preparada antes do primeiro passo. Vindo da tela preta isto já
+  // foi feito enquanto o preto se desfazia; pelo atalho, cabe no segundo de branco.
+  const aquecer = aquecerAbertura(ctx);
+  await Promise.all([
+    frio ? espera(SILENCIO) : null,
+    Promise.race([fonte, espera(frio ? 1800 : 700)]),
+    Promise.race([aquecer, espera(frio ? 2400 : 900)]),
+  ]);
 
   // As pétalas começam, poucas, entrando por cima; o resto do site baixa em segundo plano.
   // No movimento reduzido elas não descem do alto da tela (lentas como estão, a
@@ -89,28 +114,36 @@ export async function cenaAbertura(ctx) {
   petalas.definirDensidade(0.4);
   recursos.iniciar();
   diretor.aquecer();
-  espera(2600).then(() => petalas.definirDensidade(1));       // ... e aumentam
-  await espera(1500);
+  espera(2200).then(() => petalas.definirDensidade(1));       // ... e aumentam
+  await espera(frio ? 1500 : 350);
 
   // Algumas enormes cruzam rente à lente durante a primeira frase, e o foco assenta.
   petalas.protagonistas?.();
   petalas.definirFoco?.(FOCO_DO_MUNDO);
-  await espera(500);
+  await espera(frio ? 500 : 250);
 
   for (let i = 0; i < frases.length; i++) {
     const texto = frases[i];
     const frase = el('p', 'frase frase-abertura');
     palco.append(frase);
     await revelarPalavras(frase, texto, { intervalo: 0.15, duracao: 1.2 });
-    await espera(tempoDeLer(texto));
+    const ir = () => {
+      // Sai do fluxo no lugar em que está: a frase seguinte nasce na mesma altura, sem pulo.
+      const { offsetLeft: x, offsetTop: y, offsetWidth: l } = frase;
+      Object.assign(frase.style, { position: 'absolute', left: `${x}px`, top: `${y}px`, width: `${l}px`, margin: '0' });
+      return levarPeloVento(frase, amb).then(() => frase.remove());
+    };
 
-    const saida = levarPeloVento(frase, amb).then(() => frase.remove());
     if (i === frases.length - 1) {
-      // A última sai junto com o primeiro passo: a cena seguinte começa já.
-      await espera(420);
+      // A última fica na tela enquanto ela dá os primeiros passos (a cena seguinte começa
+      // já) e sai sozinha depois de lida, pouco antes de a carta nascer da névoa.
+      espera(tempoDeLer(texto)).then(ir);
       return;
     }
-    await saida;
-    await espera(420);
+    await espera(tempoDeLer(texto));
+    // A seguinte começa enquanto esta ainda vai embora: o vento a leva para o lado,
+    // e as primeiras palavras da nova aparecem no espaço que ficou.
+    ir();
+    await espera(ENTRE_FRASES);
   }
 }

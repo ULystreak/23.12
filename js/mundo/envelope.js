@@ -1,6 +1,10 @@
 // Envelope (contrato 4.4).
 //
-//   const env = criarEnvelope(mundo, { lacre: 'coracao' | 'estrela' | null, amarracao: 'cordao' | 'fio' });
+//   const env = criarEnvelope(mundo, { lacre: 'coracao' | 'estrela' | null, amarracao: 'cordao' | 'fio', tema });
+//       tema  'poppy' | 'yourname' | null: a cara da carta (null = a carta branca).
+//             O desenho de cada tema mora em telaTema(), mais abaixo; o papel que sai
+//             de dentro continua da cor da folha.
+//   env.tema                        o tema com que foi criada (ou null)
 //   env.grupo                       Object3D; a cena posiciona e põe em mundo.cena
 //   env.papel                       Mesh do papel (no leve, a div do papel, com .visible)
 //   env.atualizar(dt, t)            flutua, gira devagar, segue mundo.ponteiro com mola
@@ -17,6 +21,8 @@
 //   env.chegar({ duracao, distancia }) → Promise   nasce da névoa ao longe e pousa, com a inclinação se endireitando
 //   env.pressionar(bool)            afunda 4 mm enquanto o dedo aperta
 //   env.caixaTela() → { left, top, right, bottom, width, height } em px (o envelope, sem margem)
+//   imagemDoTema(tema, largura) → canvas com a face da carta daquele tema (o bolso e a
+//                                 bolsa desenham a mesma carta com ele); null sem tema
 //   env.aoMarco = fn(nome)          avisado em 'lacre' (trincou) e 'papel' (o papel começa a subir)
 //
 // Sem WebGL (mundo.ok === false) a mesma API é servida por uma carta em SVG + CSS.
@@ -68,7 +74,7 @@ export function criarEnvelope(mundo, opcoes = {}) {
 }
 
 const aquecidos = [];
-const chaveDe = ({ lacre = 'coracao', amarracao = 'cordao' } = {}) => `${lacre}|${amarracao}`;
+const chaveDe = ({ lacre = 'coracao', amarracao = 'cordao', tema = null } = {}) => `${lacre}|${amarracao}|${tema || ''}`;
 
 /**
  * Extra: prepara de antemão a próxima carta (texturas geradas, shaders compilados
@@ -240,6 +246,192 @@ function telaForro(tam) {
     }
     return c;
   });
+}
+
+// ---- temas ---------------------------------------------------------------------------
+// Cada carta de capítulo tem a cara do capítulo, para ela reconhecer antes de abrir.
+//   base     cor chapada (a frente do envelope, vista quando ele gira)
+//   cordao   as duas cores do cordão trançado
+//   cera     cor do lacre
+const TEMAS = {
+  poppy: { base: '#0d2534', cordao: ['#e23b3b', '#f4c430'], cera: '#c2182f', borda: 0.35 },
+  yourname: { base: '#2c2468', cordao: ['#d7192d', '#f39a3d'], cera: '#c98f2c', borda: 0.4 },
+};
+const temaValido = (tema) => (tema && TEMAS[tema] ? tema : null);
+
+/** Face da carta de um tema (proporção 23 × 16), desenhada uma vez por tamanho. */
+function telaTema(tema, larg) {
+  return tela(`tema-${tema}-${larg}`, () => {
+    const c = document.createElement('canvas');
+    c.width = larg;
+    c.height = Math.round((larg * H) / W);
+    const g = c.getContext('2d');
+    const w = c.width; const h = c.height;
+    if (tema === 'poppy') desenharPoppy(g, w, h);
+    else desenharYourName(g, w, h);
+    return c;
+  });
+}
+
+export function imagemDoTema(tema, largura = 512) {
+  const t = temaValido(tema);
+  if (!t || typeof document === 'undefined') return null;
+  try { return telaTema(t, largura); } catch { return null; }
+}
+
+function retArred(g, x, y, w, h, r) {
+  g.beginPath();
+  g.moveTo(x + r, y);
+  g.arcTo(x + w, y, x + w, y + h, r);
+  g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r);
+  g.arcTo(x, y, x + w, y, r);
+  g.closePath();
+}
+
+/** Poppy: uma fita de vídeo de brinquedo. Fundo do capítulo, janela com os dois carretéis, faixas de brinquedo. */
+function desenharPoppy(g, w, h) {
+  const rnd = semente(4411);
+  const fundo = g.createLinearGradient(0, 0, 0, h);
+  fundo.addColorStop(0, '#12334a');
+  fundo.addColorStop(1, '#0a1d2a');
+  g.fillStyle = fundo;
+  g.fillRect(0, 0, w, h);
+  // linhas de varredura, bem de leve
+  g.fillStyle = 'rgba(255,255,255,0.035)';
+  const passo = Math.max(3, Math.round(h / 90));
+  for (let y = 0; y < h; y += passo) g.fillRect(0, y, w, Math.max(1, passo * 0.35));
+  // moldura fina da fita
+  g.strokeStyle = 'rgba(255,255,255,0.14)';
+  g.lineWidth = Math.max(1, w * 0.004);
+  retArred(g, w * 0.035, h * 0.05, w * 0.93, h * 0.9, w * 0.02);
+  g.stroke();
+
+  // janela da fita: os dois carretéis (o cordão passa pelos eixos, como a fita)
+  const cy = h * 0.6;
+  const jx = w * 0.1; const jw = w * 0.8; const jh = h * 0.36;
+  retArred(g, jx, cy - jh / 2, jw, jh, h * 0.05);
+  g.fillStyle = '#061521';
+  g.fill();
+  g.strokeStyle = 'rgba(255,255,255,0.22)';
+  g.lineWidth = Math.max(1, w * 0.005);
+  g.stroke();
+  for (const lado of [-1, 1]) {
+    const cx = w / 2 + lado * w * 0.25;
+    const r = h * 0.135;
+    // fita enrolada
+    g.beginPath(); g.arc(cx, cy, r * (lado < 0 ? 1.18 : 0.98), 0, Math.PI * 2);
+    g.fillStyle = '#1b1210'; g.fill();
+    g.strokeStyle = 'rgba(255,255,255,0.08)'; g.lineWidth = Math.max(1, w * 0.003);
+    for (let k = 0.78; k < (lado < 0 ? 1.15 : 0.96); k += 0.1) { g.beginPath(); g.arc(cx, cy, r * k, 0, Math.PI * 2); g.stroke(); }
+    // carretel
+    g.beginPath(); g.arc(cx, cy, r * 0.7, 0, Math.PI * 2);
+    g.fillStyle = '#f3ead8'; g.fill();
+    g.beginPath(); g.arc(cx, cy, r * 0.3, 0, Math.PI * 2);
+    g.fillStyle = '#061521'; g.fill();
+    g.fillStyle = '#061521';
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + (lado < 0 ? 0.3 : 0.9);
+      g.save(); g.translate(cx, cy); g.rotate(a);
+      g.fillRect(r * 0.3, -r * 0.045, r * 0.2, r * 0.09);
+      g.restore();
+    }
+  }
+
+  // faixas de brinquedo, embaixo
+  const cores = ['#e23b3b', '#f4c430', '#2f86d9', '#3fae5a'];
+  const fy = h * 0.845; const fa = h * 0.026;
+  cores.forEach((cor, i) => {
+    g.fillStyle = cor;
+    g.fillRect(w * 0.035, fy + i * fa, w * 0.93, fa * 0.82);
+  });
+
+  // etiqueta colada (fica na aba), com os quatro botões de brinquedo
+  const ex = w * 0.33; const ey = h * 0.085; const ew = w * 0.34; const eh = h * 0.2;
+  g.save();
+  g.translate(w / 2, ey + eh / 2); g.rotate(-0.02); g.translate(-w / 2, -(ey + eh / 2));
+  retArred(g, ex, ey, ew, eh, h * 0.018);
+  g.fillStyle = '#f3ead8'; g.fill();
+  g.fillStyle = 'rgba(13,37,52,0.75)';
+  for (let i = 0; i < 2; i++) g.fillRect(ex + ew * 0.1, ey + eh * (0.5 + i * 0.2), ew * (0.8 - i * 0.28), Math.max(1, eh * 0.045));
+  cores.forEach((cor, i) => {
+    g.beginPath(); g.arc(ex + ew * (0.14 + i * 0.105), ey + eh * 0.27, eh * 0.085, 0, Math.PI * 2);
+    g.fillStyle = cor; g.fill();
+  });
+  g.restore();
+
+  // desgaste: pontinhos claros
+  for (let i = 0; i < 90; i++) {
+    g.fillStyle = `rgba(255,255,255,${0.03 + rnd() * 0.06})`;
+    g.fillRect(rnd() * w, rnd() * h, 1 + rnd() * 2, 1);
+  }
+}
+
+/** Your Name: o céu do entardecer, o cometa que se parte, as serras e o lago. */
+function desenharYourName(g, w, h) {
+  const rnd = semente(2016);
+  const ceu = g.createLinearGradient(0, 0, 0, h);
+  ceu.addColorStop(0, '#090e33');
+  ceu.addColorStop(0.42, '#3b2f80');
+  ceu.addColorStop(0.66, '#8a4c97');
+  ceu.addColorStop(0.82, '#d5809a');
+  ceu.addColorStop(1, '#ffd1a1');
+  g.fillStyle = ceu;
+  g.fillRect(0, 0, w, h);
+  // estrelas
+  for (let i = 0; i < 150; i++) {
+    const x = rnd() * w; const y = Math.pow(rnd(), 1.5) * h * 0.72;
+    const r = (0.6 + rnd() * 1.5) * (w / 1024);
+    g.fillStyle = `rgba(255,255,255,${(0.25 + rnd() * 0.7) * (1 - y / (h * 0.8))})`;
+    g.beginPath(); g.arc(x, y, Math.max(0.5, r), 0, Math.PI * 2); g.fill();
+  }
+  // o cometa: cauda larga que afina, cabeça clara; um pedaço se solta
+  const cauda = (x0, y0, x1, y1, largura, cores) => {
+    const grad = g.createLinearGradient(x0, y0, x1, y1);
+    cores.forEach(([p, c]) => grad.addColorStop(p, c));
+    const dx = x1 - x0; const dy = y1 - y0; const n = Math.hypot(dx, dy) || 1;
+    const px = (-dy / n) * largura; const py = (dx / n) * largura;
+    g.fillStyle = grad;
+    g.beginPath();
+    g.moveTo(x0, y0);
+    g.quadraticCurveTo((x0 + x1) / 2 + px * 0.4, (y0 + y1) / 2 + py * 0.4, x1 + px, y1 + py);
+    g.lineTo(x1 - px, y1 - py);
+    g.quadraticCurveTo((x0 + x1) / 2 - px * 0.4, (y0 + y1) / 2 - py * 0.4, x0, y0);
+    g.fill();
+  };
+  const hx = w * 0.2; const hy = h * 0.47;
+  cauda(w * 1.02, h * 0.02, hx, hy, h * 0.022, [[0, 'rgba(120,170,255,0)'], [0.45, 'rgba(140,190,255,0.5)'], [0.85, 'rgba(210,235,255,0.92)'], [1, '#ffffff']]);
+  cauda(w * 0.86, h * 0.14, w * 0.33, h * 0.53, h * 0.009, [[0, 'rgba(255,170,200,0)'], [0.6, 'rgba(255,190,205,0.55)'], [1, 'rgba(255,240,235,0.95)']]);
+  const brilho = g.createRadialGradient(hx, hy, 0, hx, hy, h * 0.12);
+  brilho.addColorStop(0, 'rgba(255,255,255,0.95)');
+  brilho.addColorStop(0.25, 'rgba(200,225,255,0.5)');
+  brilho.addColorStop(1, 'rgba(160,200,255,0)');
+  g.fillStyle = brilho;
+  g.fillRect(hx - h * 0.12, hy - h * 0.12, h * 0.24, h * 0.24);
+
+  // serras em duas camadas e o lago refletindo o céu
+  const serra = (base, alt, cor, fase) => {
+    g.fillStyle = cor;
+    g.beginPath();
+    g.moveTo(0, h);
+    for (let i = 0; i <= 24; i++) {
+      const x = (i / 24) * w;
+      const y = base - alt * (0.5 + 0.5 * Math.sin(i * 0.9 + fase) * Math.cos(i * 0.37 + fase * 2)) - alt * 0.3 * Math.sin(i * 2.3 + fase);
+      g.lineTo(x, y);
+    }
+    g.lineTo(w, h);
+    g.closePath();
+    g.fill();
+  };
+  serra(h * 0.9, h * 0.07, 'rgba(74,45,110,0.75)', 0.6);
+  const lago = g.createLinearGradient(0, h * 0.9, 0, h);
+  lago.addColorStop(0, 'rgba(255,214,170,0.85)');
+  lago.addColorStop(1, 'rgba(214,128,154,0.7)');
+  g.fillStyle = lago;
+  g.beginPath();
+  g.ellipse(w * 0.5, h * 0.955, w * 0.3, h * 0.03, 0, 0, Math.PI * 2);
+  g.fill();
+  serra(h * 0.985, h * 0.06, '#1c1445', 2.1);
 }
 
 /** Relevo do sinete: piso rebaixado, aro e a marca (coração ou estrela) em relevo. */
@@ -443,6 +635,10 @@ ${GLSL_SOMBRAS}
 uniform sampler2D uFibra;
 uniform vec3 uCorPapel;
 uniform float uAbertura;
+#ifdef COM_TEMA
+uniform sampler2D uTema;
+uniform float uBordaTema;
+#endif
 varying vec2 vP;
 varying vec3 vN;
 varying vec3 vPosV;
@@ -496,7 +692,12 @@ void main() {
   sombra += sombrasDeCima(p);
 
   N = perturbar(vPosV, N, h * 0.00011);
-  vec3 albedo = uCorPapel * (0.975 + 0.05 * (h - 0.5));
+  vec3 base = uCorPapel;
+  #ifdef COM_TEMA
+    base = texture2D(uTema, p / vec2(W, H) + 0.5).rgb;
+    brilhoBorda *= uBordaTema;
+  #endif
+  vec3 albedo = base * (0.975 + 0.05 * (h - 0.5));
   vec3 cor = albedo * luzPapel(N, V) * caimento(p) * (1.0 - clamp(sombra, 0.0, 0.6)) + brilhoBorda;
   gl_FragColor = vec4(acabar(cor), presenca());
   #include <tonemapping_fragment>
@@ -617,6 +818,10 @@ uniform sampler2D uFibra;
 uniform sampler2D uForro;
 uniform vec3 uCorPapel;
 uniform float uTheta;
+#ifdef COM_TEMA
+uniform sampler2D uTema;
+uniform float uBordaTema;
+#endif
 varying vec2 vQ;
 varying vec3 vN;
 varying vec3 vPosV;
@@ -641,8 +846,14 @@ void main() {
     float fechada = 1.0 - smoothstep(0.02, 0.2, uTheta);
     float sombra = sombrasDeCima(p) * fechada;
     N = perturbar(vPosV, N, h * 0.00011);
-    vec3 albedo = uCorPapel * (0.975 + 0.05 * (h - 0.5));
-    cor = albedo * luzPapel(N, V) * caimento(p) * (1.0 - clamp(sombra, 0.0, 0.6)) + 0.05 * b;
+    vec3 base = uCorPapel;
+    float borda = 0.05 * b;
+    #ifdef COM_TEMA
+      base = texture2D(uTema, p / vec2(W, H) + 0.5).rgb;
+      borda *= uBordaTema;
+    #endif
+    vec3 albedo = base * (0.975 + 0.05 * (h - 0.5));
+    cor = albedo * luzPapel(N, V) * caimento(p) * (1.0 - clamp(sombra, 0.0, 0.6)) + borda;
   } else {
     N = -N;
     N = perturbar(vPosV, N, h * 0.00008);
@@ -818,6 +1029,7 @@ void main() {
 const FRAG_CORDAO = /* glsl */ `
 ${GLSL_COMUM}
 uniform vec3 uCorFio;
+uniform vec3 uCorFio2;    // a segunda perna da trança (igual à primeira na carta branca)
 uniform float uBrilho;
 uniform vec3 uCentroLaco;
 uniform float uAlfa;
@@ -838,7 +1050,8 @@ void main() {
   float fibra = 0.5 + 0.5 * sin((vUv.x * 7.0 + vUv.y * 13.0) * 6.2832);
   float nl = dot(N, uLuzDir);
   float difusa = clamp((nl + 0.4) / 1.4, 0.0, 1.0);
-  vec3 cor = uCorFio * (0.38 + 0.8 * difusa) * uLuz;
+  float perna = mod(floor(vUv.x + vUv.y * 2.0), 2.0);
+  vec3 cor = mix(uCorFio, uCorFio2, perna) * (0.38 + 0.8 * difusa) * uLuz;
   cor *= 1.0 - 0.5 * sulco;
   cor *= 0.94 + 0.06 * fibra;
   vec3 Hm = normalize(uLuzDir + V);
@@ -866,8 +1079,10 @@ void main() {
 // 3D
 // =============================================================================
 
-function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao' }) {
+function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao', tema: temaPedido = null }) {
   const { THREE, camera } = mundo;
+  const tema = temaValido(temaPedido);
+  const estilo = tema ? TEMAS[tema] : null;
   const gsap = window.gsap;
   const amb = mundo.amb;
   const baixo = amb.nivel === 'baixo';
@@ -891,6 +1106,10 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao' }) {
   };
   const texFibra = textura(telaFibra(baixo ? 256 : 512), false);
   const texForro = textura(telaForro(baixo ? 128 : 256), true);
+  const texTema = tema ? textura(telaTema(tema, baixo ? 512 : 1024), true, false) : null;
+  const comTema = tema
+    ? { defines: { COM_TEMA: '' }, extra: { uTema: { value: texTema }, uBordaTema: { value: estilo.borda } } }
+    : { defines: {}, extra: {} };
 
   const luzDir = new THREE.Vector3(-0.45, 0.7, 0.55).normalize();
   // o mesmo objeto da névoa da cena: com a foto atrás, ela é a luz da alameda
@@ -924,20 +1143,23 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao' }) {
   });
 
   const matCorpo = shader({
-    uniforms: { ...uniformesComuns(), ...sombraLinhas, uFibra: { value: texFibra }, uCorPapel: { value: corPapel }, uAbertura },
+    uniforms: { ...uniformesComuns(), ...sombraLinhas, ...comTema.extra, uFibra: { value: texFibra }, uCorPapel: { value: corPapel }, uAbertura },
+    defines: comTema.defines,
     vertexShader: VERT_SIMPLES,
     fragmentShader: FRAG_CORPO,
     side: THREE.DoubleSide,
   });
   const matForro = shader({
-    uniforms: { ...uniformesComuns(), uFibra: { value: texFibra }, uForro: { value: texForro }, uCorPapel: { value: corPapel } },
+    // (a frente do envelope, do outro lado do forro, tem a cor chapada do tema)
+    uniforms: { ...uniformesComuns(), uFibra: { value: texFibra }, uForro: { value: texForro }, uCorPapel: { value: estilo ? new THREE.Color(estilo.base) : corPapel } },
     vertexShader: VERT_SIMPLES,
     fragmentShader: FRAG_FORRO,
     side: THREE.DoubleSide,
   });
   const uAba = { uTheta: { value: 0 }, uCurva: { value: 0 }, uDobraZ: { value: -ROLO * 0.5 } };
   const matAba = shader({
-    uniforms: { ...uniformesComuns(), ...sombraLinhas, ...uAba, uFibra: { value: texFibra }, uForro: { value: texForro }, uCorPapel: { value: corPapel } },
+    uniforms: { ...uniformesComuns(), ...sombraLinhas, ...uAba, ...comTema.extra, uFibra: { value: texFibra }, uForro: { value: texForro }, uCorPapel: { value: corPapel } },
+    defines: comTema.defines,
     vertexShader: VERT_ABA,
     fragmentShader: FRAG_ABA,
     side: THREE.DoubleSide,
@@ -969,7 +1191,8 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao' }) {
   const matCordao = shader({
     uniforms: {
       ...uniformesComuns(),
-      uCorFio: { value: new THREE.Color(COR_CORDAO) },
+      uCorFio: { value: new THREE.Color(estilo ? estilo.cordao[0] : COR_CORDAO) },
+      uCorFio2: { value: new THREE.Color(estilo ? estilo.cordao[1] : COR_CORDAO) },
       uBrilho: amarracao === 'fio' ? uBrilho : { value: 99 },
       uCentroLaco: { value: new THREE.Vector3(0, LACRE_Y, 0) },
       uAlfa: uAlfaFio,
@@ -1195,7 +1418,7 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao' }) {
         uSinete: { value: texSinete },
         uRaioSinete: { value: LACRE_R * 0.64 },
         uComSinete: { value: comSinete },
-        uCorCera: { value: new THREE.Color(COR_CERA) },
+        uCorCera: { value: new THREE.Color(estilo ? estilo.cera : COR_CERA) },
         uBrilho: comSinete ? uBrilho : { value: 99 },
         uAlfa: uAlfaCera,
       },
@@ -1287,6 +1510,7 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao' }) {
     papel,
     lacre,
     amarracao,
+    tema,
     aberto: false,
     aoMarco: null,
 
@@ -1830,8 +2054,21 @@ const MARCAS_LEVE = {
   estrela: 'M0-12 3.5-4 12-3.7 5.2 1.8 7.6 10.3 0 5.3-7.6 10.3-5.2 1.8-12-3.7-3.5-4z',
 };
 
-function desenhoLeve(lacre, amarracao, id) {
+function desenhoLeve(lacre, amarracao, id, tema = null) {
   const cx = LW / 2;
+  const estilo = tema ? TEMAS[tema] : null;
+  let imagem = '';
+  if (estilo) {
+    try { imagem = telaTema(tema, 512).toDataURL('image/jpeg', 0.86); } catch { imagem = ''; }
+  }
+  // a face do tema, no mesmo lugar no corpo e na aba (o desenho continua de um para o outro)
+  const padraoTema = imagem
+    ? `<pattern id="${id}-tema" width="${LW}" height="${LH}" patternUnits="userSpaceOnUse"><image href="${imagem}" width="${LW}" height="${LH}" preserveAspectRatio="none"/></pattern>`
+    : '';
+  const pele = (padrao) => (imagem ? `url(#${id}-tema)` : `url(#${id}-${padrao})`);
+  const claro = imagem ? 0.28 : 1;                 // os cortes que pegam luz, mais discretos no escuro
+  const corFio = estilo ? estilo.cordao[0] : COR_CORDAO;
+  const corFio2 = estilo ? estilo.cordao[1] : '#9d0c1f';
   const boca = `M0 0 L${cx} ${BY} L${LW} 0`;
   const fundo = `M0 ${LH} L${cx - 22} ${FY + 9} Q${cx} ${FY - 3} ${cx + 22} ${FY + 9} L${LW} ${LH}`;
   // cantos de cima arredondados como os do corpo (rx 3): senão a ponta da aba escapa do contorno
@@ -1860,17 +2097,18 @@ function desenhoLeve(lacre, amarracao, id) {
           <stop offset="1" stop-color="#efe8dc"/>
         </linearGradient>
         <clipPath id="${id}-boca"><path d="${boca} Z"/></clipPath>
+        ${padraoTema}
       </defs>
       <g clip-path="url(#${id}-boca)" fill="none" stroke="#2a1b22" stroke-linejoin="round">
         <path d="${boca}" stroke-width="22" opacity="0.07" transform="translate(-3 4)"/>
         <path d="${boca}" stroke-width="9" opacity="0.1" transform="translate(-2 3)"/>
       </g>
-      <path d="M3 0 H${LW - 3} Q${LW} 0 ${LW} 3 V${LH - 3} Q${LW} ${LH} ${LW - 3} ${LH} H3 Q0 ${LH} 0 ${LH - 3} V3 Q0 0 3 0 Z ${boca} Z" fill-rule="evenodd" fill="url(#${id}-luz)"/>
+      <path d="M3 0 H${LW - 3} Q${LW} 0 ${LW} 3 V${LH - 3} Q${LW} ${LH} ${LW - 3} ${LH} H3 Q0 ${LH} 0 ${LH - 3} V3 Q0 0 3 0 Z ${boca} Z" fill-rule="evenodd" fill="${pele('luz')}"/>
       <path d="M${cx} ${BY} V${FY + 2}" stroke="#b9ab96" stroke-width="0.8" opacity="0.6"/>
       <path d="${fundo}" fill="none" stroke="#2a1b22" stroke-width="5" opacity="0.045" transform="translate(0 2)"/>
-      <path d="${fundo} Z" fill="url(#${id}-luz2)"/>
-      <path d="${fundo}" fill="none" stroke="#ffffff" stroke-width="1.2" opacity="0.9"/>
-      <path d="${boca}" fill="none" stroke="#ffffff" stroke-width="1.2" opacity="0.85"/>
+      <path d="${fundo} Z" fill="${pele('luz2')}"/>
+      <path d="${fundo}" fill="none" stroke="#ffffff" stroke-width="1.2" opacity="${0.9 * claro}"/>
+      <path d="${boca}" fill="none" stroke="#ffffff" stroke-width="1.2" opacity="${0.85 * claro}"/>
       <path class="cl-sombra-aba" d="${aba}" fill="none" stroke="#2a1b22" stroke-width="6" opacity="0.06" transform="translate(2 4)"/>
       <rect x="0.5" y="0.5" width="${LW - 1}" height="${LH - 1}" rx="3" fill="none" stroke="#2a1b22" stroke-width="1" opacity="0.06"/>
     </svg>`;
@@ -1883,9 +2121,9 @@ function desenhoLeve(lacre, amarracao, id) {
         </linearGradient>
       </defs>
       <g class="cl-aba-fora">
-        <path d="${aba}" fill="url(#${id}-aba)"/>
-        <path d="M0 0 L${cx - 22} ${AY - 14}" stroke="#ffffff" stroke-width="1.2" opacity="0.9"/>
-        <path d="M${LW} 0 L${cx + 22} ${AY - 14}" stroke="#d8cdbb" stroke-width="1" opacity="0.8"/>
+        <path d="${aba}" fill="${pele('aba')}"/>
+        <path d="M0 0 L${cx - 22} ${AY - 14}" stroke="#ffffff" stroke-width="1.2" opacity="${0.9 * claro}"/>
+        <path d="M${LW} 0 L${cx + 22} ${AY - 14}" stroke="${imagem ? '#000000' : '#d8cdbb'}" stroke-width="1" opacity="${imagem ? 0.3 : 0.8}"/>
       </g>
       <g class="cl-aba-dentro" visibility="hidden">
         <path d="${aba}" fill="url(#${id}-petalas)"/>
@@ -1896,8 +2134,8 @@ function desenhoLeve(lacre, amarracao, id) {
   const r = amarracao === 'fio' ? 1.7 : 3.2;
   const torcao = `
     <pattern id="${id}-torcao" width="${r * 2.6}" height="${r * 2.6}" patternUnits="userSpaceOnUse" patternTransform="rotate(-35)">
-      <rect width="${r * 2.6}" height="${r * 2.6}" fill="${COR_CORDAO}"/>
-      <rect width="${r * 0.7}" height="${r * 2.6}" fill="#9d0c1f" opacity="0.55"/>
+      <rect width="${r * 2.6}" height="${r * 2.6}" fill="${corFio}"/>
+      <rect width="${estilo ? r * 1.2 : r * 0.7}" height="${r * 2.6}" fill="${corFio2}" opacity="${estilo ? 1 : 0.55}"/>
       <rect x="${r * 1.2}" width="${r * 0.5}" height="${r * 2.6}" fill="#ff6a6a" opacity="0.3"/>
     </pattern>`;
   const laco = amarracao === 'fio'
@@ -1958,7 +2196,8 @@ function desenhoLeve(lacre, amarracao, id) {
 
 let contadorLeve = 0;
 
-function criarEnvelopeLeve(mundo, { lacre = 'coracao', amarracao = 'cordao', chegada = 2 }) {
+function criarEnvelopeLeve(mundo, { lacre = 'coracao', amarracao = 'cordao', chegada = 2, tema: temaPedido = null }) {
+  const tema = temaValido(temaPedido);
   const gsap = window.gsap;
   const amb = mundo.amb;
   const reduzido = amb.reduzido;
@@ -1966,7 +2205,7 @@ function criarEnvelopeLeve(mundo, { lacre = 'coracao', amarracao = 'cordao', che
   garantirEstiloLeve();
 
   const id = `cl${++contadorLeve}`;
-  const d = desenhoLeve(lacre, amarracao, id);
+  const d = desenhoLeve(lacre, amarracao, id, tema);
   const forro = svg(d.forro);
   const frente = svg(d.frente);
   const aba = svg(d.aba);
@@ -2008,8 +2247,10 @@ function criarEnvelopeLeve(mundo, { lacre = 'coracao', amarracao = 'cordao', che
     papel,
     lacre,
     amarracao,
+    tema,
     aberto: false,
     aoMarco: null,
+    get descartado() { return descartado; },
 
     atualizar(dt, tempo) {
       if (descartado) return;
