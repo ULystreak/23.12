@@ -23,8 +23,9 @@ import { curvas, revelarPalavras, ocultarPalavras } from '../nucleo/movimento.js
 import { voltarAoMundo, temEncontro } from '../nucleo/diretor.js';
 import { criarFio } from '../mundo/fio.js';
 import { criarEnvelope } from '../mundo/envelope.js';
+import { criarEle } from '../mundo/ele.js';
 
-const CAMINHADA = 8;                 // metros andados nesta cena, seguindo o fio
+const CAMINHADA = 26;                // metros andados nesta cena, seguindo o fio (uma caminhada longa: ~19 s)
 const RESTO = 4;                     // metros que ficam para a cena final
 const PARADA = 1.25;                 // distância em que a última carta fica dela (= carta.js)
 const S_CARTA = CAMINHADA + RESTO + PARADA;
@@ -37,6 +38,10 @@ const PROF_PULSO = 0.9;              // profundidade do pulso na câmera (m)
 const TOQUE = 1.4;
 const ANTECIPA = 1.5;                // a câmera olha este tanto adiante na curva
 const LADO = 0.56;                   // de que lado o fio chega à carta (m à direita do eixo)
+// Ele, no fim do fio (só com o encontro por vir e com WebGL): de pé, um pouco
+// além de onde a última carta vai aparecer; ela para a ~3,8 m dele.
+const ELE_ATRAS = 2.55;              // metros além da carta
+const ELE_X = 0.1;                   // o eixo do corpo (m à direita do eixo do caminho): a mão do fio fica do lado em que o fio chega
 
 // =============================================================================
 // O caminho no chão: quanto o fio se afasta para o lado a `s` metros da partida.
@@ -46,8 +51,10 @@ const LADO = 0.56;                   // de que lado o fio chega à carta (m à d
 // =============================================================================
 
 function desvio(s) {
-  const fim = suave((s - 8.5) / 3.5);
-  const onda = 0.72 * Math.sin(s * 0.3 + 0.05) + 0.07 * Math.sin(s * 1.3 + 0.4);
+  const fim = suave((s - (S_CARTA - 4.75)) / 3.5);
+  // um S largo e outro mais curto por cima: numa caminhada longa o fio serpenteia
+  // sem repetir o mesmo desenho
+  const onda = 0.72 * Math.sin(s * 0.3 + 0.05) + 0.2 * Math.sin(s * 0.71 + 1.9) * suave((s - 5) / 5) + 0.07 * Math.sin(s * 1.3 + 0.4);
   return lerp(onda, LADO, fim);
 }
 
@@ -576,6 +583,7 @@ function montarDesenho(amb) {
         </g>
         <path class="mao-aguada-borda" fill="none" stroke="#dcaa9b" stroke-width="1" stroke-opacity="0.42" transform="translate(2.6 3.4)"/>
       </g>
+      <g class="mao-escrito"></g>
       <g class="mao-tinta"></g>
       <g class="mao-luz" opacity="0">
         <ellipse class="mao-luz-faixa" cx="${fx.cx.toFixed(1)}" cy="${fx.cy.toFixed(1)}" rx="${fx.rx.toFixed(1)}" ry="19" transform="rotate(${fx.angulo.toFixed(1)} ${fx.cx.toFixed(1)} ${fx.cy.toFixed(1)})" fill="url(#mao-brilho)" opacity="0.7"/>
@@ -655,8 +663,176 @@ function montarDesenho(amb) {
     pontaSolta: longa.ponta,             // em unidades do viewBox, antes do balanço
     reduzido: amb.reduzido,
     luz: raiz.querySelector('.mao-luz'),
+    escrito: raiz.querySelector('.mao-escrito'),
     brasas: criarBrasas(raiz.querySelector('.mao-brasas'), [volta, longa], amb),
   };
+}
+
+// =============================================================================
+// O escrito na palma (conteudo.mao.escrito): tinta de caneta na pele.
+// As palavras são compostas NO ESPAÇO DA MÃO (u para o mínimo, v para os dedos,
+// w a concha da palma) e cada letra recebe a matriz da projeção naquele ponto:
+// deitam com a palma, encurtam com o escorço e acompanham a curva dela. Ficam
+// por baixo das linhas da palma (os vincos passam por cima da tinta). Cada
+// letra é revelada da esquerda para a direita por um recorte que anda, uma
+// depois da outra, no ritmo de quem escreve devagar.
+// =============================================================================
+
+const FONTE_ESCRITO = '"Klee One", "Shippori Mincho", Georgia, serif';
+const PESO_ESCRITO = 600;
+const TINTA_PELE = '#2b1e2c';
+// Onde cabe na palma: abaixo da linha da cabeça e à direita da linha da vida,
+// descendo junto com a primeira (nenhuma linha da mão risca as letras).
+// `alto` estica as letras para o lado dos dedos: compensa o escorço da palma deitada.
+const PALMA = { u: 13, v: 43, largura: 82, altura: 58, inclinacao: -13, alto: 1.28 };
+
+/** A concha da palma: as bordas (tenar e hipotenar) sobem um pouco na direção dos olhos. */
+const conchaPalma = (u, v) => 0.0026 * (u - 4) * (u - 4) + 0.0009 * (v - 60) * (v - 60);
+
+/** Quebra o texto em linhas equilibradas (1 a 3), pela largura medida de cada palavra. */
+function linhasDoEscrito(texto, medir) {
+  const palavras = texto.split(/\s+/).filter(Boolean);
+  if (palavras.length <= 1 || texto.length <= 5) return [palavras.join(' ')];
+  const nLinhas = texto.length > 22 ? 3 : 2;
+  let melhor = null;
+  const tentar = (cortes) => {
+    const linhas = [];
+    let de = 0;
+    for (const c of [...cortes, palavras.length]) { linhas.push(palavras.slice(de, c).join(' ')); de = c; }
+    if (linhas.some((l) => !l)) return;
+    const maior = Math.max(...linhas.map(medir));
+    if (!melhor || maior < melhor.maior - 0.001) melhor = { linhas, maior };
+  };
+  for (let i = 1; i < palavras.length; i++) {
+    if (nLinhas === 2) tentar([i]);
+    else for (let j = i + 1; j < palavras.length; j++) tentar([i, j]);
+  }
+  return melhor ? melhor.linhas : [palavras.join(' ')];
+}
+
+/** Espera a letra manuscrita (no máximo ~1,5 s; se faltar, o navegador usa a reserva). */
+async function fonteDoEscrito(texto) {
+  if (!texto || !document.fonts || !document.fonts.load) return;
+  try {
+    await Promise.race([document.fonts.load(`${PESO_ESCRITO} 48px ${FONTE_ESCRITO}`, texto), espera(1500)]);
+  } catch { /* segue com a reserva */ }
+}
+
+/**
+ * Monta as letras na camada (todas escondidas). Devolve a lista, na ordem da
+ * escrita: { revelar(p 0..1), secar(k 0..1), esforco, pausa }.
+ */
+function criarEscrito(camada, texto) {
+  const lapis = document.createElement('canvas').getContext('2d');
+  if (!lapis || !camada) return [];
+  lapis.font = `${PESO_ESCRITO} 100px ${FONTE_ESCRITO}`;
+  const medir = (t) => lapis.measureText(t).width / 100;
+  const linhas = linhasDoEscrito(texto.trim(), medir);
+  const maior = Math.max(...linhas.map(medir), 0.5);
+  const ENTRELINHA = 1.0;
+  const alturaEm = (linhas.length - 1) * ENTRELINHA + 0.92;
+  const corpo = Math.min(PALMA.largura / maior, PALMA.altura / (alturaEm * PALMA.alto), 40);
+  const aleat = semente(41);
+  const ci = Math.cos(PALMA.inclinacao * GRAU);
+  const si = Math.sin(PALMA.inclinacao * GRAU);
+  const topo = PALMA.v + (alturaEm * corpo * PALMA.alto) / 2;
+  const letras = [];
+  let id = 0;
+  linhas.forEach((linha, li) => {
+    const largura = medir(linha) * corpo;
+    // cada linha começa um nada mais para a direita que a de cima, como quem escreve sem pauta
+    let x = -largura / 2 + (li - (linhas.length - 1) / 2) * corpo * 0.12;
+    const y = topo - (0.74 + li * ENTRELINHA) * corpo * PALMA.alto;
+    const chars = Array.from(linha);
+    chars.forEach((ch, k) => {
+      const avanco = medir(ch) * corpo;
+      if (ch.trim()) {
+        // posição na palma (a linha de base sobe um pouco para a direita e oscila)
+        const sobe = (aleat() - 0.5) * corpo * 0.05;
+        const u = PALMA.u + x * ci;
+        const v = y + x * si + sobe;
+        const giro = (aleat() - 0.5) * 5 * GRAU + PALMA.inclinacao * GRAU;
+        const escala = 1 + (aleat() - 0.5) * 0.08;
+        const cg = Math.cos(giro) * escala; const sg = Math.sin(giro) * escala;
+        // a matriz da projeção neste ponto: 1 unidade de letra = 1 unidade da mão
+        const em = (du, dv) => projetar([u + du, v + dv, conchaPalma(u + du, v + dv)]);
+        const o = em(0, 0);
+        const pu = em(cg, sg);                       // a direção da escrita
+        const pv = em(-sg * PALMA.alto, cg * PALMA.alto);                      // para cima da letra
+        const m = [pu[0] - o[0], pu[1] - o[1], -(pv[0] - o[0]), -(pv[1] - o[1]), o[0], o[1]];
+        const g = document.createElementNS(SVGNS, 'g');
+        g.setAttribute('transform', `matrix(${m.map((n) => n.toFixed(4)).join(' ')})`);
+        const recorte = document.createElementNS(SVGNS, 'clipPath');
+        recorte.setAttribute('id', `mao-escrito-${id}`);
+        const janela = document.createElementNS(SVGNS, 'rect');
+        const folga = corpo * 0.14;
+        janela.setAttribute('x', (-folga).toFixed(2));
+        janela.setAttribute('y', (-corpo * 1.1).toFixed(2));
+        janela.setAttribute('height', (corpo * 1.55).toFixed(2));
+        janela.setAttribute('width', '0');
+        recorte.append(janela);
+        const dentro = document.createElementNS(SVGNS, 'g');
+        dentro.setAttribute('clip-path', `url(#mao-escrito-${id})`);
+        dentro.setAttribute('opacity', '0');
+        const comum = { 'font-family': FONTE_ESCRITO, 'font-weight': String(PESO_ESCRITO), 'font-size': corpo.toFixed(2), x: '0', y: '0' };
+        // a tinta entra um pouco na pele: um halo fino da mesma cor em volta do traço
+        const halo = document.createElementNS(SVGNS, 'text');
+        const traco = document.createElementNS(SVGNS, 'text');
+        for (const [no, extra] of [
+          [halo, { fill: 'none', stroke: TINTA_PELE, 'stroke-width': (corpo * 0.075).toFixed(2), 'stroke-opacity': '0.2', 'stroke-linejoin': 'round' }],
+          [traco, { fill: TINTA_PELE, 'fill-opacity': '0.84' }],
+        ]) {
+          for (const [a, b] of Object.entries({ ...comum, ...extra })) no.setAttribute(a, b);
+          no.textContent = ch;
+          dentro.append(no);
+        }
+        g.append(recorte, dentro);
+        camada.append(g);
+        id++;
+        const total = avanco + folga * 2;
+        letras.push({
+          esforco: 0.55 + medir(ch) * 1.1,
+          pausa: k === chars.length - 1 ? 1.7 : 0,          // levanta a caneta no fim da palavra/linha
+          revelar(p) {
+            dentro.setAttribute('opacity', p > 0 ? '1' : '0');
+            janela.setAttribute('width', (total * clamp(p)).toFixed(2));
+          },
+          inteira() { dentro.removeAttribute('clip-path'); dentro.setAttribute('opacity', '1'); },
+          grupo: dentro,
+        });
+      } else if (letras.length) letras[letras.length - 1].pausa += 1.1;
+      x += avanco;
+    });
+  });
+  return letras;
+}
+
+/**
+ * Escreve na palma, letra por letra. Resolve quando deu tempo de ler.
+ * Movimento reduzido: o escrito inteiro aparece em dissolvência.
+ */
+function escreverNaPalma(gsap, { letras, camada, calmo, som }) {
+  return new Promise((resolver) => {
+    if (!letras.length) { resolver(); return; }
+    const tl = gsap.timeline({ onComplete: resolver });
+    if (calmo) {
+      gsap.set(camada, { opacity: 0 });
+      for (const l of letras) l.inteira();
+      tl.to(camada, { opacity: 1, duration: 1.4, ease: 'none' }, 0.2).add(() => {}, 3.0);
+      return;
+    }
+    const CADENCIA = 0.3;               // segundos por letra de esforço médio (devagar: é para ela ler junto)
+    let t = 0.35;
+    for (const l of letras) {
+      const d = CADENCIA * l.esforco;
+      const e = { p: 0 };
+      tl.add(() => som.efeito('caneta'), t)
+        .to(e, { p: 1, duration: d, ease: 'sine.inOut', onUpdate: () => l.revelar(e.p), onComplete: () => l.inteira() }, t);
+      t += d + 0.07 + l.pausa * 0.16;
+    }
+    // o tempo de ler antes de o fio acender
+    tl.add(() => {}, t + 1.3);
+  });
 }
 
 /**
@@ -802,7 +978,7 @@ function criarSeguidor(ctx, { z0, x0, pulsoPx, cam }) {
   };
 
   // Pontos reutilizados (nada é alocado por quadro).
-  const MAX = 64;
+  const MAX = 128;                     // (o chão leva um ponto a cada 0,5 m, e a caminhada é longa)
   const pontos = [];
   for (let i = 0; i < MAX; i++) pontos.push(ok ? new THREE.Vector3() : { x: 0, y: 0, z: 0, px: 0, py: 0, prof: 1 });
   const lista = [];
@@ -813,6 +989,7 @@ function criarSeguidor(ctx, { z0, x0, pulsoPx, cam }) {
   const inicio = ok ? new THREE.Vector3() : { x: 0, y: 0, z: 0 };
   const ultimaAncora = ok ? new THREE.Vector3() : { x: 0, y: 0, z: 0, px: 0, py: 0 };
   let temAncora = false;
+  let ancoraExtra = null;   // onde a ponta se prende em vez da carta (a mão dele), ou null
 
   const larguras = { inicio: 0.0048, chao: 0.013, fim: 0.0065 };
   let fio = null;
@@ -852,6 +1029,8 @@ function criarSeguidor(ctx, { z0, x0, pulsoPx, cam }) {
   }
 
   function lerAncora() {
+    // Com ele no fim do fio, a ponta sobe até a mão dele (não até a carta escondida).
+    if (ancoraExtra && ok && !soltando) { ultimaAncora.copy(ancoraExtra); temAncora = true; return true; }
     const env = estado.envelope;
     if (!env || soltando) return temAncora;
     try {
@@ -1080,6 +1259,8 @@ function criarSeguidor(ctx, { z0, x0, pulsoPx, cam }) {
 
   return {
     criar, soltar, parar, ar,
+    /** Prende a ponta do fio a um ponto do mundo em vez da carta (null devolve à carta). */
+    ancorar(v) { ancoraExtra = v || null; },
     get fio() { return fio; },
     get alcance() { return alcance; },
     /** A ponta em metros de caminho desde a partida (null devolve o controle a fio.progresso). */
@@ -1105,7 +1286,7 @@ function petalasNoChao(mundo, { z0, x0 }) {
   // (sem névoa: no entardecer a névoa escura as deixava cinzentas, como riscos sobre o fio)
   const material = new THREE.MeshBasicMaterial({ color: '#b3123a', side: THREE.DoubleSide, transparent: true, opacity: 0.9, fog: false });
   const aleat = semente(23);
-  const quantas = 9;
+  const quantas = 22;
   const malha = new THREE.InstancedMesh(geometria, material, quantas);
   const m = new THREE.Matrix4();
   const q = new THREE.Quaternion();
@@ -1173,7 +1354,11 @@ export async function cenaMao(ctx, { frio } = {}) {
 
   let pararPose = () => {};
   let pararMagia = () => {};
+  let limparEscrito = () => {};
   let clarear = null;                   // a tarde que clareia pela metade na caminhada
+  let escurecer = null;                 // ... e volta a cair aos poucos até a chegada
+  let ele = null;                       // ele, no fim do fio
+  let surgirEle = null;
   const haEncontro = temEncontro(ctx.conteudo);
   let inteira = false;                  // chegou ao fim com o encontro por vir (o entardecer continua aceso)
   try {
@@ -1197,6 +1382,9 @@ export async function cenaMao(ctx, { frio } = {}) {
     palcoFrases.append(frase);
     if (olharMao) gsap.to(cam, { inclinacao: olharMao, duration: 3.4, ease: curvas.branco.camera });
     const fraseLida = revelarPalavras(frase, dados.frase || '', { intervalo: 0.24, duracao: 1.8 });
+    // O que ele escreveu na palma dela (só na mão desenhada; vazio = nada).
+    const escrito = typeof dados.escrito === 'string' ? dados.escrito.trim() : '';
+    const letraPronta = fonteDoEscrito(escrito);
     caberEmDuasLinhas(frase);
 
     // 3. A mão sobe e se desenha, já enquanto a frase ainda assenta.
@@ -1309,7 +1497,18 @@ export async function cenaMao(ctx, { frio } = {}) {
     void tPose;
 
     // O desenho e a frase correm juntos; o botão vem quando os dois assentaram.
-    await Promise.all([desenharMao(gsap, { pose, desenho, imagem, calmo, mundo }), fraseLida]);
+    await Promise.all([desenharMao(gsap, { pose, desenho, imagem, calmo, mundo }), fraseLida, letraPronta]);
+
+    // 3a. As palavras são escritas na palma, devagar. Quem usa leitor de tela as
+    // recebe numa região viva (o desenho é só imagem).
+    if (desenho && escrito) {
+      const letras = criarEscrito(desenho.escrito, escrito);
+      const leitor = el('p', { class: 'so-leitor', 'aria-live': 'polite' });
+      mao.after(leitor);
+      limparEscrito = () => leitor.remove();
+      requestAnimationFrame(() => requestAnimationFrame(() => { leitor.textContent = escrito; }));
+      await escreverNaPalma(gsap, { letras, camada: desenho.escrito, calmo, som });
+    }
 
     // 3b. O momento em que ela vê: o tempo quase para (as pétalas desaceleram), o
     // olhar chega perto do pulso (o foco vem para a mão e o resto desfoca), o laço
@@ -1342,7 +1541,17 @@ export async function cenaMao(ctx, { frio } = {}) {
     const seguidor = criarSeguidor(ctx, { z0, x0, pulsoPx, cam });
     const fio = seguidor.criar();
     estado.fio = fio;
-    estado.seguidorFio = { parar: () => seguidor.parar(), soltar: (d) => seguidor.soltar(d) };
+    estado.seguidorFio = { parar: () => seguidor.parar(), soltar: (d) => seguidor.soltar(d), ancorar: (v) => seguidor.ancorar(v) };
+    // Ele, lá no fim do fio (invisível até ela seguir): o fio passa a terminar na mão dele.
+    if (mundo.ok && haEncontro && dados.ele !== false) {
+      try { ele = criarEle(mundo); } catch (e) { console.error(e); ele = null; }
+      if (ele) {
+        ele.grupo.position.set(x0 + ELE_X, 0, z0 - S_CARTA - ELE_ATRAS);
+        mundo.cena.add(ele.grupo);
+        seguidor.ancorar(ele.ancora());
+        estado.ele = ele;
+      }
+    }
     // Uma caminhada só, até a carta: a cena final já começa na frente dela.
     estado.distanciaFinal = 0;
     let petalasChao = null;
@@ -1352,7 +1561,7 @@ export async function cenaMao(ctx, { frio } = {}) {
       fio.objeto.add(petalasChao);
     }
     // a carta pelo preparar() dela: compila também a variante translúcida (na névoa) e sobe as texturas
-    if (mundo.ok) await aquecer(mundo, [fio.objeto], env && env.preparar ? [env.preparar()] : [env && env.grupo]);
+    if (mundo.ok) await aquecer(mundo, [fio.objeto, ele && ele.grupo], env && env.preparar ? [env.preparar()] : [env && env.grupo]);
 
     const botao = el('button', { class: 'botao botao-fio', type: 'button', dataset: { acao: 'seguir-fio' } }, [
       el('span', { class: 'botao-fio-texto', texto: dados.botao || '' }),
@@ -1396,6 +1605,8 @@ export async function cenaMao(ctx, { frio } = {}) {
     gsap.to(pose, { luz: 0, duration: magico ? 2.4 : 1.6, delay: magico ? 0.9 : 0, ease: 'power1.in' });
     fio.rastro?.(calmo ? 0 : 1);
     fio.estrela?.(0, magico ? 30 : 16, 1);
+    // Ele aparece ao longe quando o fio já corre para lá (no plano aberto do mergulho).
+    if (ele) surgirEle = gsap.delayedCall(magico ? 5.2 : 1.2, () => ele.mostrar(calmo ? 1.6 : 4));
 
     const pontaFio = mundo.ok ? new mundo.THREE.Vector3() : null;
     pararMagia = mundo.aoQuadro((dt) => {
@@ -1472,7 +1683,7 @@ export async function cenaMao(ctx, { frio } = {}) {
 
     // 6. Ela caminha seguindo o fio, de uma vez só, até parar na frente da carta.
     cam.guiar = !calmo;
-    const DURACAO = magico ? 7.4 : 8.0;
+    const DURACAO = magico ? 19 : 20;
     if (!calmo) {
       gsap.timeline()
         .to(cam, { inclinacao: olharMao * 0.45, y: 0, duration: 2.6, ease: curvas.branco.camera, overwrite: 'auto' })
@@ -1485,7 +1696,12 @@ export async function cenaMao(ctx, { frio } = {}) {
     // cerejeiras não fica cinza a caminhada inteira) e o fio ainda lê como luz.
     // Com o encontro por vir ela clareia menos: a caminhada já vai dar no crepúsculo dele,
     // e a luz não pode ir ao dia e voltar em poucos segundos.
-    if (magico) clarear = gsap.delayedCall(1.4, () => entardecer(ctx, haEncontro ? 0.78 : 0.5, 4.2));
+    // A caminhada é longa: depois de clarear, a tarde volta a cair aos poucos, e ela
+    // chega no fim do dia (com o encontro, quase no crepúsculo dele).
+    if (magico) {
+      clarear = gsap.delayedCall(1.4, () => entardecer(ctx, haEncontro ? 0.58 : 0.4, 4.6));
+      escurecer = gsap.delayedCall(DURACAO * 0.36, () => entardecer(ctx, haEncontro ? 0.93 : 0.62, DURACAO * 0.6));
+    }
     // A câmera assenta no eixo da carta durante o fim da própria caminhada.
     const ALINHAR = calmo ? 0.3 : 1.8;
     const alinhada = espera((DURACAO - ALINHAR) * 1000).then(() => new Promise((ok) => {
@@ -1527,8 +1743,16 @@ export async function cenaMao(ctx, { frio } = {}) {
     mao.remove();
   } finally {
     clarear?.kill();
+    escurecer?.kill();
+    surgirEle?.kill();
+    if (!inteira && ele) {              // a cena quebrou no meio: ele não fica para trás
+      ele.dispose();
+      if (estado.ele === ele) estado.ele = null;
+      estado.seguidorFio?.ancorar?.(null);
+    }
     if (!inteira) entardecer(ctx, false, 1.2);          // com o encontro, o crepúsculo fica para ele
     olhar.k = 0;
+    limparEscrito();
     pararPose();
     pararMagia();
     pararCamera();
@@ -1637,7 +1861,7 @@ function mergulhar(gsap, { pose, descer, cam, olhar, fio, seguidor, mundo, som, 
     .to(rig, { z: z0 - 1.5, duration: 3.6, ease: 'power2.inOut' }, 4.4)
     .add(() => { petalas.definirFoco?.(); petalas.definirAbertura?.(1); petalas.definirTempo?.(1); }, 4.6)
     .to(ar, { assentar: 1, duration: 4.2, ease: 'sine.inOut' }, 4.7)
-    .to(ponta, { s: S_CARTA + 1, duration: 3.8, ease: 'power1.inOut', onUpdate: aplicarPonta }, 4.9)
+    .to(ponta, { s: S_CARTA + 1, duration: 4.3, ease: 'power1.in', onUpdate: aplicarPonta }, 4.9)
     .add(() => { fio.pulso?.({ de: 0, ate: 1, duracao: 3.6, forca: 1.25, largura: 0.9, brasas: 26 }); }, 5.9)
     .to(estrela, { k: 0, escala: 0.8, duration: 1.2, ease: 'power1.out', onUpdate: aplicarEstrela }, 8.1)
     .add(() => {

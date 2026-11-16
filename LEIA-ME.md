@@ -61,6 +61,8 @@ Os textos para gerar as que faltam estão em `_dev/prompts-imagens.md`. Sem elas
 
 Dois ajustes quando trocar imagens:
 
+- **`mao.escrito`**: o que aparece escrito à caneta na palma da mão dela, letra por letra, logo depois de "Olha a sua mão." (hoje `'eu te amo'`). Curto fica melhor: até umas quatro palavras pequenas. Vazio (`''`) deixa a mão sem nada escrito.
+- **`mao.ele`**: `true` faz você aparecer no fim do fio durante a caminhada (um rapaz de pé, de costas, desenhado pelo site, pequeno ao longe e maior conforme ela chega); `false` tira. Só aparece quando há imagens em `encontro.quadros`.
 - **`mao.ancoraFio`** e **`fioDele` / `fioDela`** (no bloco `par`): dizem em que ponto da imagem o fio vermelho sai ou chega. `x` vai de 0 (esquerda) a 1 (direita), `y` de 0 (topo) a 1 (base). Se trocar a imagem, mude esses números até o fio sair do lugar certo.
 - **`alt`**: uma frase curta descrevendo a imagem, para quem usa leitor de tela.
 

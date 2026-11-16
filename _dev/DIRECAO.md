@@ -29,7 +29,7 @@ Quem constrói uma cena lê isto inteiro antes de escrever código.
 | 6 | Segunda carta | `carta2` | O pergaminho enrola, volta ao mundo branco, caminha até a carta com estrela no lacre | o papel |
 | 7 | Capítulo 2 | `yourname` | Capa, céu do dia à noite com a rolagem, cometa que se divide, cordão trançado, encontro de ponta a ponta, o par ligado pelo fio | o fio |
 | 7b | Segredos | `segredos` | Só com vídeos no `content.js`. O pergaminho enrola, o mundo volta, uma frase e bilhetes amarrados com o fio que nascem da névoa. Tocar: o fio desamarra, a carta de dentro vira a moldura do vídeo; ao fechar, o nome de quem gravou é escrito à mão. Todos vistos: "Seguir" | o mundo branco aberto, sem carta |
-| 8 | A mão | `mao` | Capítulo fecha, carta vai embora, "Olha a sua mão.", a mão com o akai ito, botão "Seguir o fio", o fio vira o caminho | o fio é o caminho |
+| 8 | A mão | `mao` | Capítulo fecha, carta vai embora, "Olha a sua mão.", a mão com o akai ito, as palavras de `mao.escrito` escritas à caneta na palma, botão "Seguir o fio", o fio vira o caminho: uma caminhada longa (~30 m, ~19 s) com ele ao longe, no fim do fio | o fio é o caminho |
 | 8b | O encontro | `encontro` | Só com quadros em `encontro.quadros`. A caminhada pelo fio termina no crepúsculo, a luz corre pelo fio, a alameda escurece e os quadros entram sozinhos como planos de um filme (panorâmica lenta do `foco` ao `ate`); as duas mãos voltam juntas, o fio do site liga um dedinho ao outro, clarão | a última carta, que surge de dentro do clarão já com o fio no laço |
 | 9 | Última carta | `final` | Amarrada só com o fio. Folha em branco desdobra. Uma frase escrita à mão, letra por letra. Fica ali com as pétalas. Sem botão, sem "fim" | — |
 
@@ -64,6 +64,7 @@ js/mundo/petalas.js      ← pétalas (WebGL)
 js/mundo/leve.js         ← mundo sem WebGL (pétalas em CSS, mesma API)
 js/mundo/envelope.js     ← envelope 3D (três variantes) + variante leve em SVG
 js/mundo/fio.js          ← o fio como fita 3D que se desenha
+js/mundo/ele.js          ← ele, de pé no fim do fio (figura pintada em canvas, com a névoa e a hora da alameda)
 js/mundo/folha.js        ← a última folha em 3D (desdobra + escrita à mão)
 js/pergaminho.js         ← a folha DOM: recebe o papel, desenrola, enrola, rolagem, fio de progresso
 js/capitulos/poppy.js    ← capítulo 1 (+ js/capitulos/poppy/*)
@@ -245,6 +246,11 @@ O esqueleto andante já existe e segue a seção 4. Esta seção só registra o 
 - *A caminhada antes dele.* Com o encontro por vir, a tarde da caminhada pelo fio clareia só até 0,78 (sem ele, 0,5): a luz não vai ao dia e volta em poucos segundos.
 - *Movimento reduzido:* dissolvências simples, quadro parado no `ate`, mãos já juntas, fio que aparece inteiro, clarão por opacidade.
 - *Atenção ao PRODUCT.md:* a regra "nada de quadros ou personagens do filme" foi aberta aqui por pedido do autor, que forneceu as imagens.
+
+**A mão: o escrito, a caminhada longa e ele (`js/cenas/mao.js`, `js/mundo/ele.js`).**
+- *O escrito na palma* (`conteudo.mao.escrito`; vazio = nada; só na mão desenhada, não com `mao.imagem`). Depois de a mão se desenhar e antes de o fio acender (`verOFio`), as palavras são escritas na palma. São compostas no espaço da mão (`PALMA`: abaixo da linha da cabeça, inclinadas com ela, 1 a 3 linhas equilibradas, o corpo é o maior que cabe) e cada letra recebe a matriz de `projetar()` no ponto dela, com a concha da palma: deitam e encurtam com o escorço. `<text>` em Klee One 600 na camada `.mao-escrito`, por baixo das linhas da palma; cada letra é revelada da esquerda para a direita por um `clipPath` que anda (~0,3 s por letra, pausa entre palavras, som `caneta`), e depois há ~1,3 s parados mais os ~3 s do fio acendendo antes do botão. Leitor de tela: uma região viva `.so-leitor` recebe o texto. Movimento reduzido: o escrito inteiro em dissolvência (1,4 s). Sem etapa nova (tudo dentro de `olha`).
+- *A caminhada.* `CAMINHADA = 26` (+ `RESTO = 4`): 30 m em ~19 s (antes 12 m em 7,4 s). `desvio(s)` ganhou uma segunda onda e o trecho final é relativo a `S_CARTA`; o seguidor aguenta 128 pontos. A tarde: fecha no toque, clareia até 0,58 (0,4 sem encontro) nos primeiros segundos e, a partir de 36% da caminhada, volta a cair devagar até 0,93 (0,62): ela chega no fim do dia e o encontro só termina de fechar o crepúsculo.
+- *Ele.* Com `temEncontro`, WebGL e `mao.ele !== false`, `criarEle(mundo)` põe a figura (de costas, pintada num canvas: não há corpo inteiro dele nas imagens da pasta para recortar) `ELE_ATRAS` metros além de onde a carta vai aparecer; ela para a ~3,8 m. O material usa os uniformes da névoa e da hora da alameda (`mundo.alameda.uniformes`), com a névoa 20% mais rala para o vulto se ler a 30 m. A ponta do fio prende na mão dele (`seguidor.ancorar`). Aparece no plano aberto do mergulho (5,2 s depois do toque). Sai em `mostrarCarta()` do encontro (debaixo do clarão), que devolve a ponta do fio à carta. Sem WebGL não existe; no movimento reduzido existe (a caminhada vira dissolvência).
 
 **Segredos (`js/cenas/segredos.js`, `css/segredos.css`).**
 - *Passagem.* A cena começa com `voltarAoMundo` (o pergaminho do filme enrola, a segunda carta vai embora) e termina com o mundo branco aberto, sem carta, sem pergaminho e com o mini visível. A mão, que entra em seguida com `frio: false`, chama `voltarAoMundo` de novo: com o pergaminho `oculto` e sem `estado.envelope`, isso não faz nada, e `mao:enrolando` passa direto para `olha`. Nada mudou em `mao.js`.

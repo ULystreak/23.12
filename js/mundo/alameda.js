@@ -1716,6 +1716,8 @@ export function criarAlameda(mundo) {
       else v.set(alvo[0], alvo[1]);
     },
     corNevoa,
+    /** Os uniformes da névoa e da hora (uNevoa, uCeu, uDens, uTarde): quem entra na alameda usa os mesmos (js/mundo/ele.js). */
+    uniformes: comuns,
     /** x do meio do caminho na profundidade z DO MUNDO (a deriva do passo de base já descontada). */
     centro: (z) => centroCaminho(z - derivaAtual),
     materiais,

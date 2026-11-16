@@ -448,6 +448,14 @@ window.CONTEUDO = {
     // em várias linhas e desce até cobrir o desenho da mão.
     frase:'Olha a sua mão.',
 
+    // O que aparece escrito na palma da mão dela, à caneta, letra por letra,
+    // logo depois de a mão aparecer (como no filme, quando ele escreve na mão
+    // dela). Funciona melhor curto: até umas quatro palavras pequenas.
+    // Deixe vazio ('') para a mão ficar sem nada escrito.
+    // (Só vale na mão desenhada pelo site: com a "imagem" aqui de baixo
+    // preenchida, o site não sabe onde fica a palma e não escreve nada.)
+    escrito: 'eu te amo',
+
     // Imagem da mão com o fio (opcional; sem ela, o site desenha uma).
     // Quando existir: 'assets/images/mao-akai-ito.webp'
     imagem: '',
@@ -464,6 +472,13 @@ window.CONTEUDO = {
     // Só é usado se o texto de cima ficar vazio (''): aí o botão vira só o
     // desenho, e este nome é lido em voz alta por leitores de tela.
     rotuloBotao: 'Seguir o fio',
+
+    // Você no fim do fio: enquanto ela caminha, um rapaz de pé, de costas,
+    // aparece lá longe na alameda, esperando, e vai ficando maior conforme
+    // ela chega perto; o fio termina na mão dele. true = aparece; false = não.
+    // (Ele só aparece quando existe a parte "encontro" logo abaixo, e some
+    // em aparelhos muito antigos, sem aceleração gráfica.)
+    ele: true,
   },
 
   /* --------------------------------------------------------------------------

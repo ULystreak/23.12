@@ -167,6 +167,14 @@ async function chegadaSimples(ctx) {
 /** A última carta, que a cena da mão deixou escondida, aparece. */
 function mostrarCarta(ctx, duracao = 1.4) {
   const { mundo, estado } = ctx;
+  // Ele, que esperava no fim do fio, dá lugar à carta: some, e a ponta do fio
+  // (que subia até a mão dele) volta a se prender nela.
+  if (estado.ele) {
+    const ele = estado.ele;
+    estado.ele = null;
+    ele.sair(Math.min(duracao, 1.2));
+    estado.seguidorFio?.ancorar?.(null);
+  }
   const env = estado.envelope;
   if (!env || !estado.cartaEscondida) return;
   estado.cartaEscondida = false;
