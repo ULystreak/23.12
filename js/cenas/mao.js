@@ -1402,9 +1402,10 @@ export async function cenaMao(ctx, { frio } = {}) {
 
 // =============================================================================
 // O entardecer: enquanto o fio está acordado, a alameda escurece e esfria um
-// pouco (uma camada sobre a foto, em css/mao.css, só opacidade) e a névoa do 3D
-// vai junto, para o fio ao longe sumir numa névoa da mesma cor. O fio e a luz
-// dele ficam por cima, intactos: a magia se lê por contraste de luz.
+// pouco e a névoa vai junto, para o fio ao longe sumir numa névoa da mesma cor.
+// Com WebGL é a luz da alameda 3D (mundo.alameda.tarde: luz, névoa e céu); sem
+// WebGL, uma camada sobre a imagem da alameda (css/mao.css, só opacidade). O fio
+// e a luz dele ficam por cima, intactos: a magia se lê por contraste de luz.
 // =============================================================================
 
 const NEVOA_TARDE = '#8d7f95';
@@ -1423,11 +1424,15 @@ function entardecer(ctx, ligar, duracao = 2.6) {
   const { mundo } = ctx;
   const gsap = window.gsap;
   if (!mundo.ok || !mundo.cena.fog || !gsap) return;
-  if (!raiz.classList.contains('com-fundo')) return;      // sem a foto o mundo é branco: só o fio acende
+  if (tarde.tween) tarde.tween.kill();
+  if (mundo.alameda) {
+    tarde.tween = gsap.to(tarde, { k: alvo, duration: duracao, ease: 'sine.inOut', onUpdate: () => mundo.alameda.tarde(tarde.k) });
+    return;
+  }
+  if (!raiz.classList.contains('com-fundo')) return;      // sem a alameda o mundo é branco: só o fio acende
   const nevoa = mundo.cena.fog.color;
   if (!tarde.base) tarde.base = nevoa.clone();
   const escura = new mundo.THREE.Color(NEVOA_TARDE);
-  if (tarde.tween) tarde.tween.kill();
   tarde.tween = gsap.to(tarde, {
     k: alvo,
     duration: duracao,

@@ -1,4 +1,6 @@
-// Fundo do mundo: a foto da alameda atrás de tudo (content.js → pagina.fundo).
+// Fundo do mundo sem WebGL: a imagem da alameda atrás de tudo (content.js →
+// pagina.fundo). Com WebGL a alameda é 3D (js/mundo/alameda.js) e daqui só vêm
+// os véus atrás do texto (criarVeus, no fim do arquivo).
 //
 // Uma camada de DOM só, atrás do canvas (e atrás do mundo leve), e não uma
 // textura no 3D: assim o mesmo código serve aos dois modos, a foto é rasterizada
@@ -25,12 +27,12 @@
 
 import { clamp } from '../nucleo/util.js';
 
-// Ponto de fuga do caminho na foto (fração da imagem). Vale para a foto da
-// alameda; outra foto com o caminho em outro lugar só precisa ajustar aqui.
-const PONTO_FUGA = { x: 0.42, y: 0.59 };
-// Cor da névoa do 3D: a média da alameda na altura do horizonte, já com a luz
-// clara por cima (medida nas capturas). As coisas nascem dessa luz.
-const COR_HORIZONTE = '#e3d2d9';
+// Ponto de fuga do caminho na imagem (fração). A imagem da alameda é renderizada
+// do 3D com a câmera no meio do caminho, quase na horizontal (_dev/alameda-imagem.mjs): o
+// horizonte cai um nada abaixo do centro.
+const PONTO_FUGA = { x: 0.5, y: 0.515 };
+// A cor da névoa no fundo do túnel (= js/mundo/alameda.js).
+const COR_HORIZONTE = '#ece0e6';
 
 const APROXIMA_POR_METRO = Math.log(1.15) / 7;    // 7 m de caminhada: 15% mais perto
 const LIMITE = 1.55;                              // além disto a foto começaria a estourar
@@ -278,4 +280,45 @@ export function criarFundo({ amb, antesDe }) {
   window.addEventListener('orientationchange', pedirEnquadrar, { passive: true });
 
   return fundo;
+}
+
+/**
+ * Com WebGL a alameda é 3D (js/mundo/alameda.js) e daqui só vêm os véus claros
+ * atrás do texto: a mesma clareira do modo leve, numa camada logo acima do
+ * canvas (#mundo-veus). `ligar()` acontece quando a alameda entra.
+ * Sem `depoisDe`, não cria nada (mundo branco).
+ */
+export function criarVeus({ depoisDe }) {
+  const nada = {
+    ativo: false,
+    pronto: Promise.resolve(false),
+    cor: '#ffffff',
+    caminhada() {},
+    atualizar() {},
+    ligar() {},
+    desligar() {},
+  };
+  if (!depoisDe || !depoisDe.parentNode) return nada;
+  const raiz = document.createElement('div');
+  raiz.id = 'mundo-veus';
+  raiz.setAttribute('aria-hidden', 'true');
+  const veuAlto = document.createElement('div');
+  veuAlto.className = 'fundo-veu fundo-veu-alto';
+  const veuBaixo = document.createElement('div');
+  veuBaixo.className = 'fundo-veu fundo-veu-baixo';
+  raiz.append(veuAlto, veuBaixo);
+  depoisDe.parentNode.insertBefore(raiz, depoisDe.nextSibling);
+  pintarVeu();
+  let aceso = false;
+  return {
+    ...nada,
+    ligar() {
+      raiz.style.visibility = '';
+      if (aceso) return;
+      aceso = true;
+      document.documentElement.classList.add('com-fundo');
+      requestAnimationFrame(() => raiz.classList.add('fundo-pronto'));
+    },
+    desligar() { raiz.style.visibility = 'hidden'; },
+  };
 }

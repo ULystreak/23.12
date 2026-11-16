@@ -56,6 +56,8 @@ js/nucleo/recursos.js    ← pré-carga em segundo plano; recurso que falta vira
 js/som.js                ← motor de áudio (Web Audio): música + efeitos
 js/musica.js             ← seletor de músicas na folha + mini seletor fixo
 js/mundo/mundo.js        ← renderer, cena, câmera, rig, laço, qualidade adaptativa, caminhada
+js/mundo/alameda.js      ← a alameda de cerejeiras em 3D (chão, árvores, copas, lago, postes, céu, névoa)
+js/mundo/fundo.js        ← sem WebGL: a imagem da alameda; com WebGL: os véus atrás do texto
 js/mundo/petalas.js      ← pétalas (WebGL)
 js/mundo/leve.js         ← mundo sem WebGL (pétalas em CSS, mesma API)
 js/mundo/envelope.js     ← envelope 3D (três variantes) + variante leve em SVG
@@ -226,5 +228,5 @@ O esqueleto andante já existe e segue a seção 4. Esta seção só registra o 
 - *Tudo em DOM* sobre o mundo (dentro de `#palco`, que o diretor limpa se a cena quebrar): a cena é a mesma com e sem WebGL. Os bilhetes flutuam por `mundo.aoQuadro` e seguem um pouco `mundo.ponteiro`.
 - *O vídeo.* Um `<video>` por item, `preload="metadata"` (só o tamanho e a duração; no iPhone nem isso, até o toque). O toque dela chama `play()` e `pause()` na hora (o gesto que o Safari exige) e o vídeo começa quando a moldura termina de abrir; se o navegador ainda recusar, aparece um botão de tocar no meio. `playsinline`, sem controles nativos: fechar (disco de papel na quina), barra de progresso em fio na margem de baixo, toque no vídeo pausa/continua; teclado: Tab fica dentro, Espaço/K pausa, Esc fecha, o foco volta ao bilhete. Vídeo que falha (`error`) conta como visto e o bilhete mostra só o nome.
 - *A moldura* fica no tamanho final desde o começo e abre por `clip-path: inset()` + `transform` (o vídeo nunca é esticado). Margens: as áreas seguras + `clamp(26px, 6,5% do lado menor, 64px)`.
-- *Música:* `som.abafar(0.04, 30 min)` durante o vídeo e `som.abafar(1, 0)` na volta; sem Web Audio, `som.pausar()`/`som.retomar()`. Se o iPhone tiver pausado o `<audio>` da música enquanto o vídeo tocava, a cena o religa ao fechar (confere `som.diagnostico().pausado`). O mini some durante o vídeo. Pétalas: densidade 0,35 e foco a 0,5 m durante o vídeo (o resto desfoca), de volta a 1 e 3 m depois; a foto da alameda desfoca por CSS (`html.segredo-aberto`).
+- *Música:* `som.abafar(0.04, 30 min)` durante o vídeo e `som.abafar(1, 0)` na volta; sem Web Audio, `som.pausar()`/`som.retomar()`. Se o iPhone tiver pausado o `<audio>` da música enquanto o vídeo tocava, a cena o religa ao fechar (confere `som.diagnostico().pausado`). O mini some durante o vídeo. Pétalas: densidade 0,35 e foco a 0,5 m durante o vídeo (o resto desfoca), de volta a 1 e 3 m depois; sem WebGL a imagem da alameda desfoca por CSS (`html.segredo-aberto`).
 - *Teste:* `node _dev/ver.mjs --fluxo --segredos output/segredos-teste [--segredos-falho]` injeta vídeos de teste no `content.js` servido (page.route, `injetarSegredos` em `_dev/lib.mjs`) sem tocar no arquivo; `lerConteudo`, `temSegredos` e `segredosDeTeste` também estão lá. Sem `--segredos` e sem vídeo no `content.js`, a cena sai do roteiro.

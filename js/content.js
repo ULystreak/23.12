@@ -38,13 +38,15 @@ window.CONTEUDO = {
   pagina: {
     titulo: 'Para você',
 
-    // A foto atrás de tudo no mundo das cartas: as frases do começo, as
-    // caminhadas, a mão e a última carta (os capítulos não mudam). Quando ela
-    // anda, a foto se aproxima devagar, como quem caminha pela alameda.
-    // Deixe vazio ('') para voltar ao mundo todo branco.
-    // Tamanho: pelo menos 1600 px de largura (webp, qualidade ~70, perto de
-    // 250 KB). A foto atual tem só 719 px e aparece ampliada ~7x no iPhone.
-    fundo: 'assets/images/mundo-fundo.webp',
+    // O lugar do mundo das cartas: uma alameda de cerejeiras em flor, atrás
+    // das frases do começo, das caminhadas, da mão e da última carta (os
+    // capítulos não mudam). Com WebGL ela é construída em 3D pelo próprio site
+    // (js/mundo/alameda.js) e ela anda por dentro dela. Este arquivo é a mesma
+    // alameda renderizada numa imagem (2000 × 2000, ponto de fuga no centro),
+    // usada só no aparelho sem WebGL. Para refazê-la depois de mexer na
+    // alameda: node _dev/alameda-imagem.mjs.
+    // Deixe vazio ('') para voltar ao mundo todo branco (com e sem WebGL).
+    fundo: 'assets/images/alameda.webp',
   },
 
   /* --------------------------------------------------------------------------

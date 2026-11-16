@@ -625,7 +625,7 @@ function criarLuzes(mundo, amostrador, comuns) {
     uniforms: {
       uTela: { value: new THREE.Vector2(mundo.tamanho.largura, mundo.tamanho.altura) },
       uDpr: { value: mundo.tamanho.dpr || 1 },
-      uNevoa: { value: new THREE.Vector2(nevoa ? nevoa.near + 1 : 3.5, nevoa ? nevoa.far * 1.15 : 11) },
+      uNevoa: { value: mundo.alameda ? new THREE.Vector2(8, 28) : new THREE.Vector2(nevoa ? nevoa.near + 1 : 3.5, nevoa ? nevoa.far * 1.15 : 11) },
       uOuro: { value: new THREE.Color('#ffb04a') },
       uRosa: { value: new THREE.Color('#ff2a3e') },
       uBranco: { value: new THREE.Color('#fff8ec') },
@@ -879,8 +879,10 @@ function criarFio3D(mundo, opcoes) {
   geometria.setIndex(indices);
 
   const nevoa = mundo.cena.fog;
-  const perto = nevoa ? nevoa.near : 2.5;
-  const longe = nevoa ? nevoa.far : 9.5;
+  // Na alameda 3D o caminho continua visível muito além da névoa curta das cartas:
+  // o fio corre por ele até onde a névoa da alameda o apaga.
+  const perto = mundo.alameda ? 7 : nevoa ? nevoa.near : 2.5;
+  const longe = mundo.alameda ? 24 : nevoa ? nevoa.far : 9.5;
 
   // Uniformes que a fita e a sombra dividem (o mesmo objeto nos dois materiais).
   const comuns = {

@@ -22,7 +22,8 @@ import { clamp, lerp, amortecer, debounce } from '../nucleo/util.js';
 import { baixarNivel } from '../nucleo/ambiente.js';
 import { curvas } from '../nucleo/movimento.js';
 import { criarPetalas } from './petalas.js';
-import { criarFundo } from './fundo.js';
+import { criarFundo, criarVeus } from './fundo.js';
+import { criarAlameda } from './alameda.js';
 
 export const ALTURA_OLHOS = 1.5;
 const FOV_EM_PE = 58;
@@ -145,9 +146,11 @@ async function cairParaLeve(opcoes, fundo) {
  */
 export async function criarMundo(opcoes) {
   const { amb, canvas } = opcoes;
-  // A foto da alameda (content.js → pagina.fundo) começa a baixar já, junto com o three.
-  const fundo = criarFundo({ amb, antesDe: canvas || opcoes.recipienteLeve });
-  if (!amb.webgl) return cairParaLeve(opcoes, fundo);
+  // pagina.fundo (content.js): com WebGL, a alameda em 3D (js/mundo/alameda.js);
+  // sem WebGL, a imagem dela, renderizada, atrás do mundo leve (js/mundo/fundo.js).
+  const comAlameda = !!String(window.CONTEUDO?.pagina?.fundo || '').trim();
+  const fundoLeve = () => criarFundo({ amb, antesDe: canvas || opcoes.recipienteLeve });
+  if (!amb.webgl) return cairParaLeve(opcoes, fundoLeve());
 
   let THREE;
   let renderer;
@@ -156,39 +159,27 @@ export async function criarMundo(opcoes) {
     renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: amb.nivel !== 'baixo',
-      alpha: fundo.ativo,                     // com a foto atrás, o canvas deixa ela aparecer
+      alpha: false,
       stencil: false,
       powerPreference: 'high-performance',
     });
   } catch {
-    return cairParaLeve(opcoes, fundo);
+    return cairParaLeve(opcoes, fundoLeve());
   }
 
   const gsap = window.gsap;
   renderer.setClearColor(0xffffff, 1);
 
   const cena = new THREE.Scene();
-  cena.background = new THREE.Color(0xffffff);
+  cena.background = comAlameda ? null : new THREE.Color(0xffffff);
   cena.fog = new THREE.Fog(0xffffff, 2.5, 9.5);
+  // Os véus claros atrás do texto (o mesmo desenho do modo leve), por cima do canvas.
+  const fundo = comAlameda ? criarVeus({ depoisDe: canvas }) : criarVeus({ depoisDe: null });
 
-  // Com a foto: a névoa vai para a cor da alameda no horizonte e o canvas fica
-  // transparente. A troca acompanha a foto entrando (ela nasce do branco).
-  const BRANCO = new THREE.Color(0xffffff);
-  fundo.pronto.then((ok) => {
-    if (!ok) return;
-    const cor = new THREE.Color(fundo.cor);
-    renderer.setClearColor(0xffffff, 0);
-    cena.background = null;
-    canvas.style.background = 'transparent';
-    const mistura = { k: 0 };
-    const pintar = () => cena.fog.color.copy(BRANCO).lerp(cor, mistura.k);
-    if (gsap) gsap.to(mistura, { k: 1, duration: 1.8, ease: 'none', onUpdate: pintar });
-    else { mistura.k = 1; pintar(); }
-  });
-
+  let alameda = null;
   const rig = new THREE.Group();
   rig.name = 'rig';
-  const camera = new THREE.PerspectiveCamera(FOV_EM_PE, 1, 0.05, 40);
+  const camera = new THREE.PerspectiveCamera(FOV_EM_PE, 1, 0.05, comAlameda ? 60 : 40);
   camera.position.set(0, ALTURA_OLHOS, 0);
   rig.add(camera);
   cena.add(rig);
@@ -268,25 +259,6 @@ export async function criarMundo(opcoes) {
       -ponteiro.x * 0.03 * forca,
       rolagem,
     );
-  }
-
-  // ---- foto de fundo ----------------------------------------------------------------
-  // Depois dos ouvintes (a cena da mão inclina a câmera num deles): a foto segue
-  // para onde a câmera olha de fato. A translação do balanço chega atenuada,
-  // como a de algo a ~8 m; o giro, inteiro.
-  const dirAux = new THREE.Vector3();
-  function atualizarFundo() {
-    camera.updateWorldMatrix(true, false);
-    camera.getWorldDirection(dirAux);
-    const focal = (tamanho.altura / 2) / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    fundo.atualizar({
-      z: rig.position.z,
-      yaw: Math.atan2(-dirAux.x, -dirAux.z),
-      pitch: Math.asin(clamp(dirAux.y, -1, 1)),
-      roll: camera.rotation.z + rig.rotation.z,
-      dx: -camera.position.x * focal / 8,
-      dy: (camera.position.y - ALTURA_OLHOS) * focal / 8,
-    });
   }
 
   // ---- laço -------------------------------------------------------------------
@@ -371,7 +343,7 @@ export async function criarMundo(opcoes) {
       // Um ouvinte que quebra não pode parar o mundo: sai da lista e o quadro segue.
       try { fn(dt, tempo); } catch (erro) { ouvintes.delete(fn); console.error('[carta] aoQuadro falhou', erro); }
     }
-    if (fundo.ativo) atualizarFundo();
+    if (alameda) alameda.atualizar(dt, tempo);
     renderer.render(cena, camera);
     medir(brutoMs, agora);
   }
@@ -417,7 +389,6 @@ export async function criarMundo(opcoes) {
 
       const z0 = rig.position.z;
       const estado = { p: 0 };
-      fundo.caminhada(distancia);
 
       if (amb.reduzido) {
         // Movimento reduzido: um avanço lento e contínuo, sem balanço. O grosso
@@ -546,12 +517,10 @@ export async function criarMundo(opcoes) {
     ligar() {
       ligado = true;
       canvas.style.visibility = '';
-      fundo.ligar();
       atualizarLaco();
     },
     desligar() {
       ligado = false;
-      fundo.desligar();
       atualizarLaco();
     },
     caminhar,
@@ -589,6 +558,7 @@ export async function criarMundo(opcoes) {
     },
     petalas: null,
     fundo,
+    alameda: null,
   };
 
   aplicarTamanho(true);
@@ -607,6 +577,26 @@ export async function criarMundo(opcoes) {
       Promise.race([renderer.compileAsync(pet, camera, cena), new Promise((ok) => setTimeout(ok, 1500))])
         .then(mostrar, mostrar);
     } catch { mostrar(); }
+  }
+
+  // A alameda: gerada agora, compilada em paralelo e mostrada só quando pronta,
+  // nascendo do branco (até lá o mundo é o branco de sempre).
+  if (comAlameda) {
+    try {
+      const t0 = performance.now();
+      alameda = criarAlameda(mundo);
+      alameda.custoMs = Math.round(performance.now() - t0);     // só informativo (testes)
+      mundo.alameda = alameda;
+      mundo.aoMudarNivel((nivel) => alameda.nivel(nivel));
+      alameda.pronta.then(() => {
+        alameda.surgir(amb.params?.has?.('cena') ? 0.6 : 1.8);
+        fundo.ligar();
+      });
+    } catch (erro) {
+      console.error('[carta] alameda', erro);
+      alameda = null;
+      cena.background = new THREE.Color(0xffffff);
+    }
   }
 
   atualizarLaco();

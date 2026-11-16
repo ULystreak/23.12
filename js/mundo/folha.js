@@ -1313,6 +1313,7 @@ function criarFolha3D(mundo) {
     leitura.distancia = Math.max(porAltura, porLargura);
     leitura.pos.set(mundo.rig.position.x, ALTURA_OLHOS, mundo.rig.position.z - leitura.distancia);
     mundo.petalas.definirFoco?.(leitura.distancia);
+    mundo.alameda?.afastar?.(leitura.distancia + 0.25);   // nenhum cacho da copa na frente do papel
   }
 
   function aplicarViagem() {
