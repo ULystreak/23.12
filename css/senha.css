@@ -234,3 +234,39 @@ html.reduzido .senha-cadeado-arco { transition-duration: 0.01ms; }
 
 /* Enquanto a tela preta existe, o disco que voa e o mini ficam por cima dela. */
 html:not(.sem-entrada) #mini { z-index: 62; }
+
+/* Contagem até o dia: quatro casinhas em Klee, pequenas, acima do cadeado. */
+.senha-conta { display: grid; justify-items: center; gap: 10px; margin-bottom: 14px; }
+.senha-conta-frase {
+  margin: 0;
+  font-family: var(--fonte-titulo);
+  font-size: 0.9375rem;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+}
+.senha-conta-casas { display: flex; gap: 10px; }
+.senha-conta-casa {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  min-width: 58px;
+  padding: 10px 6px 8px;
+  border-radius: var(--raio-m, 16px);
+  border: 1px dashed rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.04);
+}
+.senha-conta-n {
+  font-family: var(--fonte-titulo);
+  font-size: 1.625rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums lining-nums;
+  color: #fff;
+}
+.senha-conta-r {
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: lowercase;
+  color: var(--sakura, #f4b6c8);
+}
+.senha-conta-casa:first-child .senha-conta-n { color: var(--sakura, #f4b6c8); }

@@ -79,6 +79,13 @@ window.CONTEUDO = {
     // código do site, como a outra. '' = sem senha mestra.
     mestra: '9999',
 
+    // Contagem até o dia (dias, horas, minutos, segundos) na tela da senha,
+    // só antes de liberaEm. false = sem contagem.
+    contagem: true,
+
+    // Frase pequena acima da contagem ('' = sem frase).
+    contagemFrase: 'falta pouco...',
+
     // Frase pequena acima do campo (opcional; '' = só o campo, sem frase).
     // [Só você sabe.]
     frase: '',

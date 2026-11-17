@@ -52,14 +52,11 @@ export async function cenaSenha(ctx) {
   const mesmo = (v, c) => !!c && String(v).trim().toLowerCase() === c.toLowerCase();
   // A senha dela só vale a partir do dia marcado (dados.liberaEm, AAAA-MM-DD, pela data do
   // aparelho; ?hoje=AAAA-MM-DD finge a data nos testes). A senha mestra vale sempre.
-  const hoje = (() => {
-    const p = new URLSearchParams(location.search).get('hoje');
-    if (p && /^\d{4}-\d{2}-\d{2}$/.test(p)) return p;
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  })();
+  const fingido = new URLSearchParams(location.search).get('hoje');
+  const agora = () => (fingido && /^\d{4}-\d{2}-\d{2}$/.test(fingido) ? new Date(`${fingido}T12:00:00`) : new Date());
+  const dia = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const liberaEm = /^\d{4}-\d{2}-\d{2}$/.test(String(dados.liberaEm || '')) ? dados.liberaEm : '';
-  const cedo = () => !!liberaEm && hoje < liberaEm;
+  const cedo = () => !!liberaEm && dia(agora()) < liberaEm;
   const igual = (v) => mesmo(v, mestra) || (mesmo(v, codigo) && !cedo());
   const antesDaHora = (v) => mesmo(v, codigo) && cedo();
 
@@ -88,7 +85,35 @@ export async function cenaSenha(ctx) {
   aviso.setAttribute('role', 'alert');
   const dica = el('p', 'senha-dica ui-nota');
   dica.setAttribute('aria-live', 'polite');
-  const forma = el('div', 'senha ui-escuro', [frase, cadeado, quadro, aviso, dica]);
+  // Contagem até o dia: dias, horas, minutos e segundos, que somem quando o dia chega.
+  const contagem = cedo() && dados.contagem !== false ? (() => {
+    const rot = dados.contagemRotulos || {};
+    const casa = (nome) => {
+      const n = el('span', 'senha-conta-n', '00');
+      return { n, no: el('span', 'senha-conta-casa', [n, el('span', 'senha-conta-r', nome)]) };
+    };
+    const c = { d: casa(rot.dias || 'dias'), h: casa(rot.horas || 'horas'), m: casa(rot.minutos || 'min'), s: casa(rot.segundos || 'seg') };
+    const no = el('div', { class: 'senha-conta', role: 'timer', 'aria-live': 'off' }, [
+      dados.contagemFrase ? el('p', 'senha-conta-frase', dados.contagemFrase) : null,
+      el('div', 'senha-conta-casas', [c.d.no, c.h.no, c.m.no, c.s.no]),
+    ]);
+    const alvo = new Date(`${liberaEm}T00:00:00`);
+    let t = 0;
+    const tique = () => {
+      const falta = Math.max(0, alvo - agora());
+      const seg = Math.floor(falta / 1000);
+      c.d.n.textContent = String(Math.floor(seg / 86400));
+      c.h.n.textContent = String(Math.floor(seg / 3600) % 24).padStart(2, '0');
+      c.m.n.textContent = String(Math.floor(seg / 60) % 60).padStart(2, '0');
+      c.s.n.textContent = String(seg % 60).padStart(2, '0');
+      no.setAttribute('aria-label', `${c.d.n.textContent} ${rot.dias || 'dias'}, ${c.h.n.textContent} ${rot.horas || 'horas'}`);
+      if (!falta) { clearInterval(t); gsap.to(no, { opacity: 0, duration: 0.8, onComplete: () => no.remove() }); }
+    };
+    tique();
+    t = setInterval(tique, 1000);
+    return { no, parar: () => clearInterval(t) };
+  })() : null;
+  const forma = el('div', 'senha ui-escuro', [contagem && contagem.no, frase, cadeado, quadro, aviso, dica]);
   caixa.append(forma);
 
   // Entra do preto, devagar. (Só a opacidade: o campo já vale desde o primeiro quadro.)
@@ -159,6 +184,7 @@ export async function cenaSenha(ctx) {
   diretor.etapa('senha-certa');
   som.destravar();
   caixa.removeEventListener('click', aoTocar);
+  contagem?.parar();
   campo.blur();
   forma.dataset.certa = '1';
   aviso.textContent = '';
