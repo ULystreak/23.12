@@ -68,6 +68,17 @@ window.CONTEUDO = {
     // Deixe vazio ('') para a carta abrir sem pedir senha.
     codigo: '8035',
 
+    // A partir de que dia a senha dela funciona (ano-mês-dia). Antes disso,
+    // digitar 8035 mostra o aviso "cedo" abaixo e não abre. '' = vale sempre.
+    liberaEm: '2026-12-23',
+
+    // O aviso quando ela acerta a senha antes do dia.
+    cedo: 'Ainda não... volta no dia 23/12.',
+
+    // Senha mestra: abre em qualquer dia (para você testar). Fica visível no
+    // código do site, como a outra. '' = sem senha mestra.
+    mestra: '9999',
+
     // Frase pequena acima do campo (opcional; '' = só o campo, sem frase).
     // [Só você sabe.]
     frase: '',

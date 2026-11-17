@@ -48,7 +48,20 @@ export async function cenaSenha(ctx) {
   const calmo = !!amb.reduzido;
 
   const dicas = (Array.isArray(dados.dicas) ? dados.dicas : [dados.dica]).map((d) => String(d || '').trim()).filter(Boolean);
-  const igual = (v) => String(v).trim().toLowerCase() === codigo.toLowerCase();
+  const mestra = String(dados.mestra || '').trim();
+  const mesmo = (v, c) => !!c && String(v).trim().toLowerCase() === c.toLowerCase();
+  // A senha dela só vale a partir do dia marcado (dados.liberaEm, AAAA-MM-DD, pela data do
+  // aparelho; ?hoje=AAAA-MM-DD finge a data nos testes). A senha mestra vale sempre.
+  const hoje = (() => {
+    const p = new URLSearchParams(location.search).get('hoje');
+    if (p && /^\d{4}-\d{2}-\d{2}$/.test(p)) return p;
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  })();
+  const liberaEm = /^\d{4}-\d{2}-\d{2}$/.test(String(dados.liberaEm || '')) ? dados.liberaEm : '';
+  const cedo = () => !!liberaEm && hoje < liberaEm;
+  const igual = (v) => mesmo(v, mestra) || (mesmo(v, codigo) && !cedo());
+  const antesDaHora = (v) => mesmo(v, codigo) && cedo();
 
   const frase = dados.frase ? el('p', 'senha-frase', dados.frase) : null;
   const cadeado = svg(ICONE_CADEADO);
@@ -102,12 +115,13 @@ export async function cenaSenha(ctx) {
   await new Promise((resolver) => {
     let conferindo = false;
     const acertou = () => { campo.disabled = true; ir.disabled = true; resolver(); };
-    const errar = async () => {
+    const errar = async (motivo) => {
+      const aindaNao = motivo === 'cedo';
       conferindo = true;
-      erros += 1;
+      if (!aindaNao) erros += 1;
       forma.dataset.erro = '1';
       campo.dataset.erro = '1';
-      const novaDica = dicas.length ? dicas[Math.min(erros, dicas.length) - 1] : '';
+      const novaDica = aindaNao ? '' : (dicas.length && erros ? dicas[Math.min(erros, dicas.length) - 1] : '');
       aviso.textContent = '';
       await espera(440);
       delete forma.dataset.erro;
@@ -115,7 +129,7 @@ export async function cenaSenha(ctx) {
       campo.value = '';
       forma.removeAttribute('data-tem');
       ir.tabIndex = -1;
-      aviso.textContent = dados.erro || 'Senha errada.';
+      aviso.textContent = aindaNao ? (dados.cedo || 'Ainda não. Volta no dia certo.') : (dados.erro || 'Senha errada.');
       // O aviso chega depressa; a dica vem logo atrás, como um bilhete posto na mesa.
       gsap.fromTo(aviso, { opacity: 0, y: calmo ? 0 : 6 }, { opacity: 1, y: 0, duration: 0.32, ease: 'power2.out', clearProps: 'transform' });
       if (novaDica && dica.textContent !== novaDica) {
@@ -130,7 +144,7 @@ export async function cenaSenha(ctx) {
     };
     const confirmar = () => {
       if (conferindo || campo.disabled || !campo.value.trim()) return;
-      if (igual(campo.value)) acertou(); else errar();
+      if (igual(campo.value)) acertou(); else errar(antesDaHora(campo.value) ? 'cedo' : '');
     };
     campo.addEventListener('input', () => {
       forma.toggleAttribute('data-tem', !!campo.value);

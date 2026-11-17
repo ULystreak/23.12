@@ -160,7 +160,8 @@ export function lerConteudo(videos = null) {
 
 /** A senha do content.js ('' = a carta abre sem pedir). */
 export function senhaDoConteudo(conteudo = lerConteudo()) {
-  const codigo = conteudo && conteudo.senha && conteudo.senha.codigo;
+  // A senha mestra abre em qualquer dia; a dela só a partir de senha.liberaEm.
+  const codigo = conteudo && conteudo.senha && (conteudo.senha.mestra || conteudo.senha.codigo);
   return typeof codigo === 'string' && /^\d+$/.test(codigo.trim()) ? codigo.trim() : '';
 }
 
