@@ -8,3 +8,6 @@ node_modules/
 
 # rascunho de prompt, não faz parte do site
 PROMPT.md
+
+# grafo do graphify (gerado)
+graphify-out/
