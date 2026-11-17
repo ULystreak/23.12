@@ -14,8 +14,10 @@ yourname  desenrolando → lendo → enrolando → guardando
 mao       olha → mao-espera → correndo
 cartas    pousando → escolhendo ⇄ assistindo → seguindo
 encontro  chegando → planos → maos → carta
-final     carta-chegando → carta-espera → carta-abrindo → desdobrando → escrevendo → fim
+final     carta-chegando → carta-espera → carta-abrindo → desdobrando → escrevendo → contador → resposta → fim
 ```
+
+(`contador` só existe com `contador.nascimento`; `resposta` só com a seção `resposta` no content.js. Ver a seção 8.)
 
 `ORDEM = ['senha', 'musica', 'inicio', 'poppy', 'carta2', 'yourname', 'mao', 'cartas', 'encontro', 'final']` (js/nucleo/diretor.js).
 
@@ -234,3 +236,69 @@ node _dev/robustez.mjs [caso…]
 - `som.diagnostico().abafo`: 1 = música inteira; menor enquanto um vídeo toca.
 - Testes: `sessao.abrirDaBolsa(id)` / `fecharDaBolsa()` e `injetarVideos(page, videos, midias?)` no lib.mjs; o `--fluxo` do ver.mjs relê pela bolsa em `carta2:carta-espera`, `mao:mao-espera` e `cartas:escolhendo`, confere o destaque do botão de seguir e, com `--videos`, que a música abaixa e volta; caso novo `bolsa` no robustez.mjs.
 - Folha de contato: `output/roteiro/folha.jpg` (`i-quadros.mjs` tira os quadros, `i-folha.mjs` e `i-empilhar.mjs` montam).
+
+## 8. O fim novo: a carta na mão dele, o contador, a resposta, a voz e a hora do dia
+
+Feito por três grupos (FIM, VOZ, CÉU) e integrado depois. Onde esta seção diz outra coisa, vale esta.
+
+### A hora do dia: `js/mundo/hora.js` (+ alameda.js, petalas.js, fundo.js, leve.js, css/mundo.css)
+
+- Uma linha só: `0 manha → 1 dia → 2 entardecer → 3 crepusculo → 4 noite`. `mundo.hora(alvo, { duracao })` (nome ou posição 0..4; devolve Promise; anda pela linha, nunca salta), `mundo.hora()` (nome atual), `mundo.horaPosicao` (0..4). Existe com e sem WebGL.
+- Quem manda é o mapa `ROTEIRO` de hora.js, ligado ao diretor por `ligarHora({ mundo, diretor, amb })` no main.js. **As cenas não chamam nada.** Atalho `?cena=` já nasce na hora da cena.
+
+| cena:etapa | hora | passagem |
+|---|---|---|
+| senha, musica, inicio, poppy | manhã | |
+| poppy:guardando | 0,5 | 6 s |
+| carta2, yourname | dia | 9 s |
+| yourname:enrolando / guardando | 1,5 | 5 s |
+| mao | entardecer | 3,4 s |
+| mao:correndo | crepúsculo | durante a corrida (`corrida.segundos` × 0,92) |
+| cartas, encontro:chegando | crepúsculo | |
+| encontro:planos | noite | 16 s, atrás dos quadros |
+| encontro:carta, final | noite | |
+
+- Para o CSS: `html[data-hora="manha|dia|entardecer|crepusculo|noite"]` e as variáveis `--hora-tarde` e `--hora-noite` (0..1). À noite `#frases`, `#dica` e `#acoes > .botao` ficam claros (css/mundo.css). A cor troca de uma vez quando a posição passa de 3,5 (hoje atrás dos quadros, sem texto na tela).
+- Alameda 3D: uniformes `uLuz` (multiplica a cor de tudo) e `uNoite` (estrelas no shader do céu); `alameda.aplicarHora(estado)`; `alameda.tarde(k)` ficou só por compatibilidade. O cometa é um plano que soma luz a 3,2 m, criado quando a noite chega (`renderOrder = -5`: a carta, a folha, ele e as pétalas são desenhados por cima). Sem WebGL: três camadas sobre a foto (tarde, noite, cometa); só a opacidade anda. Reduzido: passagens de no máximo 2,4 s, cometa parado.
+- `entardecer()` de js/cenas/mao.js continua exportada, mas **não faz mais nada** (cartas.js e encontro.js ainda a chamam; pode sair). A regra `html.entardecer #mundo-fundo::after` de css/mao.css ficou morta.
+
+### A última carta está na mão dele: `js/mundo/ele.js`, `js/cenas/final.js`, `js/cenas/encontro.js`
+
+- ele.js ganhou a segunda pose, pintada no mesmo canvas: de frente, de olhos fechados sorrindo, mão estendida. `ele.prepararEntrega()` (pinta; o encontro chama cedo, longe do clarão), `ele.entregar()` (troca a figura), `ele.ancoraCarta(olhos, saida?)` (onde a carta pousa), `pintarEleEntrega()` (canvas solto, para o modo sem WebGL).
+- `entregaNaMao(ctx) → boolean` (exportada de final.js): põe ele a 2,25 m, de frente, com a última carta na mão; marca `estado.entrega`. O encontro chama em `mostrarCarta`, debaixo do clarão. Entrando por `?cena=final` ou `?cena=encontro`, ele e a carta nascem ali.
+- `final:carta-chegando`: ela o vê (1,3 s) e a carta sai da mão dele e vem até ela (2,6 s, leve arco). Depois segue igual (toque, abre, a folha desdobra, a frase é escrita).
+- Sem WebGL: a figura pintada fica parada atrás (`.ele-leve`) e a carta chega do jeito antigo. `mao.ele: false` tira tudo isso (a carta surge sozinha).
+
+### Contador e resposta: `js/cenas/resposta.js`, `css/resposta.css`
+
+```js
+criarDepois(ctx) → { temContador, temResposta, dias, contar(), escrever(), repousar() }
+diasDeVida(nascimento, hoje?) → número | null     // em datas do calendário do aparelho (sem erro de fuso)
+```
+
+- `final:contador`: um véu de noite cobre a folha, o número aparece com a letra do campo da senha e conta de 0 até os dias de vida dela hoje (8035 em 23/12/2026), depois `contador.rotulo` e `contador.frase`. Em seguida sobe e fica pequeno no alto. `contador.nascimento` vazio ou inválido: a etapa não existe.
+- `final:resposta`: a folha pautada com `resposta.convite`, um `textarea` (letra de 19 px), guardado a cada tecla em `localStorage['carta2312:resposta']` (com try/catch) e de volta na visita seguinte. "Enviar para ele" é um `<a>` para `https://wa.me/<resposta.whatsapp>?text=…` (sem número, ela escolhe o contato); "enviar de outro jeito" usa `navigator.share` quando existe; "Guardar" fecha e a cena segue. **Nada é enviado sozinho, não há servidor.** Com o teclado aberto (`visualViewport` menor que 78% da tela) a folha sobe para o alto e encolhe para o que sobra (`.depois[data-teclado]`, `--depois-vista`).
+- `final:fim`: sem "fim" escrito. A noite, a folha com a frase, o contador pequeno no alto, o botão "Escrever de volta" (reabre a folha), o mini da música (final.js chama `mostrarMini()`; `FIM_SEM_BOTAO` de musica.js não inclui mais `fim`) e a bolsa (`final:fim` está em `BOLSA_LIVRE`; o diretor chama `mostrarBotao()`).
+- Ganchos de teste: `.contador[data-dias]`, `[data-acao="resposta-texto"]`, `"resposta-enviar"`, `"resposta-compartilhar"`, `"resposta-guardar"`, `"resposta-abrir"`. Parâmetro só de teste: `?hoje=AAAA-MM-DD`.
+
+### A voz dele: `js/voz.js`, `css/voz.css` (+ inventario.js)
+
+```js
+ctx.voz = criarVoz(ctx) → { liberar(), abrir() → Promise, fechar(), aberto, liberada }
+```
+
+- `liberar()` põe a fita "A minha voz" numa faixa fixa no alto da bolsa, mostra o botão e deixa a bolsa abrível em qualquer etapa da cena final (`inventario.manterLivre`). É chamado sozinho em `final:fim` e fica anotado em `localStorage['carta2312:voz']`: na visita seguinte a fita já está na bolsa desde que a bolsa aparece.
+- O cartão `#voz` (role=dialog): por áudio, tocar/pausar, fio de progresso arrastável (`input.voz-controle`), tempo e um link de baixar com o atributo `download`. Um áudio por vez; a música abaixa a 5% (`som.abafar`) ou pausa (sem Web Audio) e volta. Sem arquivo: "[áudio N vem aqui]". Arquivo que falha: aviso na linha, o resto segue.
+- Inventário, além do contrato da seção 3(c): item `fixo: true` (faixa do alto), tipo `'voz'`, `inventario.manterLivre(sim)`, `inventario.reabrir(id) → Promise`.
+- Ganchos: `#voz[data-aberto]`, `[data-acao="voz-tocar"]`, `"voz-baixar"`, `"voz-fechar"`, `.voz-item[data-estado="pronto|vazio|falhou"]` (+ `[data-tocando]`). Atalhos: `?cena=final&voz=abrir`, `?cena=cartas&voz=1`, `?voz=0` (esquece).
+
+### content.js (seções novas)
+
+- `voz { titulo, frase, itens: [{ titulo, arquivo }], vazio ('{n}' vira o número), rotulos { tocar, pausar, baixar, fechar, progresso, falhou } }` (áudios em `assets/audio/`, .mp3 ou .m4a)
+- `contador { nascimento ('AAAA-MM-DD'), rotulo, frase }`
+- `resposta { whatsapp, convite, dica, antes, guardado, vazio, enviando, rotulos { enviar, outro, guardar, reabrir, folha, campo } }` (apagar o bloco tira a folha)
+
+### Testes
+
+- `_dev/ver.mjs --fluxo` passa por `final:contador` e `final:resposta` (escreve, confere letra ≥ 16 px, o localStorage e o link do WhatsApp, toca em Guardar). lib.mjs: `temContador`, `temResposta`, `etapasDoFinal`.
+- Apoio em `output/fim/` (ignorado pelo git): `confere.mjs [vp] [motor]` (contador em 23 e 24/12/2026, teclado simulado, recarga, WhatsApp, estado final, voz com três áudios de teste, baixar), `anda.mjs [vp] [mao|tudo]` (um quadro por segundo em velocidade real, com a hora), `voz-ver.mjs`, `voz-fim.mjs`, `ceu-foto.mjs`, `ceu-passagem.mjs`, `quadros.mjs` + `folha.jpg` (folha de contato).

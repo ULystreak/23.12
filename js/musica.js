@@ -39,7 +39,7 @@ const RAIO_ANEL = 22.6;          // raio do fio de progresso em volta do disco (
 const VOLTA_ANEL = 2 * Math.PI * RAIO_ANEL;
 
 const n2 = (v) => Math.round(v * 100) / 100;
-const FIM_SEM_BOTAO = new Set(['desdobrando', 'escrevendo', 'fim']);   // etapas da cena final sem o mini
+const FIM_SEM_BOTAO = new Set(['desdobrando', 'escrevendo']);   // etapas da cena final sem o mini (em 'fim' ele volta: final.js chama mostrarMini)
 
 // Quem abriu a carta pelo teclado ganha o foco na primeira faixa; quem tocou, não
 // (senão o anel de foco aparece no iPhone como se a faixa já estivesse escolhida).

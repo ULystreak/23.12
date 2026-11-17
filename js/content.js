@@ -421,6 +421,67 @@ window.CONTEUDO = {
   },
 
   /* --------------------------------------------------------------------------
+     A SUA VOZ
+     Três áudios com a sua voz, para ela ouvir sempre que quiser. Eles moram na
+     bolsa, numa fita cassete que aparece quando ela termina a última carta.
+     O aparelho dela lembra disso: da segunda visita em diante a fita já está
+     na bolsa desde o começo. Tocar na fita abre um cartão com os áudios; cada
+     um tem tocar/pausar, o fio para ir e voltar, o tempo e o botão de baixar.
+     Enquanto a sua voz toca, a música do site abaixa sozinha e depois volta.
+
+     COMO PÔR UM ÁUDIO
+     1. Crie a pasta assets/audio/ e ponha o arquivo lá. Use .mp3 ou .m4a
+        (os dois tocam no iPhone e no computador). Nome simples, sem espaço
+        e sem acento: voz-1.mp3.
+     2. Escreva o endereço em "arquivo": 'assets/audio/voz-1.mp3'.
+     3. Troque o "titulo" pelo nome que ela vai ler (apague os colchetes).
+     Enquanto "arquivo" estiver vazio, a linha aparece como "[áudio 1 vem
+     aqui]" e não toca: é só para você ver o lugar dela.
+     Áudio gravado no WhatsApp (.ogg ou .opus) NÃO toca no iPhone: converta
+     para .mp3 antes. Gravações do app Gravador do iPhone (.m4a) já servem.
+
+     O BOTÃO DE BAIXAR
+     No computador e no Android o áudio vai direto para a pasta de downloads.
+     No Safari do iPhone aparece a pergunta "Deseja baixar?" e o áudio fica
+     no app Arquivos, na pasta Downloads. O nome do arquivo baixado é o
+     "titulo" do áudio.
+
+     PARA TESTAR SEM PERCORRER TUDO
+     Abra o site com ?cena=final&voz=abrir no fim do endereço: o cartão já
+     abre. Com ?cena=cartas&voz=1 a fita já vem dentro da bolsa.
+     Com ?voz=0 o aparelho esquece que a fita já tinha aparecido.
+     ------------------------------------------------------------------------ */
+  voz: {
+    // O nome da fita dentro da bolsa e o título no alto do cartão.
+    titulo: 'A minha voz',
+
+    // Uma frase curta embaixo do título (opcional; vazia, some sem buraco).
+    frase: '',
+
+    // Os áudios, na ordem em que aparecem. Pode ter mais ou menos de três.
+    itens: [
+      { titulo: '[nome do primeiro áudio]', arquivo: '' },
+      { titulo: '[nome do segundo áudio]', arquivo: '' },
+      { titulo: '[nome do terceiro áudio]', arquivo: '' },
+    ],
+
+    // O que aparece no lugar de um áudio que ainda não tem arquivo.
+    // {n} vira o número dele (1, 2, 3).
+    vazio: '[áudio {n} vem aqui]',
+
+    // Nomes lidos em voz alta por leitores de tela, e o aviso de um áudio que
+    // não abriu (esse aparece escrito).
+    rotulos: {
+      tocar: 'Tocar',
+      pausar: 'Pausar',
+      baixar: 'Baixar',
+      fechar: 'Fechar',
+      progresso: 'Onde o áudio está',
+      falhou: 'Este áudio não abriu. Tente de novo mais tarde.',
+    },
+  },
+
+  /* --------------------------------------------------------------------------
      A MÃO
      Quando ela guarda a segunda carta no bolso, o fio vermelho aparece: uma
      frase e a mão dela com o fio no pulso. O botão faz o fio virar o caminho e
@@ -650,11 +711,79 @@ window.CONTEUDO = {
 
   /* --------------------------------------------------------------------------
      FINAL
-     A última carta abre numa folha em branco, e esta frase é escrita à mão,
-     letra por letra. É a última coisa que ela lê.
+     Depois do abraço, você está na frente dela, de mão estendida, com a última
+     carta. A carta sai da sua mão e vai até ela. Ela toca, a carta abre numa
+     folha em branco, e esta frase é escrita à mão, letra por letra.
      ------------------------------------------------------------------------ */
   final: {
     frase: 'Agora tem muito a escrever ainda, e você vai me ajudar.',
+  },
+
+  /* --------------------------------------------------------------------------
+     O CONTADOR
+     Quando a frase final termina de ser escrita, o número da senha volta, com
+     a mesma letra da tela preta, e conta de 0 até os dias de vida dela HOJE.
+     No dia 23/12/2026 dá 8035 (a senha). Cada dia que ela abrir o site de
+     novo, o número é um a mais. Depois ele fica pequeno, no alto da tela.
+     ------------------------------------------------------------------------ */
+  contador: {
+    // O dia em que ela nasceu, no formato 'ano-mês-dia'.
+    // Deixe vazio ('') para o contador não aparecer.
+    nascimento: '2004-12-23',
+
+    // O que vem escrito embaixo do número.
+    rotulo: 'dias até aqui',
+
+    // A sua frase, que aparece embaixo do contador (opcional; '' = sem frase).
+    frase: '[Os próximos eu quero ver de perto.]',
+  },
+
+  /* --------------------------------------------------------------------------
+     ELA ESCREVE DE VOLTA
+     Depois do contador sobe uma folha em branco, e ela escreve o que quiser.
+     O que ela escreve fica guardado só no aparelho dela (se ela fechar o site
+     e voltar, o texto ainda está lá). NADA é enviado sozinho.
+
+     Para você ver: o botão "Enviar para ele" abre o WhatsApp dela com o texto
+     pronto, e ela aperta enviar. Sem número abaixo, o WhatsApp abre e ela
+     escolhe para quem mandar. "enviar de outro jeito" abre o compartilhar do
+     celular (mensagem, e-mail, o que ela tiver).
+     Para tirar esta folha do site, apague este bloco inteiro.
+     ------------------------------------------------------------------------ */
+  resposta: {
+    // O seu número do WhatsApp, só algarismos, com 55 e o DDD.
+    // Exemplo: '5511999998888'. Com o número, a conversa já abre com você.
+    // ATENÇÃO: o site é público. Quem abrir este arquivo consegue ler o número
+    // que estiver aqui. Se não quiser isso, deixe vazio (''): o WhatsApp abre
+    // do mesmo jeito e ela mesma escolhe o seu contato.
+    whatsapp: '',
+
+    // O convite, no alto da folha.
+    convite: '[Agora é a sua vez. Escreve o que você quiser me dizer.]',
+
+    // O que aparece apagado dentro da folha antes de ela escrever (opcional).
+    dica: 'Escreve aqui…',
+
+    // Uma linha que vai antes do texto dela na mensagem enviada (opcional;
+    // '' = vai só o que ela escreveu).
+    antes: '',
+
+    // Avisos pequenos embaixo do texto.
+    guardado: 'Guardado aqui, só neste aparelho.',
+    vazio: 'Escreve alguma coisa primeiro.',
+    enviando: 'Abrindo o WhatsApp… é só apertar enviar.',
+
+    // Os botões.
+    rotulos: {
+      enviar: 'Enviar para ele',
+      outro: 'enviar de outro jeito',
+      guardar: 'Guardar',
+      // No fim de tudo, o botão que abre a folha de novo.
+      reabrir: 'Escrever de volta',
+      // Nomes lidos em voz alta por leitores de tela (não aparecem escritos).
+      folha: 'Folha em branco para você escrever de volta',
+      campo: 'O que você quer me dizer',
+    },
   },
 
 };

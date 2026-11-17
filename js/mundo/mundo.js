@@ -15,6 +15,7 @@
 //   mundo.petalas.rajada(posMundo, n) / .definirDensidade(k) / .definirFoco(metros)
 //   mundo.aoMudarNivel(fn(nivel))  → função que cancela
 //   mundo.deriva                   metros que o chão já andou por baixo dela (passo de base)
+//   mundo.hora(alvo, { duracao })  a hora do dia: 'manha'|'dia'|'entardecer'|'crepusculo'|'noite' (js/mundo/hora.js)
 //
 // O PASSO DE BASE. Ela está sempre andando: a alameda desliza por baixo do mundo
 // o tempo todo (mundo.deriva cresce a cada quadro). O `rig`, a câmera e tudo o
@@ -36,6 +37,7 @@ import { curvas } from '../nucleo/movimento.js';
 import { criarPetalas } from './petalas.js';
 import { criarFundo, criarVeus } from './fundo.js';
 import { criarAlameda } from './alameda.js';
+import { criarHora } from './hora.js';
 
 export const ALTURA_OLHOS = 1.5;
 const FOV_EM_PE = 58;
@@ -624,6 +626,18 @@ export async function criarMundo(opcoes) {
       cena.background = new THREE.Color(0xffffff);
     }
   }
+
+  // A hora do dia (js/mundo/hora.js): um ponto de controle só. A alameda recebe
+  // a luz, a névoa, o céu e o cometa; as pétalas da frente, a luz; as duas luzes
+  // da cena acompanham, para o que usar material comum.
+  const corLuz = new THREE.Color();
+  criarHora(mundo, amb, (e) => {
+    if (alameda) alameda.aplicarHora(e);
+    mundo.petalas.luzDaHora?.(e.petalas);
+    corLuz.setRGB(Math.min(1, e.luz[0]), Math.min(1, e.luz[1]), Math.min(1, e.luz[2]), THREE.SRGBColorSpace);
+    luzCeu.color.copy(corLuz);
+    luzSol.color.copy(corLuz);
+  });
 
   atualizarLaco();
   return mundo;

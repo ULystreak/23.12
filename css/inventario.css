@@ -172,6 +172,59 @@
 .inventario-fechar svg { width: 24px; height: 24px; }
 .inventario-fechar:active { transform: scale(0.92); }
 
+/* a faixa do alto: o que fica sempre na bolsa (a fita com a voz dele, js/voz.js) */
+.inventario-fixos { margin: 0 0 6px; }
+.inventario-fixos[hidden], .inventario-lista[hidden] { display: none; }
+.inventario-fixos:not(:last-child) { padding-bottom: 8px; border-bottom: 1px dashed var(--papel-linha); }
+.inventario-fixo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  min-height: 64px;
+  padding: 8px 6px 8px 8px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform var(--dur-ui) var(--curva-ui);
+}
+.inventario-fixo:active { transform: scale(0.97); }
+.inventario-fita {
+  flex: none;
+  display: block;
+  width: 74px;
+  transform: rotate(-3deg);
+  filter: drop-shadow(0 4px 6px rgba(42, 27, 34, 0.16));
+}
+.inventario-fita svg { display: block; width: 100%; height: auto; }
+.inventario-fixo-nome {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.inventario-fixo-seta {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  padding: 9px 8px 9px 10px;
+  border-radius: 50%;
+  color: var(--fio);
+  box-shadow: inset 0 0 0 1.5px currentColor;
+}
+@media (hover: hover) and (pointer: fine) {
+  .inventario-fixo:hover { transform: translateY(-2px); }
+  .inventario-fixo:active { transform: scale(0.97); }
+}
+
 .inventario-lista {
   margin: 0;
   padding: 6px 0 0;
@@ -263,7 +316,8 @@
 html.reduzido .inventario-folha,
 html.reduzido .inventario-fundo,
 html.reduzido .inventario-botao,
-html.reduzido .inventario-item { transition-duration: 0.01ms; }
+html.reduzido .inventario-item,
+html.reduzido .inventario-fixo { transition-duration: 0.01ms; }
 html.reduzido .inventario-folha { transform: none; }
 html.reduzido .inventario-botao.chegou,
 html.reduzido .inventario-botao.recebeu { animation: none; }

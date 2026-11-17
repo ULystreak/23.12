@@ -182,6 +182,22 @@ export function temEncontro(conteudo) {
   return Array.isArray(quadros) && quadros.some((q) => q && typeof q.imagem === 'string' && q.imagem.trim());
 }
 
+/** O contador dos dias existe? (contador.nascimento com uma data 'AAAA-MM-DD') */
+export function temContador(conteudo) {
+  const n = conteudo && conteudo.contador && conteudo.contador.nascimento;
+  return typeof n === 'string' && /^\s*\d{4}-\d{1,2}-\d{1,2}\s*$/.test(n);
+}
+/** A folha em que ela escreve de volta existe? (a seção resposta do content.js) */
+export function temResposta(conteudo) {
+  const r = conteudo && conteudo.resposta;
+  return !!r && r.ativa !== false;
+}
+/** As etapas da cena final, conforme o content.js. */
+export function etapasDoFinal(conteudo = lerConteudo()) {
+  return ['carta-chegando', 'carta-espera', 'carta-abrindo', 'desdobrando', 'escrevendo',
+    ...(temContador(conteudo) ? ['contador'] : []), ...(temResposta(conteudo) ? ['resposta'] : []), 'fim'];
+}
+
 /**
  * Vídeos de teste para as cartas do chão: o caminho (relativo à raiz) de cada .mp4
  * da pasta, na ordem; a carta 1 recebe o primeiro, a 2 o segundo... Com `falho`,

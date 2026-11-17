@@ -4,7 +4,7 @@ Este arquivo é só para você (não aparece no site). Tudo o que ela lê, ouve 
 
 ## 1. Editar os textos (`js/content.js`)
 
-Abra o arquivo num editor de texto simples (Bloco de Notas, VS Code, o próprio editor do GitHub). Ele é dividido em partes, na ordem em que ela vê: página, senha, abertura, música, capítulo 1 (o jogo), capítulo 2 (o filme), o bolso e a bolsa, a mão, a corrida, as cartas do chão (os vídeos), o encontro e o final. Cada parte tem um comentário em cima explicando o que é.
+Abra o arquivo num editor de texto simples (Bloco de Notas, VS Code, o próprio editor do GitHub). Ele é dividido em partes, na ordem em que ela vê: página, senha, abertura, música, capítulo 1 (o jogo), capítulo 2 (o filme), o bolso e a bolsa, a sua voz (os áudios), a mão, a corrida, as cartas do chão (os vídeos), o encontro, o final, o contador e a folha em que ela escreve de volta. Cada parte tem um comentário em cima explicando o que é.
 
 Regras para não quebrar nada:
 
@@ -84,7 +84,7 @@ Dois ajustes quando trocar imagens:
 
 ### O encontro (as imagens depois do fio)
 
-Depois que ela corre pelo fio, vê as cartas do chão e toca em "Seguir em frente", a alameda escurece e as imagens da parte `encontro` do `content.js` passam sozinhas, como cenas de um filme; no fim, o fio vermelho do site liga o dedinho dela ao seu, vem um clarão e a última carta aparece. A lista `quadros` está na ordem em que as imagens passam:
+Depois que ela corre pelo fio, vê as cartas do chão e toca em "Seguir em frente", a alameda escurece e as imagens da parte `encontro` do `content.js` passam sozinhas, como cenas de um filme; no fim, o fio vermelho do site liga o dedinho dela ao seu, vem um clarão e, quando ele passa, já é noite e você está na frente dela com a última carta na mão. A lista `quadros` está na ordem em que as imagens passam:
 
 - para **trocar** uma imagem, salve a nova em `assets/images/` e mude o `imagem` do bloco dela; use imagens deitadas (as maiores ficam mais nítidas);
 - `foco` e `ate` dizem de onde até onde a câmera desliza na imagem; `dedo` (só nas duas imagens das mãos) é onde está o dedinho com o fio; `fio` (só na primeira) é onde o fio vermelho da imagem chega perto da borda de baixo. Todos são frações: `x` de 0 (esquerda) a 1 (direita), `y` de 0 (topo) a 1 (base). Se trocar a imagem, ajuste esses números olhando com `?cena=encontro`;
@@ -149,7 +149,56 @@ Se um vídeo não carregar (nome do arquivo errado, por exemplo), a carta mostra
 
 Os outros textos desta parte também estão em `cartasChao`: `frase` (aparece quando as cartas caem), `seguir` (o botão "Seguir em frente"), `vazio` (o cartão de exemplo; `{nome}` vira o nome da pessoa) e `vazioSurpresinha`.
 
-## 7. Ver uma parte só
+## 7. O fim: a carta na sua mão, o contador, a resposta dela e a sua voz
+
+Depois das imagens do encontro e do clarão, já é noite na alameda, com estrelas e o cometa. Você está na frente dela, de mão estendida, com a última carta: a carta sai da sua mão e vai até ela. Ela toca, a folha abre e a frase de `final.frase` é escrita à mão.
+
+**O céu** muda sozinho ao longo do site, sem nada para configurar: manhã no começo, dia na segunda carta, entardecer na mão, crepúsculo na corrida e nas cartas do chão, noite no fim.
+
+### O contador (parte `contador`)
+
+Quando a frase termina, o número volta com a mesma letra da tela da senha e conta de 0 até **os dias de vida dela no dia em que ela abrir**. No dia 23/12/2026 dá 8035 (a senha); no dia seguinte, 8036; e assim por diante, um a mais por dia.
+
+- `nascimento`: o dia em que ela nasceu, `'ano-mês-dia'` (hoje `'2004-12-23'`). Vazio (`''`) tira o contador.
+- `rotulo`: o que vem embaixo do número (`'dias até aqui'`).
+- `frase`: a **sua** frase embaixo do contador. Hoje é um exemplo entre colchetes: troque pelo seu texto, ou deixe `''` para não ter frase.
+
+Se você abrir antes do dia 23, o número é menor que 8035 (é a conta de verdade até aquele dia). Para ver como vai ficar no dia, use `?cena=final&hoje=2026-12-23`.
+
+### Ela escreve de volta (parte `resposta`)
+
+Depois do contador sobe uma folha em branco e ela escreve o que quiser. O texto fica guardado **só no celular dela** (se ela fechar e voltar, continua lá). O site não tem como mandar nada sozinho; para você ver, ela toca em **"Enviar para ele"**, o WhatsApp dela abre com o texto pronto e ela aperta enviar.
+
+- `whatsapp`: o seu número, só algarismos, com 55 e o DDD (ex.: `'5511999998888'`). Com o número, a conversa já abre com você. **Atenção: o site é público e quem abrir o arquivo consegue ler esse número.** Se não quiser, deixe `''`: o WhatsApp abre do mesmo jeito e ela escolhe o seu contato.
+- `convite`: a frase no alto da folha. Hoje é um exemplo entre colchetes: troque pelo seu texto.
+- `dica`: o texto apagado dentro da folha antes de ela escrever. `antes`: uma linha que vai na frente do texto dela na mensagem (opcional).
+- Os botões e avisos estão em `rotulos`, `guardado`, `vazio` e `enviando`.
+- Para tirar a folha, apague o bloco `resposta` inteiro.
+
+No fim de tudo fica a noite, a folha com a frase, o contador pequeno no alto, a música, a bolsa e o botão "Escrever de volta", que abre a folha dela de novo.
+
+### A sua voz (parte `voz`)
+
+Quando ela chega ao fim, aparece na bolsa uma fita cassete, "A minha voz", com os seus áudios. O celular dela lembra: da segunda visita em diante a fita já está na bolsa desde o começo. Cada áudio tem tocar/pausar, o fio para ir e voltar, o tempo e o botão de **baixar**. Enquanto a sua voz toca, a música do site abaixa e depois volta.
+
+Para pôr os três áudios:
+
+1. Crie a pasta `assets/audio/` e ponha os arquivos lá, com nome simples, sem espaço e sem acento: `voz-1.mp3`, `voz-2.mp3`, `voz-3.mp3`.
+2. Use **.mp3 ou .m4a**. Gravação do app Gravador do iPhone (.m4a) já serve. **Áudio do WhatsApp (.ogg ou .opus) não toca no iPhone**: converta para .mp3 antes (qualquer conversor, ou `ffmpeg -i audio.ogg voz-1.mp3`).
+3. Em `js/content.js`, na parte `voz`, preencha cada linha de `itens`:
+
+```js
+{ titulo: 'Para quando a saudade apertar', arquivo: 'assets/audio/voz-1.mp3' },
+```
+
+- `titulo`: o nome que ela lê (e o nome do arquivo quando ela baixa). Hoje são exemplos entre colchetes.
+- `arquivo` vazio (`''`): a linha aparece como "[áudio 1 vem aqui]" e não toca.
+- Pode ter mais ou menos de três: copie ou apague uma linha inteira, com a vírgula.
+- `frase`: uma linha opcional embaixo do título do cartão.
+
+No iPhone, o botão de baixar faz o Safari perguntar "Deseja baixar?" e o áudio vai para o app Arquivos, pasta Downloads. Teste com `?cena=final&voz=abrir`, no iPhone, com som.
+
+## 8. Ver uma parte só
 
 Sem nada no endereço, o site abre na tela preta da senha (o número está em `js/content.js`, na parte `senha`). Coloque um destes finais no endereço para pular direto para uma parte, sem senha:
 
@@ -164,13 +213,15 @@ Sem nada no endereço, o site abre na tela preta da senha (o número está em `j
 | `?cena=mao` | "Olha a sua mão.", o fio e a corrida até você |
 | `?cena=cartas` | as cartas no chão (os vídeos dos amigos e a Surpresinha) |
 | `?cena=encontro` | as imagens do encontro, o fio entre os dedinhos e o clarão (só se houver imagens em `encontro.quadros`) |
-| `?cena=final` | a última carta e a frase escrita à mão |
+| `?cena=final` | você entregando a última carta, a frase escrita à mão, o contador, a folha de resposta e o fim |
+| `?cena=final&voz=abrir` | o fim, já com o cartão dos seus áudios aberto |
+| `?cena=final&hoje=2026-12-23` | o fim como ela vai ver no dia 23/12 (o contador finge essa data) |
 
 Para testar mais rápido, junte `&rapido=4` (tudo anda 4 vezes mais rápido). Para ver a versão leve (celular fraco), junte `&webgl=0`. Para ver a versão calma (movimento reduzido), `&reduzido=1`.
 
 O link que você manda para ela é o endereço **sem** nada no final.
 
-## 8. Testar no seu computador
+## 9. Testar no seu computador
 
 A carta precisa de um servidor (abrir o `index.html` com dois cliques não funciona). Qualquer servidor estático serve. O mais simples, com o Node instalado, na pasta do projeto:
 
@@ -180,7 +231,7 @@ npx serve
 
 Depois abra o endereço que ele mostrar (algo como `http://localhost:3000`). Para ver no celular, abra no navegador do celular o endereço de rede que o `serve` também mostra (os dois aparelhos no mesmo Wi-Fi).
 
-## 9. Publicar
+## 10. Publicar
 
 O site publica sozinho pelo **GitHub Pages**: tudo o que você enviar para o ramo **`main`** do repositório `ULystreak/23.12` vai ao ar em um ou dois minutos em:
 

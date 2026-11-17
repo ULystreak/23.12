@@ -305,6 +305,7 @@ const FRAGMENTO = /* glsl */ `
   uniform vec3 uCorLuz;       // a cor da pétala atravessada pela luz
   uniform vec3 uCorSombra;
   uniform vec3 uNevoaCor;     // a cor da névoa (branco, ou a luz da alameda com a foto)
+  uniform vec3 uLuzHora;      // a luz da hora do dia (js/mundo/hora.js): 1 de manhã, azulada à noite
 
   varying vec2 vP;
   varying vec2 vQ;
@@ -411,7 +412,7 @@ const FRAGMENTO = /* glsl */ `
     alfa += (ruido(gl_FragCoord.xy) - 0.5) * 0.012 * step(0.2, s) * step(0.004, alfa);
 
     if (alfa < 0.003) discard;
-    gl_FragColor = vec4(cor, alfa);
+    gl_FragColor = vec4(cor * uLuzHora, alfa);
     #include <colorspace_fragment>
     gl_FragColor.rgb *= gl_FragColor.a;                   // alfa pré-multiplicado
   }
@@ -444,6 +445,7 @@ export function criarPetalas(mundo, amb) {
     uCorSombra: { value: new THREE.Color('#2a1b22') },
     // o mesmo objeto da névoa da cena: acompanha a troca para a cor da foto
     uNevoaCor: { value: cena.fog ? cena.fog.color : new THREE.Color(0xffffff) },
+    uLuzHora: { value: new THREE.Vector3(1, 1, 1) },
   };
 
   const material = (variante, uniformes) => new THREE.ShaderMaterial({
@@ -697,6 +699,11 @@ export function criarPetalas(mundo, amb) {
 
     definirDensidade(k) {
       densidadeAlvo = clamp(Number(k) || 0);
+    },
+
+    /** A luz da hora do dia sobre as pétalas ([r, g, b]; 1 = manhã). Chamado por js/mundo/hora.js. */
+    luzDaHora(cor) {
+      if (cor) comuns.uLuzHora.value.set(cor[0], cor[1], cor[2]);
     },
 
     definirFoco(metros) {

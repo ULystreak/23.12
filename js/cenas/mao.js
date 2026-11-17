@@ -1835,40 +1835,15 @@ export async function cenaMao(ctx, { frio } = {}) {
 // e a luz dele ficam por cima, intactos: a magia se lê por contraste de luz.
 // =============================================================================
 
-const NEVOA_TARDE = '#8d7f95';
 const ZOOM_MERGULHO = 2.5;            // quanto o olhar chega perto do nó no mergulho
-const tarde = { k: 0, alvo: 0, base: null, tween: null };
 
-export function entardecer(ctx, ligar, duracao = 2.6) {
-  const raiz = document.documentElement;
-  // ligar: true (1), false (0) ou um nível 0..1 (na caminhada a tarde clareia pela metade)
-  const alvo = typeof ligar === 'number' ? clamp(ligar, 0, 1) : (ligar ? 1 : 0);
-  if (tarde.alvo === alvo) return;
-  tarde.alvo = alvo;
-  const rapido = Math.max(0.1, ctx.amb.rapido || 1);
-  raiz.style.setProperty('--entardecer-dur', `${(duracao / rapido).toFixed(2)}s`);
-  raiz.style.setProperty('--entardecer-k', String(alvo));
-  raiz.classList.toggle('entardecer', alvo > 0);
-  const { mundo } = ctx;
-  const gsap = window.gsap;
-  if (!mundo.ok || !mundo.cena.fog || !gsap) return;
-  if (tarde.tween) tarde.tween.kill();
-  if (mundo.alameda) {
-    tarde.tween = gsap.to(tarde, { k: alvo, duration: duracao, ease: 'sine.inOut', onUpdate: () => mundo.alameda.tarde(tarde.k) });
-    return;
-  }
-  if (!raiz.classList.contains('com-fundo')) return;      // sem a alameda o mundo é branco: só o fio acende
-  const nevoa = mundo.cena.fog.color;
-  if (!tarde.base) tarde.base = nevoa.clone();
-  const escura = new mundo.THREE.Color(NEVOA_TARDE);
-  tarde.tween = gsap.to(tarde, {
-    k: alvo,
-    duration: duracao,
-    ease: 'sine.inOut',
-    onUpdate: () => { if (tarde.base) nevoa.copy(tarde.base).lerp(escura, tarde.k); },
-    onComplete: () => { if (!alvo) tarde.base = null; },
-  });
-}
+/**
+ * (antigo) A luz da tarde agora é a hora do dia do mundo: js/mundo/hora.js leva
+ * cada cena:etapa à sua hora (entardecer quando o fio aparece, crepúsculo na
+ * corrida e nas cartas do chão, noite depois do encontro), ouvindo o diretor.
+ * Esta função ficou só para as cenas que ainda a chamam: não faz mais nada.
+ */
+export function entardecer() {}
 
 /**
  * O mergulho (só com WebGL e sem movimento reduzido). Devolve a timeline com

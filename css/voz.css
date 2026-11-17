@@ -1,0 +1,370 @@
+/* A voz dele (js/voz.js): o cartão de papel com a fita cassete e os áudios.
+   Abre por cima de tudo, a partir da fita que mora na bolsa (css/inventario.css).
+   Só transform e opacity são animados. */
+#voz {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%;
+  height: var(--tela);
+  z-index: var(--z-topo);
+  display: grid;
+  place-items: center;
+  padding: calc(var(--seguro-topo) + 18px) calc(var(--seguro-dir) + 16px) calc(var(--seguro-base) + 18px) calc(var(--seguro-esq) + 16px);
+  font-family: var(--fonte-mao);
+  color: var(--tinta);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+#voz[hidden] { display: none; }
+
+.voz-veu {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: radial-gradient(120% 90% at 50% 46%, rgba(30, 16, 28, 0.74), rgba(18, 9, 18, 0.9));
+  opacity: 0;
+  transition: opacity 240ms var(--curva-ui);
+}
+#voz[data-aberto] .voz-veu { opacity: 1; }
+
+/* ---- a folha ---------------------------------------------------------------- */
+.voz-cartao {
+  position: relative;
+  width: min(100%, 408px);
+  max-height: 100%;
+  padding: 30px 20px 14px;
+  border-radius: 4px;
+  background: var(--papel);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 18px 50px rgba(10, 4, 10, 0.5), 0 2px 6px rgba(10, 4, 10, 0.35);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  opacity: 0;
+  transform: translate3d(0, 22px, 0) rotate(-1.2deg) scale(0.97);
+  transition: transform 240ms var(--curva-ui), opacity 200ms var(--curva-ui);
+}
+#voz[data-aberto] .voz-cartao {
+  opacity: 1;
+  transform: none;
+  transition-duration: 460ms, 280ms;
+  transition-timing-function: var(--curva-branco-entrar), var(--curva-ui);
+}
+
+.voz-fechar {
+  position: absolute;
+  top: 4px; right: 4px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: var(--tinta-suave);
+  -webkit-tap-highlight-color: transparent;
+}
+.voz-fechar svg { width: 24px; height: 24px; }
+.voz-fechar:active { transform: scale(0.92); }
+
+/* ---- a fita ----------------------------------------------------------------- */
+.voz-fita {
+  width: 148px;
+  margin: 0 auto;
+  transform: rotate(-2.4deg);
+  filter: drop-shadow(0 8px 10px rgba(42, 27, 34, 0.16));
+}
+.voz-fita-desenho { display: block; width: 100%; height: auto; }
+.voz-rolo { transform-box: fill-box; transform-origin: 50% 50%; }
+#voz[data-tocando] .voz-rolo { animation: voz-girar 2.6s linear infinite; }
+@keyframes voz-girar { to { transform: rotate(360deg); } }
+
+.voz-titulo {
+  margin: 14px 0 0;
+  font-family: var(--fonte-mao);
+  font-weight: 600;
+  font-size: clamp(1.5rem, 1.3rem + 1vw, 1.75rem);
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+  text-align: center;
+  text-wrap: balance;
+}
+.voz-frase {
+  margin: 6px auto 0;
+  max-width: 22em;
+  font-size: 1.0625rem;
+  line-height: 1.5;
+  color: var(--tinta-suave);
+  text-align: center;
+  text-wrap: balance;
+  white-space: pre-line;
+}
+
+/* ---- os áudios: três contas no mesmo fio ------------------------------------ */
+.voz-lista {
+  position: relative;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+/* o fio vermelho desce por trás dos botões de tocar */
+.voz-lista::before {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 14px;
+  left: 23.25px;
+  width: 1.5px;
+  border-radius: 1px;
+  background: var(--fio);
+}
+.voz-lista::after {                    /* o nó na ponta */
+  content: "";
+  position: absolute;
+  bottom: 8px;
+  left: 20.5px;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--fio);
+}
+.voz-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 14px;
+  min-height: 84px;
+  padding: 10px 0;
+}
+.voz-item + .voz-item { box-shadow: inset 0 1px 0 var(--papel-linha); }
+.voz-item + .voz-item::before {        /* a linha não corta o fio */
+  content: "";
+  position: absolute;
+  top: 0; left: 18px;
+  width: 12px; height: 1px;
+  background: var(--papel);
+}
+
+.voz-tocar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #fffdf9;
+  box-shadow: inset 0 0 0 1.5px var(--tinta), 0 3px 8px rgba(42, 27, 34, 0.14);
+  color: var(--tinta);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--dur-ui) var(--curva-ui);
+}
+.voz-tocar svg { grid-area: 1 / 1; width: 24px; height: 24px; transition: opacity var(--dur-ui) linear, transform var(--dur-ui-lenta) var(--curva-ui); }
+.voz-i-tocar { margin-left: 2px; }
+.voz-i-pausa { opacity: 0; transform: scale(0.6); }
+.voz-item[data-tocando] .voz-i-tocar { opacity: 0; transform: scale(0.6); }
+.voz-item[data-tocando] .voz-i-pausa { opacity: 1; transform: none; }
+/* tocando: a conta fica vermelha (uma camada por cima; a cor em si não é animada) */
+.voz-tocar::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  background: var(--fio);
+  box-shadow: inset 0 0 0 1.5px var(--fio-escuro);
+  opacity: 0;
+  transform: scale(0.7);
+  transition: opacity var(--dur-ui-lenta) var(--curva-ui), transform var(--dur-ui-lenta) var(--curva-ui);
+}
+.voz-item[data-tocando] .voz-tocar::before { opacity: 1; transform: none; }
+.voz-item[data-tocando] .voz-tocar { color: #ffffff; }
+.voz-tocar svg { position: relative; }
+/* e um anel que se abre, devagar, enquanto ele fala */
+.voz-tocar::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px var(--fio);
+  opacity: 0;
+  pointer-events: none;
+}
+.voz-item[data-tocando] .voz-tocar::after { animation: voz-onda 1.9s var(--curva-ui) infinite; }
+@keyframes voz-onda {
+  0% { opacity: 0.55; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+.voz-tocar:active { transform: scale(0.93); }
+.voz-tocar:disabled { cursor: default; color: var(--tinta-fraca); box-shadow: inset 0 0 0 1.5px var(--tinta-fraca); }
+.voz-tocar:disabled:active { transform: none; }
+/* sem arquivo ainda: o lugar da conta, tracejado */
+.voz-tocar-vazio {
+  background: var(--papel);
+  box-shadow: none;
+  border: 1.5px dashed var(--tinta-fraca);
+  color: var(--tinta-fraca);
+}
+
+.voz-meio { min-width: 0; }
+.voz-linha {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.voz-nome {
+  min-width: 0;
+  font-size: 1.1875rem;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.voz-tempo {
+  flex: none;
+  min-width: 5.4em;
+  text-align: right;
+  font-family: var(--fonte-titulo);
+  font-size: 0.875rem;
+  line-height: 1.3;
+  color: var(--tinta-suave);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.voz-aviso {
+  margin: 4px 0 0;
+  font-size: 1rem;
+  line-height: 1.4;
+  color: var(--tinta-suave);
+}
+.voz-aviso[hidden] { display: none; }
+.voz-item[data-estado="falhou"] .voz-barra,
+.voz-item[data-estado="falhou"] .voz-baixar { display: none; }
+
+/* o progresso: uma conta num fio (o mesmo desenho do volume, css/musica.css) */
+.voz-barra {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 -4px -10px;            /* a conta, parada no começo, alinha com o nome */
+}
+.voz-trilho {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+}
+.voz-fio {
+  position: absolute;
+  top: 50%;
+  left: 10px; right: 10px;
+  height: 1.5px;
+  margin-top: -0.75px;
+  border-radius: 1px;
+  background: rgba(42, 27, 34, 0.26);
+  pointer-events: none;
+}
+.voz-fio::before,
+.voz-fio::after {                      /* os dois nós nas pontas */
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 5px; height: 5px;
+  margin-top: -2.5px;
+  border-radius: 50%;
+  background: rgba(42, 27, 34, 0.4);
+}
+.voz-fio::before { left: -2px; background: var(--fio); }
+.voz-fio::after { right: -2px; }
+.voz-fio-cheio {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  border-radius: 1px;
+  background: var(--fio);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+}
+.voz-controle {
+  position: absolute;
+  top: -6px; left: 0;
+  width: 100%;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  touch-action: pan-y;
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.voz-controle:disabled { cursor: default; }
+.voz-controle::-webkit-slider-runnable-track { height: 44px; background: transparent; border: 0; }
+.voz-controle::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--fio);
+  box-shadow: inset 0 0 0 1.5px var(--fio-escuro), 0 0 0 3px var(--papel), 0 2px 5px rgba(42, 27, 34, 0.3);
+}
+.voz-controle::-moz-range-track { height: 44px; background: transparent; border: 0; }
+.voz-controle::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--fio);
+  box-shadow: inset 0 0 0 1.5px var(--fio-escuro), 0 0 0 3px var(--papel), 0 2px 5px rgba(42, 27, 34, 0.3);
+}
+/* enquanto a duração não chegou, a conta espera apagada */
+.voz-controle:disabled::-webkit-slider-thumb { background: var(--papel); box-shadow: inset 0 0 0 1.5px var(--tinta-fraca); }
+.voz-controle:disabled::-moz-range-thumb { background: var(--papel); box-shadow: inset 0 0 0 1.5px var(--tinta-fraca); }
+.voz-controle:focus-visible { outline: 2px solid var(--fio); outline-offset: -8px; border-radius: 22px; }
+
+.voz-baixar {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-right: -6px;
+  border-radius: 50%;
+  color: var(--tinta-suave);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--dur-ui) var(--curva-ui);
+}
+.voz-baixar svg { width: 26px; height: 26px; }
+.voz-baixar:active { transform: scale(0.9) translateY(2px); }
+
+@media (hover: hover) and (pointer: fine) {
+  .voz-tocar:not(:disabled):hover { transform: scale(1.06); }
+  .voz-tocar:not(:disabled):active { transform: scale(0.93); }
+  .voz-baixar:hover, .voz-fechar:hover { color: var(--tinta); }
+  .voz-baixar:hover { transform: translateY(2px); }
+}
+
+/* Telas largas: um pouco mais de ar. */
+@media (min-width: 720px) {
+  .voz-cartao { width: 440px; padding: 34px 28px 18px; }
+  .voz-fita { width: 164px; }
+}
+/* Celular deitado: a fita vai para o lado e a lista ocupa o resto. */
+@media (orientation: landscape) and (max-height: 520px) {
+  #voz { padding-top: calc(var(--seguro-topo) + 8px); padding-bottom: calc(var(--seguro-base) + 8px); }
+  .voz-cartao { width: min(100%, 560px); padding: 14px 20px 8px; }
+  .voz-fita { width: 84px; margin: 0; position: absolute; top: 12px; left: 22px; }
+  .voz-titulo { margin: 4px 0 0; }
+  .voz-lista { margin-top: 10px; }
+  .voz-item { min-height: 68px; padding: 4px 0; }
+}
+
+html.reduzido .voz-cartao { transform: none; transition-duration: 0.01ms; }
+html.reduzido .voz-veu,
+html.reduzido .voz-tocar,
+html.reduzido .voz-tocar svg,
+html.reduzido .voz-tocar::before,
+html.reduzido .voz-baixar { transition-duration: 0.01ms; }
+html.reduzido #voz[data-tocando] .voz-rolo,
+html.reduzido .voz-item[data-tocando] .voz-tocar::after { animation: none; }

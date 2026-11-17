@@ -10,6 +10,8 @@
 //   #mundo-fundo
 //     .fundo-foto × 2     a foto (a segunda só existe durante a troca de enquadramento)
 //     .fundo-nevoa        luz de manhã nublada por cima da foto (estático)
+//     .fundo-hora × 3     a hora do dia sobre a foto: a tarde (tinta morna), a noite (azul
+//                         que multiplica a foto) e o cometa; só a opacidade anda (aplicarHora)
 //     .fundo-veu × 2      véus claros atrás do texto (ligados pelo CSS quando há texto)
 //
 // Caminhar é andar pela alameda: conforme ela avança (o passo de base, que nunca
@@ -27,6 +29,7 @@
 //   fundo.ligar() / fundo.desligar()
 
 import { clamp } from '../nucleo/util.js';
+import { pintarCometa } from './hora.js';
 
 // Ponto de fuga do caminho na imagem (fração). A imagem da alameda é renderizada
 // do 3D com a câmera no meio do caminho, quase na horizontal (_dev/alameda-imagem.mjs): o
@@ -57,14 +60,18 @@ function pintarVeu() {
     tela.height = 128;
     const g = tela.getContext('2d');
     if (!g) return;
-    const r = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-    r.addColorStop(0, 'rgba(255, 250, 252, 0.82)');
-    r.addColorStop(0.44, 'rgba(255, 250, 252, 0.62)');
-    r.addColorStop(0.72, 'rgba(255, 250, 252, 0.26)');
-    r.addColorStop(1, 'rgba(255, 250, 252, 0)');
-    g.fillStyle = r;
-    g.fillRect(0, 0, 128, 128);
-    document.documentElement.style.setProperty('--fundo-veu', `url("${tela.toDataURL('image/png')}")`);
+    // o claro (de dia) e o escuro (à noite, atrás das letras claras: css/mundo.css)
+    for (const [nome, cor, forca] of [['--fundo-veu', '255, 250, 252', 1], ['--fundo-veu-noite', '7, 10, 30', 0.86]]) {
+      g.clearRect(0, 0, 128, 128);
+      const r = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+      r.addColorStop(0, `rgba(${cor}, ${0.82 * forca})`);
+      r.addColorStop(0.44, `rgba(${cor}, ${0.62 * forca})`);
+      r.addColorStop(0.72, `rgba(${cor}, ${0.26 * forca})`);
+      r.addColorStop(1, `rgba(${cor}, 0)`);
+      g.fillStyle = r;
+      g.fillRect(0, 0, 128, 128);
+      document.documentElement.style.setProperty(nome, `url("${tela.toDataURL('image/png')}")`);
+    }
   } catch { /* sem canvas: sem véu (a auréola das letras continua) */ }
 }
 
@@ -76,6 +83,7 @@ export function criarFundo({ amb, antesDe }) {
     cor: '#ffffff',
     caminhada() {},
     atualizar() {},
+    aplicarHora() {},
     ligar() {},
     desligar() {},
   };
@@ -103,7 +111,32 @@ export function criarFundo({ amb, antesDe }) {
   veuAlto.className = 'fundo-veu fundo-veu-alto';
   const veuBaixo = document.createElement('div');
   veuBaixo.className = 'fundo-veu fundo-veu-baixo';
-  raiz.append(fotos[0].quadro, fotos[1].quadro, nevoa, veuAlto, veuBaixo);
+  // A hora do dia sobre a foto (sem WebGL): três camadas pintadas uma vez; só a opacidade anda.
+  const camada = (classe) => { const no = document.createElement('div'); no.className = `fundo-hora ${classe}`; no.style.opacity = '0'; return no; };
+  const horaTarde = camada('fundo-hora-tarde');
+  const horaNoite = camada('fundo-hora-noite');
+  const horaCometa = camada('fundo-hora-cometa');
+  let cometaPintado = false;
+  const opacidades = new Map();
+  const por = (no, v) => {
+    const s = v.toFixed(3);
+    if (opacidades.get(no) !== s) { opacidades.set(no, s); no.style.opacity = s; }
+  };
+  /** Recebe o estado de js/mundo/hora.js (estadoDaHora). */
+  function aplicarHora(e) {
+    const p = e.p;                                     // 0 manhã … 4 noite
+    // a tarde: entra do dia ao entardecer, fica no crepúsculo e cede à noite
+    por(horaTarde, p <= 1 ? 0 : p <= 2 ? (p - 1) * 0.8 : p <= 3 ? 0.8 + (p - 2) * 0.2 : 1 - (p - 3) * 0.75);
+    por(horaNoite, p <= 2 ? 0 : p <= 3 ? (p - 2) * 0.42 : 0.42 + (p - 3) * 0.58);
+    por(nevoa, 1 - 0.85 * e.noite);
+    const k = clamp((e.noite - 0.2) / 0.8);
+    if (k > 0 && !cometaPintado) {
+      cometaPintado = true;
+      try { horaCometa.style.backgroundImage = `url("${pintarCometa(384, 384).toDataURL('image/png')}")`; } catch { /* sem canvas: sem cometa */ }
+    }
+    por(horaCometa, k * k);
+  }
+  raiz.append(fotos[0].quadro, fotos[1].quadro, nevoa, horaTarde, horaNoite, horaCometa, veuAlto, veuBaixo);
 
   // ---- enquadramento ------------------------------------------------------------
   // A foto cobre a tela com folga para o balanço e o ponteiro, e o ponto de fuga
@@ -247,6 +280,7 @@ export function criarFundo({ amb, antesDe }) {
     pronto: null,
     caminhada,
     atualizar,
+    aplicarHora,
     ligar() {
       ligado = true;
       raiz.style.visibility = '';

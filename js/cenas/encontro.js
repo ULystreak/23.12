@@ -11,8 +11,9 @@
 // um filme, um de cada vez, sozinhos: cada um com uma panorâmica lenta do `foco`
 // até o `ate`. Os dois quadros que têm `dedo` (as mãos) voltam juntos no fim: o
 // fio vermelho do site liga um dedinho ao outro, a luz corre por ele e vira um
-// clarão, e de dentro do clarão surge a última carta, já com o fio no laço. A
-// cena final segue dali como sempre.
+// clarão. Quando o clarão passa, ele está diante dela, de mão estendida, com a
+// última carta pousada na mão (entregaNaMao, em js/cenas/final.js); sem ele, a
+// carta surge sozinha, já com o fio no laço. A cena final segue dali.
 //
 // Tudo é DOM por cima do mundo (dentro de #palco, que o diretor limpa se a cena
 // quebrar): a cena é a mesma com e sem WebGL.
@@ -38,6 +39,7 @@ import { clamp, el, espera, lerp } from '../nucleo/util.js';
 import { curvas } from '../nucleo/movimento.js';
 import { temEncontro } from '../nucleo/diretor.js';
 import { entardecer } from './mao.js';
+import { entregaNaMao } from './final.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const COR_FIO = '#d7192d';
@@ -167,6 +169,9 @@ async function chegadaSimples(ctx) {
 /** A última carta, que a cena da mão deixou escondida, aparece. */
 function mostrarCarta(ctx, duracao = 1.4) {
   const { mundo, estado } = ctx;
+  // A última carta está na mão dele: ele fica, de frente para ela, de mão estendida
+  // (js/cenas/final.js). Só sem ele (ou sem WebGL) a carta aparece sozinha, como antes.
+  if (estado.entrega || entregaNaMao(ctx)) return;
   // Ele, que esperava no fim do fio, dá lugar à carta: some, e a ponta do fio
   // (que subia até a mão dele) volta a se prender nela.
   if (estado.ele) {
@@ -194,6 +199,8 @@ export async function cenaEncontro(ctx, { frio } = {}) {
   }
 
   diretor.etapa('chegando');
+  // a pose da entrega (ele de frente, de mão estendida) é pintada já, longe do clarão
+  espera(600).then(() => { try { estado.ele?.prepararEntrega?.(); } catch (erro) { console.error(erro); } });
   // O crepúsculo inteiro (na caminhada ele tinha clareado pela metade).
   entardecer(ctx, true, calmo ? 1.2 : T.escurecer);
   const quadros = await Promise.race([prepararEncontro(ctx), espera(ESPERA_QUADROS).then(() => [])]).catch(() => []);

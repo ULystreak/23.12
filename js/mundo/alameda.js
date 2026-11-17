@@ -20,7 +20,8 @@
 //   alameda.grupo                    o Object3D (já na cena)
 //   alameda.pronta                   Promise: programas compilados e a alameda entrando
 //   alameda.atualizar(dt, t)         a cada quadro, antes do render (mundo.js chama)
-//   alameda.tarde(k)                 0..1: o entardecer da cena da mão (luz, névoa e céu)
+//   alameda.aplicarHora(estado)      a hora do dia (js/mundo/hora.js): luz, névoa, céu, estrelas e cometa
+//   alameda.tarde(k)                 (antigo) 0..1 do dia ao crepúsculo; quem manda agora é mundo.hora()
 //   alameda.nivel(nivel)             'alto'|'medio'|'baixo' (qualidade adaptativa)
 //   alameda.corNevoa                 THREE.Color da névoa (a cena.fog acompanha)
 //   alameda.centro(z)                x do meio do caminho na profundidade z
@@ -30,6 +31,7 @@
 // dentro dele sem chegar perto dos postes.
 
 import { clamp, lerp, semente } from '../nucleo/util.js';
+import { pintarCometa } from './hora.js';
 
 // ---- o lugar ------------------------------------------------------------------------
 
@@ -49,8 +51,7 @@ const LAD = { massas: [0, 1, 2], cachos: [3, 4, 7], salgueiro: 5, capim: 6 };
 // Cores (sRGB, os shaders da alameda trabalham direto nesse espaço).
 const NEVOA = [0.925, 0.878, 0.902];      // #ece0e6: a luz rosada no fundo do túnel
 const CEU = [0.972, 0.962, 0.968];        // branco-perolado no alto
-const NEVOA_TARDE = [0.553, 0.498, 0.584];  // #8d7f95 (= mao.js)
-const CEU_TARDE = [0.62, 0.57, 0.67];
+// (as cores das outras horas do dia estão em js/mundo/hora.js)
 
 /** O meio do caminho em x, na profundidade z: uma curva longa e leve. */
 export function centroCaminho(z) {
@@ -74,6 +75,8 @@ uniform vec3 uNevoa;
 uniform vec3 uCeu;
 uniform float uDens;
 uniform float uTarde;
+uniform vec3 uLuz;
+uniform float uNoite;
 uniform float uSurgir;
 uniform float uTempo;
 
@@ -85,8 +88,9 @@ vec3 nevoar(vec3 cor, vec3 wp) {
   vec3 nc = mix(uNevoa, uCeu, smoothstep(0.0, 0.55, d.y / max(dist, 0.001)));
   return mix(cor, nc, f);
 }
-// O entardecer escurece e esfria a luz (a névoa e o céu mudam por uniforme, no JS).
-vec3 tardar(vec3 c) { return mix(c, c * vec3(0.52, 0.5, 0.66), uTarde); }
+// A hora do dia (js/mundo/hora.js): a luz multiplica a cor de tudo; a névoa e o
+// céu mudam por uniforme, no JS. (uTarde continua existindo para a figura dele.)
+vec3 tardar(vec3 c) { return c * uLuz; }
 // A alameda nasce do branco.
 vec3 acabar(vec3 c) { return mix(vec3(1.0), c, uSurgir); }
 
@@ -1287,6 +1291,19 @@ void main() {
   vec3 cor = mix(uNevoa, uCeu, alto);
   // um rosa quase nada logo acima do horizonte, para o lado do fundo do caminho
   cor = mix(cor, cor * vec3(1.0, 0.965, 0.985), (1.0 - smoothstep(0.0, 0.25, abs(d.y - 0.04))) * smoothstep(0.2, 1.0, -d.z) * 0.6);
+  // à noite: estrelas (uma por célula de uma grade projetada do alto, piscando devagar)
+  if (uNoite > 0.01 && d.y > 0.0) {
+    vec2 uv = d.xz / (d.y + 0.4) * 22.0;
+    vec2 g = floor(uv);
+    vec2 f = fract(uv) - 0.5;
+    float h1 = fract(sin(dot(g, vec2(127.1, 311.7))) * 43758.5453);
+    float h2 = fract(h1 * 91.7);
+    float dist = length(f - (vec2(h2, fract(h1 * 37.3)) - 0.5) * 0.7);
+    float brilho = step(0.5, h1) * (0.3 + 0.7 * fract(h1 * 13.1));
+    float pisca = 0.72 + 0.28 * sin(uTempo * (0.7 + 2.0 * h2) + h1 * 40.0);
+    float e = (1.0 - smoothstep(0.0, 0.085, dist)) * brilho * pisca * smoothstep(0.0, 0.2, d.y);
+    cor += mix(vec3(0.8, 0.88, 1.0), vec3(1.0, 0.9, 0.86), h2) * e * uNoite;
+  }
   // pontilhado contra faixas no degradê
   float r = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
   cor += (r - 0.5) / 255.0;
@@ -1363,6 +1380,8 @@ export function criarAlameda(mundo) {
     uCeu: { value: new THREE.Vector3(...CEU) },
     uDens: { value: nivelAtual === 'baixo' ? 0.05 : 0.043 },
     uTarde: { value: 0 },
+    uLuz: { value: new THREE.Vector3(1, 1, 1) },
+    uNoite: { value: 0 },
     uSurgir: { value: 0 },
     uTempo: { value: 0 },
     uVao: { value: new THREE.Vector3(0, 1.6, 1.32) },
@@ -1501,6 +1520,28 @@ export function criarAlameda(mundo) {
   petalasAr.renderOrder = 4;
   grupo.add(petalasAr);
 
+  // ---- o cometa (noite) ----
+  // Um plano só, com a textura pintada uma vez (js/mundo/hora.js), somando luz.
+  // As copas fecham o túnel quase inteiro: um cometa lá no céu de verdade ficaria
+  // escondido. Então a luz dele fica a 3,2 m, no alto, somada por cima das flores
+  // (lê como o clarão do cometa atravessando as copas); a carta e a folha, que
+  // ficam mais perto, passam na frente. Só existe (e só é desenhado) à noite.
+  const COMETA_Z = 3.2;
+  let cometa = null;
+  let cometaDesde = 0;
+  function criarCometa() {
+    const tex = new THREE.CanvasTexture(pintarCometa(512, 512));
+    tex.colorSpace = THREE.SRGBColorSpace;
+    cometa = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, toneMapped: false }),
+    );
+    cometa.frustumCulled = false;
+    cometa.renderOrder = -5;                   // logo depois do céu: tudo o que é transparente e está mais perto (a carta se desfazendo, ele, as pétalas) é desenhado por cima
+    cometa.visible = false;
+    grupo.add(cometa);
+  }
+
   cena.add(grupo);
 
   // ---- colocar as vagas perto da câmera -----------------------------------------------
@@ -1627,13 +1668,14 @@ export function criarAlameda(mundo) {
 
   // ---- nível de qualidade --------------------------------------------------------------
 
+  let densHora = 1;                          // a hora do dia adensa ou afina a névoa (aplicarHora)
   function aplicarNivel(nivel) {
     nivelAtual = nivel;
     const parte = (CARTOES[nivel] || CARTOES.alto) / CARTOES.alto;
     for (const v of variantes) v.copa.geometry.setDrawRange(0, Math.floor((v.indices * parte) / 6) * 6);
     uEscala.value = 1 / Math.sqrt(Math.max(0.4, parte)) * (parte < 1 ? 0.92 : 1);   // menos cartões, um pouco maiores
     uDetalhe.value = nivel === 'baixo' ? 0 : 1;
-    comuns.uDens.value = nivel === 'baixo' ? 0.05 : 0.043;
+    comuns.uDens.value = (nivel === 'baixo' ? 0.05 : 0.043) * densHora;
     ultimaVaga = null;
   }
   aplicarNivel(nivelAtual);
@@ -1659,20 +1701,48 @@ export function criarAlameda(mundo) {
     const vaga = Math.floor(camPos.z / 2);
     if (vaga !== ultimaVaga) { ultimaVaga = vaga; colocar(camPos.z); }
     uPx.value = 0.055 * mundo.tamanho.altura * mundo.tamanho.dpr;
+    // o cometa: no alto do fim do túnel, do tamanho que a tela pede, descendo muito devagar
+    const noite = comuns.uNoite.value;
+    if (noite > 0.2 && !cometa) { criarCometa(); cometaDesde = t; }
+    if (cometa) {
+      cometa.visible = noite > 0.2;
+      if (cometa.visible) {
+        const meiaA = Math.tan((camera.fov * Math.PI) / 360) * COMETA_Z;
+        const meiaL = meiaA * camera.aspect;
+        const lado = Math.min(meiaA * 1.12, meiaL * 2.05);
+        const anda = amb.reduzido ? 0 : 1 - Math.exp(-(t - cometaDesde) / 70);     // 0..1 em alguns minutos
+        cometa.scale.set(lado, lado, 1);
+        cometa.position.set(
+          camPos.x + meiaL * 0.06 + lado * 0.07 * anda,
+          camera.position.y + meiaA * 0.55 - lado * 0.06 * anda,
+          camPos.z + deriva - COMETA_Z,          // (material comum: coordenadas do mundo, não as da alameda)
+        );
+        const k = clamp((noite - 0.2) / 0.8);
+        cometa.material.opacity = k * k * (amb.reduzido ? 0.9 : 0.9 + 0.06 * Math.sin(t * 0.9));
+      }
+    }
   }
 
   // ---- entardecer -----------------------------------------------------------------------
 
   const aux = new THREE.Color();
-  function tarde(k) {
-    const x = clamp(k);
-    comuns.uTarde.value = x;
-    const n = comuns.uNevoa.value; const c = comuns.uCeu.value;
-    n.set(lerp(NEVOA[0], NEVOA_TARDE[0], x), lerp(NEVOA[1], NEVOA_TARDE[1], x), lerp(NEVOA[2], NEVOA_TARDE[2], x));
-    c.set(lerp(CEU[0], CEU_TARDE[0], x), lerp(CEU[1], CEU_TARDE[1], x), lerp(CEU[2], CEU_TARDE[2], x));
-    aux.setRGB(n.x, n.y, n.z, THREE.SRGBColorSpace);
+  const densBase = () => (nivelAtual === 'baixo' ? 0.05 : 0.043);
+  /** A hora do dia: recebe o estado de js/mundo/hora.js (estadoDaHora). */
+  function aplicarHora(e) {
+    comuns.uTarde.value = e.tarde;
+    comuns.uNoite.value = e.noite;
+    comuns.uLuz.value.set(e.luz[0], e.luz[1], e.luz[2]);
+    comuns.uNevoa.value.set(e.nevoa[0], e.nevoa[1], e.nevoa[2]);
+    comuns.uCeu.value.set(e.ceu[0], e.ceu[1], e.ceu[2]);
+    densHora = e.dens;
+    comuns.uDens.value = densBase() * densHora;
+    aux.setRGB(e.nevoa[0], e.nevoa[1], e.nevoa[2], THREE.SRGBColorSpace);
     corNevoa.copy(aux);
     if (cena.fog && surgido) cena.fog.color.copy(aux);
+  }
+  /** (antigo) 0 = dia, 1 = crepúsculo. Quem manda na hora agora é mundo.hora(). */
+  function tarde(k) {
+    if (typeof mundo.hora === 'function') mundo.hora(1 + 2 * clamp(k), { duracao: 0 });
   }
 
   // ---- entrada: compilar antes de aparecer, e nascer do branco ---------------------------
@@ -1706,6 +1776,7 @@ export function criarAlameda(mundo) {
     pronta,
     surgir,
     atualizar,
+    aplicarHora,
     tarde,
     nivel: aplicarNivel,
     /** Nenhum cacho mais perto da câmera que `metros` (a folha final); devagar. 0 volta ao padrão. */
@@ -1716,7 +1787,7 @@ export function criarAlameda(mundo) {
       else v.set(alvo[0], alvo[1]);
     },
     corNevoa,
-    /** Os uniformes da névoa e da hora (uNevoa, uCeu, uDens, uTarde): quem entra na alameda usa os mesmos (js/mundo/ele.js). */
+    /** Os uniformes da névoa e da hora (uNevoa, uCeu, uDens, uTarde, e também uLuz e uNoite): quem entra na alameda usa os mesmos (js/mundo/ele.js). */
     uniformes: comuns,
     /** x do meio do caminho na profundidade z DO MUNDO (a deriva do passo de base já descontada). */
     centro: (z) => centroCaminho(z - derivaAtual),

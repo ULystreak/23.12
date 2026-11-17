@@ -1,9 +1,19 @@
-// Final: a última carta, amarrada só com o fio. A folha em branco desdobra e a
-// frase é escrita à mão, letra por letra. Fica ali com as pétalas. Sem botão, sem "fim".
+// Final: a última carta está na mão dele. Depois do abraço ele está de frente
+// para ela, de mão estendida; a carta (amarrada só com o fio) sai da mão dele e
+// vem até ela. A folha em branco desdobra e a frase é escrita à mão, letra por
+// letra. Depois: o número da senha volta e conta os dias dela (contador), a folha
+// em que ela escreve de volta (resposta) e o estado final, calmo: a noite, a
+// música, a bolsa. Sem "fim" escrito.
 //
 //   cenaFinal(ctx, { frio }) → Promise que nunca resolve
+//   entregaNaMao(ctx) → boolean   põe ele perto, de frente, com a carta na mão
+//                                  (o encontro chama debaixo do clarão)
 //
-// Etapas: carta-chegando → carta-espera → carta-abrindo → desdobrando → escrevendo → fim
+// Etapas: carta-chegando → carta-espera → carta-abrindo → desdobrando → escrevendo
+//         → contador → resposta → fim
+// (contador não existe sem contador.nascimento; resposta não existe sem a seção resposta)
+//
+// Sem WebGL ele é a mesma figura pintada, parada atrás da carta (.ele-leve).
 //
 // O papel que sai da carta é trocado, na mesma pose, pela folha de criarFolha()
 // (js/mundo/folha.js), que vem até a frente dela e desdobra. O fio que a trouxe
@@ -13,12 +23,61 @@
 // Parâmetro só de teste: ?frase=… troca a frase (para ver uma longa e uma curta).
 
 import { espera } from '../nucleo/util.js';
-import { cenaCarta } from './carta.js';
+import { cenaCarta, distanciaDaCarta } from './carta.js';
 import { criarFio } from '../mundo/fio.js';
 import { criarFolha } from '../mundo/folha.js';
+import { criarEle, pintarEleEntrega } from '../mundo/ele.js';
+import { criarEnvelope } from '../mundo/envelope.js';
+import { criarDepois } from './resposta.js';
 
 const ALTURA_OLHOS = 1.5;
 const PARADA = 1.25;               // a carta para a esta distância dela (igual a carta.js)
+const ELE_PERTO = 2.25;            // na entrega ele fica a esta distância dela (m)
+const ELE_LADO = -0.05;            // e um nada para a esquerda: a mão estendida cai no meio da tela
+
+/**
+ * A entrega: ele vem para perto, de frente, e a última carta (que a cena da mão
+ * deixou escondida) aparece pousada na mão estendida dele. Chamado debaixo do
+ * clarão do encontro (ou pela cena final, quando se entra direto nela).
+ * Devolve false se não houver ele, carta ou WebGL (a carta chega do jeito antigo).
+ */
+export function entregaNaMao(ctx) {
+  const { mundo, estado, conteudo } = ctx;
+  const env = estado.envelope;
+  if (estado.entrega) return true;
+  if (!mundo.ok || !env || !env.grupo || env.aberto || conteudo.mao?.ele === false) return false;
+  // Entrou por atalho depois da corrida: ele ainda não existe. Nasce aqui, já de frente.
+  let ele = estado.ele;
+  if (!ele) {
+    try { ele = criarEle(mundo); } catch (erro) { console.error(erro); ele = null; }
+    if (ele) { mundo.cena.add(ele.grupo); estado.ele = ele; }
+  }
+  if (!ele || typeof ele.entregar !== 'function') return false;
+  try {
+    if (!ele.entregar()) return false;
+    const { THREE } = mundo;
+    const rig = mundo.rig.position;
+    ele.grupo.position.set(rig.x + ELE_LADO, 0, rig.z - ELE_PERTO);
+    ele.mostrar(0);
+    env.grupo.position.copy(ele.ancoraCarta(new THREE.Vector3(rig.x, ALTURA_OLHOS, rig.z)));
+    env.grupo.visible = true;
+    estado.cartaEscondida = false;
+    // o fio, que subia até a mão dele, volta a terminar no laço da carta (que está na mão dele)
+    estado.seguidorFio?.ancorar?.(null);
+    estado.entrega = true;
+    return true;
+  } catch (erro) {
+    console.error('[carta] a entrega falhou', erro);
+    return false;
+  }
+}
+
+/** Onde a carta para diante dela (a mesma conta de carta.js). */
+function poseParada(mundo) {
+  const d = distanciaDaCarta(mundo);
+  const meia = Math.tan(((mundo.camera?.fov || 58) * Math.PI) / 360);
+  return { x: mundo.rig.position.x, y: ALTURA_OLHOS - d * meia * 0.12, z: mundo.rig.position.z - d };
+}
 
 export async function cenaFinal(ctx, { frio } = {}) {
   const { conteudo, diretor, mundo, som, musica, estado, amb } = ctx;
@@ -31,11 +90,59 @@ export async function cenaFinal(ctx, { frio } = {}) {
     mundo.petalas.definirDensidade(1);
     distancia = 5;
   }
+  // Entrou por atalho (aqui ou no encontro): não há carta nem ele. Os dois nascem
+  // agora: ele de frente, com a carta na mão.
+  if (mundo.ok && !estado.entrega && !estado.envelope && conteudo.mao?.ele !== false) {
+    try {
+      const env = criarEnvelope(mundo, { lacre: null, amarracao: 'fio', chegada: false });
+      await Promise.resolve(env.preparar?.()).catch(() => {});
+      if (env.grupo && !env.grupo.parent) mundo.cena.add(env.grupo);
+      estado.envelope = env;
+      if (!entregaNaMao(ctx)) { env.dispose(); estado.envelope = null; }
+    } catch (erro) { console.error(erro); }
+  }
+
+  // A carta sai da mão dele e vem até ela (primeira pessoa). A cena da carta, logo
+  // abaixo, reaproveita a mesma carta, já parada diante dela.
+  if (estado.entrega && estado.envelope && mundo.ok) {
+    distancia = 0;
+    diretor.etapa('carta-chegando');
+    const env = estado.envelope;
+    const pararEnv = mundo.aoQuadro((dt, t) => env.atualizar(dt, t));
+    await espera(amb.reduzido ? 500 : 1300);              // ela o vê, de mão estendida
+    const alvo = poseParada(mundo);
+    const de = env.grupo.position.clone();
+    const voo = { k: 0 };
+    som.efeito('papel');
+    await new Promise((ok) => gsap.to(voo, {
+      k: 1,
+      duration: amb.reduzido ? 1.2 : 2.6,
+      ease: 'power2.inOut',
+      onUpdate: () => {
+        const k = voo.k;
+        // sobe um pouco no meio do caminho, como quem entrega com cuidado
+        env.grupo.position.set(de.x + (alvo.x - de.x) * k, de.y + (alvo.y - de.y) * k + Math.sin(k * Math.PI) * 0.05, de.z + (alvo.z - de.z) * k);
+      },
+      onComplete: ok,
+    }));
+    pararEnv();
+  }
+
+  // Sem WebGL: a mesma figura pintada, parada atrás da carta que chega.
+  if (!mundo.ok && mundo.recipienteLeve && conteudo.mao?.ele !== false) {
+    const figura = pintarEleEntrega();
+    if (figura) {
+      figura.className = 'ele-leve';
+      figura.setAttribute('aria-hidden', 'true');
+      mundo.recipienteLeve.prepend(figura);
+      gsap.to(figura, { opacity: 1, duration: amb.reduzido ? 0.8 : 1.8, ease: 'none' });
+    }
+  }
 
   // Entrou direto: não há fio vindo da mão. Desenha um trecho que chega pelo
   // chão do lado direito e sobe de lado até a carta (assim não passa por baixo
   // da dica, que fica embaixo, no meio).
-  if (!estado.fio && mundo.ok) {
+  if (!estado.fio && mundo.ok && !estado.entrega) {
     const { THREE } = mundo;
     const z0 = mundo.rig.position.z;
     const x0 = mundo.rig.position.x;
@@ -137,10 +244,26 @@ export async function cenaFinal(ctx, { frio } = {}) {
   await espera(amb.reduzido ? 400 : 1600);
   if (folha.repousarFio) await folha.repousarFio();
 
-  diretor.etapa('fim');
   estado.folha = folha;
   estado.pararFolha = pararFolha;
   if (folha.viver) folha.viver();
+
+  // O número da senha volta e conta os dias dela; depois, a folha em que ela escreve de volta.
+  const depois = criarDepois(ctx);
+  if (depois.temContador) {
+    await espera(amb.reduzido ? 300 : 1400);
+    diretor.etapa('contador');
+    await depois.contar();
+  }
+  if (depois.temResposta) {
+    diretor.etapa('resposta');
+    await depois.escrever();
+  }
+
+  // O estado final, calmo: a noite, a música, a bolsa (o diretor a devolve nesta etapa).
+  diretor.etapa('fim');
+  depois.repousar();
+  musica.mostrarMini();
   await new Promise(() => {});                           // fica aqui, com as pétalas
 }
 

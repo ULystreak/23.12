@@ -17,7 +17,8 @@
 //   mao       olha → mao-espera → correndo
 //   cartas    pousando → escolhendo ⇄ assistindo → seguindo   (não existe sem nenhuma carta em cartasChao)
 //   encontro  chegando → planos → maos → carta          (só existe com algum quadro em encontro.quadros)
-//   final     carta-chegando → carta-espera → carta-abrindo → desdobrando → escrevendo → fim
+//   final     carta-chegando → carta-espera → carta-abrindo → desdobrando → escrevendo → contador → resposta → fim
+//             (contador só com contador.nascimento; resposta só com a seção resposta no content.js)
 //
 // Sem ?cena= (ou com um valor que não existe) a carta começa em "senha". Qualquer
 // atalho de "inicio" em diante pula a senha e a música (a tela preta nem aparece).
@@ -36,7 +37,7 @@ const CAPITULOS = ['poppy', 'yourname'];
  * Etapas em que ela pode abrir a bolsa: só as de espera, em que nada está em
  * movimento e a folha está livre para reabrir uma carta.
  */
-const BOLSA_LIVRE = new Set(['carta2:caminhada', 'carta2:carta-chegando', 'carta2:carta-espera', 'mao:mao-espera', 'cartas:escolhendo']);
+const BOLSA_LIVRE = new Set(['carta2:caminhada', 'carta2:carta-chegando', 'carta2:carta-espera', 'mao:mao-espera', 'cartas:escolhendo', 'final:fim']);
 
 /**
  * Cenas que só existem quando o content.js tem o que mostrar. Pulada, a cena nem
@@ -318,6 +319,8 @@ export function criarDiretor() {
       diretor.aoMudar((cena, etapa) => {
         ctx.inventario.liberar(BOLSA_LIVRE.has(`${cena}:${etapa}`));
         if (cena === 'final' && etapa === 'desdobrando') ctx.inventario.esconderBotao();
+        // No estado final a bolsa volta: ela pode ficar ali e reabrir o que guardou.
+        if (cena === 'final' && etapa === 'fim' && ctx.inventario.itens.length) ctx.inventario.mostrarBotao();
       });
 
       for (let i = comeco; i < ORDEM.length; i++) {

@@ -22,7 +22,7 @@
 
 import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
-import { abrir, RAIZ, lerConteudo, temEncontro, temCartas, senhaDoConteudo } from './lib.mjs';
+import { abrir, RAIZ, lerConteudo, temEncontro, temCartas, senhaDoConteudo, etapasDoFinal } from './lib.mjs';
 
 const FOTOS = path.join(RAIZ, 'output', 'robustez');
 await mkdir(FOTOS, { recursive: true });
@@ -41,7 +41,8 @@ const ESPERADO = [
   ...(temCartas(CONTEUDO) ? ['cartas:pousando', 'cartas:escolhendo', 'cartas:assistindo', 'cartas:escolhendo', 'cartas:seguindo'] : []),
   // o encontro só existe com quadros em encontro.quadros (js/content.js); anda sozinho
   ...(temEncontro(CONTEUDO) ? ['encontro:chegando', 'encontro:planos', 'encontro:maos', 'encontro:carta'] : []),
-  'final:carta-chegando', 'final:carta-espera', 'final:carta-abrindo', 'final:desdobrando', 'final:escrevendo', 'final:fim',
+  // (contador e resposta só existem com as seções contador e resposta do content.js)
+  ...etapasDoFinal(CONTEUDO).map((etapa) => `final:${etapa}`),
 ];
 
 const falhas = [];
@@ -85,6 +86,7 @@ async function agir(s, etapa, { curto = 6000 } = {}) {
     await pausa(250);
     await tentar('[data-acao="fechar-capitulo"]');
   } else if (etapa === 'mao-espera') await tentar('[data-acao="seguir-fio"]');
+  else if (etapa === 'resposta') await tentar('[data-acao="resposta-guardar"]');
 }
 
 /** Percorre o roteiro de `de` até `ate` (inclusive na espera, exclusive na ação). */

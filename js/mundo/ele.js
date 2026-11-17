@@ -13,6 +13,13 @@
 //
 // `grupo` fica com os pés na origem (y = 0 é o chão); `ancora()` devolve, no
 // mundo, a mão que segura o fio (a direita dele: à direita de quem o vê de costas).
+//
+// A segunda pose (a entrega da última carta, depois do abraço): ele de frente para
+// ela, sorrindo de olhos fechados, com a mão estendida e aberta. A carta de verdade
+// (o envelope 3D) fica pousada nessa mão e sai dela.
+//   ele.prepararEntrega()            pinta a pose (uma vez; chame antes, fora de um momento delicado)
+//   ele.entregar()                   troca a figura pela pose de entrega
+//   ele.ancoraCarta(olhos, saida?)   onde pousar a carta: sobre a mão dele, já um pouco à frente do corpo
 
 const ALTURA = 1.74;                 // metros, do chão ao alto do cabelo
 const TEX_L = 1024;                 // de perto ela chega a ~4 m: 512 ficava mole
@@ -20,6 +27,9 @@ const TEX_A = 2048;
 const FIG = 1920;                    // altura da figura na textura (px)
 const TOPO = 64;                     // margem acima do cabelo (px)
 const MAO = { x: 0.124, y: 0.568 };  // o dedinho da mão do fio, em frações da altura (x a partir do eixo)
+// Na pose de entrega: o meio da carta pousada na mão estendida (mesmas frações) e quanto
+// do caminho até os olhos dela a carta já está (o braço vem para a frente).
+const MAO_CARTA = { x: 0.036, y: 0.352, frente: 0.14 };
 
 const VERT = /* glsl */ `
 varying vec2 vUv;
@@ -67,7 +77,8 @@ const LUZ = 'rgb(255, 190, 150)';
  * formas em degradê, sombras de pincel macio (shadowBlur, sem ctx.filter, que o
  * Safari do iPhone não tem), dobras afiladas e contraluz morna.
  */
-function pintar(ctx, w, h) {
+function pintar(ctx, w, h, pose = 'costas') {
+  const entrega = pose === 'entrega';
   const S = h * 960 / 1024;            // altura da figura em px
   const TOPO = h * 32 / 1024;
   const k = S / 960;                   // px por "px de referência" (para desfoques)
@@ -214,7 +225,7 @@ function pintar(ctx, w, h) {
   // =============================================================================
   const bracoDir = () => { c.save(); c.translate(0, 0.175); c.scale(0.93, 1.05); c.translate(0, -0.175); };
   bracoDir();
-  forma([[0.121, 0.49], [0.119, 0.515], [0.12, 0.538], [0.123, 0.556], [0.129, 0.567], [0.136, 0.569], [0.142, 0.561], [0.146, 0.54], [0.147, 0.515], [0.146, 0.49]], grad(0.118, 0, 0.148, 0, ['#b98674', '#e2b196', '#c99680']), () => {
+  if (!entrega) forma([[0.121, 0.49], [0.119, 0.515], [0.12, 0.538], [0.123, 0.556], [0.129, 0.567], [0.136, 0.569], [0.142, 0.561], [0.146, 0.54], [0.147, 0.515], [0.146, 0.49]], grad(0.118, 0, 0.148, 0, ['#b98674', '#e2b196', '#c99680']), () => {
     mancha([[0.115, 0.49], [0.15, 0.49], [0.15, 0.512], [0.115, 0.512]], 'rgba(70, 40, 50, 0.5)', 5);
     // os dedos, meio fechados: o dedinho por fora, os outros atrás
     traco(0.126, 0.535, 0.1245, 0.552, 0.128, 0.565, 0.0016, 'rgba(120, 70, 66, 0.55)', 1);
@@ -222,7 +233,7 @@ function pintar(ctx, w, h) {
     traco(0.132, 0.525, 0.1335, 0.546, 0.132, 0.565, 0.003, 'rgba(255, 224, 200, 0.4)', 2);
   });
   // o laço do fio no dedinho
-  traco(0.1275, 0.549, 0.133, 0.5525, 0.1385, 0.549, 0.0022, '#d6243a', 1);
+  if (!entrega) traco(0.1275, 0.549, 0.133, 0.5525, 0.1385, 0.549, 0.0022, '#d6243a', 1);
   c.restore();
 
   // =============================================================================
@@ -248,6 +259,12 @@ function pintar(ctx, w, h) {
     traco(-0.1, 0.488, 0.0, 0.5, 0.106, 0.487, 0.0022, 'rgba(120,124,170,0.3)', 2);
     // o bolso do lado esquerdo, onde a mão entra
     traco(-0.097, 0.405, -0.082, 0.43, -0.08, 0.468, 0.004, 'rgba(12,10,24,0.6)', 2);
+    if (entrega) {
+      // de frente: o zíper e a camiseta clara no decote
+      traco(0.004, 0.2, 0.001, 0.35, 0.004, 0.505, 0.0022, 'rgba(150, 154, 196, 0.42)', 1);
+      forma([[-0.034, 0.146], [-0.012, 0.19], [0.003, 0.212], [0.018, 0.19], [0.038, 0.146], [0.002, 0.15]], grad(0, 0.15, 0, 0.21, ['#b9b3c4', '#e4dfe6']), null, 0.5);
+      mancha([[-0.04, 0.14], [0.04, 0.14], [0.03, 0.172], [-0.03, 0.172]], 'rgba(40, 30, 60, 0.55)', 6);
+    }
   });
 
   c.restore();
@@ -256,7 +273,7 @@ function pintar(ctx, w, h) {
   // 6. Braço direito (perto): cai solto, um pouco dobrado no cotovelo
   // =============================================================================
   bracoDir();
-  forma([[0.088, 0.168], [0.118, 0.18], [0.137, 0.21], [0.147, 0.27], [0.153, 0.335], [0.155, 0.385], [0.152, 0.445], [0.15, 0.498], [0.134, 0.504], [0.117, 0.498], [0.115, 0.44], [0.111, 0.37], [0.104, 0.3], [0.095, 0.235]], MANGA, () => {
+  if (!entrega) forma([[0.088, 0.168], [0.118, 0.18], [0.137, 0.21], [0.147, 0.27], [0.153, 0.335], [0.155, 0.385], [0.152, 0.445], [0.15, 0.498], [0.134, 0.504], [0.117, 0.498], [0.115, 0.44], [0.111, 0.37], [0.104, 0.3], [0.095, 0.235]], MANGA, () => {
     mancha([[0.13, 0.2], [0.17, 0.2], [0.17, 0.51], [0.138, 0.51], [0.142, 0.36]], SOMBRA, 9);
     mancha([[0.108, 0.2], [0.126, 0.2], [0.134, 0.3], [0.134, 0.49], [0.124, 0.49], [0.122, 0.33]], 'rgba(120, 124, 170, 0.2)', 7);
     // dobras do cotovelo e do punho
@@ -268,7 +285,7 @@ function pintar(ctx, w, h) {
     traco(0.1, 0.215, 0.118, 0.24, 0.124, 0.29, 0.004, 'rgba(130,134,180,0.3)', 4);
   });
   // a sombra onde a manga encosta no tronco
-  traco(0.094, 0.22, 0.106, 0.32, 0.114, 0.47, 0.0035, 'rgba(12,10,24,0.5)', 3);
+  if (!entrega) traco(0.094, 0.22, 0.106, 0.32, 0.114, 0.47, 0.0035, 'rgba(12,10,24,0.5)', 3);
   c.restore();
 
   // =============================================================================
@@ -278,8 +295,21 @@ function pintar(ctx, w, h) {
   // a gola do casaco, em pé dos dois lados do pescoço
   forma([[-0.036, 0.132], [-0.056, 0.14], [-0.07, 0.165], [-0.05, 0.178], [-0.03, 0.17]], '#262740', null, 0.8);
   forma([[0.034, 0.13], [0.054, 0.138], [0.07, 0.165], [0.05, 0.178], [0.03, 0.17]], '#1d1e33', null, 0.8);
-  // o capuz
+  // o capuz (de frente só se veem as duas abas dele, uma de cada lado do pescoço)
   c.save(); c.scale(0.95, 1);
+  if (entrega) {
+    const CAPUZ = grad(-0.08, 0.13, 0.08, 0.2, ['#c9c7d2', '#a9a7b8', '#7f7d93']);
+    forma([[-0.032, 0.128], [-0.058, 0.134], [-0.082, 0.156], [-0.08, 0.18], [-0.056, 0.196], [-0.03, 0.206], [-0.022, 0.18], [-0.03, 0.155]], CAPUZ, () => {
+      mancha([[-0.05, 0.15], [-0.02, 0.15], [-0.016, 0.21], [-0.04, 0.21]], 'rgba(50, 46, 78, 0.5)', 6);
+      traco(-0.076, 0.16, -0.06, 0.18, -0.036, 0.198, 0.003, 'rgba(255, 244, 236, 0.4)', 2);
+    });
+    forma([[0.034, 0.128], [0.06, 0.134], [0.084, 0.156], [0.082, 0.18], [0.058, 0.196], [0.032, 0.206], [0.024, 0.18], [0.032, 0.155]], CAPUZ, () => {
+      mancha([[0.02, 0.15], [0.09, 0.14], [0.09, 0.21], [0.03, 0.21]], 'rgba(50, 46, 78, 0.55)', 7);
+    });
+    // os cordões do capuz
+    traco(-0.02, 0.2, -0.023, 0.24, -0.019, 0.282, 0.0017, '#cfcdd8', 1);
+    traco(0.024, 0.2, 0.027, 0.236, 0.023, 0.272, 0.0017, '#b6b4c4', 1);
+  } else
   forma([[-0.03, 0.14], [-0.052, 0.148], [-0.07, 0.172], [-0.07, 0.205], [-0.052, 0.235], [-0.02, 0.256], [0.008, 0.262], [0.038, 0.254], [0.066, 0.232], [0.08, 0.2], [0.078, 0.17], [0.058, 0.148], [0.034, 0.14], [0.002, 0.15]], grad(-0.07, 0.14, 0.07, 0.26, ['#c9c7d2', '#a9a7b8', '#7f7d93']), () => {
     // a boca do capuz: o vão escuro logo atrás da nuca
     forma([[-0.03, 0.138], [-0.04, 0.155], [-0.03, 0.178], [0.002, 0.19], [0.034, 0.178], [0.044, 0.155], [0.034, 0.138], [0.002, 0.146]], grad(0, 0.14, 0, 0.19, ['#4c4a62', '#6a687f']));
@@ -300,7 +330,7 @@ function pintar(ctx, w, h) {
   // a cabeça cresce um pouco em torno da nuca (proporção de anime: ~7 cabeças)
   c.translate(0, 0.135); c.scale(1.2, 1.2); c.translate(0, -0.135);
   // rosto: só a bochecha e o queixo, sem detalhe
-  forma([[-0.04, 0.068], [-0.052, 0.08], [-0.0565, 0.096], [-0.053, 0.111], [-0.044, 0.124], [-0.031, 0.131], [-0.014, 0.126], [-0.004, 0.105], [-0.012, 0.075]], grad(-0.058, 0.07, -0.01, 0.125, ['#f3c8a8', '#dca98f', '#b07f70']), () => {
+  if (!entrega) forma([[-0.04, 0.068], [-0.052, 0.08], [-0.0565, 0.096], [-0.053, 0.111], [-0.044, 0.124], [-0.031, 0.131], [-0.014, 0.126], [-0.004, 0.105], [-0.012, 0.075]], grad(-0.058, 0.07, -0.01, 0.125, ['#f3c8a8', '#dca98f', '#b07f70']), () => {
     mancha([[-0.036, 0.112], [0.01, 0.1], [0.01, 0.14], [-0.04, 0.14]], 'rgba(110, 60, 70, 0.5)', 6);
   });
 
@@ -328,7 +358,7 @@ function pintar(ctx, w, h) {
     [[-0.014, 0.009], [0.001, -0.001], [0.014, 0.009]],
     [[0.018, 0.01], [0.04, 0.009], [0.045, 0.032]],
     [[-0.032, 0.014], [-0.049, 0.013], [-0.054, 0.032]],
-  ].forEach(ponta);
+  ].forEach((p, i) => { if (!entrega || i > 3) ponta(p); });      // (de frente, as pontas da nuca não aparecem)
   forma([[-0.006, 0.006], [0.022, 0.01], [0.042, 0.026], [0.054, 0.05], [0.057, 0.076], [0.052, 0.1], [0.04, 0.118], [0.022, 0.126], [0.004, 0.124], [-0.012, 0.116], [-0.018, 0.1], [-0.015, 0.086], [-0.024, 0.076], [-0.034, 0.078], [-0.044, 0.076], [-0.054, 0.066], [-0.06, 0.048], [-0.054, 0.028], [-0.036, 0.012]], CABELO, () => {
     // volume: escuro embaixo e à direita, e a faixa de brilho no alto, do lado do sol
     mancha([[0.024, 0.05], [0.07, 0.04], [0.07, 0.14], [-0.01, 0.14], [0.006, 0.1]], 'rgba(8, 6, 14, 0.6)', 11);
@@ -358,7 +388,78 @@ function pintar(ctx, w, h) {
     traco(-0.027, 0.086, -0.019, 0.09, -0.024, 0.104, 0.002, 'rgba(110, 60, 60, 0.5)', 1);
   });
   ponta([[-0.04, 0.074], [-0.037, 0.107], [-0.027, 0.077]]);
+  if (entrega) {
+    // De frente: o rosto por cima do cabelo (que vira o contorno da cabeça), a franja
+    // caindo na testa, os olhos fechados num sorriso. Pouco detalhe: ele está contra a luz.
+    forma([[-0.043, 0.058], [-0.046, 0.082], [-0.042, 0.103], [-0.03, 0.121], [-0.012, 0.131], [0.004, 0.133], [0.02, 0.131], [0.036, 0.121], [0.047, 0.103], [0.05, 0.082], [0.046, 0.058], [0.002, 0.046]], grad(-0.05, 0.06, 0.05, 0.13, ['#f3c8a8', '#e3b196', '#b98674']), () => {
+      // a sombra da franja na testa e a do lado longe da luz
+      mancha([[-0.06, 0.04], [0.06, 0.04], [0.06, 0.086], [-0.06, 0.086]], 'rgba(96, 54, 62, 0.5)', 7);
+      mancha([[0.03, 0.06], [0.06, 0.06], [0.06, 0.14], [0.022, 0.14], [0.036, 0.1]], 'rgba(110, 60, 70, 0.42)', 7);
+      // as bochechas
+      mancha([[-0.036, 0.106], [-0.02, 0.104], [-0.018, 0.113], [-0.034, 0.115]], 'rgba(236, 120, 120, 0.4)', 4);
+      mancha([[0.022, 0.104], [0.038, 0.106], [0.036, 0.115], [0.02, 0.113]], 'rgba(236, 120, 120, 0.34)', 4);
+    });
+    // orelhas
+    forma([[-0.047, 0.084], [-0.054, 0.08], [-0.057, 0.092], [-0.053, 0.105], [-0.046, 0.106]], '#d9a68d', null, 0.8);
+    forma([[0.051, 0.084], [0.058, 0.08], [0.061, 0.092], [0.057, 0.105], [0.05, 0.106]], '#b98674', null, 0.8);
+    // olhos fechados (dois arcos) e sobrancelhas quase escondidas pela franja
+    const TRACO = 'rgba(46, 26, 32, 0.9)';
+    traco(-0.031, 0.1005, -0.02, 0.0925, -0.009, 0.1005, 0.0016, TRACO);
+    traco(0.013, 0.1005, 0.024, 0.0925, 0.035, 0.1005, 0.0016, TRACO);
+    // nariz (só uma sombrinha) e o sorriso
+    traco(0.003, 0.106, 0.0055, 0.111, 0.002, 0.1135, 0.0009, 'rgba(140, 80, 76, 0.6)');
+    traco(-0.012, 0.1195, 0.002, 0.127, 0.016, 0.1195, 0.0013, 'rgba(120, 52, 58, 0.85)');
+    // a franja: pontas desiguais sobre a testa, e as laterais na frente das orelhas
+    forma([[-0.05, 0.03], [-0.02, 0.022], [0.02, 0.022], [0.052, 0.032], [0.054, 0.062], [0.03, 0.066], [0.0, 0.064], [-0.03, 0.066], [-0.052, 0.062]], CABELO, null, 0.7);
+    [
+      [[-0.054, 0.052], [-0.05, 0.104], [-0.04, 0.06]],
+      [[-0.046, 0.058], [-0.036, 0.094], [-0.026, 0.06]],
+      [[-0.032, 0.058], [-0.019, 0.088], [-0.01, 0.058]],
+      [[-0.016, 0.058], [-0.003, 0.097], [0.007, 0.058]],
+      [[0.002, 0.058], [0.016, 0.086], [0.022, 0.058]],
+      [[0.018, 0.058], [0.032, 0.093], [0.038, 0.06]],
+      [[0.034, 0.058], [0.046, 0.088], [0.05, 0.058]],
+      [[0.046, 0.052], [0.058, 0.102], [0.056, 0.056]],
+    ].forEach(ponta);
+    mecha(-0.01, 0.026, -0.036, 0.09, 0.14, 0.0028, ESC);
+    mecha(0.0, 0.026, -0.004, 0.092, 0.05, 0.0028, ESC);
+    mecha(0.012, 0.026, 0.03, 0.088, -0.12, 0.0028, ESC);
+    mecha(-0.022, 0.03, -0.046, 0.08, 0.16, 0.0026, CLA);
+    mecha(0.02, 0.03, 0.044, 0.082, -0.14, 0.0024, CLA);
+  }
   c.restore();
+
+  if (entrega) {
+    // =============================================================================
+    // 8b. O braço estendido para ela (em escorço: o antebraço vem na direção de quem
+    //     olha) e a mão aberta, de palma para cima, onde a carta fica pousada.
+    // =============================================================================
+    forma([[0.084, 0.172], [0.114, 0.184], [0.132, 0.214], [0.138, 0.268], [0.132, 0.322], [0.114, 0.362], [0.09, 0.39], [0.062, 0.398], [0.04, 0.386], [0.036, 0.362], [0.05, 0.338], [0.07, 0.314], [0.084, 0.27], [0.086, 0.215]], MANGA, () => {
+      mancha([[0.112, 0.2], [0.15, 0.2], [0.15, 0.38], [0.11, 0.4], [0.122, 0.3]], SOMBRA, 9);
+      mancha([[0.086, 0.21], [0.1, 0.21], [0.104, 0.29], [0.09, 0.33], [0.07, 0.35], [0.08, 0.3]], 'rgba(120, 124, 170, 0.24)', 7);
+      // dobras do cotovelo
+      traco(0.092, 0.3, 0.112, 0.318, 0.134, 0.3, 0.005, SOMBRA_F, 3);
+      traco(0.086, 0.326, 0.106, 0.342, 0.128, 0.328, 0.004, SOMBRA_F, 3);
+      // a boca da manga: o punho visto de frente
+      mancha([[0.034, 0.35], [0.066, 0.344], [0.08, 0.37], [0.066, 0.402], [0.036, 0.396]], 'rgba(10, 8, 22, 0.62)', 5);
+    });
+    // a mão: a palma para cima, os dedos juntos apontando para ela, o polegar por fora
+    const PELE = grad(0.0, 0.36, 0.07, 0.42, ['#f1c6a8', '#e0ad92', '#b98674']);
+    forma([[0.006, 0.378], [0.014, 0.366], [0.034, 0.36], [0.056, 0.362], [0.07, 0.372], [0.074, 0.39], [0.068, 0.408], [0.05, 0.418], [0.026, 0.418], [0.01, 0.408], [0.004, 0.393]], PELE, () => {
+      mancha([[0.0, 0.4], [0.08, 0.4], [0.08, 0.43], [0.0, 0.43]], 'rgba(110, 60, 66, 0.5)', 5);
+      // os dedos (as pontas ficam embaixo, mais perto dela)
+      traco(0.022, 0.398, 0.021, 0.408, 0.022, 0.417, 0.0011, 'rgba(120, 70, 66, 0.6)');
+      traco(0.037, 0.4, 0.037, 0.41, 0.037, 0.418, 0.0011, 'rgba(120, 70, 66, 0.6)');
+      traco(0.052, 0.398, 0.053, 0.408, 0.052, 0.416, 0.0011, 'rgba(120, 70, 66, 0.6)');
+      // as linhas da palma
+      traco(0.018, 0.378, 0.036, 0.386, 0.06, 0.378, 0.0012, 'rgba(150, 90, 84, 0.45)');
+      mancha([[0.016, 0.364], [0.05, 0.364], [0.05, 0.376], [0.016, 0.376]], 'rgba(255, 236, 216, 0.45)', 4);
+    });
+    // o polegar
+    forma([[0.064, 0.366], [0.076, 0.358], [0.086, 0.364], [0.086, 0.38], [0.078, 0.394], [0.068, 0.39]], grad(0.064, 0.36, 0.088, 0.39, ['#e3b196', '#b98674']), null, 0.8);
+    // o laço do fio no dedinho
+    traco(0.008, 0.401, 0.013, 0.4045, 0.019, 0.402, 0.0024, '#d6243a', 1);
+  }
 
   // =============================================================================
   // 9. A luz da hora: contraluz morna nas bordas (o sol baixo, atrás e à esquerda)
@@ -403,14 +504,19 @@ function pintar(ctx, w, h) {
   ctx.drawImage(tela, 0, 0);
 }
 
-function pintarFigura() {
+function pintarFigura(pose = 'costas') {
   const tela = document.createElement('canvas');
   tela.width = TEX_L;
   tela.height = TEX_A;
   const c = tela.getContext('2d');
   if (!c) return null;
-  pintar(c, TEX_L, TEX_A);
+  pintar(c, TEX_L, TEX_A, pose);
   return tela;
+}
+
+/** A figura na pose de entrega, num canvas solto (para o modo sem WebGL). Pode devolver null. */
+export function pintarEleEntrega() {
+  try { return pintarFigura('entrega'); } catch { return null; }
 }
 
 function pintarSombra() {
@@ -501,12 +607,41 @@ export function criarEle(mundo) {
     pararQuadro();
     grupo.removeFromParent();
     for (const m of [corpo, sombra]) { m.geometry.dispose(); m.material.dispose(); }
+    if (mapaEntrega) mapaEntrega.dispose();
     mapaFigura.dispose();
     mapaSombra.dispose();
   }
 
+  // ---- a entrega da última carta: a mesma figura, de frente, com a mão estendida ----
+  let mapaEntrega = null;
+  function prepararEntrega() {
+    if (fora || mapaEntrega) return;
+    const tela = pintarFigura('entrega');
+    if (!tela) return;
+    mapaEntrega = textura(tela);
+    try { mundo.renderer.initTexture?.(mapaEntrega); } catch { /* sobe no primeiro quadro */ }
+  }
+  function entregar() {
+    prepararEntrega();
+    if (fora || !mapaEntrega) return false;
+    corpo.material.uniforms.uMapa.value = mapaEntrega;
+    return true;
+  }
+
   return {
     grupo,
+    prepararEntrega,
+    entregar,
+    /**
+     * Onde a carta fica pousada na mão estendida: no raio que vai dos olhos dela
+     * (`olhos`, Vector3) até a mão pintada, um pouco à frente do corpo dele (o braço
+     * vem na direção dela), para a carta cobrir a mão do jeito que foi desenhada.
+     */
+    ancoraCarta(olhos, saida = new THREE.Vector3()) {
+      saida.set(grupo.position.x + MAO_CARTA.x * ALTURA, grupo.position.y + (1 - MAO_CARTA.y) * ALTURA, grupo.position.z);
+      if (olhos) saida.lerp(olhos, MAO_CARTA.frente);
+      return saida;
+    },
     /** A mão que segura o fio, no mundo. */
     ancora(saida = new THREE.Vector3()) {
       return saida.set(grupo.position.x + MAO.x * ALTURA, grupo.position.y + (1 - MAO.y) * ALTURA, grupo.position.z + 0.03);

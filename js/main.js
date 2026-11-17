@@ -15,6 +15,7 @@ import { criarPergaminho } from './pergaminho.js';
 import { criarInventario } from './inventario.js';
 import { criarBolso } from './cenas/bolso.js';
 import { criarMundo } from './mundo/mundo.js';
+import { ligarHora } from './mundo/hora.js';
 
 // O diretor nasce primeiro: é ele que instala window.__carta (com a Promise `pronto`).
 const diretor = criarDiretor();
@@ -56,6 +57,7 @@ async function iniciar() {
     recipienteLeve: document.getElementById('mundo-leve'),
   });
   window.__carta.gpu = mundo.gpu || null;
+  ligarHora({ mundo, diretor, amb });          // a hora do dia segue as cenas (js/mundo/hora.js)
 
   const pergaminho = criarPergaminho({
     raiz: document.getElementById('pergaminho'),
@@ -82,6 +84,7 @@ async function iniciar() {
     estado: {},
   };
 
+  ctx.voz = (await import('./voz.js')).criarVoz(ctx);   // a fita com a voz dele, na bolsa
   vigiarContexto(ctx);
   await diretor.rodar(ctx, diretor.cenaInicial());
 }

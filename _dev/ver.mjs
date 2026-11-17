@@ -36,7 +36,7 @@
 // A cena "encontro" só existe com algum quadro em encontro.quadros; ela anda sozinha
 // (chegando → planos → maos → carta), sem toque nenhum.
 
-import { abrir, lerConteudo, senhaDoConteudo, temCartas, temEncontro, videosDeTeste, injetarVideos, ERRO_ESPERADO } from './lib.mjs';
+import { abrir, lerConteudo, senhaDoConteudo, temCartas, temEncontro, etapasDoFinal, videosDeTeste, injetarVideos, ERRO_ESPERADO } from './lib.mjs';
 
 const ROTEIRO = {
   senha: ['senha', 'senha-certa'],
@@ -48,7 +48,8 @@ const ROTEIRO = {
   mao: ['olha', 'mao-espera', 'correndo'],
   cartas: ['pousando', 'escolhendo', 'seguindo'],
   encontro: ['chegando', 'planos', 'maos', 'carta'],
-  final: ['carta-chegando', 'carta-espera', 'carta-abrindo', 'desdobrando', 'escrevendo', 'fim'],
+  // (contador e resposta só existem com as seções contador e resposta do content.js)
+  final: etapasDoFinal(),
 };
 const TODAS = Object.keys(ROTEIRO);
 
@@ -57,12 +58,13 @@ const TODAS = Object.keys(ROTEIRO);
 const ASSENTAR = {
   frases: 4200, caminhada: 1500, 'carta-chegando': 1500, 'carta-espera': 700, 'carta-abrindo': 1500,
   papel: 900, musica: 2400, desenrolando: 900, lendo: 900, enrolando: 700, olha: 2600,
-  'mao-espera': 900, seguindo: 2600, desdobrando: 1300, escrevendo: 3200, fim: 900,
+  'mao-espera': 900, seguindo: 2600, desdobrando: 1300, escrevendo: 3200, fim: 2600,
+  contador: 7000, resposta: 1800,
   escolhendo: 1500, chegando: 900, planos: 2600, maos: 2600, carta: 1500,
   senha: 900, 'senha-certa': 500, entrando: 900, guardando: 900, correndo: 2600, pousando: 900, seguindo: 500,
 };
 // Etapas em que a carta fica parada esperando: aqui o tempo de assentar é real (não acelera).
-const PARADAS = new Set(['senha', 'carta-espera', 'musica', 'lendo', 'mao-espera', 'fim', 'escolhendo']);
+const PARADAS = new Set(['senha', 'carta-espera', 'musica', 'lendo', 'mao-espera', 'fim', 'escolhendo', 'resposta']);
 
 function lerArgumentos(argv) {
   const opcoes = {
@@ -163,6 +165,30 @@ async function reabrirDaBolsa(s, id, esperados, { fotos, prefixo, sufixo } = {})
   await s.pausa(200);
 }
 
+/**
+ * A folha em que ela escreve de volta: escreve, confere que ficou guardado no aparelho e
+ * que o botão de enviar aponta para o WhatsApp com o texto dela, e toca em "Guardar".
+ */
+async function escreverDeVolta(s, { fotos, prefixo, sufixo } = {}) {
+  const campo = s.page.locator('[data-acao="resposta-texto"]');
+  await campo.waitFor({ state: 'visible', timeout: 20000 });
+  const tamanho = await campo.evaluate((no) => parseFloat(getComputedStyle(no).fontSize));
+  if (!(tamanho >= 16)) throw new Error(`a letra da folha de resposta tem ${tamanho} px (menos de 16: o Safari daria zoom)`);
+  const frase = 'Eu li tudo. Obrigada & até já!';
+  await campo.fill(frase);
+  await s.pausa(200);
+  const d = await s.page.evaluate(() => ({
+    guardado: (() => { try { return localStorage.getItem('carta2312:resposta'); } catch { return null; } })(),
+    href: document.querySelector('[data-acao="resposta-enviar"]')?.href || '',
+  }));
+  if (d.guardado !== frase) throw new Error(`o texto dela não ficou guardado no aparelho (ficou: ${d.guardado})`);
+  if (!/^https:\/\/wa\.me\/\d*\?text=/.test(d.href) || !decodeURIComponent(d.href.split('text=')[1] || '').includes(frase)) {
+    throw new Error(`o botão de enviar não leva ao WhatsApp com o texto dela (${d.href})`);
+  }
+  if (fotos) { await s.pausa(500); await s.foto(`${prefixo}-resposta-escrita${sufixo}`); }
+  await s.acionar('[data-acao="resposta-guardar"]');
+}
+
 /** O que fazer em cada etapa para a carta seguir adiante. */
 async function agir(s, cena, etapa, extra = {}) {
   if (etapa === 'senha') {
@@ -187,6 +213,8 @@ async function agir(s, cena, etapa, extra = {}) {
     await s.acionar('[data-acao="seguir-fio"]');
   } else if (cena === 'cartas' && etapa === 'escolhendo') {
     await verCartas(s, extra);
+  } else if (etapa === 'resposta') {
+    await escreverDeVolta(s, extra);
   }
 }
 

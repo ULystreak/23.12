@@ -24,6 +24,7 @@
 import { clamp, vetorLeve, objetoLeve, semente, espera } from '../nucleo/util.js';
 import { curvas } from '../nucleo/movimento.js';
 import { criarPonteiro, curvaDaCaminhada } from './mundo.js';
+import { criarHora } from './hora.js';
 
 // Contornos (caixa de 100×100, a base da pétala embaixo): colher larga e mais
 // alta que larga, de lados cheios e base curta e cega (onde prendia na flor);
@@ -577,6 +578,9 @@ export function criarMundoLeve({ amb, canvas, recipienteLeve, fundo = null }) {
     petalas,
     fundo,
   };
+
+  // A hora do dia (js/mundo/hora.js): aqui ela é pintada sobre a imagem da alameda.
+  criarHora(mundo, amb, (e) => fundo?.aplicarHora?.(e));
 
   atualizarLaco();
   return mundo;

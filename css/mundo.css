@@ -223,3 +223,59 @@ html.com-fundo #dica::before {
   opacity: 0.92;
   pointer-events: none;
 }
+
+/* ---- a hora do dia (js/mundo/hora.js) ----------------------------------------
+   <html data-hora="manha|dia|entardecer|crepusculo|noite"> acompanha a carta.
+   Com WebGL a luz é da alameda 3D; sem WebGL são três camadas sobre a imagem
+   (js/mundo/fundo.js), pintadas uma vez: só a opacidade anda, pelo JS.        */
+.fundo-hora {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  will-change: opacity;
+}
+/* a tarde: tinta morna no alto, roxa embaixo, bordas mais fundas */
+.fundo-hora-tarde {
+  background:
+    radial-gradient(ellipse 92% 74% at 50% 56%, rgba(26, 14, 40, 0) 34%, rgba(24, 12, 38, 0.3) 76%, rgba(16, 8, 28, 0.56) 100%),
+    linear-gradient(rgba(150, 78, 96, 0.34), rgba(58, 36, 86, 0.46));
+}
+/* a noite: um azul que multiplica a foto (as copas viram luar, o chão escurece) */
+.fundo-hora-noite {
+  background:
+    radial-gradient(ellipse 96% 80% at 50% 50%, rgba(255, 255, 255, 0) 30%, rgba(20, 24, 60, 0.5) 100%),
+    linear-gradient(rgb(52, 66, 132), rgb(40, 52, 112));
+  mix-blend-mode: multiply;
+}
+/* o cometa: no alto, sobre o fim do caminho */
+.fundo-hora-cometa {
+  inset: auto;
+  left: 50%;
+  top: -5%;
+  width: min(118vw, 58vh);
+  aspect-ratio: 1;
+  transform: translateX(-46%);
+  background: center / 100% 100% no-repeat;
+  mix-blend-mode: screen;
+}
+
+/* À noite as frases, a dica e os botões do mundo ficam claros, sobre um véu
+   escuro em vez do claro. (As cenas podem usar html[data-hora="noite"] nos
+   próprios estilos; --hora-noite e --hora-tarde valem de 0 a 1.) */
+html[data-hora="noite"] .fundo-veu,
+html[data-hora="noite"].com-fundo #dica::before { background-image: var(--fundo-veu-noite, none); }
+html[data-hora="noite"] #frases,
+html[data-hora="noite"] #dica,
+html[data-hora="noite"].com-fundo #dica,
+html[data-hora="noite"] #acoes > .botao { color: #f6eef4; }
+html[data-hora="noite"] #frases,
+html[data-hora="noite"] #dica,
+html[data-hora="noite"] #acoes > .botao {
+  text-shadow: 0 0 0.3em rgba(6, 8, 26, 0.9), 0 0 0.9em rgba(6, 8, 26, 0.7);
+}
+html[data-hora="noite"] .frase-abertura .palavra {
+  text-shadow: 0 0 0.18em rgba(6, 8, 26, 0.9), 0 0 0.6em rgba(6, 8, 26, 0.8);
+}
+@media (hover: hover) and (pointer: fine) {
+  html[data-hora="noite"] #acoes > .botao:hover { color: #ffc4d6; }
+}
