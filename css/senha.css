@@ -27,113 +27,197 @@
 .senha {
   display: grid;
   justify-items: center;
-  gap: 22px;
-  width: min(100%, 320px);
+  gap: 18px;
+  width: min(100%, 328px);
   will-change: opacity;
 }
-.senha-frase,
-.senha-dica,
-.senha-erro {
+.senha-frase {
   margin: 0;
   max-width: 18em;
   font-family: var(--fonte-titulo);
   font-size: 1.0625rem;
   line-height: 1.5;
   letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.74);
+  color: var(--luar-suave);
   text-align: center;
   text-wrap: balance;
 }
-.senha-dica { font-size: 0.9375rem; color: rgba(255, 255, 255, 0.62); }
-.senha-erro { font-size: 0.875rem; letter-spacing: 0.12em; color: #ff6b7a; }
-.senha-dica:empty,
-.senha-erro:empty { display: none; }
+
+/* O cadeado: diz "é aqui" sem escrever nada. A fechadura é um coração de pétala.
+   Com o foco no campo ele acende; errou, balança junto; acertou, o arco se abre. */
+.senha-cadeado {
+  width: 34px;
+  height: 34px;
+  color: var(--luar-suave);
+  opacity: 0.72;
+  transition: opacity 240ms linear;
+}
+.senha:focus-within .senha-cadeado,
+.senha[data-certa] .senha-cadeado { opacity: 1; }
+.senha-cadeado-coracao { fill: var(--sakura); stroke: none; }
+.senha-cadeado-arco {
+  transform-origin: 15.5px 10.5px;
+  transition: transform var(--dur-mola) var(--mola);
+}
+.senha[data-certa] .senha-cadeado-arco { transform: translateY(-1.6px) rotate(32deg); }
 
 /* O campo: uma linha só, sem casas, para não entregar o tamanho da senha. */
 .senha-quadro { position: relative; width: 100%; }
 .senha-campo {
   display: block;
   width: 100%;
+  min-height: 56px;
   margin: 0;
-  padding: 10px 44px;
+  padding: 8px 56px 10px;
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: #fff;
-  caret-color: #fff;
-  font-family: var(--fonte-titulo);
-  font-size: 1.75rem;            /* 16 px ou mais: o Safari do iPhone não dá zoom no campo */
+  color: var(--luar);
+  caret-color: var(--sakura);
+  font-family: var(--fonte-mao);
+  font-weight: 600;
+  font-size: 1.875rem;           /* 16 px ou mais: o Safari do iPhone não dá zoom no campo */
   line-height: 1.3;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
   text-align: center;
   outline: none;
   -webkit-appearance: none;
   appearance: none;
   -webkit-tap-highlight-color: transparent;
 }
-.senha-campo:disabled { pointer-events: none; opacity: 1; -webkit-text-fill-color: #fff; }
+.senha-campo:disabled { pointer-events: none; opacity: 1; -webkit-text-fill-color: var(--luar); }
+/* O traço é um pesponto: a linha onde o fio vai ser costurado. */
 .senha-traco {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 1px;
-  background: #fff;
-  opacity: 0.3;
-  transition: opacity 320ms linear;
+  height: 2px;
+  border-radius: 1px;
+  background: repeating-linear-gradient(90deg, var(--luar) 0 7px, transparent 7px 14px);
+  opacity: 0.34;
+  transition: opacity 240ms linear;
 }
-.senha-campo:focus ~ .senha-traco { opacity: 0.7; }
-.senha[data-certa] .senha-traco { opacity: 0; transition-duration: 600ms; }
+.senha-campo:focus ~ .senha-traco { opacity: 0.82; }
+.senha[data-erro] .senha-traco { opacity: 0.82; background-image: repeating-linear-gradient(90deg, var(--sakura) 0 7px, transparent 7px 14px); }
+.senha[data-certa] .senha-traco { opacity: 0; transition-duration: 500ms; }
 
-/* A setinha de confirmar: só aparece quando há algo escrito. */
+/* A setinha de confirmar: um botão redondo da noite, que só chega quando há algo escrito. */
 .senha-ir {
   position: absolute;
-  right: -6px;
+  right: 0;
   top: 50%;
   width: 44px;
   height: 44px;
-  margin: -22px 0 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: #fff;
-  font-size: 1.375rem;
-  line-height: 1;
+  margin-top: -24px;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 240ms linear, transform 160ms ease-out;
-  -webkit-tap-highlight-color: transparent;
+  transform: scale(0.6);
+  transition: transform var(--dur-sair) var(--curva-sair), opacity var(--dur-sair) linear;
 }
-.senha[data-tem] .senha-ir { opacity: 0.8; pointer-events: auto; }
-.senha-ir:active { transform: scale(0.94); }
-.senha[data-certa] .senha-ir { opacity: 0; pointer-events: none; }
+.senha-ir .ui-icone { width: 22px; height: 22px; }
+.senha[data-tem] .senha-ir {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+  transition: transform var(--dur-mola) var(--mola), opacity var(--dur-ui) linear;
+}
+.senha[data-tem] .senha-ir:active {
+  transform: scale(0.9);
+  transition-duration: var(--dur-toque);
+  transition-timing-function: var(--curva-ui);
+}
+.senha[data-certa] .senha-ir,
+.senha[data-erro] .senha-ir { opacity: 0; pointer-events: none; transform: scale(0.6); }
+@media (hover: hover) and (pointer: fine) {
+  .senha[data-tem]:not([data-erro]):not([data-certa]) .senha-ir:hover:not(:active) { transform: translateX(2px); }
+}
 
-/* O fio vermelho que corre por baixo do campo quando ela acerta. */
+/* O fio vermelho que costura por baixo do campo quando ela acerta. A janela (.senha-fio)
+   e o desenho (.senha-fio-linha) andam em sentidos opostos: o fio aparece sem esticar. */
 .senha-fio {
   position: absolute;
-  left: -6px;
-  right: -6px;
-  bottom: -1px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--fio);
-  box-shadow: 0 0 14px rgba(215, 25, 45, 0.6);
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 8px;
+  overflow: hidden;
+  opacity: 0;                    /* quem move é o js/cenas/senha.js (xPercent), só no acerto */
+  pointer-events: none;
+}
+.senha-fio-linha {
+  position: absolute;
+  inset: 0;
+  background: var(--enfeite-fio) left center / 18px 8px repeat-x;
+}
+/* O coração que fecha o ponto, no fim do fio. */
+.senha-ponto {
+  position: absolute;
+  right: -9px;
+  bottom: -7px;
+  width: 16px;
+  height: 16px;
   opacity: 0;
-  transform: scaleX(0);
-  transform-origin: 0 50%;
 }
 
-/* Errou: o campo treme de leve e o que foi escrito se apaga. */
-.senha[data-erro] .senha-quadro { animation: senha-tremor 0.46s cubic-bezier(0.36, 0.07, 0.19, 0.97); }
+/* Errou: três idas curtas para os lados (280 ms) e o que foi escrito se apaga. */
+.senha[data-erro] .senha-quadro,
+.senha[data-erro] .senha-cadeado { animation: senha-tremor 280ms var(--curva-ui); }
+.senha[data-erro] .senha-campo { color: var(--sakura); -webkit-text-fill-color: var(--sakura); }
 @keyframes senha-tremor {
   0%, 100% { transform: translateX(0); }
-  18% { transform: translateX(-8px); }
-  38% { transform: translateX(7px); }
-  58% { transform: translateX(-4px); }
-  78% { transform: translateX(2px); }
+  20% { transform: translateX(-7px); }
+  50% { transform: translateX(6px); }
+  80% { transform: translateX(-3px); }
 }
-html.reduzido .senha[data-erro] .senha-quadro { animation: senha-pisca 0.46s linear; }
-@keyframes senha-pisca { 50% { opacity: 0.3; } }
+html.reduzido .senha[data-erro] .senha-quadro,
+html.reduzido .senha[data-erro] .senha-cadeado { animation: senha-pisca 280ms linear; }
+@keyframes senha-pisca { 50% { opacity: 0.35; } }
+html.reduzido .senha-ir,
+html.reduzido .senha-cadeado-arco { transition-duration: 0.01ms; }
+@media (prefers-reduced-motion: reduce) {
+  .senha[data-erro] .senha-quadro,
+  .senha[data-erro] .senha-cadeado { animation: senha-pisca 280ms linear; }
+}
+
+/* O aviso de erro e a dica: letra à mão, legíveis no preto (pétala 12:1, luar 13:1). */
+.senha-erro {
+  margin: 2px 0 0;
+  font-family: var(--fonte-mao);
+  font-weight: 600;
+  font-size: 1.0625rem;
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+  color: var(--sakura);
+  text-align: center;
+}
+/* A dica é um bilhete da noite, com pesponto, posto um pouco torto. */
+.senha .senha-dica {
+  position: relative;
+  max-width: 100%;
+  margin: 0;
+  padding: 12px 20px 13px;
+  border-radius: var(--raio-m);
+  background: linear-gradient(168deg, rgba(34, 42, 96, 0.9), rgba(16, 20, 58, 0.9));
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  font-size: 1.0625rem;
+  line-height: 1.45;
+  letter-spacing: 0.02em;
+  color: var(--luar);
+  text-align: center;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+.senha .senha-dica::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px dashed var(--ponto-noite);
+  border-radius: calc(var(--raio-m) - 4px);
+  pointer-events: none;
+}
+.senha-dica:empty,
+.senha-erro:empty { display: none; }
 
 /* O carrossel de música ocupa a largura toda (as capas vizinhas espiam pelas bordas);
    com a tela deitada, o que não couber rola, para o continuar nunca ficar fora de alcance. */

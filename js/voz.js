@@ -12,7 +12,8 @@
 //   voz.aberto → boolean
 //   voz.liberada → boolean
 //
-// O cartão: uma folha de papel com a fita cassete no alto (os carretéis giram
+// O cartão (linguagem em _dev/UI.md): uma folha de papel pespontada, com o lacinho do
+// fio preso no alto e a fita cassete (os carretéis giram
 // enquanto um áudio toca) e, por áudio, tocar/pausar, o fio de progresso com a
 // conta que ela arrasta, o tempo e o botão de baixar. Só um áudio toca por vez.
 // Enquanto ele fala, a música do site abaixa; quando para, ela volta (igual aos
@@ -43,10 +44,11 @@ const SAIDA_MS = 240;                // o cartão leva isto para sair (igual ao 
 const PASSOS = 1000;                 // resolução do fio de progresso
 const TINTA = '#2a1b22';
 
-const ICONE_TOCAR = '<svg class="voz-i-tocar" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8.7 5.3c.2 4.5.1 8.9-.1 13.4 3.6-2 7-4.2 10.5-6.6-3.4-2.4-6.8-4.7-10.4-6.8z" fill="currentColor" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>';
-const ICONE_PAUSA = '<svg class="voz-i-pausa" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8.4 5.6c.2 4.2.1 8.5-.1 12.8M15.7 5.4c-.2 4.3-.1 8.6.1 13" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round"/></svg>';
-const ICONE_BAIXAR = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 4.2c.1 3.6.1 7.1 0 10.6M7.4 10.9c1.5 1.4 3 2.8 4.6 4.1 1.6-1.3 3.1-2.6 4.6-4.1M5 19.6c4.6.3 9.3.3 14 0" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const ICONE_FECHAR = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.5 6.5 L17.5 17.5 M17.5 6.5 L6.5 17.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+// Ícones na grade da papelaria (24, traço 1.75, pontas redondas: .ui-icone, css/base.css).
+const ICONE_TOCAR = '<svg class="ui-icone voz-i-tocar" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path class="cheio-tinta" d="M9.2 6.6v10.8a.6.6 0 0 0 .9.5l8.6-5.4a.6.6 0 0 0 0-1L10.1 6.1a.6.6 0 0 0-.9.5z"/></svg>';
+const ICONE_PAUSA = '<svg class="ui-icone voz-i-pausa" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9.2 7v10M14.8 7v10" stroke-width="2.6"/></svg>';
+const ICONE_BAIXAR = '<svg class="ui-icone" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 4.8v9.7M7.6 10.4l4.4 4.4 4.4-4.4M6 19.2h12"/></svg>';
+const ICONE_FECHAR = '<svg class="ui-icone" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 7l10 10M17 7L7 17"/></svg>';
 
 // A fita cassete, a tinta. Os dois carretéis (.voz-rolo) giram enquanto toca; a fita
 // enrolada (.voz-massa-e / -d) passa de um lado para o outro com o progresso.
@@ -258,14 +260,15 @@ export function criarVoz(ctx) {
       f.aviso.hidden = false;
       f.controle = el('input', { type: 'hidden' });
       f.cheio = el('span');
-      f.no = el('li', { class: 'voz-item', dataset: { estado: 'vazio' } }, [
-        el('span', { class: 'voz-tocar voz-tocar-vazio', 'aria-hidden': 'true' }, svg(ICONE_TOCAR)),
+      f.no = el('li', { class: 'ui-entra voz-item', dataset: { estado: 'vazio' } }, [
+        el('span', { class: 'ui-redondo voz-tocar voz-tocar-vazio', 'aria-hidden': 'true' }, svg(ICONE_TOCAR)),
         el('div', 'voz-meio', [el('div', 'voz-linha', [nome]), f.aviso]),
       ]);
+      f.no.style.setProperty('--i', String(f.n + 1));
       return f.no;
     }
 
-    f.botao = el('button', { class: 'voz-tocar', type: 'button', dataset: { acao: 'voz-tocar' } }, [svg(ICONE_TOCAR), svg(ICONE_PAUSA)]);
+    f.botao = el('button', { class: 'ui-redondo voz-tocar', type: 'button', dataset: { acao: 'voz-tocar' } }, [svg(ICONE_TOCAR), svg(ICONE_PAUSA)]);
     f.botao.addEventListener('touchstart', () => {}, { passive: true });     // :active no iPhone
     f.botao.addEventListener('click', () => alternar(f));
     f.cheio = el('span', 'voz-fio-cheio');
@@ -287,12 +290,12 @@ export function criarVoz(ctx) {
     f.controle.addEventListener('blur', soltar);
 
     const baixar = el('a', {
-      class: 'voz-baixar', href: f.arquivo, download: nomeParaBaixar(f.titulo, f.arquivo, f.n),
+      class: 'ui-redondo voz-baixar', href: f.arquivo, download: nomeParaBaixar(f.titulo, f.arquivo, f.n),
       'aria-label': `${rot.baixar || 'Baixar'}: ${f.titulo || f.n}`, dataset: { acao: 'voz-baixar' },
     }, svg(ICONE_BAIXAR));
     baixar.addEventListener('touchstart', () => {}, { passive: true });
 
-    f.no = el('li', { class: 'voz-item', dataset: { estado: 'pronto' } }, [
+    f.no = el('li', { class: 'ui-entra voz-item', dataset: { estado: 'pronto' } }, [
       f.botao,
       el('div', 'voz-meio', [
         el('div', 'voz-linha', [nome]),
@@ -304,6 +307,7 @@ export function criarVoz(ctx) {
       ]),
       baixar,
     ]);
+    f.no.style.setProperty('--i', String(f.n + 1));          // as linhas chegam em fila
     return f.no;
   }
 
@@ -311,18 +315,22 @@ export function criarVoz(ctx) {
   function montar() {
     if (raiz) return;
     const fechar = el('button', {
-      class: 'voz-fechar', type: 'button', 'aria-label': rot.fechar || 'Fechar', dataset: { acao: 'voz-fechar' },
+      class: 'ui-redondo voz-fechar', type: 'button', 'aria-label': rot.fechar || 'Fechar', dataset: { acao: 'voz-fechar' },
     }, svg(ICONE_FECHAR));
     fechar.addEventListener('click', () => api.fechar());
     const veu = el('div', 'voz-veu');
     veu.addEventListener('click', () => api.fechar());
     const frase = texto(dados.frase);
-    cartao = el('div', 'voz-cartao', [
+    // (o cartão não rola: quem rola é o miolo, para o laço, o pesponto e o fechar ficarem parados)
+    cartao = el('div', 'ui-folha voz-cartao', [
+      el('span', { class: 'ui-laco', 'aria-hidden': 'true', dataset: { onde: 'topo' } }),
+      el('div', 'ui-rola voz-miolo', [
+        el('div', { class: 'voz-fita', 'aria-hidden': 'true' }, svg(FITA)),
+        el('h2', { class: 'ui-titulo voz-titulo', id: 'voz-titulo' }, titulo),
+        frase ? el('p', 'ui-nota voz-frase', frase) : null,
+        el('ol', 'voz-lista', faixas.map(montarFaixa)),
+      ]),
       fechar,
-      el('div', { class: 'voz-fita', 'aria-hidden': 'true' }, svg(FITA)),
-      el('h2', { class: 'voz-titulo', id: 'voz-titulo' }, titulo),
-      frase ? el('p', 'voz-frase', frase) : null,
-      el('ol', 'voz-lista', faixas.map(montarFaixa)),
     ]);
     raiz = el('section', {
       id: 'voz', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'voz-titulo', hidden: true,

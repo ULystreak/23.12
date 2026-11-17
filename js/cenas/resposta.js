@@ -24,7 +24,21 @@
 // "resposta-abrir"; .contador[data-dias].
 // Parâmetro só de teste: ?hoje=AAAA-MM-DD finge a data de hoje.
 
-import { el } from '../nucleo/util.js';
+import { el, svg } from '../nucleo/util.js';
+
+// Ícones da papelaria (_dev/UI.md): grade 24, traço 1.75, pontas redondas.
+const AVIAO = `
+  <svg class="ui-icone" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M20.6 3.6 C14.6 5.8 9 8 3.4 10.4 C5.6 11.4 7.6 12.3 9.8 13.4 C10.8 15.6 11.6 17.6 12.6 19.8 C15.2 14.4 18 9 20.6 3.6 Z M9.8 13.4 C13.4 10.2 17 6.8 20.6 3.6"/>
+  </svg>`;
+const CORACAO = `
+  <svg class="resposta-coracao" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+    <path d="M10 16.8C4.6 12.6 2.4 9.8 2.4 6.9a3.9 3.9 0 0 1 7.6-1.3 3.9 3.9 0 0 1 7.6 1.3c0 2.9-2.2 5.7-7.6 9.9z"/>
+  </svg>`;
+const PENA = `
+  <svg class="ui-icone" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M4.6 19.4 C5 17.4 5.6 15.6 6.4 14 C9.6 10.6 12.8 7.4 16 4.4 C17.6 3.6 20.2 6.2 19.6 7.8 C16.4 11 13.2 14.2 10 17.4 C8.2 18.2 6.4 18.8 4.6 19.4 Z M14.2 6.2 C15.4 7.4 16.6 8.6 17.8 9.8"/>
+  </svg>`;
 
 const CHAVE = 'carta2312:resposta';
 
@@ -84,10 +98,22 @@ export function criarDepois(ctx) {
 
   // ---- o contador ---------------------------------------------------------------------
   const numero = el('span', { class: 'contador-numero', 'aria-hidden': 'true', texto: '0' });
+  const fio = el('span', { class: 'contador-fio', 'aria-hidden': 'true' });   // o mesmo fio costurado do traço da senha
   const rotulo = el('span', { class: 'contador-rotulo', 'aria-hidden': 'true', texto: texto(dadosC.rotulo) || 'dias até aqui' });
   const frase = texto(dadosC.frase) ? el('p', { class: 'contador-frase', texto: texto(dadosC.frase) }) : null;
-  const contador = el('div', { class: 'contador', role: 'group' }, [numero, rotulo, frase]);
-  const mostrarDias = (n) => { numero.textContent = String(Math.round(n)); };
+  const contador = el('div', { class: 'contador', role: 'group' }, [numero, fio, rotulo, frase]);
+  // cada algarismo numa casa de largura fixa: o número não treme enquanto conta
+  let mostrado = '';
+  const mostrarDias = (n) => {
+    const s = String(Math.round(n));
+    if (s === mostrado) return;
+    mostrado = s;
+    while (numero.childElementCount > s.length) numero.lastElementChild.remove();
+    if (!numero.childElementCount) numero.textContent = '';
+    while (numero.childElementCount < s.length) numero.append(el('span', 'contador-casa'));
+    for (let i = 0; i < s.length; i++) { const c = numero.children[i]; if (c.textContent !== s[i]) c.textContent = s[i]; }
+  };
+  mostrarDias(0);
 
   async function contar() {
     if (!temContador) return;
@@ -95,7 +121,7 @@ export function criarDepois(ctx) {
     contador.dataset.dias = String(dias);
     contador.setAttribute('aria-label', `${dias} ${rotulo.textContent}`);
     raiz.append(contador);
-    gsap.set([contador, rotulo, ...(frase ? [frase] : [])], { autoAlpha: 0 });
+    gsap.set([contador, rotulo, fio, ...(frase ? [frase] : [])], { autoAlpha: 0 });
     gsap.set(contador, { autoAlpha: 1 });
     gsap.set(numero, { autoAlpha: 0 });
     await new Promise((ok) => {
@@ -111,9 +137,13 @@ export function criarDepois(ctx) {
           onUpdate: () => mostrarDias(conta.v),
           onComplete: () => { mostrarDias(dias); som.efeito?.('brilho'); },
         }, 1.3);
+        // chegou: o número assenta com um pulinho
+        tl.fromTo(numero, { scale: 1 }, { scale: 1.07, duration: 0.16, ease: 'power2.out' }, 4.7);
+        tl.to(numero, { scale: 1, duration: 0.5, ease: 'back.out(2.2)' }, 4.86);
       }
       const depois = calmo ? 1.4 : 4.9;
-      tl.to(rotulo, { autoAlpha: 1, duration: 0.9, ease: 'none' }, depois);
+      tl.fromTo(fio, { autoAlpha: 0, scaleX: calmo ? 1 : 0 }, { autoAlpha: 1, scaleX: 1, duration: calmo ? 0.6 : 0.9, ease: 'power3.out' }, depois - (calmo ? 0 : 0.1));
+      tl.to(rotulo, { autoAlpha: 1, duration: 0.9, ease: 'none' }, depois + (calmo ? 0 : 0.25));
       if (frase) tl.fromTo(frase, { autoAlpha: 0, y: calmo ? 0 : 10 }, { autoAlpha: 1, y: 0, duration: 1.4, ease: 'power2.out' }, depois + 1.1);
       tl.to({}, { duration: frase ? 3.6 : 2.2 });       // ela lê
     });
@@ -145,7 +175,8 @@ export function criarDepois(ctx) {
   let enviar = null;
   let aoGuardar = null;
   let aberta = false;
-  const reabrir = el('button', { class: 'depois-reabrir', type: 'button', dataset: { acao: 'resposta-abrir' }, texto: texto(rot.reabrir) || 'Escrever de volta' });
+  const reabrir = el('button', { class: 'depois-reabrir ui-pilula', type: 'button', dataset: { acao: 'resposta-abrir', tom: 'noite' } },
+    [svg(PENA), el('span', { texto: texto(rot.reabrir) || 'Escrever de volta' })]);
 
   const mensagem = () => {
     const escrito = campo ? campo.value.trim() : '';
@@ -163,30 +194,42 @@ export function criarDepois(ctx) {
     enviar.href = tem ? enderecoWhats() : '#';
     enviar.setAttribute('aria-disabled', tem ? 'false' : 'true');
   };
-  const avisar = (frase_) => { if (aviso) aviso.textContent = frase_ || ''; };
+  /** O aviso pequeno embaixo do texto. erro = ela tocou em enviar sem ter escrito: o aviso balança. */
+  const avisar = (frase_, erro = false) => {
+    if (!aviso) return;
+    const t = frase_ || '';
+    const mudou = aviso.textContent !== t || erro;
+    aviso.textContent = t;
+    aviso.toggleAttribute('data-erro', !!erro && !!t);
+    if (!mudou || !t) return;
+    aviso.classList.remove('ui-entra', 'resposta-nega');
+    void aviso.offsetWidth;                               // recomeça a animação
+    aviso.classList.add(erro ? 'resposta-nega' : 'ui-entra');
+  };
 
   function montarFolha() {
     if (folha) return;
     campo = el('textarea', {
-      class: 'resposta-texto', rows: '6', dataset: { acao: 'resposta-texto' },
+      class: 'resposta-texto ui-campo', rows: '6', dataset: { acao: 'resposta-texto' },
       placeholder: texto(r.dica), 'aria-label': texto(rot.campo) || texto(r.convite) || 'Sua resposta',
       autocapitalize: 'sentences', spellcheck: 'false', enterkeyhint: 'enter',
     });
     campo.value = guardado.ler();
-    aviso = el('p', { class: 'resposta-aviso', role: 'status', texto: campo.value ? texto(r.guardado) : '' });
+    aviso = el('p', { class: 'resposta-aviso ui-nota', role: 'status', texto: campo.value ? texto(r.guardado) : '' });
     enviar = el('a', {
-      class: 'resposta-enviar', href: '#', target: '_blank', rel: 'noopener noreferrer',
-      dataset: { acao: 'resposta-enviar' }, texto: texto(rot.enviar) || 'Enviar para ele',
-    });
+      class: 'resposta-enviar ui-pilula', href: '#', target: '_blank', rel: 'noopener noreferrer',
+      dataset: { acao: 'resposta-enviar', tom: 'fio' },
+    }, [svg(AVIAO), el('span', { texto: texto(rot.enviar) || 'Enviar para ele' }), svg(CORACAO)]);
     const outro = (typeof navigator !== 'undefined' && typeof navigator.share === 'function')
       ? el('button', { class: 'resposta-outro', type: 'button', dataset: { acao: 'resposta-compartilhar' }, texto: texto(rot.outro) || 'enviar de outro jeito' })
       : null;
-    const guardar = el('button', { class: 'resposta-guardar', type: 'button', dataset: { acao: 'resposta-guardar' }, texto: texto(rot.guardar) || 'Guardar' });
-    folha = el('section', { class: 'resposta', 'aria-label': texto(rot.folha) || 'Folha em branco' }, [
-      texto(r.convite) ? el('p', { class: 'resposta-convite', texto: texto(r.convite) }) : null,
+    const guardar = el('button', { class: 'resposta-guardar ui-pilula', type: 'button', dataset: { acao: 'resposta-guardar' }, texto: texto(rot.guardar) || 'Guardar' });
+    folha = el('section', { class: 'resposta ui-folha', 'aria-label': texto(rot.folha) || 'Folha em branco' }, [
+      el('span', { class: 'ui-laco', 'aria-hidden': 'true', dataset: { onde: 'topo' } }),
+      texto(r.convite) ? el('p', { class: 'resposta-convite ui-titulo', texto: texto(r.convite) }) : null,
       campo,
       aviso,
-      el('div', { class: 'resposta-botoes' }, [enviar, guardar]),
+      el('div', { class: 'resposta-botoes' }, [guardar, enviar]),
       outro,
     ]);
 
@@ -198,7 +241,7 @@ export function criarDepois(ctx) {
     enviar.addEventListener('click', (e) => {
       if (!campo.value.trim()) {
         e.preventDefault();
-        avisar(texto(r.vazio));
+        avisar(texto(r.vazio), true);
         try { campo.focus({ preventScroll: true }); } catch { /* sem foco */ }
         return;
       }
@@ -207,7 +250,7 @@ export function criarDepois(ctx) {
     });
     if (outro) {
       outro.addEventListener('click', async () => {
-        if (!campo.value.trim()) { avisar(texto(r.vazio)); return; }
+        if (!campo.value.trim()) { avisar(texto(r.vazio), true); return; }
         try { await navigator.share({ text: mensagem() }); } catch { /* ela desistiu: nada acontece */ }
       });
     }
@@ -242,8 +285,8 @@ export function criarDepois(ctx) {
     gsap.to(veu, { opacity: 1, duration: 0.8, ease: 'sine.inOut' });
     som.efeito?.('papel');
     await new Promise((ok) => gsap.fromTo(folha,
-      { autoAlpha: 0, y: calmo ? 0 : 46, rotation: calmo ? 0 : 1.2 },
-      { autoAlpha: 1, y: 0, rotation: 0, duration: calmo ? 0.6 : 1.1, ease: 'power3.out', onComplete: ok }));
+      { autoAlpha: 0, y: calmo ? 0 : 34, scale: calmo ? 1 : 0.94, rotation: calmo ? 0 : 1.6 },
+      { autoAlpha: 1, y: 0, scale: 1, rotation: 0, duration: calmo ? 0.5 : 0.62, ease: calmo ? 'none' : 'back.out(1.3)', onComplete: ok }));
     // No computador o cursor já fica na folha; no celular o teclado só sobe com o toque dela.
     if (!amb.toque) { try { campo.focus({ preventScroll: true }); } catch { /* sem foco */ } }
   }
@@ -254,7 +297,7 @@ export function criarDepois(ctx) {
     try { campo.blur(); } catch { /* nada */ }
     if (vv) { vv.removeEventListener('resize', aoViewport); vv.removeEventListener('scroll', aoViewport); }
     window.removeEventListener('resize', aoViewport);
-    await new Promise((ok) => gsap.to(folha, { autoAlpha: 0, y: calmo ? 0 : 30, duration: calmo ? 0.4 : 0.7, ease: 'power2.in', onComplete: ok }));
+    await new Promise((ok) => gsap.to(folha, { autoAlpha: 0, y: calmo ? 0 : 14, scale: calmo ? 1 : 0.97, duration: calmo ? 0.3 : 0.24, ease: 'power2.out', onComplete: ok }));
     folha.remove();
     delete raiz.dataset.folha;
     raiz.removeAttribute('data-teclado');

@@ -1,12 +1,13 @@
 /* A bolsa (js/inventario.js): o botão no canto de baixo, à direita, e a folha com
-   o que ela já guardou.
+   o que ela já guardou. Linguagem: _dev/UI.md (papelaria da alameda); as peças
+   .ui-* vêm do css/base.css e aqui só entram posição, tamanho e o que é da bolsa.
    O mini seletor de música mora no canto de CIMA, à direita (css/musica.css): a
    bolsa fica embaixo e os dois não se encostam. O botão também não alcança #acoes
    (centrado) nem a dica. Só transform e opacity são animados. */
 #inventario {
   position: fixed;
-  right: calc(var(--seguro-dir) + 14px);
-  bottom: calc(var(--seguro-base) + 14px);
+  right: calc(var(--seguro-dir) + 16px);
+  bottom: calc(var(--seguro-base) + 16px);
   z-index: var(--z-mini);
   font-family: var(--fonte-mao);
   color: var(--tinta);
@@ -16,83 +17,60 @@
 }
 #inventario[hidden] { display: none; }
 
-/* ---- o botão: uma bolsinha a tinta num disco de papel ---------------------- */
+/* ---- o botão: um disco de papel pespontado, com a bolsinha e o selo --------- */
 .inventario-botao {
-  position: relative;
-  display: grid;
-  place-items: center;
   width: 56px;
   height: 56px;
   padding: 0;
   border: 0;
-  border-radius: 50%;
-  background: none;
-  color: inherit;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  transition: transform var(--dur-ui) var(--curva-ui), opacity var(--dur-ui-lenta) var(--curva-ui);
+  transition: transform var(--dur-mola) var(--mola), opacity var(--dur-ui-lenta) var(--curva-ui);
 }
-/* (o disco é um pseudo-elemento: a sombra não é animada, só o botão inteiro) */
-.inventario-botao::before {
+.inventario-botao::before {            /* o pesponto, a 4 px da borda */
   content: "";
   position: absolute;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
+  top: 4px; right: 4px; bottom: 4px; left: 4px;
+  border: 1px dashed var(--ponto);
   border-radius: 50%;
-  background: var(--papel);
-  box-shadow:
-    0 0 0 1.5px rgba(42, 27, 34, 0.82),
-    0 6px 16px rgba(42, 27, 34, 0.18),
-    0 1px 3px rgba(42, 27, 34, 0.16);
+  pointer-events: none;
 }
-.inventario-icone {
-  position: relative;
-  display: block;
-  width: 32px;
-  height: 32px;
-}
+.inventario-icone { width: 30px; height: 30px; }
+.inventario-icone-corpo { fill: #fffdf8; }
 .inventario-conta {
   position: absolute;
-  top: -3px;
-  right: -3px;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 6px;
-  border-radius: 11px;
-  background: var(--fio);
-  box-shadow: 0 0 0 2px #ffffff;
-  color: #ffffff;
-  font-family: var(--fonte-titulo);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  line-height: 22px;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
+  top: -5px;
+  right: -5px;
 }
 .inventario-conta:empty { display: none; }
-.inventario-botao:active { transform: scale(0.94); }
+
+/* Fora das esperas a bolsa fica à vista, quieta: sem sombra, meio apagada, e ainda
+   segura o toque (ele não passa para o mundo por baixo). */
 .inventario-botao:disabled { cursor: default; }
-/* Fora das esperas a bolsa fica à vista, quieta. */
-#inventario[data-quieto] .inventario-botao { opacity: 0.5; }
+#inventario .inventario-botao:disabled { opacity: 0.5; pointer-events: auto; transform: none; }
 /* Com uma carta da bolsa reaberta na frente, o botão não fica por cima do que ela lê. */
 #inventario[data-relendo] .inventario-botao { opacity: 0; pointer-events: none; }
-@media (hover: hover) and (pointer: fine) {
-  .inventario-botao:not(:disabled):hover { transform: translateY(-2px); }
-  .inventario-botao:not(:disabled):active { transform: scale(0.94); }
-}
-.inventario-botao.chegou { animation: inventario-chegar 620ms var(--curva-ui) both; }
-.inventario-botao.recebeu { animation: inventario-receber 520ms var(--curva-ui) both; }
+/* Aberta: o botão fica afundado, como a bolsa de boca aberta (no celular a folha o cobre). */
+#inventario[data-aberto] .inventario-botao { transform: scale(0.92); }
+
+.inventario-botao.chegou { animation: inventario-chegar 560ms var(--mola) both; }
+.inventario-botao.recebeu { animation: inventario-receber 560ms var(--mola) both; }
+.inventario-botao.recebeu .inventario-conta { animation: ui-pulo 520ms var(--mola) 140ms both; }
+.inventario-botao.vazia { animation: inventario-nao 300ms var(--curva-ui) both; }
 @keyframes inventario-chegar {
-  0% { opacity: 0; transform: translateY(14px) scale(0.6); }
-  60% { opacity: 1; transform: translateY(-3px) scale(1.06); }
-  100% { transform: none; }
+  from { opacity: 0; transform: translateY(16px) scale(0.8); }
 }
+/* engole a carta: abaixa, e volta na mola */
 @keyframes inventario-receber {
   0% { transform: none; }
-  35% { transform: translateY(3px) scale(0.92, 0.9); }
-  70% { transform: translateY(-3px) scale(1.05); }
+  28% { transform: translateY(4px) scale(1.08, 0.88); }
   100% { transform: none; }
+}
+@keyframes inventario-nao {
+  0%, 100% { transform: none; }
+  25% { transform: translateX(-4px) rotate(-5deg); }
+  60% { transform: translateX(3px) rotate(4deg); }
 }
 
 /* ---- a folha -------------------------------------------------------------- */
@@ -103,169 +81,165 @@
   width: 100%;
   height: 100vh;
   height: 100dvh;
-  background: rgba(42, 27, 34, 0.16);
+  background: var(--noite-veu);
   opacity: 0;
-  transition: opacity 240ms var(--curva-ui);
+  transition: opacity var(--dur-sair) linear;
 }
 .inventario-fundo[hidden], .inventario-folha[hidden] { display: none; }
-#inventario[data-aberto] .inventario-fundo { opacity: 1; }
+#inventario[data-aberto] .inventario-fundo { opacity: 0.62; transition-duration: 280ms; }
 
-.inventario-folha {
+#inventario .inventario-folha {
   position: fixed;
   left: 0; right: 0; bottom: 0;
+  display: flex;
+  flex-direction: column;
   max-height: min(78vh, 78dvh);
-  padding: 18px max(20px, var(--seguro-dir)) calc(var(--seguro-base) + 22px) max(20px, var(--seguro-esq));
-  border-radius: 22px 22px 0 0;
-  background: var(--papel);
-  box-shadow: 0 -1px 0 rgba(42, 27, 34, 0.14), 0 -14px 40px rgba(42, 27, 34, 0.16);
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  /* (a sombra de baixo é papel: a mola passa 1,6% do ponto e não abre fresta) */
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.7) inset, 0 -16px 44px -10px rgba(30, 14, 40, 0.4), 0 28px 0 #f6efe3;
   opacity: 0;
-  transform: translate3d(0, 28px, 0);
-  transition: transform 240ms var(--curva-ui), opacity 240ms var(--curva-ui);
+  transform: translate3d(0, 100%, 0);
+  transition: transform 220ms var(--curva-sair), opacity 160ms linear 60ms;
 }
 #inventario[data-aberto] .inventario-folha {
   opacity: 1;
   transform: none;
-  transition-duration: 380ms, 260ms;
+  transition: transform var(--dur-folha) var(--mola-firme), opacity 120ms linear;
 }
-/* a alça da folha, no celular */
-.inventario-folha::before {
-  content: "";
-  display: block;
-  width: 40px;
-  height: 4px;
-  margin: -6px auto 10px;
-  border-radius: 2px;
-  background: rgba(42, 27, 34, 0.16);
-}
+.inventario-folha .ui-puxador { flex: none; margin: 16px auto 4px; }
 .inventario-topo {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin: 0 0 10px;
-  padding: 0 0 8px;
-  border-bottom: 1px solid var(--papel-linha);
+  padding: 2px calc(var(--seguro-dir) + 18px) 0 calc(var(--seguro-esq) + 26px);
 }
-.inventario-titulo {
-  margin: 0;
-  font-size: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem);
-  letter-spacing: 0.03em;
-}
+.inventario-titulo { margin: 0; min-width: 0; }
 .inventario-fechar {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  margin-right: -10px;
   padding: 0;
   border: 0;
-  border-radius: 50%;
-  background: none;
-  color: var(--tinta-suave);
   cursor: pointer;
+  color: var(--tinta-suave);
+  box-shadow: var(--sombra-baixa);
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
-.inventario-fechar svg { width: 24px; height: 24px; }
-.inventario-fechar:active { transform: scale(0.92); }
+.inventario-costura {
+  flex: none;
+  margin: 10px calc(var(--seguro-dir) + 26px) 0 calc(var(--seguro-esq) + 26px);
+}
+.inventario-miolo {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 14px calc(var(--seguro-dir) + 20px) 6px calc(var(--seguro-esq) + 20px);
+}
 
 /* a faixa do alto: o que fica sempre na bolsa (a fita com a voz dele, js/voz.js) */
-.inventario-fixos { margin: 0 0 6px; }
+.inventario-fixos { margin: 0 0 14px; }
 .inventario-fixos[hidden], .inventario-lista[hidden] { display: none; }
-.inventario-fixos:not(:last-child) { padding-bottom: 8px; border-bottom: 1px dashed var(--papel-linha); }
+.inventario-fixos:last-child { margin-bottom: 4px; }
 .inventario-fixo {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 16px;
   width: 100%;
-  min-height: 64px;
-  padding: 8px 6px 8px 8px;
+  min-height: 80px;
+  padding: 10px 14px 10px 16px;
   border: 0;
-  border-radius: 12px;
-  background: none;
-  color: inherit;
+  border-radius: var(--raio-m);
+  background: var(--sakura-clara);
+  color: var(--sakura-tinta);
   font: inherit;
   text-align: left;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  transition: transform var(--dur-ui) var(--curva-ui);
 }
-.inventario-fixo:active { transform: scale(0.97); }
+.inventario-fixo::before {             /* o pesponto do bilhete rosado */
+  content: "";
+  position: absolute;
+  top: 4px; right: 4px; bottom: 4px; left: 4px;
+  border: 1px dashed rgba(143, 31, 69, 0.26);
+  border-radius: calc(var(--raio-m) - 4px);
+  pointer-events: none;
+}
 .inventario-fita {
+  position: relative;
   flex: none;
   display: block;
-  width: 74px;
-  transform: rotate(-3deg);
-  filter: drop-shadow(0 4px 6px rgba(42, 27, 34, 0.16));
+  width: 76px;
+  transform: rotate(-4deg);
 }
-.inventario-fita svg { display: block; width: 100%; height: auto; }
+.inventario-fita svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 5px;
+  box-shadow: var(--sombra-baixa);
+}
 .inventario-fixo-nome {
   flex: 1;
   min-width: 0;
   font-size: 1.25rem;
   font-weight: 600;
   line-height: 1.25;
+  letter-spacing: 0.02em;
   overflow-wrap: anywhere;
 }
-.inventario-fixo-seta {
+.inventario-fixo-ouvir {
   flex: none;
-  width: 36px;
-  height: 36px;
-  padding: 9px 8px 9px 10px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
+  background: var(--papel);
   color: var(--fio);
-  box-shadow: inset 0 0 0 1.5px currentColor;
+  box-shadow: var(--sombra-baixa);
 }
-@media (hover: hover) and (pointer: fine) {
-  .inventario-fixo:hover { transform: translateY(-2px); }
-  .inventario-fixo:active { transform: scale(0.97); }
-}
+.inventario-fixo-ouvir .ui-icone { transform: translateX(1px); }
 
 .inventario-lista {
   margin: 0;
-  padding: 6px 0 0;
+  padding: 0;
   list-style: none;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px 10px;
+  gap: 10px 8px;
 }
 .inventario-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
   min-height: 44px;
-  padding: 8px 4px 6px;
+  padding: 8px 4px 8px;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--raio-m);
   background: none;
   color: inherit;
   font: inherit;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  transition: transform var(--dur-ui) var(--curva-ui);
-}
-.inventario-item:active { transform: scale(0.95); }
-@media (hover: hover) and (pointer: fine) {
-  .inventario-item:hover { transform: translateY(-3px); }
-  .inventario-item:active { transform: scale(0.95); }
-  .inventario-fechar:hover { color: var(--tinta); }
 }
 /* a carta pequena: a cara do tema, ou o envelope branco das cartas do chão */
-.inventario-carta {
+.inventario-miniatura {
   position: relative;
   display: block;
   width: min(100%, 104px);
+  transition: transform var(--dur-mola) var(--mola);
+}
+.inventario-carta {
+  position: relative;
+  display: block;
+  width: 100%;
   aspect-ratio: 23 / 16;
-  border-radius: 3px;
+  border-radius: 5px;
   background-size: 100% 100%;
-  box-shadow: 0 0 0 1px rgba(42, 27, 34, 0.5), 0 5px 12px rgba(42, 27, 34, 0.2);
+  box-shadow: 0 0 0 1px rgba(42, 27, 34, 0.42), var(--sombra-baixa);
   overflow: hidden;
 }
 .inventario-carta > svg {
@@ -274,50 +248,98 @@
   width: 100%; height: 100%;
 }
 .inventario-carta-branca {
-  box-shadow: 0 5px 12px rgba(42, 27, 34, 0.14);
+  border-radius: 4px;
+  box-shadow: var(--sombra-baixa);
   overflow: visible;
 }
 /* as cartas não ficam todas certinhas: cada uma pousou de um jeito */
-.inventario-lista li:nth-child(3n + 1) .inventario-carta { transform: rotate(-2.2deg); }
-.inventario-lista li:nth-child(3n + 2) .inventario-carta { transform: rotate(1.4deg); }
-.inventario-lista li:nth-child(3n) .inventario-carta { transform: rotate(-0.8deg); }
+.inventario-lista li:nth-child(3n + 1) .inventario-miniatura { transform: rotate(-2.4deg); }
+.inventario-lista li:nth-child(3n + 2) .inventario-miniatura { transform: rotate(1.6deg); }
+.inventario-lista li:nth-child(3n) .inventario-miniatura { transform: rotate(-0.9deg); }
 .inventario-nome {
   max-width: 100%;
   font-size: 1rem;
+  font-weight: 600;
   line-height: 1.25;
   text-align: center;
   text-wrap: balance;
   overflow-wrap: anywhere;
 }
+/* o que ela acabou de guardar e ainda não viu: uma pétala pousada no canto */
+.inventario-nova {
+  position: absolute;
+  top: -7px;
+  right: -6px;
+  width: 22px;
+  height: 22px;
+  transform: rotate(24deg);
+  animation: inventario-pousar 620ms var(--mola) 320ms both;
+}
+@keyframes inventario-pousar {
+  from { opacity: 0; transform: translate(6px, -14px) rotate(-30deg) scale(0.7); }
+}
 
-/* Telas largas: a folha vira um cartão acima do botão, no canto. */
+@media (hover: hover) and (pointer: fine) {
+  .inventario-botao:not(:disabled):hover { transform: translateY(-2px); }
+  #inventario[data-aberto] .inventario-botao:hover { transform: scale(0.92); }
+  .inventario-botao:not(:disabled):active { transform: scale(0.95); }
+  .inventario-fechar:hover { color: var(--tinta); }
+  .inventario-lista li .inventario-item:hover .inventario-miniatura { transform: translateY(-4px) rotate(0deg); }
+  .inventario-fixo:hover { transform: translateY(-2px); }
+  .inventario-fixo:active { transform: scale(0.95); }
+}
+
+/* Telas largas: a folha vira um cartão acima do botão, com os quatro cantos. */
 @media (min-width: 720px) {
-  .inventario-fundo { background: rgba(42, 27, 34, 0.06); }
-  .inventario-folha {
+  #inventario { right: calc(var(--seguro-dir) + 24px); bottom: calc(var(--seguro-base) + 24px); }
+  .inventario-fundo { background: rgba(9, 12, 40, 0.3); }
+  #inventario .inventario-folha {
     left: auto;
-    right: calc(var(--seguro-dir) + 14px);
-    bottom: calc(var(--seguro-base) + 84px);
-    width: 400px;
-    max-height: min(70vh, 560px);
-    padding: 18px 22px 22px;
-    border-radius: 18px;
-    box-shadow: 0 0 0 1px rgba(42, 27, 34, 0.12), 0 18px 48px rgba(42, 27, 34, 0.18);
-    transform: translate3d(0, 14px, 0) scale(0.98);
-    transform-origin: 100% 100%;
+    right: calc(var(--seguro-dir) + 24px);
+    bottom: calc(var(--seguro-base) + 94px);
+    width: 440px;
+    max-height: min(70vh, 580px);
+    padding-bottom: 18px;
+    border-radius: var(--raio-g);
+    box-shadow: var(--sombra-papel);
+    transform: translate3d(0, 10px, 0) scale(0.94);
+    transform-origin: calc(100% - 28px) 100%;
+    transition: transform var(--dur-sair) var(--curva-sair), opacity var(--dur-sair) linear;
   }
-  .inventario-folha::before { display: none; }
+  #inventario[data-aberto] .inventario-folha {
+    transition: transform var(--dur-mola) var(--mola), opacity 140ms linear;
+  }
+  .inventario-folha[data-borda="base"]::before {
+    bottom: 8px;
+    border-bottom: 1px dashed var(--ponto);
+    border-radius: calc(var(--raio-g) - 8px);
+  }
+  .inventario-folha .ui-puxador { visibility: hidden; height: 0; margin-bottom: 12px; }
+  .inventario-topo { padding: 2px 20px 0 28px; }
+  .inventario-costura { margin: 10px 28px 0; }
+  .inventario-miolo { padding: 14px 22px 6px; }
 }
 /* Celular deitado: pouca altura, mais colunas. */
 @media (orientation: landscape) and (max-height: 520px) {
-  .inventario-folha { max-height: 92vh; padding-top: 12px; }
+  .inventario-folha { max-height: 92vh; }
   .inventario-lista { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
 
-html.reduzido .inventario-folha,
+/* Versão calma: a folha e os itens só dissolvem. */
+html.reduzido #inventario .inventario-folha { transform: none; transition: opacity 160ms linear; }
 html.reduzido .inventario-fundo,
 html.reduzido .inventario-botao,
-html.reduzido .inventario-item,
-html.reduzido .inventario-fixo { transition-duration: 0.01ms; }
-html.reduzido .inventario-folha { transform: none; }
+html.reduzido .inventario-miniatura { transition-duration: 0.01ms; }
 html.reduzido .inventario-botao.chegou,
-html.reduzido .inventario-botao.recebeu { animation: none; }
+html.reduzido .inventario-botao.recebeu,
+html.reduzido .inventario-botao.recebeu .inventario-conta,
+html.reduzido .inventario-botao.vazia,
+html.reduzido .inventario-nova { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  #inventario .inventario-folha { transform: none; transition: opacity 160ms linear; }
+  .inventario-botao.chegou,
+  .inventario-botao.recebeu,
+  .inventario-botao.recebeu .inventario-conta,
+  .inventario-botao.vazia,
+  .inventario-nova { animation: none; }
+}

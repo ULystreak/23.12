@@ -29,8 +29,9 @@
 //                                 frente (as cenas ignoram toques no mundo enquanto isso)
 //   inventario.aoMudar(fn(itens)) → cancelar
 //
-// O desenho: o botão é uma bolsinha a tinta com o número de coisas guardadas; a
-// folha é de papel (sobe de baixo no celular, abre acima do botão no computador)
+// O desenho (linguagem em _dev/UI.md): o botão é um disco de papel pespontado com a
+// bolsinha e o selo com o número de coisas guardadas; a folha é de papel costurado
+// (sobe de baixo no celular, abre acima do botão no computador)
 // e mostra cada coisa como uma carta pequena: as dos capítulos com a cara do tema
 // (a mesma face do envelope 3D), as do chão como envelopes brancos com o nome.
 // Só anima transform e opacity (css/inventario.css). Esc ou tocar fora fecha.
@@ -45,18 +46,19 @@ import { imagemDoTema } from './mundo/envelope.js';
 const TINTA = '#2a1b22';
 const SAIDA_MS = 240;                    // a folha leva isto para sair (igual ao CSS)
 
-// A bolsa: uma bolsinha de ombro, a tinta, com o fecho vermelho.
+// Os ícones seguem a grade da papelaria (24, traço 1.75, pontas redondas: .ui-icone).
+// A bolsa: uma bolsinha de ombro, com o fecho no fio vermelho.
 const ICONE_BOLSA = `
-  <svg class="inventario-icone" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
-    <path d="M15 19 C15 7 33 7 33 19" fill="none" stroke="${TINTA}" stroke-width="2.2" stroke-linecap="round"/>
-    <path d="M9.5 19.5 H38.5 C40 19.5 41 20.6 41.2 22 L42.6 37 C42.9 39.8 41 41.5 38.4 41.5 H9.6 C7 41.5 5.1 39.8 5.4 37 L6.8 22 C7 20.6 8 19.5 9.5 19.5 Z" fill="#fffdf9" stroke="${TINTA}" stroke-width="2.2" stroke-linejoin="round"/>
-    <path d="M6.6 25 C14 31.5 34 31.5 41.4 25" fill="none" stroke="${TINTA}" stroke-width="1.6" stroke-linecap="round" stroke-opacity="0.75"/>
-    <circle cx="24" cy="30" r="3.1" fill="#d7192d" stroke="${TINTA}" stroke-width="1.4"/>
+  <svg class="ui-icone inventario-icone" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M8.8 9V8.2a3.2 3.2 0 0 1 6.4 0V9"/>
+    <path class="inventario-icone-corpo" d="M6.8 9h10.4c.9 0 1.6.6 1.7 1.5l.7 5.2c.3 2.4-1.4 4.3-3.8 4.3H8.2c-2.4 0-4.1-1.9-3.8-4.3l.7-5.2C5.2 9.6 5.9 9 6.8 9z"/>
+    <path d="M4.9 12.4c3.7 2.8 10.5 2.8 14.2 0"/>
+    <circle class="cheio" cx="12" cy="14.6" r="1.7"/>
   </svg>`;
 
 const ICONE_FECHAR = `
-  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-    <path d="M6.5 6.5 L17.5 17.5 M17.5 6.5 L6.5 17.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+  <svg class="ui-icone" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M7 7l10 10M17 7L7 17"/>
   </svg>`;
 
 // Carta do chão guardada: um envelope branco, a tinta. O miolo muda com o tipo
@@ -86,7 +88,7 @@ const FITA_PEQUENA = `
     <circle cx="36" cy="52" r="1.5" fill="${TINTA}"/><circle cx="56" cy="52" r="1.5" fill="${TINTA}"/>
   </svg>`;
 
-const ICONE_OUVIR = '<svg class="inventario-fixo-seta" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8.7 5.3c.2 4.5.1 8.9-.1 13.4 3.6-2 7-4.2 10.5-6.6-3.4-2.4-6.8-4.7-10.4-6.8z" fill="currentColor" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>';
+const ICONE_OUVIR = '<svg class="ui-icone" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path class="cheio-tinta" d="M9.2 6.6v10.8a.6.6 0 0 0 .9.5l8.6-5.4a.6.6 0 0 0 0-1L10.1 6.1a.6.6 0 0 0-.9.5z"/></svg>';
 
 export function criarInventario({ conteudo, amb, som, raiz }) {
   const dados = conteudo?.inventario || {};
@@ -100,10 +102,11 @@ export function criarInventario({ conteudo, amb, som, raiz }) {
   let reaberto = false;                  // um item reaberto está na frente
   let saida = 0;
   let botaoVisto = false;
+  const novos = new Set();               // o que ela guardou e ainda não viu na folha (ganha uma pétala)
 
-  const conta = el('span', { class: 'inventario-conta', 'aria-hidden': 'true' });
+  const conta = el('span', { class: 'ui-selo inventario-conta', 'aria-hidden': 'true' });
   const botao = el('button', {
-    class: 'inventario-botao', type: 'button', 'aria-label': rotulos.abrir || 'Abrir a bolsa',
+    class: 'ui-redondo inventario-botao', type: 'button', 'aria-label': rotulos.abrir || 'Abrir a bolsa',
     'aria-expanded': 'false', 'aria-haspopup': 'dialog', dataset: { acao: 'inventario' },
   }, [svg(ICONE_BOLSA), conta]);
   // No iPhone, :active só vale com um ouvinte de toque no elemento.
@@ -111,14 +114,21 @@ export function criarInventario({ conteudo, amb, som, raiz }) {
   const fixos = el('div', { class: 'inventario-fixos', hidden: true });   // a faixa do alto (a voz dele)
   const lista = el('ul', 'inventario-lista');
   const fechar = el('button', {
-    class: 'inventario-fechar', type: 'button', 'aria-label': rotulos.fechar || 'Fechar a bolsa',
+    class: 'ui-redondo inventario-fechar', type: 'button', 'aria-label': rotulos.fechar || 'Fechar a bolsa',
     dataset: { acao: 'inventario-fechar' },
   }, svg(ICONE_FECHAR));
-  const titulo = el('p', 'inventario-titulo', dados.titulo || '');
+  const titulo = el('p', 'ui-titulo inventario-titulo', dados.titulo || '');
   const fundo = el('div', { class: 'inventario-fundo', hidden: true });
+  // (a folha não rola: quem rola é o miolo, para o pesponto e os cantos ficarem parados)
   const folha = el('div', {
-    class: 'inventario-folha', role: 'dialog', 'aria-label': dados.titulo || rotulos.abrir || '', hidden: true,
-  }, [el('div', 'inventario-topo', [titulo, fechar]), fixos, lista]);
+    class: 'ui-folha inventario-folha', role: 'dialog', 'aria-label': dados.titulo || rotulos.abrir || '', hidden: true,
+    dataset: { borda: 'base' },
+  }, [
+    el('span', { class: 'ui-puxador', 'aria-hidden': 'true' }),
+    el('div', 'inventario-topo', [titulo, fechar]),
+    el('span', { class: 'ui-fio inventario-costura', 'aria-hidden': 'true' }),
+    el('div', 'ui-rola inventario-miolo', [fixos, lista]),
+  ]);
   if (raiz) raiz.append(fundo, botao, folha);
 
   const faceDoTema = (tema) => {
@@ -145,25 +155,37 @@ export function criarInventario({ conteudo, amb, som, raiz }) {
     return el('span', { class: 'inventario-carta inventario-carta-branca', 'aria-hidden': 'true' }, svg(envelopeBranco(item.tipo)));
   };
 
+  // (só a última coisa guardada: um enfeite por vez)
+  const petalaNova = (item) => (novos.size && [...novos].pop() === item.id ? el('span', { class: 'ui-petala inventario-nova', 'aria-hidden': 'true' }) : null);
+
   const pintar = () => {
     lista.textContent = '';
     fixos.textContent = '';
+    let fila = 0;                        // a ordem de chegada na folha (.ui-entra, --i)
     for (const item of itens) {
       if (item.fixo) {
-        fixos.append(el('button', {
-          class: 'inventario-fixo', type: 'button',
+        const linha = el('div', 'ui-entra inventario-fixo-linha', el('button', {
+          class: 'ui-toque inventario-fixo', type: 'button',
           dataset: { acao: 'inventario-item', id: item.id, tipo: item.tipo },
         }, [
-          el('span', { class: 'inventario-fita', 'aria-hidden': 'true' }, svg(FITA_PEQUENA)),
+          el('span', { class: 'inventario-fita', 'aria-hidden': 'true' }, [svg(FITA_PEQUENA), petalaNova(item)]),
           el('span', 'inventario-fixo-nome', item.titulo || ''),
-          svg(ICONE_OUVIR),
+          el('span', { class: 'inventario-fixo-ouvir', 'aria-hidden': 'true' }, svg(ICONE_OUVIR)),
         ]));
+        linha.style.setProperty('--i', '0');
+        fixos.append(linha);
         continue;
       }
-      lista.append(el('li', null, el('button', {
-        class: 'inventario-item', type: 'button',
+      const li = el('li', 'ui-entra', el('button', {
+        class: 'ui-toque inventario-item', type: 'button',
         dataset: { acao: 'inventario-item', id: item.id, tipo: item.tipo, tema: item.tema || '' },
-      }, [desenhoDoItem(item), el('span', 'inventario-nome', item.titulo || '')])));
+      }, [
+        el('span', 'inventario-miniatura', [desenhoDoItem(item), petalaNova(item)]),
+        el('span', 'inventario-nome', item.titulo || ''),
+      ]));
+      fila += 1;
+      li.style.setProperty('--i', String(Math.min(fila, 8)));
+      lista.append(li);
     }
     fixos.hidden = !fixos.childElementCount;
     lista.hidden = !lista.childElementCount;
@@ -174,11 +196,11 @@ export function criarInventario({ conteudo, amb, som, raiz }) {
   /** Um pulinho no botão: acabou de receber uma coisa (ou acabou de aparecer). */
   const pular = (classe) => {
     if (amb?.reduzido) return;
-    botao.classList.remove('chegou', 'recebeu');
+    botao.classList.remove('chegou', 'recebeu', 'vazia');
     void botao.offsetWidth;                       // recomeça a animação
     botao.classList.add(classe);
   };
-  botao.addEventListener('animationend', () => botao.classList.remove('chegou', 'recebeu'));
+  botao.addEventListener('animationend', (e) => { if (e.target === botao) botao.classList.remove('chegou', 'recebeu', 'vazia'); });
 
   /** Reabre um item na frente (a folha fecha antes). Resolve quando ela fechou o que abriu. */
   const reabrirItem = async (item) => {
@@ -197,7 +219,7 @@ export function criarInventario({ conteudo, amb, som, raiz }) {
       if (!item || !item.id) return false;
       const i = itens.findIndex((x) => x.id === item.id);
       const novo = { tipo: 'carta', titulo: '', tema: '', fixo: false, abrir: null, ...item };
-      if (i >= 0) itens[i] = novo; else itens.push(novo);
+      if (i >= 0) itens[i] = novo; else { itens.push(novo); novos.add(novo.id); }
       pintar();
       if (i < 0 && botaoVisto) pular('recebeu');
       return i < 0;
@@ -256,7 +278,12 @@ export function criarInventario({ conteudo, amb, som, raiz }) {
       if (raiz) raiz.removeAttribute('data-aberto');
       botao.setAttribute('aria-expanded', 'false');
       clearTimeout(saida);
-      const sumir = () => { if (!folhaAberta) { folha.hidden = true; fundo.hidden = true; } };
+      const sumir = () => {
+        if (folhaAberta) return;
+        folha.hidden = true; fundo.hidden = true;
+        // ela já viu o que era novo: as pétalas saem
+        if (novos.size) { novos.clear(); for (const p of folha.querySelectorAll('.inventario-nova')) p.remove(); }
+      };
       if (imediato || amb?.reduzido) sumir(); else saida = setTimeout(sumir, SAIDA_MS);
       if (tinhaFoco && !botao.disabled) { try { botao.focus({ preventScroll: true }); } catch { /* sem foco programático */ } }
     },
@@ -265,7 +292,11 @@ export function criarInventario({ conteudo, amb, som, raiz }) {
     aoMudar(fn) { ouvintes.add(fn); return () => ouvintes.delete(fn); },
   };
 
-  botao.addEventListener('click', () => { if (folhaAberta) api.fecharFolha(); else api.abrirFolha(); });
+  botao.addEventListener('click', () => {
+    if (folhaAberta) { api.fecharFolha(); return; }
+    // bolsa ainda vazia: ela balança que não, em vez de não responder
+    if (!api.abrirFolha() && livre && !reaberto && !itens.length) pular('vazia');
+  });
   fechar.addEventListener('click', () => api.fecharFolha());
   fundo.addEventListener('click', () => api.fecharFolha());
   document.addEventListener('keydown', (e) => {

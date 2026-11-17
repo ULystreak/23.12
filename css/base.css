@@ -161,6 +161,58 @@
 
   --raio: 14px;
   --alvo: 44px;                             /* menor alvo de toque permitido */
+
+  /* ---- Papelaria da alameda: a linguagem das interfaces (ver _dev/UI.md) ---- */
+  /* Cores */
+  --sakura: #f4b8c8;                        /* pétala clara: enfeite e fundo, nunca texto */
+  --sakura-clara: #fbe6ec;                  /* papel rosado (realce, item escolhido) */
+  --sakura-tinta: #8f1f45;                  /* texto rosa sobre papel: 7,4:1 */
+  --noite: #141a44;                         /* vidro da noite (painéis sobre a alameda escura) */
+  --noite-funda: #090e33;
+  --noite-veu: rgba(9, 12, 40, 0.66);       /* véu atrás de folha aberta; sem blur */
+  --luar: #fdf6ee;                          /* texto sobre a noite */
+  --luar-suave: #cfc6dc;                    /* texto secundário sobre a noite: 9:1 */
+  --estrela: #ffd1a1;                       /* detalhe quente sobre a noite, foco no escuro */
+  --ponto: rgba(120, 96, 84, 0.34);         /* pesponto sobre papel */
+  --ponto-noite: rgba(255, 209, 161, 0.42); /* pesponto sobre a noite */
+
+  /* Raios */
+  --raio-p: 10px;                           /* miniaturas, campos */
+  --raio-m: 16px;                           /* cartões, itens */
+  --raio-g: 26px;                           /* folhas e painéis */
+  --raio-pilula: 999px;
+
+  /* Sombras: sempre com deslocamento, tinta arroxeada, nunca preta pura */
+  --sombra-papel: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 2px 4px rgba(42, 27, 34, 0.14), 0 18px 44px -12px rgba(30, 14, 40, 0.42);
+  --sombra-flutua: 0 1px 0 rgba(255, 255, 255, 0.65) inset, 0 2px 3px rgba(42, 27, 34, 0.16), 0 10px 22px -8px rgba(30, 14, 40, 0.38);
+  --sombra-baixa: 0 1px 2px rgba(42, 27, 34, 0.18), 0 4px 10px -4px rgba(30, 14, 40, 0.28);
+
+  /* Molas e durações */
+  --mola: cubic-bezier(0.3, 1.36, 0.5, 1);            /* reserva: um passo além e volta */
+  --mola-firme: cubic-bezier(0.25, 1.18, 0.45, 1);    /* folhas grandes: quase sem passar */
+  --curva-sair: cubic-bezier(0.4, 0, 0.9, 0.6);       /* saídas curtas (só opacidade/escala) */
+  --dur-toque: 120ms;                       /* afundar no dedo */
+  --dur-mola: 460ms;                        /* soltar, entrar, pular */
+  --dur-folha: 420ms;                       /* folha/painel entrando */
+  --dur-sair: 180ms;                        /* tudo sai mais rápido do que entra */
+  --passo: 45ms;                            /* escalonamento entre itens (× --i) */
+
+  /* Ícones: grade 24, traço 1.75 redondo, sem preenchimento; um ponto cheio no fio */
+  --traco: 1.75;
+
+  /* Enfeites desenhados (SVG embutido; nada vem de fora) */
+  --enfeite-petala: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 18C5 14 2.5 10 3.5 6 4.2 3.4 6.5 2 8.4 2.6L10 5l1.6-2.4c1.9-.6 4.2.8 4.9 3.4C17.5 10 15 14 10 18z' fill='%23f4b8c8'/%3E%3C/svg%3E");
+  --enfeite-laco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 26' fill='none' stroke='%23d7192d' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M24 11C19 3.5 9.5 1.5 7 6.5S13.5 15 24 11zM24 11c5-7.5 14.5-9.5 17-4.5S34.5 15 24 11z'/%3E%3Cpath d='M23 12.5c-2.5 3-5 6.5-6 11M25 12.5c2.5 3 5 6.5 6 11'/%3E%3Ccircle cx='24' cy='11' r='2.2' fill='%23d7192d' stroke='none'/%3E%3C/svg%3E");
+  --enfeite-coracao: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 16.8C4.6 12.6 2.4 9.8 2.4 6.9a3.9 3.9 0 0 1 7.6-1.3 3.9 3.9 0 0 1 7.6 1.3c0 2.9-2.2 5.7-7.6 9.9z' fill='%23d7192d'/%3E%3C/svg%3E");
+  --enfeite-fio: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 6'%3E%3Cpath d='M0 3q4.5-2.6 9 0t9 0' fill='none' stroke='%23d7192d' stroke-width='1.7' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* Mola de verdade onde o navegador desenha linear() (Safari 17.2+): passa 5% e assenta. */
+@supports (transition-timing-function: linear(0, 1)) {
+  :root {
+    --mola: linear(0, 0.19 6%, 0.52 14%, 0.83 23%, 1.01 32%, 1.05 40%, 1.045 47%, 1.01 61%, 0.997 75%, 1);
+    --mola-firme: linear(0, 0.24 7%, 0.6 16%, 0.87 26%, 0.99 37%, 1.016 48%, 1.008 64%, 1);
+  }
 }
 
 @supports (height: 100dvh) {
@@ -306,11 +358,22 @@ html.relendo #palco {
   bottom: calc(var(--seguro-base) + clamp(40px, 11vh, 96px));
   padding: 0 var(--margem);
   text-align: center;
-  font-family: var(--fonte-titulo);
-  font-size: var(--texto-pequeno);
-  letter-spacing: 0.14em;
+  font-family: var(--fonte-mao);
+  font-weight: 600;
+  font-size: clamp(0.9375rem, 0.9rem + 0.2vw, 1.0625rem);
+  letter-spacing: 0.06em;
   color: var(--tinta-suave);
 }
+/* Uma pétala embaixo da dica, boiando devagar: aponta sem pedir. */
+#dica::after {
+  content: "";
+  display: block;
+  width: 16px; height: 16px;
+  margin: 8px auto 0;
+  background: var(--enfeite-petala) center / contain no-repeat;
+  animation: ui-boia 2.6s var(--curva-branco-deriva) infinite alternate;
+}
+#dica:empty::after { display: none; }
 
 /* ---------------------------------------------------------------------------
    Ações do mundo branco (botões das cenas)
@@ -344,19 +407,20 @@ html.relendo #palco {
   color: var(--tinta);
   -webkit-user-select: none;
   user-select: none;
-  transition: transform var(--dur-ui) var(--curva-ui), color var(--dur-ui) var(--curva-ui);
+  transition: transform var(--dur-mola) var(--mola), color var(--dur-ui) var(--curva-ui);
 }
+/* O sublinhado é o fio, costurado à mão (uma onda miúda que se repete). */
 .botao::after {
   content: "";
   position: absolute;
-  left: 6px; right: 6px; bottom: 6px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--fio);
+  left: 6px; right: 6px; bottom: 3px;
+  height: 6px;
+  background: var(--enfeite-fio) left center / 18px 6px repeat-x;
   transform-origin: left center;
   transition: transform var(--dur-ui-lenta) var(--curva-branco-entrar);
 }
-.botao:active { transform: scale(0.97); }
+/* Afunda rápido no dedo e volta na mola. */
+.botao:active { transform: scale(0.96); transition-duration: var(--dur-toque); transition-timing-function: var(--curva-ui); }
 @media (hover: hover) and (pointer: fine) {
   .botao:hover { color: var(--rosa); }
   .botao:hover::after { transform: scaleX(1.06); }
@@ -387,3 +451,272 @@ html.relendo #palco {
 html.reduzido { scroll-behavior: auto; }
 html.reduzido .botao,
 html.reduzido .botao::after { transition-duration: 0.01ms; }
+html.reduzido #dica::after { animation: none; }
+
+/* ============================================================================
+   PAPELARIA DA ALAMEDA: peças compartilhadas das interfaces (_dev/UI.md)
+   As cenas montam as telas com estas classes e só acertam posição e tamanho
+   nos próprios arquivos. Tudo aqui anima apenas transform e opacity.
+   ========================================================================== */
+
+/* ---- toque: afunda em 120 ms, volta na mola ---------------------------------
+   Serve em qualquer coisa que se aperta (capas, itens da bolsa, cartas).      */
+.ui-toque {
+  transition: transform var(--dur-mola) var(--mola), opacity var(--dur-ui) var(--curva-ui);
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+}
+.ui-toque:active { transform: scale(0.95); transition-duration: var(--dur-toque); transition-timing-function: var(--curva-ui); }
+
+/* ---- ícone: grade 24, traço 1.75, pontas redondas ---------------------------
+   <svg class="ui-icone" viewBox="0 0 24 24">…</svg>; .cheio = o ponto no fio.  */
+.ui-icone {
+  flex: none;
+  width: 24px; height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--traco);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  overflow: visible;
+  pointer-events: none;
+}
+.ui-icone .cheio { fill: var(--fio); stroke: none; }
+.ui-icone .cheio-tinta { fill: currentColor; stroke: none; }
+
+/* ---- pílula: o botão de papel ----------------------------------------------
+   Papel creme, letra à mão, pesponto por dentro. Tons: data-tom="fio" (a ação
+   principal, uma por tela), "noite" (sobre a alameda escura e a tela preta),
+   "sakura" (realce macio). Com ícone: <svg class="ui-icone"> antes do texto.   */
+.ui-pilula, .ui-redondo {
+  --ui-fundo: var(--papel);
+  --ui-tinta: var(--tinta);
+  --ui-ponto: var(--ponto);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-tinta);
+  background: var(--ui-fundo);
+  box-shadow: var(--sombra-flutua);
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+  text-decoration: none;
+  transition: transform var(--dur-mola) var(--mola), opacity var(--dur-ui) var(--curva-ui);
+}
+.ui-pilula {
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 26px;
+  border-radius: var(--raio-pilula);
+  font-family: var(--fonte-mao);
+  font-weight: 600;
+  font-size: clamp(1.0625rem, 1rem + 0.3vw, 1.1875rem);
+  line-height: 1.2;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+.ui-pilula::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px dashed var(--ui-ponto);
+  border-radius: inherit;
+  pointer-events: none;
+}
+.ui-pilula:active, .ui-redondo:active {
+  transform: scale(0.95);
+  transition-duration: var(--dur-toque);
+  transition-timing-function: var(--curva-ui);
+}
+.ui-pilula[data-tom="fio"], .ui-redondo[data-tom="fio"] {
+  --ui-fundo: var(--fio); --ui-tinta: #ffffff; --ui-ponto: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.28) inset, 0 2px 3px rgba(120, 10, 26, 0.3), 0 12px 22px -8px rgba(168, 15, 34, 0.55);
+}
+.ui-pilula[data-tom="noite"], .ui-redondo[data-tom="noite"] {
+  --ui-fundo: rgba(20, 26, 68, 0.88); --ui-tinta: var(--luar); --ui-ponto: var(--ponto-noite);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14) inset, 0 10px 24px -8px rgba(2, 4, 20, 0.7);
+}
+.ui-pilula[data-tom="sakura"], .ui-redondo[data-tom="sakura"] {
+  --ui-fundo: var(--sakura-clara); --ui-tinta: var(--sakura-tinta); --ui-ponto: rgba(143, 31, 69, 0.3);
+}
+.ui-pilula[disabled], .ui-pilula[aria-disabled="true"],
+.ui-redondo[disabled], .ui-redondo[aria-disabled="true"] { opacity: 0.45; pointer-events: none; box-shadow: none; }
+@media (hover: hover) and (pointer: fine) {
+  .ui-pilula:hover, .ui-redondo:hover { transform: translateY(-2px); }
+  .ui-pilula:active, .ui-redondo:active { transform: scale(0.95); }
+}
+.ui-pilula:focus-visible, .ui-redondo:focus-visible { border-radius: var(--raio-pilula); }
+
+/* ---- redondo: botão só de ícone (fechar, tocar, setas, baixar) -------------- */
+.ui-redondo {
+  flex: none;
+  width: 48px; height: 48px;
+  border-radius: 50%;
+}
+
+/* ---- folha: o cartão de papel ----------------------------------------------
+   Creme, canto macio, sombra de papel, pesponto a 8 px da borda. data-borda=
+   "base" é a folha que sobe de baixo (só os cantos de cima, respeita a barra). */
+.ui-folha {
+  position: relative;
+  color: var(--tinta);
+  background: linear-gradient(168deg, #fffdf8, var(--papel) 46%, #f6efe3);
+  border-radius: var(--raio-g);
+  box-shadow: var(--sombra-papel);
+}
+.ui-folha::before {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border: 1px dashed var(--ponto);
+  border-radius: calc(var(--raio-g) - 8px);
+  pointer-events: none;
+}
+.ui-folha[data-borda="base"] {
+  border-radius: var(--raio-g) var(--raio-g) 0 0;
+  padding-bottom: calc(var(--seguro-base) + var(--esp-4));
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.7) inset, 0 -16px 44px -10px rgba(30, 14, 40, 0.4);
+}
+.ui-folha[data-borda="base"]::before {
+  bottom: -2px;
+  border-bottom: 0;
+  border-radius: calc(var(--raio-g) - 8px) calc(var(--raio-g) - 8px) 0 0;
+}
+/* Versão da noite: o mesmo cartão em vidro azul (tela preta, fim da carta). */
+.ui-folha[data-tom="noite"] {
+  color: var(--luar);
+  background: linear-gradient(168deg, rgba(34, 42, 96, 0.94), rgba(16, 20, 58, 0.94));
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12) inset, 0 22px 48px -14px rgba(2, 4, 20, 0.8);
+}
+.ui-folha[data-tom="noite"]::before { border-color: var(--ponto-noite); }
+
+/* Puxador da folha que sobe de baixo. */
+.ui-puxador {
+  display: block;
+  width: 40px; height: 4px;
+  margin: 10px auto 6px;
+  border-radius: 2px;
+  background: var(--papel-linha);
+}
+
+/* Título e nota de uma folha: letra à mão. */
+.ui-titulo {
+  font-family: var(--fonte-mao);
+  font-weight: 600;
+  font-size: clamp(1.375rem, 1.25rem + 0.6vw, 1.625rem);
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+}
+.ui-nota {
+  font-family: var(--fonte-mao);
+  font-size: var(--texto-pequeno);
+  line-height: 1.5;
+  color: var(--tinta-suave);
+}
+.ui-folha[data-tom="noite"] .ui-nota, .ui-escuro .ui-nota { color: var(--luar-suave); }
+
+/* Campo de escrever: 16 px no mínimo (o Safari não dá zoom), letra à mão. */
+.ui-campo {
+  width: 100%;
+  font-family: var(--fonte-mao);
+  font-size: max(16px, 1.0625rem);
+  line-height: 1.7;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: var(--raio-p);
+  caret-color: var(--fio);
+  resize: none;
+}
+.ui-campo::placeholder { color: var(--tinta-suave); opacity: 1; }
+
+/* ---- enfeites ---------------------------------------------------------------
+   Poucos e pequenos: um por peça, no máximo. Todos aria-hidden.               */
+.ui-laco, .ui-petala, .ui-coracao {
+  display: inline-block;
+  flex: none;
+  background: center / contain no-repeat;
+  pointer-events: none;
+}
+.ui-laco { width: 44px; height: 24px; background-image: var(--enfeite-laco); }
+.ui-petala { width: 16px; height: 16px; background-image: var(--enfeite-petala); }
+.ui-coracao { width: 12px; height: 12px; background-image: var(--enfeite-coracao); }
+/* O laço preso no alto de uma folha, meio para fora, como num embrulho. */
+.ui-folha > .ui-laco[data-onde="topo"] {
+  position: absolute;
+  left: 50%; top: -11px;
+  margin-left: -22px;
+}
+/* Divisor: o fio costurado, no lugar de uma linha cinza. */
+.ui-fio {
+  display: block;
+  height: 6px;
+  border: 0;
+  margin: 0;
+  background: var(--enfeite-fio) left center / 18px 6px repeat-x;
+  opacity: 0.85;
+}
+/* Selo de contagem (itens na bolsa, cartas que faltam). */
+.ui-selo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px; height: 22px;
+  padding: 0 6px;
+  border-radius: var(--raio-pilula);
+  font-family: var(--fonte-brinquedo);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: #ffffff;
+  background: var(--fio);
+  box-shadow: 0 0 0 2px var(--papel);
+}
+
+/* ---- véu, rolagem, foco no escuro ------------------------------------------ */
+.ui-veu {
+  position: fixed;
+  inset: 0;
+  background: var(--noite-veu);
+}
+.ui-rola {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--papel-linha) transparent;
+}
+.ui-escuro :focus-visible,
+.ui-escuro:focus-visible,
+[data-tom="noite"]:focus-visible,
+[data-tom="noite"] :focus-visible { outline-color: var(--estrela); }
+
+/* ---- movimento compartilhado ------------------------------------------------
+   .ui-entra: a peça chega de 10 px abaixo, um pouco menor, na mola; em fila,
+   ponha style="--i: n". .ui-sai: some rápido. .ui-pulo: um pulinho (algo foi
+   guardado, uma carta chegou). .ui-respira: chama para o próximo toque.        */
+.ui-entra { animation: ui-entra var(--dur-mola) var(--mola) both; animation-delay: calc(var(--i, 0) * var(--passo)); }
+.ui-sai { animation: ui-sai var(--dur-sair) var(--curva-sair) both; }
+.ui-pulo { animation: ui-pulo 520ms var(--mola) both; }
+.ui-respira { animation: ui-respira 1.8s var(--curva-branco-deriva) infinite alternate; }
+@keyframes ui-entra { from { opacity: 0; transform: translateY(10px) scale(0.96); } }
+@keyframes ui-sai { to { opacity: 0; transform: scale(0.97); } }
+@keyframes ui-pulo { 0% { transform: scale(1); } 30% { transform: scale(1.14) rotate(-4deg); } 100% { transform: scale(1); } }
+@keyframes ui-respira { from { transform: scale(1); } to { transform: scale(1.045); } }
+@keyframes ui-boia { from { transform: translateY(-2px) rotate(-10deg); } to { transform: translateY(3px) rotate(12deg); } }
+@keyframes ui-aparece { from { opacity: 0; } }
+
+/* Versão calma: nada desliza nem pula; só dissolve. */
+html.reduzido .ui-entra { animation: ui-aparece 240ms linear both; animation-delay: 0s; }
+html.reduzido .ui-sai { animation-timing-function: linear; }
+html.reduzido .ui-pulo,
+html.reduzido .ui-respira { animation: none; }
+html.reduzido .ui-toque,
+html.reduzido .ui-pilula,
+html.reduzido .ui-redondo { transition-duration: 0.01ms; }
+@media (prefers-reduced-motion: reduce) {
+  .ui-entra { animation: ui-aparece 240ms linear both; animation-delay: 0s; }
+  .ui-pulo, .ui-respira, #dica::after { animation: none; }
+}

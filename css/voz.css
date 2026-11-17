@@ -1,5 +1,6 @@
 /* A voz dele (js/voz.js): o cartão de papel com a fita cassete e os áudios.
    Abre por cima de tudo, a partir da fita que mora na bolsa (css/inventario.css).
+   Linguagem: _dev/UI.md; as peças .ui-* vêm do css/base.css.
    Só transform e opacity são animados. */
 #voz {
   position: fixed;
@@ -9,7 +10,7 @@
   z-index: var(--z-topo);
   display: grid;
   place-items: center;
-  padding: calc(var(--seguro-topo) + 18px) calc(var(--seguro-dir) + 16px) calc(var(--seguro-base) + 18px) calc(var(--seguro-esq) + 16px);
+  padding: calc(var(--seguro-topo) + 28px) calc(var(--seguro-dir) + 16px) calc(var(--seguro-base) + 20px) calc(var(--seguro-esq) + 16px);
   font-family: var(--fonte-mao);
   color: var(--tinta);
   -webkit-user-select: none;
@@ -22,68 +23,76 @@
   position: absolute;
   top: 0; left: 0;
   width: 100%; height: 100%;
-  background: radial-gradient(120% 90% at 50% 46%, rgba(30, 16, 28, 0.74), rgba(18, 9, 18, 0.9));
+  background: rgba(9, 12, 40, 0.78);
   opacity: 0;
-  transition: opacity 240ms var(--curva-ui);
+  transition: opacity var(--dur-sair) linear;
 }
-#voz[data-aberto] .voz-veu { opacity: 1; }
+#voz[data-aberto] .voz-veu { opacity: 1; transition-duration: 300ms; }
 
 /* ---- a folha ---------------------------------------------------------------- */
 .voz-cartao {
-  position: relative;
-  width: min(100%, 408px);
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 420px);
   max-height: 100%;
-  padding: 30px 20px 14px;
-  border-radius: 4px;
-  background: var(--papel);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 18px 50px rgba(10, 4, 10, 0.5), 0 2px 6px rgba(10, 4, 10, 0.35);
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
   opacity: 0;
-  transform: translate3d(0, 22px, 0) rotate(-1.2deg) scale(0.97);
-  transition: transform 240ms var(--curva-ui), opacity 200ms var(--curva-ui);
+  transform: translate3d(0, 14px, 0) scale(0.94);
+  transition: transform var(--dur-sair) var(--curva-sair), opacity var(--dur-sair) linear;
 }
 #voz[data-aberto] .voz-cartao {
   opacity: 1;
   transform: none;
-  transition-duration: 460ms, 280ms;
-  transition-timing-function: var(--curva-branco-entrar), var(--curva-ui);
+  transition: transform var(--dur-folha) var(--mola-firme), opacity 160ms linear;
+}
+/* o lacinho chega por último, como quem fecha o embrulho */
+.voz-cartao > .ui-laco { opacity: 0; transform: scale(0.6) rotate(-14deg); transition: opacity 100ms linear, transform 100ms linear; }
+#voz[data-aberto] .voz-cartao > .ui-laco {
+  opacity: 1;
+  transform: none;
+  transition: transform var(--dur-mola) var(--mola) 260ms, opacity 140ms linear 260ms;
+}
+.voz-miolo {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 34px 24px 22px;
+  border-radius: var(--raio-g);
 }
 
+/* fechar: dentro do cartão, com folga para o anel de foco */
 .voz-fechar {
   position: absolute;
-  top: 4px; right: 4px;
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
+  top: 14px; right: 14px;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
   color: var(--tinta-suave);
+  box-shadow: var(--sombra-baixa);
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
-.voz-fechar svg { width: 24px; height: 24px; }
-.voz-fechar:active { transform: scale(0.92); }
 
 /* ---- a fita ----------------------------------------------------------------- */
 .voz-fita {
   width: 148px;
   margin: 0 auto;
-  transform: rotate(-2.4deg);
-  filter: drop-shadow(0 8px 10px rgba(42, 27, 34, 0.16));
+  transform: rotate(-3deg);
 }
-.voz-fita-desenho { display: block; width: 100%; height: auto; }
+.voz-fita-desenho {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 9px;
+  box-shadow: var(--sombra-baixa), 0 14px 18px -12px rgba(30, 14, 40, 0.4);
+}
+/* enquanto ele fala, a fita balança de leve */
+#voz[data-tocando] .voz-fita-desenho { animation: voz-balanco 2.4s var(--curva-branco-deriva) infinite alternate; }
+@keyframes voz-balanco { from { transform: rotate(-1.2deg); } to { transform: rotate(1.6deg) translateY(-2px); } }
 .voz-rolo { transform-box: fill-box; transform-origin: 50% 50%; }
 #voz[data-tocando] .voz-rolo { animation: voz-girar 2.6s linear infinite; }
 @keyframes voz-girar { to { transform: rotate(360deg); } }
 
 .voz-titulo {
-  margin: 14px 0 0;
-  font-family: var(--fonte-mao);
-  font-weight: 600;
-  font-size: clamp(1.5rem, 1.3rem + 1vw, 1.75rem);
-  line-height: 1.25;
-  letter-spacing: 0.02em;
+  margin: 16px 0 0;
   text-align: center;
   text-wrap: balance;
 }
@@ -91,8 +100,6 @@
   margin: 6px auto 0;
   max-width: 22em;
   font-size: 1.0625rem;
-  line-height: 1.5;
-  color: var(--tinta-suave);
   text-align: center;
   text-wrap: balance;
   white-space: pre-line;
@@ -101,7 +108,7 @@
 /* ---- os áudios: três contas no mesmo fio ------------------------------------ */
 .voz-lista {
   position: relative;
-  margin: 16px 0 0;
+  margin: 18px 0 0;
   padding: 0;
   list-style: none;
 }
@@ -109,18 +116,18 @@
 .voz-lista::before {
   content: "";
   position: absolute;
-  top: 0; bottom: 14px;
-  left: 23.25px;
-  width: 1.5px;
+  top: 2px; bottom: 12px;
+  left: 23px;
+  width: 2px;
   border-radius: 1px;
   background: var(--fio);
 }
 .voz-lista::after {                    /* o nó na ponta */
   content: "";
   position: absolute;
-  bottom: 8px;
-  left: 20.5px;
-  width: 7px; height: 7px;
+  bottom: 6px;
+  left: 20px;
+  width: 8px; height: 8px;
   border-radius: 50%;
   background: var(--fio);
 }
@@ -130,37 +137,28 @@
   grid-template-columns: 48px minmax(0, 1fr) auto;
   align-items: center;
   column-gap: 14px;
-  min-height: 84px;
-  padding: 10px 0;
-}
-.voz-item + .voz-item { box-shadow: inset 0 1px 0 var(--papel-linha); }
-.voz-item + .voz-item::before {        /* a linha não corta o fio */
-  content: "";
-  position: absolute;
-  top: 0; left: 18px;
-  width: 12px; height: 1px;
-  background: var(--papel);
+  min-height: 80px;
+  padding: 8px 0;
 }
 
 .voz-tocar {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: #fffdf9;
-  box-shadow: inset 0 0 0 1.5px var(--tinta), 0 3px 8px rgba(42, 27, 34, 0.14);
-  color: var(--tinta);
+  padding: 0;
+  border: 0;
+  cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform var(--dur-ui) var(--curva-ui);
+  touch-action: manipulation;
 }
-.voz-tocar svg { grid-area: 1 / 1; width: 24px; height: 24px; transition: opacity var(--dur-ui) linear, transform var(--dur-ui-lenta) var(--curva-ui); }
+.voz-tocar .ui-icone {
+  position: relative;
+  grid-area: 1 / 1;
+  transition: opacity var(--dur-ui) linear, transform var(--dur-mola) var(--mola);
+}
+.voz-tocar { display: inline-grid; place-items: center; }
 .voz-i-tocar { margin-left: 2px; }
 .voz-i-pausa { opacity: 0; transform: scale(0.6); }
 .voz-item[data-tocando] .voz-i-tocar { opacity: 0; transform: scale(0.6); }
 .voz-item[data-tocando] .voz-i-pausa { opacity: 1; transform: none; }
-/* tocando: a conta fica vermelha (uma camada por cima; a cor em si não é animada) */
+/* tocando: a conta fica no vermelho do fio (uma camada por cima; a cor em si não é animada) */
 .voz-tocar::before {
   content: "";
   position: absolute;
@@ -168,22 +166,25 @@
   width: 100%; height: 100%;
   border-radius: 50%;
   background: var(--fio);
-  box-shadow: inset 0 0 0 1.5px var(--fio-escuro);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.28) inset;
   opacity: 0;
   transform: scale(0.7);
-  transition: opacity var(--dur-ui-lenta) var(--curva-ui), transform var(--dur-ui-lenta) var(--curva-ui);
+  transition: opacity var(--dur-sair) linear, transform var(--dur-sair) var(--curva-ui);
 }
-.voz-item[data-tocando] .voz-tocar::before { opacity: 1; transform: none; }
+.voz-item[data-tocando] .voz-tocar::before {
+  opacity: 1;
+  transform: none;
+  transition: opacity 140ms linear, transform var(--dur-mola) var(--mola);
+}
 .voz-item[data-tocando] .voz-tocar { color: #ffffff; }
-.voz-tocar svg { position: relative; }
 /* e um anel que se abre, devagar, enquanto ele fala */
 .voz-tocar::after {
   content: "";
   position: absolute;
   top: 0; left: 0;
   width: 100%; height: 100%;
+  border: 1.5px solid var(--fio);
   border-radius: 50%;
-  box-shadow: 0 0 0 1.5px var(--fio);
   opacity: 0;
   pointer-events: none;
 }
@@ -192,16 +193,18 @@
   0% { opacity: 0.55; transform: scale(1); }
   100% { opacity: 0; transform: scale(1.5); }
 }
-.voz-tocar:active { transform: scale(0.93); }
-.voz-tocar:disabled { cursor: default; color: var(--tinta-fraca); box-shadow: inset 0 0 0 1.5px var(--tinta-fraca); }
-.voz-tocar:disabled:active { transform: none; }
-/* sem arquivo ainda: o lugar da conta, tracejado */
-.voz-tocar-vazio {
-  background: var(--papel);
-  box-shadow: none;
-  border: 1.5px dashed var(--tinta-fraca);
+/* sem arquivo ainda, ou arquivo que não abriu: a conta fica no lugar, apagada
+   (opaca, para o fio não aparecer através dela) */
+.voz-lista .voz-tocar-vazio,
+.voz-lista .voz-tocar:disabled {
+  opacity: 1;
+  background: var(--papel-sombra);
+  box-shadow: 0 0 0 1px var(--papel-linha) inset;
   color: var(--tinta-fraca);
+  cursor: default;
+  pointer-events: none;
 }
+.voz-item[data-estado="vazio"] .voz-meio { opacity: 0.6; }
 
 .voz-meio { min-width: 0; }
 .voz-linha {
@@ -219,22 +222,24 @@
 }
 .voz-tempo {
   flex: none;
-  min-width: 5.4em;
+  min-width: 5.6em;
   text-align: right;
-  font-family: var(--fonte-titulo);
-  font-size: 0.875rem;
+  font-family: var(--fonte-brinquedo);
+  font-weight: 500;
+  font-size: 0.8125rem;
   line-height: 1.3;
   color: var(--tinta-suave);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .voz-aviso {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   font-size: 1rem;
   line-height: 1.4;
   color: var(--tinta-suave);
 }
 .voz-aviso[hidden] { display: none; }
+.voz-item[data-estado="falhou"] .voz-aviso { color: var(--sakura-tinta); }
 .voz-item[data-estado="falhou"] .voz-barra,
 .voz-item[data-estado="falhou"] .voz-baixar { display: none; }
 
@@ -242,8 +247,8 @@
 .voz-barra {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 2px 0 -4px -10px;            /* a conta, parada no começo, alinha com o nome */
+  gap: 6px;
+  margin: 0 0 -6px -10px;              /* a conta, parada no começo, alinha com o nome */
 }
 .voz-trilho {
   position: relative;
@@ -255,10 +260,10 @@
   position: absolute;
   top: 50%;
   left: 10px; right: 10px;
-  height: 1.5px;
-  margin-top: -0.75px;
+  height: 2px;
+  margin-top: -1px;
   border-radius: 1px;
-  background: rgba(42, 27, 34, 0.26);
+  background: var(--papel-linha);
   pointer-events: none;
 }
 .voz-fio::before,
@@ -266,10 +271,10 @@
   content: "";
   position: absolute;
   top: 50%;
-  width: 5px; height: 5px;
-  margin-top: -2.5px;
+  width: 6px; height: 6px;
+  margin-top: -3px;
   border-radius: 50%;
-  background: rgba(42, 27, 34, 0.4);
+  background: var(--tinta-fraca);
 }
 .voz-fio::before { left: -2px; background: var(--fio); }
 .voz-fio::after { right: -2px; }
@@ -307,7 +312,7 @@
   border: 0;
   border-radius: 50%;
   background: var(--fio);
-  box-shadow: inset 0 0 0 1.5px var(--fio-escuro), 0 0 0 3px var(--papel), 0 2px 5px rgba(42, 27, 34, 0.3);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset, 0 0 0 3px var(--papel), 0 2px 5px 2px rgba(42, 27, 34, 0.24);
 }
 .voz-controle::-moz-range-track { height: 44px; background: transparent; border: 0; }
 .voz-controle::-moz-range-thumb {
@@ -316,55 +321,63 @@
   border: 0;
   border-radius: 50%;
   background: var(--fio);
-  box-shadow: inset 0 0 0 1.5px var(--fio-escuro), 0 0 0 3px var(--papel), 0 2px 5px rgba(42, 27, 34, 0.3);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset, 0 0 0 3px var(--papel), 0 2px 5px 2px rgba(42, 27, 34, 0.24);
 }
 /* enquanto a duração não chegou, a conta espera apagada */
-.voz-controle:disabled::-webkit-slider-thumb { background: var(--papel); box-shadow: inset 0 0 0 1.5px var(--tinta-fraca); }
-.voz-controle:disabled::-moz-range-thumb { background: var(--papel); box-shadow: inset 0 0 0 1.5px var(--tinta-fraca); }
+.voz-controle:disabled::-webkit-slider-thumb { background: var(--papel-sombra); box-shadow: 0 0 0 1.5px var(--tinta-fraca) inset, 0 0 0 3px var(--papel); }
+.voz-controle:disabled::-moz-range-thumb { background: var(--papel-sombra); box-shadow: 0 0 0 1.5px var(--tinta-fraca) inset, 0 0 0 3px var(--papel); }
 .voz-controle:focus-visible { outline: 2px solid var(--fio); outline-offset: -8px; border-radius: 22px; }
 
+/* baixar: um redondo sem sombra (o destaque da linha é a conta de tocar) */
 .voz-baixar {
-  display: grid;
-  place-items: center;
   width: 44px;
   height: 44px;
-  margin-right: -6px;
-  border-radius: 50%;
+  margin-right: -8px;
+  background: none;
+  box-shadow: none;
   color: var(--tinta-suave);
-  text-decoration: none;
   -webkit-tap-highlight-color: transparent;
-  transition: transform var(--dur-ui) var(--curva-ui);
+  touch-action: manipulation;
 }
-.voz-baixar svg { width: 26px; height: 26px; }
-.voz-baixar:active { transform: scale(0.9) translateY(2px); }
+.voz-baixar:active { transform: scale(0.92) translateY(3px); }
 
 @media (hover: hover) and (pointer: fine) {
-  .voz-tocar:not(:disabled):hover { transform: scale(1.06); }
-  .voz-tocar:not(:disabled):active { transform: scale(0.93); }
+  .voz-tocar:hover { transform: scale(1.06); }
+  .voz-tocar:active { transform: scale(0.95); }
   .voz-baixar:hover, .voz-fechar:hover { color: var(--tinta); }
   .voz-baixar:hover { transform: translateY(2px); }
+  .voz-baixar:active { transform: scale(0.92) translateY(3px); }
 }
 
 /* Telas largas: um pouco mais de ar. */
 @media (min-width: 720px) {
-  .voz-cartao { width: 440px; padding: 34px 28px 18px; }
+  .voz-cartao { width: 460px; }
+  .voz-miolo { padding: 40px 34px 26px; }
   .voz-fita { width: 164px; }
 }
 /* Celular deitado: a fita vai para o lado e a lista ocupa o resto. */
 @media (orientation: landscape) and (max-height: 520px) {
-  #voz { padding-top: calc(var(--seguro-topo) + 8px); padding-bottom: calc(var(--seguro-base) + 8px); }
-  .voz-cartao { width: min(100%, 560px); padding: 14px 20px 8px; }
-  .voz-fita { width: 84px; margin: 0; position: absolute; top: 12px; left: 22px; }
+  #voz { padding-top: calc(var(--seguro-topo) + 16px); padding-bottom: calc(var(--seguro-base) + 8px); }
+  .voz-cartao { width: min(100%, 560px); }
+  .voz-miolo { padding: 18px 22px 12px; }
+  .voz-fita { width: 84px; margin: 0; position: absolute; top: 14px; left: 26px; }
   .voz-titulo { margin: 4px 0 0; }
   .voz-lista { margin-top: 10px; }
   .voz-item { min-height: 68px; padding: 4px 0; }
 }
 
-html.reduzido .voz-cartao { transform: none; transition-duration: 0.01ms; }
+/* Versão calma: o cartão só dissolve; nada gira nem balança. */
+html.reduzido #voz .voz-cartao { transform: none; transition: opacity 160ms linear; }
+html.reduzido #voz .voz-cartao > .ui-laco { transform: none; transition: opacity 160ms linear; }
 html.reduzido .voz-veu,
-html.reduzido .voz-tocar,
-html.reduzido .voz-tocar svg,
-html.reduzido .voz-tocar::before,
-html.reduzido .voz-baixar { transition-duration: 0.01ms; }
+html.reduzido .voz-tocar .ui-icone,
+html.reduzido .voz-tocar::before { transition-duration: 0.01ms; }
 html.reduzido #voz[data-tocando] .voz-rolo,
+html.reduzido #voz[data-tocando] .voz-fita-desenho,
 html.reduzido .voz-item[data-tocando] .voz-tocar::after { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  #voz .voz-cartao, #voz .voz-cartao > .ui-laco { transform: none; transition: opacity 160ms linear; }
+  #voz[data-tocando] .voz-rolo,
+  #voz[data-tocando] .voz-fita-desenho,
+  .voz-item[data-tocando] .voz-tocar::after { animation: none; }
+}

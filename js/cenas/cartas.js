@@ -88,24 +88,25 @@ const LACRE = `
     <path class="cc-lacre" d="M80 71 C72 64 67.5 60 67.5 55.5 C67.5 51.6 70.6 49 74 49 C76.6 49 78.8 50.4 80 52.6 C81.2 50.4 83.4 49 86 49 C89.4 49 92.5 51.6 92.5 55.5 C92.5 60 88 64 80 71 Z"/>
   </svg>`;
 
+// Ícones da papelaria (_dev/UI.md): grade 24, traço 1.75, pontas redondas.
 const X_FECHAR = `
-  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <svg class="ui-icone" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
     <path d="M7 7.4 C10 10.2 13.6 13.8 17 16.8 M16.8 7.2 C13.8 10.4 10.4 13.6 7.2 17"/>
   </svg>`;
 
-const PAUSA = `
-  <svg class="visor-pausa" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
-    <path d="M18.5 14.5 C18.2 21 18.6 27 18.4 33.5 M29.5 14.5 C29.8 21 29.4 27 29.6 33.5"/>
-  </svg>`;
-
 const TOCAR = `
-  <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
-    <path d="M18 14.2 L35 24 L18 33.8 Q16.6 34.6 16.6 33 V15 Q16.6 13.4 18 14.2 Z"/>
+  <svg class="ui-icone" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path class="cheio-tinta" d="M9.4 6.3 L18.4 11.2 Q19.6 12 18.4 12.8 L9.4 17.7 Q8 18.4 8 16.9 V7.1 Q8 5.6 9.4 6.3 Z"/>
   </svg>`;
 
 const SETA = `
-  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <svg class="ui-icone" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
     <path d="M14.6 5.6 C12 8 9.8 9.9 7.6 12 C9.8 14.1 12 16 14.6 18.4"/>
+  </svg>`;
+
+const SEGUIR = `
+  <svg class="ui-icone" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M5 12.2 C9.4 11.8 14 12.2 18.6 12 M13.6 6.8 C15.4 8.6 17 10.2 18.8 12 C17 13.8 15.4 15.4 13.6 17.2"/>
   </svg>`;
 
 // O desenho do cartão de exemplo: um quadro de filme (amigos) ou um coração (Surpresinha).
@@ -373,13 +374,22 @@ export async function cenaCartas(ctx, { frio } = {}) {
       });
       const veu = el('div', { class: 'visor-veu', 'aria-hidden': 'true' });
       const quadro = el('div', 'visor-quadro');
-      const papel = el('div', 'visor-papel');
-      const legenda = el('p', { class: 'visor-nome', 'aria-hidden': 'true' });
+      // A folha de papel: o laço do fio no alto, o conteúdo no miolo e, no rodapé,
+      // o nome de quem mandou (como numa polaroide).
+      const papel = el('div', 'visor-papel ui-folha');
+      const miolo = el('div', 'visor-miolo');
+      const legenda = el('p', { class: 'visor-nome ui-titulo', 'aria-hidden': 'true' });
+      const rodape = el('div', 'visor-rodape', [
+        legenda,
+        carta.tipo === 'galeria' ? el('span', { class: 'ui-coracao', 'aria-hidden': 'true' }) : null,
+      ]);
+      papel.append(el('span', { class: 'ui-laco', 'aria-hidden': 'true', dataset: { onde: 'topo' } }), miolo, rodape);
       const fechar = el('button', {
-        class: 'carta-chao-fechar', type: 'button', 'aria-label': rotulos.fechar || 'Fechar', dataset: { acao: 'fechar-carta' },
+        class: 'carta-chao-fechar ui-redondo', type: 'button', 'aria-label': rotulos.fechar || 'Fechar',
+        dataset: { acao: 'fechar-carta', tom: 'noite' },
       });
       fechar.append(svg(X_FECHAR));
-      quadro.append(papel, legenda);
+      quadro.append(papel);
       visor.append(veu, quadro, fechar);
       const limpezas = [];
       let fechado = false;
@@ -397,8 +407,8 @@ export async function cenaCartas(ctx, { frio } = {}) {
       if (tipo === 'vazio') {
         if (semConteudo) {
           const molde = carta.tipo === 'galeria' ? dados.vazioSurpresinha : dados.vazio;
-          papel.append(cartao(String(molde || '').replace('{nome}', carta.nome), carta.tipo === 'galeria' ? GLIFO_CORACAO : GLIFO_VIDEO));
-        } else papel.append(cartao(carta.nome, null));
+          miolo.append(cartao(String(molde || '').replace('{nome}', carta.nome), carta.tipo === 'galeria' ? GLIFO_CORACAO : GLIFO_VIDEO));
+        } else miolo.append(cartao(carta.nome, null));
       } else if (tipo === 'video') {
         // ---- vídeo: sem os controles do navegador; tocar na imagem pausa ----
         const tela = el('div', 'visor-tela');
@@ -412,11 +422,13 @@ export async function cenaCartas(ctx, { frio } = {}) {
         video.controls = false;
         video.preload = 'auto';
         if (carta.capa) video.poster = carta.capa;
-        const tocar = el('button', { class: 'visor-tocar', type: 'button', hidden: true, 'aria-label': carta.nome });
+        const tocar = el('button', { class: 'visor-tocar ui-redondo', type: 'button', hidden: true, 'aria-label': carta.nome });
         tocar.append(svg(TOCAR));
+        // o andamento: o fio vermelho que cresce, com uma conta na ponta
         const linha = el('span', 'visor-progresso-fio');
-        tela.append(video, svg(PAUSA), tocar);
-        papel.append(tela, el('span', { class: 'visor-progresso', 'aria-hidden': 'true' }, linha));
+        const conta = el('span', 'visor-progresso-conta');
+        tela.append(video, el('span', { class: 'visor-pausa', 'aria-hidden': 'true' }, svg(TOCAR)), tocar);
+        miolo.append(tela, el('span', { class: 'visor-progresso', 'aria-hidden': 'true' }, [linha, conta]));
         papel.classList.add('visor-carregando');
 
         const tocarVideo = () => {
@@ -438,7 +450,7 @@ export async function cenaCartas(ctx, { frio } = {}) {
           tela.remove();
           papel.querySelector('.visor-progresso')?.remove();
           papel.classList.remove('visor-carregando', 'visor-pausado');
-          papel.append(cartao(carta.nome, null));
+          miolo.append(cartao(carta.nome, null));
           visor.dataset.tipo = 'vazio';
         };
         video.addEventListener('loadedmetadata', () => {
@@ -458,6 +470,7 @@ export async function cenaCartas(ctx, { frio } = {}) {
           if (fechado) return;
           const p = Number.isFinite(video.duration) && video.duration > 0 ? clamp(video.currentTime / video.duration) : 0;
           linha.style.transform = `scaleX(${p.toFixed(4)})`;
+          conta.style.transform = `translateX(${(p * 100).toFixed(2)}%)`;
           laco = requestAnimationFrame(passo);
         };
         laco = requestAnimationFrame(passo);
@@ -484,9 +497,9 @@ export async function cenaCartas(ctx, { frio } = {}) {
           if (!slides.length) {            // nada carregou: fica o cartão só com o nome
             falhou = true;
             falhas.add(carta.id);
-            papel.textContent = '';
+            miolo.textContent = '';
             papel.classList.remove('visor-galeria');
-            papel.append(cartao(carta.nome, null));
+            miolo.append(cartao(carta.nome, null));
             visor.dataset.tipo = 'vazio';
           } else atualizar();
         };
@@ -500,18 +513,19 @@ export async function cenaCartas(ctx, { frio } = {}) {
           } else {
             midia = el('img', { src: m.foto, alt: m.legenda || '', draggable: 'false', decoding: 'async' });
           }
-          const figura = el('figure', 'galeria-item', [
+          // cada momento é uma polaroide, com a legenda escrita à mão embaixo
+          const figura = el('div', 'galeria-item', el('figure', 'galeria-polaroide', [
             el('div', 'galeria-midia', midia),
             m.legenda ? el('figcaption', { texto: m.legenda }) : null,
-          ]);
+          ]));
           midia.addEventListener('error', () => sumiu(figura));
           const ponto = el('span', 'galeria-ponto');
           pontos.append(ponto);
           slides.push({ figura, ponto, midia });
           trilho.append(figura);
         }
-        const anterior = el('button', { class: 'galeria-seta', type: 'button', 'aria-label': rotulos.anterior || 'Anterior', dataset: { lado: 'anterior' } });
-        const proxima = el('button', { class: 'galeria-seta', type: 'button', 'aria-label': rotulos.proxima || 'Próxima', dataset: { lado: 'proxima' } });
+        const anterior = el('button', { class: 'galeria-seta ui-redondo', type: 'button', 'aria-label': rotulos.anterior || 'Anterior', dataset: { lado: 'anterior' } });
+        const proxima = el('button', { class: 'galeria-seta ui-redondo', type: 'button', 'aria-label': rotulos.proxima || 'Próxima', dataset: { lado: 'proxima' } });
         anterior.append(svg(SETA));
         proxima.append(svg(SETA));
         let atual = -1;
@@ -538,7 +552,7 @@ export async function cenaCartas(ctx, { frio } = {}) {
           else if (ev.key === 'ArrowLeft') { ev.preventDefault(); ir(indice() - 1); }
         });
         papel.classList.add('visor-galeria');
-        papel.append(trilho, anterior, proxima, pontos);
+        miolo.append(trilho, anterior, proxima, pontos);
         requestAnimationFrame(atualizar);
       }
 
@@ -561,12 +575,14 @@ export async function cenaCartas(ctx, { frio } = {}) {
           if (inventario.itens.length) inventario.mostrarBotao();
           resolver({ falhou });
         };
-        gsap.to([veu, fechar], { autoAlpha: 0, duration: 0.4, ease: 'none' });
+        // Sair é mais rápido que entrar e sem mola: a folha volta para a carta no chão.
+        gsap.to(fechar, { autoAlpha: 0, duration: 0.14, ease: 'none' });
+        gsap.to(veu, { autoAlpha: 0, duration: 0.32, ease: 'none' });
         const alvo = de && de.isConnected ? saidaPara(de) : null;
-        if (calmo || !alvo) gsap.to(quadro, { autoAlpha: 0, duration: 0.35, ease: 'none', onComplete: fim });
+        if (calmo || !alvo) gsap.to(quadro, { autoAlpha: 0, scale: calmo ? 1 : 0.97, duration: calmo ? 0.3 : 0.2, ease: 'power2.out', onComplete: fim });
         else {
-          gsap.to(quadro, { x: alvo.x, y: alvo.y, scale: alvo.escala, rotation: alvo.giro, duration: 0.5, ease: curvas.branco.sair || 'power2.in' });
-          gsap.to(quadro, { autoAlpha: 0, duration: 0.24, delay: 0.26, ease: 'none', onComplete: fim });
+          gsap.to(quadro, { x: alvo.x, y: alvo.y, scale: alvo.escala, rotation: alvo.giro, duration: 0.36, ease: 'power2.inOut' });
+          gsap.to(quadro, { autoAlpha: 0, duration: 0.16, delay: 0.2, ease: 'none', onComplete: fim });
         }
       }
       /** De onde a moldura sai e para onde volta: a carta no chão. */
@@ -607,16 +623,22 @@ export async function cenaCartas(ctx, { frio } = {}) {
       musica.esconderMini();
       mundo.petalas.definirDensidade(0.4);
       vivo.textContent = carta.nome;
-      gsap.fromTo(veu, { autoAlpha: 0 }, { autoAlpha: 1, duration: calmo ? 0.4 : 0.8, ease: 'none' });
-      gsap.fromTo(fechar, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4, delay: calmo ? 0 : 0.35, ease: 'none' });
+      gsap.fromTo(veu, { autoAlpha: 0 }, { autoAlpha: 1, duration: calmo ? 0.4 : 0.5, ease: 'none' });
+      gsap.fromTo(fechar, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3, delay: calmo ? 0 : 0.3, ease: 'none' });
       const origem = de && !calmo ? saidaPara(de) : null;
       if (origem) {
+        // sobe da carta no chão: o caminho desacelera, o tamanho assenta com um nada de mola
         gsap.fromTo(quadro,
-          { x: origem.x, y: origem.y, scale: origem.escala, rotation: origem.giro, autoAlpha: 0 },
-          { x: 0, y: 0, scale: 1, rotation: 0, autoAlpha: 1, duration: 0.8, ease: curvas.branco.entrar });
-      } else gsap.fromTo(quadro, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.45, ease: 'none' });
-      // o nome de quem mandou, escrito à mão embaixo da moldura
-      gsap.delayedCall(calmo ? 0.3 : 0.7, () => { if (!fechado) escrever(gsap, legenda, carta.nome, { calmo, som, intensidade: 0.4 }); });
+          { x: origem.x, y: origem.y, rotation: origem.giro, autoAlpha: 0 },
+          { x: 0, y: 0, rotation: 0, autoAlpha: 1, duration: 0.6, ease: curvas.branco.entrar });
+        gsap.fromTo(quadro, { scale: origem.escala }, { scale: 1, duration: 0.62, ease: 'back.out(1.25)' });
+      } else if (calmo) gsap.fromTo(quadro, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.45, ease: 'none' });
+      else {
+        // aberta pela bolsa: do meio, um pouco menor
+        gsap.fromTo(quadro, { autoAlpha: 0, scale: 0.94 }, { autoAlpha: 1, scale: 1, duration: 0.42, ease: 'back.out(1.25)' });
+      }
+      // o nome de quem mandou, escrito à mão no rodapé da folha
+      gsap.delayedCall(calmo ? 0.3 : 0.55, () => { if (!fechado) escrever(gsap, legenda, carta.nome, { calmo, som, intensidade: 0.4 }); });
       try { fechar.focus({ preventScroll: true }); } catch { /* sem foco programático */ }
     });
   }
@@ -645,8 +667,10 @@ export async function cenaCartas(ctx, { frio } = {}) {
   function atualizarSeguir() {
     if (!abertas.size) return;
     if (!seguir) {
-      seguir = el('button', { class: 'botao cartas-chao-seguir', type: 'button', dataset: { acao: 'seguir-cartas' } },
-        el('span', { class: 'cartas-chao-seguir-texto', texto: dados.seguir || '' }));
+      seguir = el('button', { class: 'ui-pilula cartas-chao-seguir cartas-chao-seguir-visivel ui-entra', type: 'button', dataset: { acao: 'seguir-cartas' } },
+        [el('span', { class: 'cartas-chao-seguir-texto', texto: dados.seguir || '' }), svg(SEGUIR)]);
+      // (a animação de entrada sai depois de tocar: senão ela seguraria o afundar do toque)
+      seguir.addEventListener('animationend', (ev) => { if (ev.target === seguir) seguir.classList.remove('ui-entra'); });
       if (!dados.seguir) seguir.setAttribute('aria-label', 'Seguir em frente');
       seguir.addEventListener('click', () => {
         if (diretor.etapa() !== 'escolhendo' || inventario.aberto || visorAberto) return;
@@ -654,9 +678,11 @@ export async function cenaCartas(ctx, { frio } = {}) {
         resolverFim();
       });
       acoes.append(seguir);
-      requestAnimationFrame(() => requestAnimationFrame(() => seguir.classList.add('cartas-chao-seguir-visivel')));
     }
-    seguir.toggleAttribute('data-destaque', abertas.size >= itens.length);
+    // todas abertas: o botão vira a ação principal (o vermelho do fio) e chama o toque
+    const todas = abertas.size >= itens.length;
+    seguir.toggleAttribute('data-destaque', todas);
+    if (todas) seguir.dataset.tom = 'fio'; else delete seguir.dataset.tom;
   }
 
   // ---- abrir uma carta ----------------------------------------------------------

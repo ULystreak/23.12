@@ -1,12 +1,13 @@
 /* ============================================================================
    DEPOIS DA FRASE FINAL (js/cenas/resposta.js)
-   O contador dos dias dela, com a letra da tela preta da senha, e a folha em
-   branco em que ela escreve de volta. Só transform e opacity são animados.
+   O contador dos dias dela e a folha em que ela escreve de volta, na linguagem
+   da papelaria (_dev/UI.md; peças em css/base.css). Só transform e opacity são
+   animados.
 
    .depois
      .depois-veu       a noite por cima da folha final
-     .contador         número + rótulo + frase (depois sobe e fica pequeno no alto)
-     .resposta         a folha: convite, textarea, botões
+     .contador         número + fio costurado + rótulo + frase (depois sobe e fica pequeno no alto)
+     .resposta         a folha (.ui-folha): laço, convite, caderno, botões
      .depois-reabrir   no estado final: abre a folha de novo
    ========================================================================== */
 
@@ -22,43 +23,54 @@
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(120% 70% at 50% 46%, rgba(5, 8, 24, 0.992), rgba(5, 8, 24, 0.975) 60%, rgba(5, 8, 24, 0.9));
+    /* o meio é noite fechada: a letra da carta não pode aparecer por trás do número */
+    radial-gradient(120% 70% at 50% 46%, rgb(5, 8, 24) 46%, rgba(5, 8, 24, 0.975) 72%, rgba(5, 8, 24, 0.9));
   opacity: 0;
   will-change: opacity;
 }
 
-/* ---- o contador: a mesma letra do campo da senha --------------------------- */
+/* ---- o contador: a letra à mão da senha, sobre a noite ------------------------ */
 .contador {
   position: absolute;
   left: 0;
   right: 0;
   top: 50%;
-  margin-top: -5.4rem;
+  margin-top: -5.6rem;
   display: grid;
   justify-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 0 max(24px, var(--seguro-dir)) 0 max(24px, var(--seguro-esq));
-  color: #fff;
+  color: var(--luar);
   text-align: center;
   transform-origin: 50% 0;
   will-change: transform, opacity;
 }
 .contador-numero {
-  font-family: var(--fonte-titulo);
-  font-size: clamp(3.4rem, 2.4rem + 5.4vw, 5.25rem);
+  display: inline-flex;
+  font-family: var(--fonte-mao);
+  font-weight: 600;
+  font-size: clamp(3.75rem, 2.6rem + 6vw, 5.75rem);
   line-height: 1.1;
-  letter-spacing: 0.18em;
-  margin-right: -0.18em;             /* o espaço da última letra não tira o número do centro */
   font-variant-numeric: tabular-nums lining-nums;
-  font-feature-settings: "tnum", "lnum";
-  text-shadow: 0 0 28px rgba(190, 205, 255, 0.28);
+  text-shadow: 0 0 28px rgba(255, 209, 161, 0.22);
+}
+/* cada algarismo na sua casa: nada treme enquanto o número corre */
+.contador-casa { display: inline-block; width: 0.66em; text-align: center; }
+/* o fio costurado: o mesmo traço que estava sob a senha */
+.contador-fio {
+  display: block;
+  width: min(60vw, 228px);
+  height: 8px;
+  background: var(--enfeite-fio) left center / 24px 8px repeat-x;
+  transform-origin: left center;
 }
 .contador-rotulo {
-  font-family: var(--fonte-titulo);
-  font-size: 1.0625rem;
-  letter-spacing: 0.22em;
-  margin-right: -0.22em;
-  color: rgba(255, 255, 255, 0.74);
+  margin-top: 4px;
+  font-family: var(--fonte-mao);
+  font-weight: 600;
+  font-size: 1.1875rem;
+  letter-spacing: 0.08em;
+  color: var(--luar-suave);
 }
 .contador-frase {
   margin: 26px 0 0;
@@ -66,73 +78,84 @@
   font-family: var(--fonte-mao);
   font-size: clamp(1.2rem, 1.1rem + 0.6vw, 1.45rem);
   line-height: 1.6;
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--luar);
   text-wrap: balance;
 }
 /* pequeno, no alto: o rótulo cresce um pouco para continuar legível */
-.contador[data-alto] .contador-rotulo { font-size: 1.9rem; color: rgba(255, 255, 255, 0.86); }
+.contador[data-alto] .contador-rotulo { font-size: 2rem; color: var(--luar); }
 .contador[data-alto] { gap: 6px; text-shadow: 0 1px 10px rgba(4, 6, 20, 0.7); }
+/* No fim o contador fica sobre o céu e, no computador, sobre a beira da carta: ganha uma
+   etiqueta de noite por trás para ler nos dois (só opacidade; medidas antes da escala). */
+.contador::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  top: -10px;
+  width: 348px;
+  height: calc(clamp(3.75rem, 2.6rem + 6vw, 5.75rem) * 1.1 + 3rem + 46px);
+  margin-left: -174px;
+  border-radius: 44px;
+  background: rgba(13, 17, 48, 0.84);
+  box-shadow: inset 0 0 0 2px rgba(214, 222, 255, 0.16), 0 10px 26px rgba(4, 6, 20, 0.4);
+  opacity: 0;
+  transition: opacity 0.9s linear;
+  pointer-events: none;
+}
+.depois[data-fim]:not([data-folha]) .contador[data-alto]::before { opacity: 1; }
 .depois[data-teclado] .contador { visibility: hidden; }
 
-/* ---- a folha em branco ------------------------------------------------------- */
+/* ---- a folha em que ela escreve ------------------------------------------------ */
 .resposta {
+  --resp-l: min(calc(100vw - 32px - var(--seguro-esq) - var(--seguro-dir)), 468px);
   position: absolute;
   left: 50%;
-  top: calc(var(--depois-topo) + 112px);
-  width: min(calc(100vw - 32px), 468px);
-  max-height: calc(var(--depois-vista) - var(--depois-topo) - 112px - 20px);
-  margin-left: calc(min(calc(100vw - 32px), 468px) / -2);
+  top: calc(var(--depois-topo) + 116px);
+  width: var(--resp-l);
+  max-height: calc(var(--depois-vista) - var(--depois-topo) - 116px - 20px);
+  margin-left: calc(var(--resp-l) / -2);
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 22px 22px 16px;
+  padding: 30px 24px 20px;
   box-sizing: border-box;
-  background-color: var(--papel);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9 0.12' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0.33 0 0 0 0 0.24 0 0 0 0 0.2 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23f)'/%3E%3C/svg%3E");
-  border-radius: 2px;
-  box-shadow: 0 22px 48px rgba(2, 4, 16, 0.5), 0 2px 6px rgba(2, 4, 16, 0.3), inset 0 0 0 0.5px rgba(176, 156, 128, 0.4);
-  color: var(--tinta);
   pointer-events: auto;
   transform-origin: 50% 0;
   will-change: transform, opacity;
 }
 /* com o teclado aberto a folha sobe até o alto e usa só o que sobra de tela */
 .depois[data-teclado] .resposta {
-  top: calc(var(--depois-topo) + 10px);
-  max-height: calc(var(--depois-vista) - var(--depois-topo) - 20px);
-  padding-top: 14px;
+  top: calc(var(--depois-topo) + 16px);
+  max-height: calc(var(--depois-vista) - var(--depois-topo) - 26px);
+  padding-top: 24px;
+  padding-bottom: 16px;
 }
 .resposta-convite {
   margin: 0;
-  font-family: var(--fonte-mao);
-  font-size: 1.1875rem;
-  line-height: 1.5;
+  font-size: clamp(1.1875rem, 1.1rem + 0.4vw, 1.3125rem);
+  line-height: 1.45;
   color: var(--tinta);
   text-wrap: balance;
 }
 .depois[data-teclado] .resposta-convite { font-size: 1rem; line-height: 1.35; }
+/* o caderno: as pautas na altura de cada linha escrita */
 .resposta-texto {
   --linha: 2.05rem;
+  --pauta: var(--papel-linha);
   flex: 1 1 auto;
   display: block;
-  width: 100%;
   height: clamp(8.2rem, 32vh, 16.4rem);
   min-height: 4.1rem;
   margin: 0;
-  padding: 0 2px;
+  padding: 0 4px;
   box-sizing: border-box;
-  border: 0;
   border-radius: 0;
   outline: none;
-  resize: none;
   background-color: transparent;
-  /* as pautas da folha, na altura de cada linha escrita */
-  background-image: linear-gradient(to bottom, transparent calc(var(--linha) - 1px), var(--papel-linha) calc(var(--linha) - 1px));
+  background-image: linear-gradient(to bottom, transparent calc(var(--linha) - 1px), var(--pauta) calc(var(--linha) - 1px));
   background-size: 100% var(--linha);
   background-attachment: local;
   color: var(--tinta);
-  caret-color: var(--fio, #d7192d);
-  font-family: var(--fonte-mao);
   font-size: 1.1875rem;              /* 19 px: acima de 16, o Safari do iPhone não dá zoom */
   line-height: var(--linha);
   -webkit-appearance: none;
@@ -144,102 +167,98 @@
   overscroll-behavior: contain;
   touch-action: pan-y;
 }
-.resposta-texto::placeholder { color: var(--tinta-fraca); opacity: 0.8; }
-.resposta-texto:focus-visible { outline: none; }
+.resposta-texto::placeholder { color: var(--tinta-suave); opacity: 1; }
+/* escrevendo: as pautas ficam cor de cerejeira (o cursor é o fio) */
+.resposta-texto:focus { --pauta: var(--sakura); outline: none; }
 .resposta-aviso {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin: 0;
-  min-height: 1.2em;
-  font-family: var(--fonte-titulo);
-  font-size: 0.8125rem;
-  letter-spacing: 0.04em;
-  color: var(--tinta-suave);
+  min-height: 1.5em;
+  transform-origin: left center;
+}
+/* uma pétala marca o que ficou guardado */
+.resposta-aviso:not(:empty)::before {
+  content: "";
+  flex: none;
+  width: 13px; height: 13px;
+  background: var(--enfeite-petala) center / contain no-repeat;
+  transform: rotate(-18deg);
+}
+/* ela tocou em enviar sem ter escrito: o aviso fica em rosa e balança */
+.resposta-aviso[data-erro] { color: var(--sakura-tinta); font-weight: 600; }
+.resposta-nega { animation: resposta-nega 280ms var(--curva-ui) both; }
+@keyframes resposta-nega {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  50% { transform: translateX(4px); }
+  80% { transform: translateX(-2px); }
 }
 .depois[data-teclado] .resposta-aviso { display: none; }
 .resposta-botoes {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   flex: 0 0 auto;
+  margin-top: 2px;
 }
-.resposta-enviar,
-.resposta-guardar,
+.resposta-botoes .ui-pilula { padding: 0 18px; gap: 8px; font-size: 1.0625rem; -webkit-tap-highlight-color: transparent; }
+.resposta-enviar { flex: 0 1 auto; }
+.resposta-enviar .ui-icone { width: 22px; height: 22px; }
+.resposta-coracao { flex: none; width: 12px; height: 12px; fill: #ffffff; opacity: 0.92; transform: rotate(10deg); }
+/* sem texto o botão fica apagado, mas ainda responde: o toque explica o que falta */
+.resposta-enviar[aria-disabled="true"] { opacity: 0.5; pointer-events: auto; box-shadow: none; }
 .resposta-outro {
+  align-self: flex-end;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   min-height: 44px;
-  font-family: var(--fonte-titulo);
-  letter-spacing: 0.06em;
-  -webkit-tap-highlight-color: transparent;
-  -webkit-user-select: none;
-  user-select: none;
-  transition: transform 160ms ease-out, opacity 200ms linear;
-}
-.resposta-enviar {
-  padding: 0 20px;
-  border-radius: 999px;
-  background: var(--fio, #d7192d);
-  color: #fff;
-  font-size: 1rem;
-  font-weight: 600;
-  text-decoration: none;
-  box-shadow: 0 6px 16px rgba(215, 25, 45, 0.28);
-}
-.resposta-enviar[aria-disabled="true"] { opacity: 0.45; box-shadow: none; }
-.resposta-guardar {
-  padding: 0 8px;
-  border: 0;
-  background: transparent;
-  color: var(--tinta);
-  font-size: 1rem;
-  font-weight: 600;
-  text-decoration: underline;
-  text-decoration-color: var(--papel-linha);
-  text-underline-offset: 6px;
-  text-decoration-thickness: 2px;
-}
-.resposta-outro {
-  align-self: flex-start;
-  min-height: 36px;
-  margin-top: -6px;
-  padding: 0;
+  margin: -6px 0 -8px;
+  padding: 0 6px;
   border: 0;
   background: transparent;
   color: var(--tinta-suave);
-  font-size: 0.875rem;
+  font-family: var(--fonte-mao);
+  font-size: 0.9375rem;
   text-decoration: underline;
-  text-underline-offset: 4px;
+  text-decoration-color: var(--ponto);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 5px;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: transform var(--dur-mola) var(--mola);
 }
+.resposta-outro:active { transform: scale(0.96); transition-duration: var(--dur-toque); transition-timing-function: var(--curva-ui); }
 .depois[data-teclado] .resposta-outro { display: none; }
-.resposta-enviar:active,
-.resposta-guardar:active,
-.resposta-outro:active,
-.depois-reabrir:active { transform: scale(0.97); }
 .resposta-enviar:focus-visible,
 .resposta-guardar:focus-visible,
-.resposta-outro:focus-visible,
-.depois-reabrir:focus-visible { outline: 2px solid var(--fio, #d7192d); outline-offset: 3px; }
+.resposta-outro:focus-visible { outline: 2px solid var(--fio, #d7192d); outline-offset: 3px; }
+.depois-reabrir:focus-visible { outline: 2px solid var(--estrela); outline-offset: 3px; }
 
 /* ---- o estado final: o botão de reabrir a folha ------------------------------ */
 .depois-reabrir {
   position: absolute;
   left: 50%;
-  bottom: calc(var(--seguro-base) + 18px);
-  min-height: 44px;
-  padding: 0 18px;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(8, 11, 30, 0.5);
-  color: rgba(255, 255, 255, 0.92);
-  font-family: var(--fonte-titulo);
-  font-size: 1rem;
-  letter-spacing: 0.08em;
+  bottom: calc(var(--seguro-base) + 20px);
   translate: -50% 0;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
   pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 160ms ease-out;
+}
+.depois-reabrir .ui-icone { width: 20px; height: 20px; }
+
+html.reduzido .resposta-nega { animation: none; }
+html.reduzido .resposta-outro { transition-duration: 0.01ms; }
+@media (prefers-reduced-motion: reduce) {
+  .resposta-nega { animation: none; }
+}
+
+/* celular deitado: a folha mais perto do alto */
+@media (orientation: landscape) and (max-height: 520px) {
+  .resposta { top: calc(var(--depois-topo) + 64px); max-height: calc(var(--depois-vista) - var(--depois-topo) - 64px - 12px); padding-top: 22px; gap: 6px; }
+  .resposta-texto { height: 4.1rem; }
 }
 
 /* ---- ele, sem WebGL: a figura pintada, parada atrás da carta ------------------ */

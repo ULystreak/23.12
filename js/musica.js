@@ -28,11 +28,12 @@ import { el, svg, espera, quadro, semente, clamp, debounce } from './nucleo/util
 import { curvas, revelarPalavras } from './nucleo/movimento.js';
 
 // ---- desenhos (SVG; nada de glifo fazendo papel de ícone) -------------------------------
-const ICONE_TOCAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.7 5.3c.2 4.5.1 8.9-.1 13.4 3.6-2 7-4.2 10.5-6.6-3.4-2.4-6.8-4.7-10.4-6.8z" fill="currentColor" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>';
-const ICONE_PAUSA = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.4 5.6c.2 4.2.1 8.5-.1 12.8M15.7 5.4c-.2 4.3-.1 8.6.1 13" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round"/></svg>';
-const ICONE_SETA = '<svg class="musica-seta" viewBox="0 0 44 20" aria-hidden="true"><path d="M2.5 11.2c9.2-2.3 22-2.8 37.6-1.3"/><path d="M32.4 3.6c2.7 2.2 5.2 4.1 7.9 6.2-3 1.7-5.7 3.5-8.5 6.1"/></svg>';
-const ICONE_PASSAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.2 4.6c2.5 2.3 5 4.7 7.4 7.3-2.5 2.5-4.9 5-7.2 7.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const ICONE_VOLUME = '<svg class="mini-volume-icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.4 9.4c1.2-.1 2.3-.1 3.4 0 1.5-1.2 2.9-2.3 4.3-3.5.2 4 .2 8.1 0 12.2-1.5-1.1-2.9-2.2-4.3-3.4-1.1.1-2.3.1-3.4 0-.1-1.8-.1-3.5 0-5.3z"/><path d="M14.4 9.6c1 1.5 1 3.4 0 4.9M17.2 7.3c2.2 2.9 2.2 6.6 0 9.5"/></svg>';
+// Todos na grade de 24, traço e pontas de .ui-icone (css/base.css).
+const ICONE_TOCAR = '<svg class="ui-icone" viewBox="0 0 24 24" aria-hidden="true"><path class="icone-cheio" d="M8.6 6.4a1.3 1.3 0 0 1 2-1.1l8.4 5.6a1.3 1.3 0 0 1 0 2.2l-8.4 5.6a1.3 1.3 0 0 1-2-1.1z"/></svg>';
+const ICONE_PAUSA = '<svg class="ui-icone icone-pausa" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6.5v11M15 6.5v11"/></svg>';
+const ICONE_SETA = '<svg class="ui-icone musica-seta" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M12.8 6.5 18.5 12l-5.7 5.5"/></svg>';
+const ICONE_PASSAR = '<svg class="ui-icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5 16 12l-6.5 6.5"/></svg>';
+const ICONE_VOLUME = '<svg class="ui-icone mini-volume-icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 9.5h3.3L11 6v12l-4.2-3.5H3.5z"/><path d="M14.4 9.6c1 1.5 1 3.4 0 4.9M17.2 7.3c2.2 2.9 2.2 6.6 0 9.5"/></svg>';
 
 const PERIODO_GIRO = 9000;       // ms por volta: o disco gira devagar
 const RAIO_ANEL = 22.6;          // raio do fio de progresso em volta do disco (caixa de 48)
@@ -110,18 +111,6 @@ function caminhoDoLaco(l, a, sorte, f) {
     const x = (f.rx + tremor + abre) * sx;
     const y = (f.ry + (tremor + abre) * 0.7) * sy;
     pontos.push([cx + x - y * inclina, cy + y + x * inclina]);
-  }
-  return caminhoSuave(pontos);
-}
-
-/** O sublinhado do continuar: um fio quase reto, com um respiro no meio e a ponta subindo. */
-function caminhoDoSublinhado(l, a, sorte) {
-  const y = a * 0.55;
-  const pontos = [];
-  const passos = 7;
-  for (let i = 0; i <= passos; i++) {
-    const k = i / passos;
-    pontos.push([2 + (l - 4) * k, y + Math.sin(k * 5.2 + sorte() * 0.8) * 1.1 - (k > 0.86 ? (k - 0.86) * 16 : 0)]);
   }
   return caminhoSuave(pontos);
 }
@@ -357,7 +346,7 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
     const trilho = el('ul', 'car-trilho');
     const janela = el('div', 'car-janela', trilho);
     const seta = (dir, rotulo) => el('button', {
-      class: 'car-seta', type: 'button', 'aria-label': rotulo || '', dataset: { dir: String(dir) },
+      class: 'car-seta ui-redondo', type: 'button', 'aria-label': rotulo || '', dataset: { dir: String(dir), tom: 'noite' },
     }, svg(ICONE_PASSAR));
     const setaAntes = seta(-1, rotulos.anterior);
     const setaDepois = seta(1, rotulos.proxima);
@@ -365,19 +354,17 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
     const pontos = el('div', { class: 'car-pontos', 'aria-hidden': 'true' });
     const rotuloContinuar = el('span', 'musica-continuar-texto', dados.continuar || '');
     const continuar = el('button', {
-      class: 'musica-continuar', type: 'button', dataset: { acao: 'continuar' },
+      class: 'musica-continuar ui-pilula', type: 'button', dataset: { acao: 'continuar', tom: 'noite' },
     }, [rotuloContinuar, svg(ICONE_SETA)]);
+    // Quem entra e sai é a caixa; o botão fica livre para o toque em mola.
+    const caixaContinuar = el('div', 'musica-continuar-caixa', continuar);
     // Sem texto visível, a seta sozinha precisa de um nome para o leitor de tela.
     if (!dados.continuar && rotulos.continuar) continuar.setAttribute('aria-label', rotulos.continuar);
     const painel = el('div', {
       class: 'musica carrossel', dataset: { quantas: String(faixas.length) },
-    }, [titulo, palco, pontos, continuar]);
+    }, [titulo, palco, pontos, caixaContinuar]);
     if (faixas.length < 2) painel.dataset.unica = '';
 
-    const sublinhado = criarFioDesenhado('musica-sublinhado', rotuloContinuar, { x: 4, y: 0 },
-      (l) => caminhoDoSublinhado(l, 9, semente(77)));
-    rotuloContinuar.append(sublinhado.no);
-    limpar.push(sublinhado.soltar);
     continuar.disabled = true;
     // (o continuar fica escondido só depois da pintura de aquecimento, lá embaixo)
 
@@ -386,7 +373,8 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
       const item = el('li', 'car-item');
       const moldura = el('span', 'car-moldura', [
         el('span', 'car-capa'),
-        el('span', 'car-tocar', svg(ICONE_TOCAR)),
+        el('span', 'car-tocar ui-redondo', svg(ICONE_TOCAR)),
+        el('span', 'car-laco ui-laco'),          // o lacinho do fio: aparece na capa escolhida
       ]);
       const disco = criarDisco('disco-vinil car-disco');
       // O trilho é por onde o disco escorrega para fora da capa (o CSS move o trilho; o voo move o disco).
@@ -626,15 +614,15 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
 
       if (continuar.disabled && !terminado) {
         continuar.disabled = false;
-        gsap.fromTo(continuar,
-          { autoAlpha: 0, y: calmo() ? 0 : 10 },
-          { autoAlpha: 1, y: 0, duration: 1.1, delay: 0.35, ease: curvas.branco.entrar, clearProps: 'transform' });
-        sublinhado.desenhar({ duracao: 0.8, atraso: 0.8 });
-        if (!calmo() && temDesenho()) {
-          gsap.fromTo(continuar.querySelectorAll('.musica-seta path'),
-            { drawSVG: '0% 0%' },
-            { drawSVG: '0% 100%', duration: 0.5, stagger: 0.28, delay: 1.05, ease: 'power2.out' });
-        }
+        // A pílula sobe na mola logo depois do laço; assentada, a setinha fica chamando o próximo
+        // toque (o botão em si fica parado: é nele que o dedo, e o teste, vão tocar).
+        gsap.fromTo(caixaContinuar,
+          { autoAlpha: 0, y: calmo() ? 0 : 14, scale: calmo() ? 1 : 0.94 },
+          {
+            autoAlpha: 1, y: 0, scale: 1, duration: calmo() ? 0.4 : 0.6, delay: 0.3,
+            ease: calmo() ? 'none' : 'back.out(1.6)', clearProps: 'transform', overwrite: true,
+            onComplete: () => { if (!terminado && !continuar.disabled) continuar.dataset.chama = ''; },
+          });
       }
     }
 
@@ -663,7 +651,8 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
         linha.botao.setAttribute('aria-pressed', 'false');
         linha.laco.apagar();
         continuar.disabled = true;
-        gsap.to(continuar, { autoAlpha: 0, duration: 0.3, ease: 'none', overwrite: true });
+        delete continuar.dataset.chama;
+        gsap.to(caixaContinuar, { autoAlpha: 0, duration: 0.2, ease: 'none', overwrite: true });
       }
       if (!validas().length) { encerrar(null); return; }
       gsap.to(linha.botao, {
@@ -700,12 +689,13 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
       arrasto = null;
       painel.toggleAttribute('data-saindo', true);     // a brasa atrás da capa se apaga
       continuar.disabled = true;
+      delete continuar.dataset.chama;
       setaAntes.disabled = true;
       setaDepois.disabled = true;
       for (const l of linhas) l.botao.disabled = true;
 
       const voa = linha && mini && !calmo() ? linha.disco.no : null;
-      const resto = [titulo, continuar, pontos, setaAntes, setaDepois, ...linhas.flatMap((l) => (l === linha ? [l.texto] : [l.item]))];
+      const resto = [titulo, caixaContinuar, pontos, setaAntes, setaDepois, ...linhas.flatMap((l) => (l === linha ? [l.texto] : [l.item]))];
 
       try {
         if (voa) {
@@ -759,7 +749,7 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
       // quadro() resolve no rAF, antes da pintura: com dois, um quadro inteiro é pintado assim.
       await quadro();
       await quadro();
-      gsap.set(continuar, { autoAlpha: 0 });
+      gsap.set(caixaContinuar, { autoAlpha: 0 });
       painel.style.opacity = '';
       painel.style.pointerEvents = '';
       if (terminado || !painel.isConnected) return;
@@ -901,13 +891,14 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
     }, visual);
 
     const alternar = el('button', { class: 'mini-alternar', type: 'button', dataset: { acao: 'mini-alternar' } });
+    alternar.append(svg(ICONE_PAUSA), svg(ICONE_TOCAR));     // os dois ficam; o CSS mostra o que vale (troca em escala e opacidade)
     const nomeAtual = el('span', 'mini-nome');
     const artistaAtual = el('span', 'mini-artista');
     const agora = el('div', 'mini-agora', [alternar, el('p', 'mini-atual', [nomeAtual, artistaAtual])]);
 
     // A lista só existe quando há o que trocar.
     const lista = el('ul', { class: 'mini-lista', 'aria-label': rotulos.trocar || rotulos.abrir || '' });
-    const itens = todas.map((faixa) => {
+    const itens = todas.map((faixa, ordem) => {
       const capa = el('span', { class: 'mini-capa', 'aria-hidden': 'true' });
       recursos.elementoImagem(faixa.capa, '').then((img) => {
         if (img) capa.append(img);
@@ -922,6 +913,7 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
         som.tocar(faixa.indice);
       });
       const li = el('li', null, item);
+      li.style.setProperty('--i', String(ordem));       // a fila de entrada quando o painel abre
       li.hidden = fora.has(faixa.indice);
       lista.append(li);
       return { faixa, item, li };
@@ -1075,7 +1067,6 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
     const faixaAtual = (estado) => todas.find((f) => f.indice === estado.indice && !fora.has(f.indice)) || validas()[0] || null;
     refletir = (estado) => {
       const faixa = faixaAtual(estado);
-      alternar.replaceChildren(svg(estado.tocando ? ICONE_PAUSA : ICONE_TOCAR));
       alternar.setAttribute('aria-label', (estado.tocando ? rotulos.pausar : rotulos.tocar) || '');
       mini.toggleAttribute('data-tocando', !!estado.tocando);
       nomeAtual.textContent = faixa ? faixa.titulo || '' : '';
