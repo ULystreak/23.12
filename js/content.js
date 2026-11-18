@@ -793,7 +793,7 @@ window.CONTEUDO = {
     // ATENÇÃO: o site é público. Quem abrir este arquivo consegue ler o número
     // que estiver aqui. Se não quiser isso, deixe vazio (''): o WhatsApp abre
     // do mesmo jeito e ela mesma escolhe o seu contato.
-    whatsapp: '',
+    whatsapp: '5511961922722',
 
     // O convite, no alto da folha.
     convite: '[Agora é a sua vez. Escreve o que você quiser me dizer.]',
