@@ -85,6 +85,7 @@ async function iniciar() {
   };
 
   ctx.voz = (await import('./voz.js')).criarVoz(ctx);   // a fita com a voz dele, na bolsa
+  try { ctx.letra = (await import('./letra.js')).criarLetra(ctx); } catch (erro) { console.error(erro); }   // a letra no alto
   vigiarContexto(ctx);
   await diretor.rodar(ctx, diretor.cenaInicial());
 }

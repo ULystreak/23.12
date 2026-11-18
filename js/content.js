@@ -162,12 +162,31 @@ window.CONTEUDO = {
     //   artista: quem canta
     //   arquivo: o .mp3 dentro de assets/music/
     //   capa:    a imagem da capa (quadrada fica melhor); '' se não tiver
+    // Quando a música que ela escolheu acaba, entra a próxima desta lista (e da
+    // última volta para a primeira). A letra de cada música (campo `letra`)
+    // aparece no alto da tela. Para nunca mostrar letra: legenda: false.
+    legenda: true,
+
     faixas: [
       {
         titulo: 'undressed',
         artista: 'sombr',
         arquivo: 'assets/music/undressed.mp3',
         capa: 'assets/music/undressed.webp',
+        letra: '',
+      },
+      {
+        titulo: 'we never dated',
+        artista: 'sombr',
+        arquivo: 'assets/music/we-never-dated.mp3',
+        capa: 'assets/music/we-never-dated.webp',
+
+        // A LETRA EM PORTUGUÊS, passando no alto da tela enquanto a música toca.
+        // Um verso por linha, com o tempo em que ele começa na música (minuto:segundo):
+        //   [00:12.50] primeiro verso
+        //   [00:16.80] segundo verso
+        // Cole tudo entre as duas crases (`). Vazio = sem letra para esta música.
+        letra: ``,
       },
 
       // PARA ADICIONAR OUTRA MÚSICA: copie o bloco abaixo, tire as duas barras

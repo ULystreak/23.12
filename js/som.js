@@ -1,7 +1,9 @@
 // Som: o motor de áudio da carta (Web Audio). Música em repetição + efeitos discretos.
 //
 //   som.destravar()        chamar dentro de um toque/clique (o navegador só libera áudio assim)
-//   som.tocar(indice)      toca a faixa `indice` de conteudo.musica.faixas, em loop, com entrada suave
+//   som.tocar(indice)      toca a faixa `indice` de conteudo.musica.faixas, com entrada suave;
+//                          ao acabar, passa sozinha para a próxima (e da última volta à primeira;
+//                          com uma faixa só, ela se repete)
 //   som.pausar() / som.retomar()
 //   som.volume(v)          0..1; sem argumento devolve o volume atual
 //   som.estado             { destravado, tocando, indice, volume, falhou }
@@ -48,6 +50,11 @@ export function criarSom(conteudo, amb) {
   let rampaReserva = 0;
   let pedindoPlay = false;   // há um audio.play() ainda sem resposta
 
+  // Índices das faixas que têm arquivo (as que dá para tocar), na ordem do content.js.
+  function tocaveis() {
+    return faixas.map((f, i) => (typeof f?.arquivo === 'string' && f.arquivo.trim() ? i : -1)).filter((i) => i >= 0);
+  }
+
   function emitir() {
     for (const fn of ouvintes) {
       try { fn(estado); } catch (erro) { console.error(erro); }
@@ -83,7 +90,8 @@ export function criarSom(conteudo, amb) {
     if (mudo || audio) return;
     try {
       audio = new Audio();
-      audio.loop = true;
+      // Com uma faixa só ela se repete; com mais, ao acabar entra a próxima.
+      audio.loop = tocaveis().length < 2;
       audio.preload = 'auto';
       audio.playsInline = true;
       audio.setAttribute('playsinline', '');
@@ -93,6 +101,13 @@ export function criarSom(conteudo, amb) {
         estado.tocando = false;
         estado.falhou = true;
         emitir();
+      });
+      audio.addEventListener('ended', () => {
+        if (!estado.tocando) return;
+        const lista = tocaveis();
+        if (lista.length < 2) { audio.currentTime = 0; audio.play().catch(() => {}); return; }
+        const i = lista.indexOf(estado.indice);
+        som.tocar(lista[(i + 1) % lista.length]);
       });
       audio.addEventListener('timeupdate', emitirTempo);
       audio.addEventListener('durationchange', emitirTempo);

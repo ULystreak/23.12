@@ -1,0 +1,34 @@
+/* A letra da música no alto da tela (js/letra.js): um verso por vez, em letra da carta,
+   num fundinho escuro e macio para ler sobre a alameda clara e sobre a noite.
+   Fica longe do disco da música (canto de cima à direita). Só opacity e transform. */
+.letra {
+  position: fixed;
+  top: calc(var(--seguro-topo, 0px) + 14px);
+  left: 50%;
+  z-index: 45;
+  width: max-content;
+  max-width: min(560px, calc(100% - 2 * max(78px, var(--seguro-dir, 0px) + 70px)));
+  transform: translateX(-50%);
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 600ms linear;
+}
+.letra[data-vazia] { opacity: 0; }
+.letra-linha {
+  margin: 0;
+  padding: 7px 14px 8px;
+  border-radius: 14px;
+  background: rgba(22, 16, 34, 0.46);
+  font-family: var(--fonte-titulo);
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+  color: #fff;
+  text-align: center;
+  text-wrap: balance;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+}
+@media (min-width: 900px) {
+  .letra-linha { font-size: 1.0625rem; padding: 8px 18px 9px; }
+}
+/* Na tela preta da senha e da escolha da música ela fica por trás (o #entrada cobre). */
