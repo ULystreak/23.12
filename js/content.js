@@ -186,6 +186,9 @@ window.CONTEUDO = {
         //   [00:12.50] primeiro verso
         //   [00:16.80] segundo verso
         // Cole tudo entre as duas crases (`). Vazio = sem letra para esta música.
+        // Para marcar os tempos sem esforço, abra _dev/marcar-letra.html no site
+        // (https://ulystreak.github.io/23.12/_dev/marcar-letra.html): cole a letra,
+        // toque "Agora!" a cada verso enquanto a música toca e copie o resultado.
         letra: ``,
       },
 

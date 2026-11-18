@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Marcar a letra</title>
+<style>
+  :root { --papel: #fbf7f0; --tinta: #2a2230; --fio: #d7192d; --suave: #8a7f8c; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--papel); color: var(--tinta); font: 16px/1.5 system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 80px; display: grid; gap: 18px; }
+  h1 { margin: 0; font-size: 1.4rem; }
+  ol { margin: 0; padding-left: 1.2em; color: var(--suave); }
+  label { font-weight: 600; display: block; margin-bottom: 6px; }
+  textarea, select { width: 100%; font: inherit; padding: 10px; border: 1px solid #d9cfc4; border-radius: 10px; background: #fff; }
+  textarea { min-height: 180px; }
+  .linha { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  button { font: inherit; padding: 10px 16px; border-radius: 999px; border: 1px solid #d9cfc4; background: #fff; cursor: pointer; }
+  button.grande { padding: 18px 28px; font-size: 1.1rem; background: var(--fio); color: #fff; border: 0; }
+  button:disabled { opacity: 0.45; cursor: default; }
+  audio { width: 100%; }
+  .agora { min-height: 3em; padding: 12px 16px; border-radius: 14px; background: #1f1828; color: #fff; text-align: center; }
+  .agora small { display: block; color: #c9bfd0; }
+  .dica { color: var(--suave); font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Marcar o tempo da letra</h1>
+  <ol>
+    <li>Escolha a música.</li>
+    <li>Cole a letra em português, um verso por linha.</li>
+    <li>Aperte “Começar” e, toda vez que um verso começar a ser cantado, aperte “Agora!” (ou a barra de espaço).</li>
+    <li>No fim, copie o resultado e cole no <code>js/content.js</code>, no campo <code>letra</code> daquela música, entre as duas crases (<code>`</code>).</li>
+  </ol>
+
+  <div>
+    <label for="faixa">Música</label>
+    <select id="faixa"></select>
+  </div>
+
+  <div>
+    <label for="versos">Letra (um verso por linha)</label>
+    <textarea id="versos" placeholder="cole aqui"></textarea>
+  </div>
+
+  <audio id="som" controls preload="auto"></audio>
+
+  <div class="linha">
+    <button id="comecar">Começar do zero</button>
+    <button id="agora" class="grande" disabled>Agora!</button>
+    <button id="desfazer" disabled>Desfazer o último</button>
+    <button id="voltar">Voltar 5 s</button>
+  </div>
+
+  <div class="agora" id="painel"><small>próximo verso</small><span id="proximo">—</span></div>
+
+  <div>
+    <label for="saida">Resultado (cole no content.js)</label>
+    <textarea id="saida" readonly></textarea>
+    <div class="linha" style="margin-top:8px">
+      <button id="copiar">Copiar</button>
+      <span class="dica" id="aviso"></span>
+    </div>
+  </div>
+</main>
+<script src="../js/content.js"></script>
+<script>
+  const faixas = (window.CONTEUDO && window.CONTEUDO.musica && window.CONTEUDO.musica.faixas) || [];
+  const $ = (id) => document.getElementById(id);
+  const som = $('som');
+  faixas.forEach((f, i) => { const o = document.createElement('option'); o.value = i; o.textContent = `${f.titulo} — ${f.artista}`; $('faixa').append(o); });
+  const carregar = () => { const f = faixas[$('faixa').value]; if (f) som.src = '../' + f.arquivo; };
+  $('faixa').addEventListener('change', carregar); carregar();
+
+  let versos = [];
+  let marcas = [];
+  const tempo = (s) => { const m = Math.floor(s / 60); const r = (s - m * 60).toFixed(2).padStart(5, '0'); return `[${String(m).padStart(2, '0')}:${r}]`; };
+  const atualizar = () => {
+    $('saida').value = marcas.map((t, i) => `${tempo(t)} ${versos[i]}`).join('\n');
+    $('proximo').textContent = marcas.length < versos.length ? versos[marcas.length] : 'pronto! copie o resultado';
+    $('desfazer').disabled = !marcas.length;
+    $('agora').disabled = !versos.length || marcas.length >= versos.length;
+  };
+  $('comecar').addEventListener('click', () => {
+    versos = $('versos').value.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    marcas = [];
+    som.currentTime = 0; som.play();
+    atualizar();
+  });
+  const marcar = () => { if (marcas.length < versos.length) { marcas.push(som.currentTime); atualizar(); } };
+  $('agora').addEventListener('click', marcar);
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && document.activeElement.tagName !== 'TEXTAREA') { e.preventDefault(); marcar(); }
+  });
+  $('desfazer').addEventListener('click', () => { marcas.pop(); atualizar(); });
+  $('voltar').addEventListener('click', () => { som.currentTime = Math.max(0, som.currentTime - 5); });
+  $('copiar').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText($('saida').value); $('aviso').textContent = 'copiado'; }
+    catch { $('saida').select(); $('aviso').textContent = 'selecionado: Ctrl+C'; }
+  });
+  atualizar();
+</script>
+</body>
+</html>
