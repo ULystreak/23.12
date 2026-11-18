@@ -377,8 +377,12 @@ const casos = {
     const foco2 = await s.page.evaluate(() => document.activeElement?.dataset?.acao);
     await s.page.keyboard.press('Enter');
     await pausa(500);
-    await s.page.keyboard.press('Tab');
-    const foco3 = await s.page.evaluate(() => document.activeElement?.dataset?.acao);
+    // Com mais de uma música, as setas do carrossel vêm antes do continuar: tabula até ele.
+    let foco3 = '';
+    for (let i = 0; i < 6 && foco3 !== 'continuar'; i++) {
+      await s.page.keyboard.press('Tab');
+      foco3 = await s.page.evaluate(() => document.activeElement?.dataset?.acao);
+    }
     await foto(s, 'teclado-foco-continuar');
     await s.page.keyboard.press('Enter');
     await s.esperarEtapa('inicio:carta-espera', 40000);
