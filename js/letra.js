@@ -10,6 +10,7 @@
 // repartidas pelo tempo do verso. Uma linha só com o tempo apaga a letra até o próximo verso.
 // Sem letra (ou com musica.legenda: false) nada aparece. A linha some quando a
 // música pausa e troca sozinha quando a faixa troca. Só opacity, transform e cor.
+// Onde ela dá passagem (outra voz falando, a carta falando) está em css/letra.css.
 
 import { el } from './nucleo/util.js';
 
@@ -61,16 +62,15 @@ export function criarLetra({ conteudo, som, amb }) {
   const letras = faixas.map((f) => lerLrc(f?.letra));
   if (dados.legenda === false || !letras.some((l) => l.length)) return { parar() {} };
 
-  const linha = el('p', 'letra-linha');
-  const raiz = el('div', { id: 'letra', class: 'letra', 'aria-hidden': 'true' }, linha);
+  // Na troca de verso só o texto anima; a caixa escura fica (não pisca no alto da tela).
+  // Nasce vazia: até o primeiro verso cantado não há caixa nenhuma.
+  const texto = el('span', 'letra-texto');
+  const raiz = el('div', { id: 'letra', class: 'letra', 'aria-hidden': 'true', 'data-vazia': '' }, el('p', 'letra-linha', texto));
   document.body.append(raiz);
 
-  let atual = -2;
   let verso = null;        // a linha mostrada agora
   let pedacos = [];        // os <span> das palavras dela
   let acesa = -1;          // a palavra em vermelho
-  let ultimoTempo = 0;     // o último segundo que o som contou, e quando
-  let quando = 0;
   let quadro = 0;
 
   const mostrar = (novo) => {
@@ -80,9 +80,9 @@ export function criarLetra({ conteudo, som, amb }) {
     raiz.toggleAttribute('data-vazia', !novo?.texto);
     if (!novo?.texto) { pedacos = []; return; }   // a linha antiga some junto com o fundo (opacity no .letra)
     pedacos = novo.palavras.map((p) => el('span', 'letra-palavra', p.texto));
-    linha.replaceChildren(...pedacos.flatMap((s, i) => (i ? [' ', s] : [s])));
-    if (amb?.reduzido || !linha.animate) return;
-    linha.animate(
+    texto.replaceChildren(...pedacos.flatMap((s, i) => (i ? [' ', s] : [s])));
+    if (amb?.reduzido || !texto.animate) return;
+    texto.animate(
       [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'translateY(0)' }],
       { duration: 360, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
     );
@@ -98,17 +98,14 @@ export function criarLetra({ conteudo, som, amb }) {
     if (pedacos[i]) pedacos[i].setAttribute('data-agora', '');
   };
 
-  const agora = () => {
-    const lido = typeof som.segundos === 'function' ? som.segundos() : 0;
-    return lido > 0 ? lido : ultimoTempo + (performance.now() - quando) / 1000;
-  };
-
+  // `t` é o segundo da própria faixa, nunca adivinhado: com o mp3 travado, ainda chegando,
+  // trocando de faixa (volta a 0) ou no mudo, ele fica em 0 e nada aparece.
   const atualizar = (t) => {
     const lista = letras[som.estado.indice] || [];
-    if (!som.estado.tocando || !lista.length) { atual = -2; mostrar(null); return; }
+    if (!som.estado.tocando || !lista.length || !(t > 0)) { mostrar(null); return; }
     let i = -1;
     for (let k = 0; k < lista.length && lista[k].t <= t + 0.05; k++) i = k;
-    if (i !== atual) { atual = i; mostrar(i >= 0 ? lista[i] : null); }
+    mostrar(i >= 0 ? lista[i] : null);
     acender(t);
   };
 
@@ -116,22 +113,13 @@ export function criarLetra({ conteudo, som, amb }) {
   const girar = () => {
     quadro = 0;
     if (!som.estado.tocando) return;
-    atualizar(agora());
+    atualizar(som.segundos());
     quadro = requestAnimationFrame(girar);
   };
   const ligar = () => { if (!quadro && som.estado.tocando) quadro = requestAnimationFrame(girar); };
 
-  const aoTempo = (_p, s) => {
-    ultimoTempo = s;
-    quando = performance.now();
-    atualizar(s);
-    ligar();
-  };
-  const cancelarTempo = som.aoTempo(aoTempo);
-  const cancelarMudar = som.aoMudar(() => {
-    if (!som.estado.tocando) { atual = -2; mostrar(null); } else ligar();
-  });
-  mostrar(null);
+  const cancelarTempo = som.aoTempo((_p, s) => { atualizar(s); ligar(); });
+  const cancelarMudar = som.aoMudar(() => { if (som.estado.tocando) ligar(); else mostrar(null); });
   return {
     parar() {
       cancelarTempo?.();

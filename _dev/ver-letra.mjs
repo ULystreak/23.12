@@ -1,4 +1,5 @@
 // Foto da letra no alto da tela com a música tocando de verdade (a palavra cantada em vermelho).
+// Na caminhada até a segunda carta: na leitura dos capítulos ela dá passagem (css/letra.css).
 //   node _dev/ver-letra.mjs [segundo] [faixa 1|2]
 import { abrir, PASTA_FOTOS } from './lib.mjs';
 import { mkdir } from 'node:fs/promises';
@@ -7,7 +8,7 @@ const seg = Number(process.argv[2] || 40);
 const faixa = Number(process.argv[3] || 2) - 1;
 await mkdir(PASTA_FOTOS, { recursive: true });
 for (const vp of ['iphone', 'desktop']) {
-  const s = await abrir({ cena: 'poppy', vp, preparar: (page) => page.addInitScript(() => {
+  const s = await abrir({ cena: 'carta2', vp, preparar: (page) => page.addInitScript(() => {
     const tocar = HTMLMediaElement.prototype.play;
     HTMLMediaElement.prototype.play = function () { window.__audio = this; return tocar.call(this); };
   }) });
@@ -22,7 +23,7 @@ for (const vp of ['iphone', 'desktop']) {
     if (a) a.currentTime = seg;
     await new Promise((r) => setTimeout(r, 1200));
     const acesa = document.querySelector('.letra-palavra[data-agora]');
-    return { tocando: som.estado.tocando, t: a?.currentTime?.toFixed(1), palavras: document.querySelectorAll('.letra-palavra').length, acesa: !!acesa, cor: acesa && getComputedStyle(acesa).color };
+    return { tocando: som.estado.tocando, t: a?.currentTime?.toFixed(1), palavras: document.querySelectorAll('.letra-palavra').length, acesa: !!acesa, cor: acesa && getComputedStyle(acesa).color, opacidade: getComputedStyle(document.getElementById('letra')).opacity };
   }, { seg, faixa });
   console.log(vp, JSON.stringify(info));
   const f = path.join(PASTA_FOTOS, `letra-${vp}.png`);
