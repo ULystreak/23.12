@@ -345,8 +345,9 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
     const titulo = el('h2', 'musica-titulo');
     const trilho = el('ul', 'car-trilho');
     const janela = el('div', 'car-janela', trilho);
+    // Fora do Tab: as setas do teclado já passam as capas, e depois de escolher o Tab vai direto ao continuar.
     const seta = (dir, rotulo) => el('button', {
-      class: 'car-seta ui-redondo', type: 'button', 'aria-label': rotulo || '', dataset: { dir: String(dir), tom: 'noite' },
+      class: 'car-seta ui-redondo', type: 'button', tabindex: '-1', 'aria-label': rotulo || '', dataset: { dir: String(dir), tom: 'noite' },
     }, svg(ICONE_PASSAR));
     const setaAntes = seta(-1, rotulos.anterior);
     const setaDepois = seta(1, rotulos.proxima);
@@ -856,8 +857,6 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
         // O rótulo cresce até quase a borda: o vinil vira o disquinho só com a capa.
         tl.to(rotulo, { scale: 0.9 / 0.4, duration: duracao * 0.8, ease: 'power2.inOut' }, duracao * 0.2);
       } else {
-        tl.fromTo(voador, { rotation: parseFloat(getComputedStyle(linha.item).getPropertyValue('--ang')) || 0 },
-          { rotation: 0, duration: duracao, ease: 'power2.inOut' }, 0);
         tl.to(voador, { borderRadius: '50%', duration: duracao * 0.7, ease: 'power2.in' }, duracao * 0.3);
       }
     });
@@ -1082,7 +1081,6 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
       }
       const pos = posicaoDoVolume(estado.volume);
       if (document.activeElement !== controle) controle.value = String(n2(pos));
-      volume.style.setProperty('--volume', String(n2(pos)));
       controle.setAttribute('aria-valuetext', `${Math.round(estado.volume * 100)}%`);
     };
     som.aoMudar(refletir);

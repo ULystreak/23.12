@@ -275,6 +275,23 @@
 /* Escolhida: a capa vai para um lado e o disco sai pelo outro (o conjunto continua no centro). */
 .car-faixa[aria-pressed="true"] .car-moldura { transform: translateX(-21%); }
 .car-faixa[aria-pressed="true"] .car-disco-trilho { transform: translateX(31%); }
+/* E as vizinhas se afastam um pouco e se apagam, junto com o disco: o vinil e a capa
+   ficam com o recorte limpo. O quanto: o que o disco passa da vizinha (19% da capa
+   menos o vão) e um respiro, desfeita a escala de 0,84 dela. (No .car-faixa: o
+   .car-item é posicionado pelo JS. Sem transição na desativada, que some pela GSAP.) */
+.carrossel { --afasta: max(0px, (var(--lado) * 0.19 - var(--vao) + 10px) / 0.84); }
+html.reduzido .carrossel { --afasta: 0px; }          /* sem deslocar: só se apagam */
+.car-faixa:not(:disabled) {
+  transition: transform 1000ms var(--curva-branco-entrar), opacity 600ms linear;
+}
+.car-item[data-centro]:has(> [aria-pressed="true"]) ~ .car-item > .car-faixa {
+  opacity: 0.35;
+  transform: translateX(var(--afasta));
+}
+.car-item:has(~ .car-item[data-centro] > [aria-pressed="true"]) > .car-faixa {
+  opacity: 0.35;
+  transform: translateX(calc(var(--afasta) * -1));
+}
 
 /* O sinal de tocar no meio da capa do centro, até ela escolher: um botão de papel
    (.ui-redondo) com o triângulo no vermelho do fio. */

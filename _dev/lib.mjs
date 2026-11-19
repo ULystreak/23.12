@@ -162,7 +162,7 @@ export function lerConteudo(videos = null) {
 export function senhaDoConteudo(conteudo = lerConteudo()) {
   // A senha mestra abre em qualquer dia; a dela só a partir de senha.liberaEm.
   const codigo = conteudo && conteudo.senha && (conteudo.senha.mestra || conteudo.senha.codigo);
-  return typeof codigo === 'string' && /^\d+$/.test(codigo.trim()) ? codigo.trim() : '';
+  return typeof codigo === 'string' ? codigo.trim() : '';
 }
 
 /** Quantas cartas há no chão (= cartasDoChao do diretor: amigos com nome + Surpresinha). */

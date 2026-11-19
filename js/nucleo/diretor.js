@@ -38,16 +38,23 @@ const CAPITULOS = ['poppy', 'yourname'];
  * movimento e a folha está livre para reabrir uma carta.
  */
 const BOLSA_LIVRE = new Set(['carta2:caminhada', 'carta2:carta-chegando', 'carta2:carta-espera', 'mao:mao-espera', 'cartas:escolhendo', 'final:fim']);
+/**
+ * Cenas por onde a carta pode recomeçar. No começo de cada uma o endereço passa a
+ * dizer ?cena=<ela>&musica=<a faixa>, sem página nova no histórico: recarregar,
+ * voltar/avançar ou o iPhone descartar a aba (na volta do WhatsApp) caem no atalho
+ * ?cena= (e a música volta no primeiro toque, main.js), não na senha com tudo do zero.
+ */
+const RETOMAR = new Set(['inicio', 'poppy', 'carta2', 'yourname', 'mao', 'cartas', 'final']);
 
 /**
  * Cenas que só existem quando o content.js tem o que mostrar. Pulada, a cena nem
  * aparece em data-cena: a seguinte entra como entraria sem ela (fria só se a
  * carta começou ali por ?cena=).
  */
-/** Há senha a pedir? */
+/** Há senha a pedir? (qualquer texto: números, letras, o que ele quiser) */
 export function temSenha(conteudo) {
   const codigo = conteudo && conteudo.senha && conteudo.senha.codigo;
-  return typeof codigo === 'string' && /^\d+$/.test(codigo.trim());
+  return typeof codigo === 'string' && codigo.trim() !== '';
 }
 /**
  * As cartas do chão, na ordem: os amigos e, por último, a Surpresinha.
@@ -98,6 +105,17 @@ const carregar = {
 };
 // A tela preta é a primeira coisa que ela vê: só é baixada quando a carta começa por ela.
 const carregarEntrada = () => import('../cenas/senha.js');
+
+/** O endereço passa a apontar para `cena` (os outros parâmetros ficam: rapido, hoje, mudo, webgl...). */
+function marcarRetomada(cena, som) {
+  try {
+    const params = new URLSearchParams(location.search);
+    params.set('cena', cena);
+    // Antes do primeiro toque depois de recarregar a faixa ainda não voltou: fica a que já estava.
+    if (som && som.estado.indice >= 0) params.set('musica', String(som.estado.indice));
+    history.replaceState(history.state, '', `${location.pathname}?${params}${location.hash}`);
+  } catch { /* sem history: recarregar volta ao começo, como antes */ }
+}
 
 /** A tela preta (#entrada) some de uma vez: é o que os atalhos fazem. */
 function tirarEntrada() {
@@ -333,6 +351,7 @@ export function criarDiretor() {
         diretor.etapaAtual = null;
         raiz.dataset.cena = nome;
         delete raiz.dataset.etapa;
+        if (RETOMAR.has(nome)) marcarRetomada(nome, ctx.som);
         try {
           await cenas[nome](ctx, { frio });
           frio = false;

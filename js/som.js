@@ -3,7 +3,8 @@
 //   som.destravar()        chamar dentro de um toque/clique (o navegador só libera áudio assim)
 //   som.tocar(indice)      toca a faixa `indice` de conteudo.musica.faixas, com entrada suave;
 //                          ao acabar, passa sozinha para a próxima (e da última volta à primeira;
-//                          com uma faixa só, ela se repete)
+//                          com uma faixa só, ela se repete). Se o arquivo não chega (soluço de
+//                          rede), tenta mais duas vezes, a cada 1,5 s; só então estado.falhou
 //   som.pausar() / som.retomar()
 //   som.volume(v)          0..1; sem argumento devolve o volume atual
 //   som.estado             { destravado, tocando, indice, volume, falhou }
@@ -26,7 +27,7 @@
 // também podem ser tocadas num OfflineAudioContext com sintetizar(), para medir
 // pico e duração sem ouvir.
 
-import { clamp, semente } from './nucleo/util.js';
+import { clamp, semente, espera } from './nucleo/util.js';
 
 const ENTRADA = 1.8;   // s: a música chega devagar
 const SAIDA = 0.45;    // s
@@ -49,7 +50,8 @@ export function criarSom(conteudo, amb) {
   let voltaAbafar = 0;
   let pausadoPelaAba = false;
   let rampaReserva = 0;
-  let pedindoPlay = false;   // há um audio.play() ainda sem resposta
+  let pedindoPlay = false;   // um tocar() trabalhando: o play() sem resposta ou entre tentativas
+  let pedidos = 0;           // conta os tocar(): só o último continua tentando
 
   // Índices das faixas que têm arquivo (as que dá para tocar), na ordem do content.js.
   function tocaveis() {
@@ -101,7 +103,10 @@ export function criarSom(conteudo, amb) {
       audio.setAttribute('playsinline', '');
       audio.addEventListener('error', () => {
         // Antes da escolha (arquivo só adiantado) não há o que avisar: o seletor confere sozinho.
-        if (!audio.getAttribute('src') || estado.indice < 0) return;
+        // Durante um tocar() quem decide é ele, que tenta de novo antes de desistir.
+        if (!audio.getAttribute('src') || estado.indice < 0 || pedindoPlay || !estado.tocando) return;
+        // A rede caiu no meio da faixa: recarrega e tenta de novo. Outro erro: segue sem ela.
+        if (audio.error && audio.error.code === MediaError.MEDIA_ERR_NETWORK) { som.tocar(estado.indice); return; }
         estado.tocando = false;
         estado.falhou = true;
         emitir();
@@ -153,14 +158,16 @@ export function criarSom(conteudo, amb) {
 
     // Ao voltar de outro aplicativo o iPhone pode deixar o contexto suspenso e
     // recusar o play() sem gesto: o próximo toque dela, onde for, devolve o som.
+    // (touchend e click também: rolar a folha com o dedo não termina em pointerup.)
     const reanimar = () => {
       acordar();
       if (estado.tocando && audio && audio.paused && !pedindoPlay && !document.hidden) {
         audio.play().then(() => rampa(estado.volume, 0.6)).catch(() => {});
       }
     };
-    window.addEventListener('pointerup', reanimar, { capture: true, passive: true });
-    window.addEventListener('keydown', reanimar, { capture: true, passive: true });
+    for (const tipo of ['pointerup', 'touchend', 'click', 'keydown']) {
+      window.addEventListener(tipo, reanimar, { capture: true, passive: true });
+    }
   }
 
   function acordar() {
@@ -232,29 +239,46 @@ export function criarSom(conteudo, amb) {
       emitir();
       if (mudo || !audio) return true;
 
+      const vez = ++pedidos;
+      if (trocou) zerar();
+      pedindoPlay = true;
       try {
-        if (trocou || !audio.getAttribute('src')) {
-          zerar();
-          // A mesma faixa que já vinha chegando (ver montar) não recomeça o download.
-          if (audio.getAttribute('src') !== faixa.arquivo) audio.src = faixa.arquivo;
+        for (let tentativa = 0; ; tentativa++) {
+          try {
+            // A mesma faixa que já vinha chegando (ver montar) não recomeça o download. Mas
+            // um elemento que falhou (a pré-carga num soluço de rede, ou a tentativa
+            // anterior) não tenta de novo sozinho com o mesmo endereço: load() o acorda.
+            if (audio.getAttribute('src') !== faixa.arquivo) audio.src = faixa.arquivo;
+            else if (audio.error || audio.networkState === audio.NETWORK_NO_SOURCE) { zerar(); audio.load(); }
+            // play() precisa sair ainda dentro do gesto: nada de await antes daqui.
+            await audio.play();
+            // Ela pode ter pausado ou trocado de faixa enquanto o arquivo carregava.
+            if (estado.indice === indice && estado.tocando) rampa(estado.volume, ENTRADA);
+            return true;
+          } catch (erro) {
+            // Interrompido por uma pausa ou por outra faixa: não é falha do arquivo.
+            if (vez !== pedidos || !estado.tocando || (erro && erro.name === 'AbortError')) return false;
+            // Navegador que recusou o som: fica em silêncio até o próximo toque.
+            if (erro && erro.name === 'NotAllowedError') {
+              estado.tocando = false;
+              emitir();
+              return false;
+            }
+            // Soluço de rede: mais duas tentativas, com o disco girando como quem carrega.
+            if (tentativa < 2) {
+              await espera(1500);
+              if (vez === pedidos && estado.tocando) continue;
+              return false;
+            }
+            // Arquivo que falta, ou rede que não voltou: a carta segue sem música.
+            estado.tocando = false;
+            estado.falhou = true;
+            emitir();
+            return false;
+          }
         }
-        // play() precisa sair ainda dentro do gesto: nada de await antes daqui.
-        pedindoPlay = true;
-        await audio.play();
-        pedindoPlay = false;
-        // Ela pode ter pausado ou trocado de faixa enquanto o arquivo carregava.
-        if (estado.indice === indice && estado.tocando) rampa(estado.volume, ENTRADA);
-        return true;
-      } catch (erro) {
-        pedindoPlay = false;
-        if (estado.indice !== indice) return false;
-        // Interrompido por uma pausa ou por outra faixa: não é falha do arquivo.
-        if (erro && erro.name === 'AbortError') return false;
-        // Arquivo que falta ou navegador que recusou: segue em silêncio.
-        estado.tocando = false;
-        estado.falhou = !(erro && erro.name === 'NotAllowedError');
-        emitir();
-        return false;
+      } finally {
+        if (vez === pedidos) pedindoPlay = false;
       }
     },
 
