@@ -24,7 +24,7 @@ let saida = '';
 let resto = 0;
 for (const m of fonte.matchAll(re)) {
   const dados = tempos[m[1]];
-  const versos = m[2].split('\n').filter((l) => /^\[\d/.test(l.trim())).map((l) => l.replace(TAG, '').trim()).filter(Boolean);
+  const versos = m[2].split('\n').filter((l) => /^\[\d/.test(l.trim())).map((l) => l.replace(TAG, '').replace(/<\d{1,2}:\d{1,2}(?:[.,]\d{1,3})?>/g, '').replace(/\s+/g, ' ').trim()).filter(Boolean);
   if (!dados?.palavras?.length || !versos.length) continue;
   const palavras = dados.palavras;
   const E = palavras.length;
@@ -56,7 +56,14 @@ for (const m of fonte.matchAll(re)) {
   let antes = -Infinity;
   inicios.forEach((iw, k) => {
     antes = Math.max(palavras[iw][0] - ANTES, antes + MINIMO);   // dá tempo de ler o anterior
-    linhas.push(`${fmt(antes)} ${versos[k]}`);
+    // Cada palavra do verso ganha o tempo da palavra cantada na mesma proporção do trecho.
+    const fimTrecho = inicios[k + 1] ?? E;
+    const suas = versos[k].split(' ');
+    const marcadas = suas.map((p, j) => {
+      const w = palavras[Math.min(fimTrecho - 1, iw + Math.floor((j * (fimTrecho - iw)) / suas.length))];
+      return `${fmt(Math.max(antes, w[0])).replace('[', '<').replace(']', '>')}${p}`;
+    });
+    linhas.push(`${fmt(antes)} ${marcadas.join(' ')}`);
     const ultima = (inicios[k + 1] ?? E) - 1;
     const pausa = fimDe.get(ultima);
     if (pausa && pausa[1] - pausa[0] > SILENCIO) linhas.push(fmt(Math.max(pausa[0] + 1.5, antes + 3)));

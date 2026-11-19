@@ -174,41 +174,41 @@ window.CONTEUDO = {
         arquivo: 'assets/music/undressed.mp3',
         capa: 'assets/music/undressed.webp',
         letra: `
-[00:15.99] Você tinha um sonho, queria algo melhor
-[00:20.53] Estava cansada de todos os buracos no seu suéter
-[00:24.57] Você olhou para mim e se perguntou se
-[00:28.69] Eu era o poste ao qual você estava amarrada
-[00:32.65] Estou olhando para você e você está olhando para mim
-[00:36.31] Mas o brilho nos seus olhos me diz que você quer partir
-[00:40.53] Você está me dizendo uma coisa, repetindo sem parar
-[00:44.57] Mas o brilho nos seus olhos me diz uma coisa diferente
-[00:48.69] Não quero me despir
-[00:53.55] Para outra pessoa de novo
-[00:57.37] Não quero beijar o pescoço de outra pessoa
-[01:01.31] E ter que fingir que é o seu
+[00:15.99] <00:16.24>Você <00:16.92>tinha <00:17.54>um <00:17.84>sonho, <00:18.90>queria <00:19.20>algo <00:19.62>melhor
+[00:20.53] <00:20.78>Estava <00:21.52>cansada <00:21.84>de <00:22.20>todos <00:22.52>os <00:22.70>buracos <00:23.14>no <00:23.36>seu <00:23.60>suéter
+[00:24.57] <00:24.82>Você <00:24.82>olhou <00:25.34>para <00:25.62>mim <00:26.06>e <00:27.00>se <00:27.50>perguntou <00:27.94>se
+[00:28.69] <00:28.94>Eu <00:29.68>era <00:29.94>o <00:30.32>poste <00:30.58>ao <00:30.82>qual <00:31.16>você <00:31.50>estava <00:31.92>amarrada
+[00:32.65] <00:32.90>Estou <00:32.90>olhando <00:33.30>para <00:33.78>você <00:34.04>e <00:34.68>você <00:35.02>está <00:35.26>olhando <00:35.80>para <00:36.08>mim
+[00:36.31] <00:36.56>Mas <00:36.56>o <00:37.08>brilho <00:37.36>nos <00:37.84>seus <00:38.12>olhos <00:38.50>me <00:38.74>diz <00:39.06>que <00:39.30>você <00:39.80>quer <00:40.14>partir
+[00:40.53] <00:40.78>Você <00:41.72>está <00:42.04>me <00:42.34>dizendo <00:42.84>uma <00:43.24>coisa, <00:43.68>repetindo <00:44.06>sem <00:44.34>parar
+[00:44.57] <00:44.82>Mas <00:45.36>o <00:45.66>brilho <00:46.12>nos <00:46.40>seus <00:46.76>olhos <00:46.96>me <00:47.34>diz <00:47.56>uma <00:48.12>coisa <00:48.52>diferente
+[00:48.69] <00:48.94>Não <00:50.44>quero <00:51.44>me <00:52.20>despir
+[00:53.55] <00:53.80>Para <00:54.08>outra <00:54.36>pessoa <00:55.18>de <00:55.92>novo
+[00:57.37] <00:57.62>Não <00:57.62>quero <00:58.72>beijar <00:59.10>o <00:59.50>pescoço <00:59.96>de <01:00.56>outra <01:01.24>pessoa
+[01:01.31] <01:01.56>E <01:01.56>ter <01:01.98>que <01:02.46>fingir <01:02.76>que <01:03.40>é <01:04.20>o <01:04.56>seu
 [01:07.34]
-[01:13.85] Peguei o trem para ver minha mãe
-[01:18.95] Olho do outro lado dos trilhos e vejo você com outro
-[01:22.45] Não há nada pior do que ver seu amor
-[01:28.89] Seguindo em frente enquanto você ainda sofre
-[01:30.61] Estou olhando para você e você está olhando para mim
-[01:35.79] Mas o brilho nos seus olhos me diz que você quer partir
-[01:40.91] Você está me dizendo uma coisa, repetindo sem parar
-[01:44.67] Mas o brilho nos seus olhos me diz uma coisa diferente
-[01:51.49] Não quero me despir
-[01:55.23] Para outra pessoa de novo
-[01:56.63] Não quero beijar o pescoço de outra pessoa
-[02:04.59] E ter que fingir que é o seu
-[02:08.91] E não quero conhecer outro cheiro
-[02:10.31] Não quero que os filhos de outro homem
-[02:13.55] Tenham os olhos da garota que não vou esquecer
-[02:32.43] Não vou esquecer
-[02:33.83] Não quero me despir
-[02:37.57] Para outra pessoa de novo
-[02:40.77] Não quero beijar o pescoço de outra pessoa
-[02:45.59] E ter que fingir que é o seu
-[02:49.03] Não quero me despir
-[02:53.81] Para outra pessoa de novo
+[01:13.85] <01:14.10>Peguei <01:14.98>o <01:15.26>trem <01:15.70>para <01:17.08>ver <01:17.36>minha <01:17.74>mãe
+[01:18.95] <01:19.20>Olho <01:19.20>do <01:19.50>outro <01:20.02>lado <01:20.34>dos <01:20.60>trilhos <01:20.60>e <01:20.94>vejo <01:21.18>você <01:21.46>com <01:21.70>outro
+[01:22.45] <01:22.70>Não <01:23.52>há <01:23.78>nada <01:24.64>pior <01:25.12>do <01:26.06>que <01:26.94>ver <01:27.76>seu <01:28.26>amor
+[01:28.89] <01:29.14>Seguindo <01:29.14>em <01:29.30>frente <01:29.30>enquanto <01:29.70>você <01:29.70>ainda <01:29.86>sofre
+[01:30.61] <01:30.86>Estou <01:30.90>olhando <01:31.62>para <01:31.98>você <01:32.94>e <01:33.38>você <01:33.74>está <01:34.62>olhando <01:34.98>para <01:35.30>mim
+[01:35.79] <01:36.04>Mas <01:36.42>o <01:36.60>brilho <01:36.94>nos <01:37.24>seus <01:37.72>olhos <01:38.06>me <01:38.74>diz <01:39.82>que <01:39.96>você <01:40.20>quer <01:40.68>partir
+[01:40.91] <01:41.16>Você <01:41.62>está <01:41.96>me <01:42.28>dizendo <01:42.82>uma <01:43.30>coisa, <01:43.60>repetindo <01:44.06>sem <01:44.34>parar
+[01:44.67] <01:44.92>Mas <01:45.26>o <01:45.52>brilho <01:46.06>nos <01:46.38>seus <01:47.86>olhos <01:48.46>me <01:48.80>diz <01:49.36>uma <01:50.22>coisa <01:51.16>diferente
+[01:51.49] <01:51.74>Não <01:51.96>quero <01:53.10>me <01:53.84>despir
+[01:55.23] <01:55.48>Para <01:55.48>outra <01:55.48>pessoa <01:55.48>de <01:55.48>novo
+[01:56.63] <01:56.68>Não <01:57.10>quero <01:57.90>beijar <01:58.50>o <01:59.44>pescoço <02:00.30>de <02:00.62>outra <02:02.18>pessoa
+[02:04.59] <02:04.84>E <02:04.84>ter <02:05.40>que <02:05.72>fingir <02:06.18>que <02:07.04>é <02:07.92>o <02:08.70>seu
+[02:08.91] <02:09.16>E <02:09.16>não <02:09.64>quero <02:09.98>conhecer <02:09.98>outro <02:10.22>cheiro
+[02:10.31] <02:10.44>Não <02:10.96>quero <02:11.44>que <02:11.92>os <02:12.22>filhos <02:12.66>de <02:13.00>outro <02:13.50>homem
+[02:13.55] <02:13.80>Tenham <02:14.14>os <02:14.44>olhos <02:15.06>da <02:15.40>garota <02:16.26>que <02:22.50>não <02:23.78>vou <02:24.66>esquecer
+[02:32.43] <02:32.68>Não <02:32.68>vou <02:32.68>esquecer
+[02:33.83] <02:33.96>Não <02:34.34>quero <02:35.76>me <02:37.24>despir
+[02:37.57] <02:37.82>Para <02:37.82>outra <02:38.62>pessoa <02:39.42>de <02:40.26>novo
+[02:40.77] <02:41.02>Não <02:42.20>quero <02:42.64>beijar <02:42.96>o <02:43.42>pescoço <02:44.06>de <02:44.70>outra <02:45.00>pessoa
+[02:45.59] <02:45.84>E <02:45.84>ter <02:46.22>que <02:46.22>fingir <02:46.84>que <02:47.52>é <02:47.52>o <02:48.04>seu
+[02:49.03] <02:49.28>Não <02:50.44>quero <02:51.50>me <02:53.26>despir
+[02:53.81] <02:54.06>Para <02:54.36>outra <02:55.20>pessoa <02:55.92>de <02:56.62>novo
 [02:59.10]
 `,
       },
@@ -227,57 +227,57 @@ window.CONTEUDO = {
         // (https://ulystreak.github.io/23.12/_dev/marcar-letra.html): cole a letra,
         // toque "Agora!" a cada verso enquanto a música toca e copie o resultado.
         letra: `
-[00:11.47] Nós nunca namoramos
-[00:12.87] Você era inteligente, sabia quando dizer suas falas
-[00:16.51] E fazer parecer que você não era tão inteligente
-[00:21.29] Você era melhor em todos os sentidos por design
-[00:22.69] Você era boa demais para o confinamento de um homem
-[00:26.47] Como é que nunca namoramos?
-[00:30.05] Mas ainda me pego pensando em você todos os dias?
-[00:33.67] Por que você sempre me deixa dolorido?
-[00:35.07] Quando você nunca foi minha para ser tomada?
-[00:38.69] Eu não posso fazer você me amar
-[00:40.09] Não, eu não posso fazer você me amar
-[00:43.87] Querida, eu não consigo fazer você me amar
-[00:47.93] Não, eu não posso fazer você me amar
-[01:01.89] Eu não posso fazer você me amar
-[01:06.77] Não, eu não posso fazer você me amar
-[01:08.17] Querida, eu não consigo fazer você me amar
-[01:12.67] Não, eu não posso fazer você me amar
-[01:16.45] Você é bonita, boa para romantizar
-[01:17.85] Mas você não se torna fácil de gostar
-[01:19.25] Você gosta de se divertir, você dança ao redor da linha
-[01:25.41] Do que é errado e do que é certo
-[01:29.03] Como é que nunca namoramos?
-[01:30.43] Mas ainda me pego pensando em você todos os dias?
-[01:34.13] Por que você sempre me deixa dolorido?
-[01:38.85] Quando você nunca foi minha para ser tomada?
-[01:40.61] Eu não posso fazer você me amar
-[01:43.01] Não, eu não posso fazer você me amar
-[01:57.83] Querida, não consigo fazer você me amar
-[01:59.37] Não, eu não posso fazer você me amar
-[02:02.13] Eu não posso fazer você me amar
-[02:03.53] Não, eu não posso fazer você me amar
-[02:06.19] Querida, eu não consigo fazer você me amar
-[02:08.11] Não, eu não posso fazer você me amar
+[00:11.47] <00:11.72>Nós <00:11.72>nunca <00:11.72>namoramos
+[00:12.87] <00:12.87>Você <00:12.87>era <00:12.94>inteligente, <00:14.62>sabia <00:14.86>quando <00:15.08>dizer <00:15.24>suas <00:15.84>falas
+[00:16.51] <00:16.76>E <00:17.52>fazer <00:18.26>parecer <00:18.52>que <00:18.90>você <00:19.38>não <00:19.74>era <00:20.12>tão <00:20.52>inteligente
+[00:21.29] <00:21.54>Você <00:21.54>era <00:21.54>melhor <00:21.54>em <00:21.54>todos <00:21.54>os <00:21.54>sentidos <00:21.54>por <00:21.54>design
+[00:22.69] <00:22.69>Você <00:22.69>era <00:23.42>boa <00:24.08>demais <00:24.08>para <00:24.64>o <00:24.82>confinamento <00:24.82>de <00:25.00>um <00:25.22>homem
+[00:26.47] <00:26.72>Como <00:27.72>é <00:28.14>que <00:29.10>nunca <00:29.36>namoramos?
+[00:30.05] <00:30.30>Mas <00:30.30>ainda <00:30.84>me <00:31.08>pego <00:31.36>pensando <00:31.78>em <00:31.92>você <00:32.36>todos <00:32.80>os <00:33.34>dias?
+[00:33.67] <00:33.92>Por <00:33.92>que <00:33.92>você <00:33.92>sempre <00:33.92>me <00:33.92>deixa <00:33.92>dolorido?
+[00:35.07] <00:35.07>Quando <00:35.07>você <00:35.08>nunca <00:35.32>foi <00:35.80>minha <00:36.30>para <00:36.68>ser <00:37.10>tomada?
+[00:38.69] <00:38.94>Eu <00:38.94>não <00:38.94>posso <00:38.94>fazer <00:38.94>você <00:38.94>me <00:38.94>amar
+[00:40.09] <00:40.18>Não, <00:40.18>eu <00:40.52>não <00:40.96>posso <00:41.40>fazer <00:41.40>você <00:41.76>me <00:42.40>amar
+[00:43.87] <00:44.12>Querida, <00:44.34>eu <00:44.66>não <00:44.86>consigo <00:45.44>fazer <00:45.88>você <00:46.32>me <00:46.78>amar
+[00:47.93] <00:48.18>Não, <00:48.18>eu <00:48.98>não <00:49.52>posso <00:49.74>fazer <00:49.74>você <01:01.58>me <01:01.72>amar
+[01:01.89] <01:02.14>Eu <01:02.38>não <01:02.82>posso <01:03.22>fazer <01:03.50>você <01:06.28>me <01:06.34>amar
+[01:06.77] <01:07.02>Não, <01:07.02>eu <01:07.02>não <01:07.02>posso <01:07.02>fazer <01:07.02>você <01:07.02>me <01:07.02>amar
+[01:08.17] <01:08.17>Querida, <01:08.17>eu <01:08.28>não <01:08.52>consigo <01:08.90>fazer <01:09.96>você <01:10.16>me <01:10.58>amar
+[01:12.67] <01:12.92>Não, <01:13.58>eu <01:13.94>não <01:14.22>posso <01:14.60>fazer <01:15.22>você <01:15.90>me <01:16.34>amar
+[01:16.45] <01:16.70>Você <01:16.70>é <01:16.70>bonita, <01:16.70>boa <01:16.70>para <01:16.70>romantizar
+[01:17.85] <01:17.85>Mas <01:17.85>você <01:17.85>não <01:17.85>se <01:17.85>torna <01:17.96>fácil <01:17.96>de <01:18.36>gostar
+[01:19.25] <01:19.25>Você <01:19.40>gosta <01:19.84>de <01:20.40>se <01:21.06>divertir, <01:22.32>você <01:23.20>dança <01:23.54>ao <01:23.98>redor <01:24.52>da <01:25.10>linha
+[01:25.41] <01:25.66>Do <01:25.66>que <01:26.32>é <01:26.70>errado <01:27.08>e <01:27.08>do <01:27.60>que <01:27.94>é <01:28.56>certo
+[01:29.03] <01:29.28>Como <01:29.28>é <01:29.28>que <01:29.28>nunca <01:29.28>namoramos?
+[01:30.43] <01:30.43>Mas <01:30.43>ainda <01:30.46>me <01:30.96>pego <01:30.96>pensando <01:31.46>em <01:32.16>você <01:32.16>todos <01:32.50>os <01:33.18>dias?
+[01:34.13] <01:34.38>Por <01:35.52>que <01:35.88>você <01:36.38>sempre <01:36.82>me <01:37.18>deixa <01:37.60>dolorido?
+[01:38.85] <01:39.10>Quando <01:39.10>você <01:39.70>nunca <01:39.70>foi <01:40.04>minha <01:40.04>para <01:40.26>ser <01:40.26>tomada?
+[01:40.61] <01:40.86>Eu <01:40.86>não <01:41.28>posso <01:41.28>fazer <01:41.72>você <01:41.72>me <01:42.08>amar
+[01:43.01] <01:43.26>Não, <01:44.42>eu <01:44.88>não <01:45.14>posso <01:56.90>fazer <01:57.24>você <01:57.48>me <01:57.74>amar
+[01:57.83] <01:58.08>Querida, <01:58.08>não <01:58.72>consigo <01:58.72>fazer <01:58.90>você <01:58.90>me <01:59.28>amar
+[01:59.37] <01:59.62>Não, <01:59.62>eu <01:59.96>não <02:00.40>posso <02:01.04>fazer <02:01.28>você <02:01.70>me <02:02.16>amar
+[02:02.13] <02:02.38>Eu <02:02.38>não <02:02.78>posso <02:02.78>fazer <02:02.78>você <02:02.78>me <02:03.30>amar
+[02:03.53] <02:03.60>Não, <02:03.60>eu <02:04.26>não <02:04.44>posso <02:04.82>fazer <02:04.82>você <02:05.22>me <02:05.98>amar
+[02:06.19] <02:06.44>Querida, <02:06.44>eu <02:07.10>não <02:07.10>consigo <02:07.44>fazer <02:07.66>você <02:07.66>me <02:08.10>amar
+[02:08.11] <02:08.36>Não, <02:08.36>eu <02:08.94>não <02:08.94>posso <02:09.42>fazer <02:10.12>você <02:10.12>me <02:10.58>amar
 [02:14.58]
-[02:20.35] Eu desejo nada além do melhor para você
-[02:24.21] Mas espero que o próximo veja o resto de você
-[02:29.87] Como é que nunca namoramos?
-[02:31.27] Mas ainda me pego pensando em você todos os dias?
-[02:34.55] (Ainda me pego pensando em você)
-[02:39.21] Por que você sempre me deixa dolorido?
-[02:40.61] Quando você nunca foi minha para ser tomada?
-[02:43.29] (Quando você nunca foi minha para ser tomada)
-[02:44.69] Como é que nunca namoramos?
-[02:48.15] Mas ainda me pego pensando em você todos os dias?
-[02:52.43] (Ainda me pego pensando em você)
-[02:53.83] Por que você sempre me deixa dolorido?
-[02:56.63] Quando você nunca foi minha para ser tomada?
-[02:59.07] Eu não posso fazer você me amar
-[03:01.03] Não, eu não posso fazer você me amar
-[03:02.43] Querida, eu não consigo fazer você me amar
-[03:04.55] Não, eu não posso fazer você me amar
+[02:20.35] <02:20.60>Eu <02:20.60>desejo <02:21.46>nada <02:22.18>além <02:22.48>do <02:22.74>melhor <02:23.24>para <02:23.76>você
+[02:24.21] <02:24.46>Mas <02:24.46>espero <02:24.74>que <02:25.48>o <02:25.74>próximo <02:26.00>veja <02:26.78>o <02:27.44>resto <02:27.84>de <02:28.40>você
+[02:29.87] <02:30.12>Como <02:30.12>é <02:30.12>que <02:30.12>nunca <02:30.12>namoramos?
+[02:31.27] <02:31.27>Mas <02:31.27>ainda <02:31.34>me <02:31.64>pego <02:31.94>pensando <02:32.26>em <02:32.26>você <02:32.50>todos <02:32.58>os <02:32.80>dias?
+[02:34.55] <02:34.80>(Ainda <02:35.12>me <02:35.44>pego <02:36.20>pensando <02:36.70>em <02:37.10>você)
+[02:39.21] <02:39.46>Por <02:39.46>que <02:39.46>você <02:39.46>sempre <02:39.46>me <02:39.46>deixa <02:39.46>dolorido?
+[02:40.61] <02:40.61>Quando <02:40.61>você <02:40.94>nunca <02:41.12>foi <02:41.52>minha <02:41.76>para <02:42.02>ser <02:42.28>tomada?
+[02:43.29] <02:43.54>(Quando <02:43.54>você <02:43.76>nunca <02:43.76>foi <02:43.94>minha <02:43.94>para <02:44.22>ser <02:44.22>tomada)
+[02:44.69] <02:44.69>Como <02:45.20>é <02:45.88>que <02:46.32>nunca <02:46.78>namoramos?
+[02:48.15] <02:48.40>Mas <02:48.40>ainda <02:49.36>me <02:49.78>pego <02:50.08>pensando <02:50.38>em <02:50.62>você <02:50.94>todos <02:51.96>os <02:52.10>dias?
+[02:52.43] <02:52.68>(Ainda <02:52.68>me <02:52.68>pego <02:52.68>pensando <02:52.68>em <02:52.68>você)
+[02:53.83] <02:53.83>Por <02:53.92>que <02:54.10>você <02:54.56>sempre <02:55.06>me <02:55.60>deixa <02:55.98>dolorido?
+[02:56.63] <02:56.88>Quando <02:56.88>você <02:58.12>nunca <02:58.12>foi <02:58.74>minha <02:58.74>para <02:58.94>ser <02:58.94>tomada?
+[02:59.07] <02:59.32>Eu <02:59.32>não <02:59.44>posso <02:59.94>fazer <03:00.10>você <03:00.42>me <03:00.92>amar
+[03:01.03] <03:01.28>Não, <03:01.28>eu <03:01.62>não <03:01.62>posso <03:01.86>fazer <03:01.86>você <03:02.28>me <03:02.28>amar
+[03:02.43] <03:02.43>Querida, <03:02.43>eu <03:02.76>não <03:03.24>consigo <03:03.62>fazer <03:03.90>você <03:04.10>me <03:04.56>amar
+[03:04.55] <03:04.80>Não, <03:04.80>eu <03:05.14>não <03:05.58>posso <03:05.90>fazer <03:05.90>você <03:06.26>me <03:06.68>amar
 [03:08.88]
 `,
       },

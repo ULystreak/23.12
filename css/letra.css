@@ -37,3 +37,19 @@
   .letra-linha { font-size: 1.75rem; padding: 12px 28px 13px; }
 }
 /* Na tela preta da senha e da escolha da música ela fica por trás (o #entrada cobre). */
+
+/* A palavra que está sendo cantada: vermelha (o fio) e sublinhada. As outras ficam brancas.
+   O sublinhado já existe em todas, transparente, para nada pular de lugar quando acende. */
+.letra-palavra {
+  text-decoration: underline 2px transparent;
+  text-underline-offset: 0.22em;
+  text-decoration-skip-ink: none;
+  transition: color 140ms linear, text-decoration-color 140ms linear;
+}
+.letra-palavra[data-agora] {
+  color: #ff5a68;            /* vermelho claro: legível no fundo escuro (6:1) */
+  text-decoration-color: #ff5a68;
+}
+@media (min-width: 900px) {
+  .letra-palavra { text-decoration-thickness: 3px; }
+}

@@ -13,6 +13,7 @@
 //                          só a caneta usa opções: { duracao (s), intensidade (0..1,5) }
 //   som.abafar(fator, ms)  abaixa a música para `fator` (0..1) por `ms` milissegundos e volta
 //   som.progresso()        0..1: em que ponto da faixa a música está
+//   som.segundos()         o segundo da faixa agora, lido na hora
 //   som.aoTempo(fn)        fn(progresso, segundos, duracao) enquanto a faixa anda; devolve quem cancela
 //   som.diagnostico()      (só para testes) estado interno: contexto, ganho, tempo da faixa
 //
@@ -60,6 +61,9 @@ export function criarSom(conteudo, amb) {
       try { fn(estado); } catch (erro) { console.error(erro); }
     }
   }
+
+  /** Em que segundo da faixa a música está, lido na hora (para a letra seguir palavra por palavra). */
+  function segundos() { return audio ? audio.currentTime || 0 : 0; }
 
   function progresso() {
     if (!audio) return 0;
@@ -285,6 +289,7 @@ export function criarSom(conteudo, amb) {
 
     /** 0..1: em que ponto da faixa a música está (0 enquanto a duração não é conhecida). */
     progresso,
+    segundos,
 
     /** fn(progresso, segundos, duracao) algumas vezes por segundo enquanto a faixa anda. */
     aoTempo(fn) {

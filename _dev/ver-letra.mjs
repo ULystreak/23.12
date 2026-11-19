@@ -1,20 +1,32 @@
-// Foto da letra no alto da tela (com um verso de exemplo), no iPhone e no desktop.
+// Foto da letra no alto da tela com a música tocando de verdade (a palavra cantada em vermelho).
+//   node _dev/ver-letra.mjs [segundo] [faixa 1|2]
 import { abrir, PASTA_FOTOS } from './lib.mjs';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
+const seg = Number(process.argv[2] || 40);
+const faixa = Number(process.argv[3] || 2) - 1;
 await mkdir(PASTA_FOTOS, { recursive: true });
 for (const vp of ['iphone', 'desktop']) {
-  const s = await abrir({ cena: 'poppy', vp });
-  await s.page.waitForTimeout(2500);
-  await s.page.evaluate(() => {
-    let r = document.getElementById('letra');
-    if (!r) { r = document.createElement('div'); r.id = 'letra'; r.className = 'letra'; r.innerHTML = '<p class="letra-linha"></p>'; document.body.append(r); }
-    r.removeAttribute('data-vazia');
-    r.querySelector('p').textContent = '[um verso de exemplo, mais ou menos deste tamanho aqui]';
-  });
-  await s.page.waitForTimeout(600);
+  const s = await abrir({ cena: 'poppy', vp, preparar: (page) => page.addInitScript(() => {
+    const tocar = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function () { window.__audio = this; return tocar.call(this); };
+  }) });
+  await s.page.waitForTimeout(2000);
+  const info = await s.page.evaluate(async ({ seg, faixa }) => {
+    const som = window.__carta?.som || window.__carta?.ctx?.som;
+    if (!som) return 'sem som em __carta: ' + Object.keys(window.__carta || {}).join(',');
+    som.destravar?.();
+    som.tocar(faixa);
+    await new Promise((r) => setTimeout(r, 1500));
+    const a = window.__audio;
+    if (a) a.currentTime = seg;
+    await new Promise((r) => setTimeout(r, 1200));
+    const acesa = document.querySelector('.letra-palavra[data-agora]');
+    return { tocando: som.estado.tocando, t: a?.currentTime?.toFixed(1), palavras: document.querySelectorAll('.letra-palavra').length, acesa: !!acesa, cor: acesa && getComputedStyle(acesa).color };
+  }, { seg, faixa });
+  console.log(vp, JSON.stringify(info));
   const f = path.join(PASTA_FOTOS, `letra-${vp}.png`);
-  await s.page.screenshot({ path: f });
+  await s.page.screenshot({ path: f, clip: { x: 0, y: 0, width: s.page.viewportSize().width, height: 260 } });
   console.log(f);
   await s.fechar?.();
 }
