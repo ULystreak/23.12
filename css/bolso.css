@@ -22,7 +22,8 @@
   will-change: opacity;
 }
 
-/* A bolsa: fundo (com a alça), a carta, a frente e a aba, empilhados no mesmo lugar. */
+/* A bolsa: fundo (com as alças), a frente e a aba, empilhados no mesmo lugar; a carta
+   entra entre o fundo e a frente. */
 .bolso-bolsa {
   position: absolute;
   will-change: transform, opacity;
@@ -55,11 +56,14 @@
   box-shadow: 0 10px 26px rgba(42, 27, 34, 0.2), 0 2px 5px rgba(42, 27, 34, 0.16);
   overflow: hidden;
 }
+/* (a cor do papel por cima da cara do tema: a folha volta dobrada e vira a carta) */
+.bolso-carta-papel,
 .bolso-carta > svg {
   position: absolute;
   top: 0; left: 0;
   width: 100%; height: 100%;
 }
+.bolso-carta-papel { background: var(--papel); }
 
 /* O aviso para leitores de tela (o desenho é mudo). */
 .bolso-aviso {

@@ -10,14 +10,17 @@
 //   bolso.ocupado → boolean (true enquanto a animação roda)
 //
 // O que ela vê (uns 3 s): o olhar desce (o caminho sobe um pouco e escurece por baixo)
-// e a bolsinha de ombro dela aparece embaixo, com a alça subindo para fora da tela.
-// A aba abre, a carta fechada desce do meio da tela, entra na bolsa e some lá dentro;
-// a aba fecha com o fecho de fio vermelho, a bolsa dá um pulinho e vai, pequenininha,
-// para o botão da bolsa no canto (é lá que a carta fica guardada). O olhar volta.
+// e a bolsinha de ombro dela aparece embaixo, com as alças subindo e se apagando no ar.
+// A carta desce pela borda de cima, de onde a folha saiu (ainda cor de papel, e no
+// caminho vira a cara do tema); a aba abre, a carta entra na bolsa e some lá dentro;
+// a aba fecha com o fecho de fio vermelho, a bolsa dá um pulinho, as alças se apagam e
+// ela vai, pequenininha, até o botão da bolsa no canto (é lá que a carta fica guardada)
+// e só some quando chega. O olhar volta.
 //
 // Tudo é DOM/SVG desenhado aqui (funciona igual sem WebGL) e só anima transform e
-// opacity. A carta some porque passa entre o fundo da bolsa e a frente dela: são três
-// desenhos empilhados (fundo + alça, a carta, a frente) e a aba por cima de todos.
+// opacity. A carta desce por cima de tudo e, já acima da boca, passa para dentro da
+// bolsa: fica entre o fundo (com as alças) e a frente, com a aba por cima de todos.
+// É por isso que ela some lá dentro.
 
 import { el, espera, svg } from '../nucleo/util.js';
 import { curvas } from '../nucleo/movimento.js';
@@ -38,11 +41,23 @@ const FORRO = '#5b3f3a';         // o escuro de dentro
 function desenhoFundo() {
   return `
     <svg class="bolso-bolsa-parte" viewBox="0 0 ${VB_L} ${VB_A}" aria-hidden="true" focusable="false">
-      <!-- a alça, atravessada: sobe para o ombro do outro lado e sai da tela pela esquerda -->
-      <path d="M46 52 C30 -10 -60 -110 -1400 -720" fill="none" stroke="${TINTA}" stroke-width="21" stroke-linecap="round"/>
-      <path d="M46 52 C30 -10 -60 -110 -1400 -720" fill="none" stroke="${LONA_SOMBRA}" stroke-width="16" stroke-linecap="round"/>
-      <path d="M254 52 C262 -20 180 -170 -1300 -940" fill="none" stroke="${TINTA}" stroke-width="21" stroke-linecap="round"/>
-      <path d="M254 52 C262 -20 180 -170 -1300 -940" fill="none" stroke="${LONA_SOMBRA}" stroke-width="16" stroke-linecap="round"/>
+      <defs>
+        <!-- as alças se apagam para cima: inteiras perto da bolsa, nada na ponta -->
+        <linearGradient id="bolso-alca-ponta" gradientUnits="userSpaceOnUse" x1="0" y1="52" x2="0" y2="-216">
+          <stop offset="0.3" stop-color="#ffffff"/>
+          <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+        </linearGradient>
+        <mask id="bolso-alca-mascara" maskUnits="userSpaceOnUse" x="-120" y="-260" width="440" height="330">
+          <rect x="-120" y="-260" width="440" height="330" fill="url(#bolso-alca-ponta)"/>
+        </mask>
+      </defs>
+      <!-- as alças, que sobem para o ombro dela (somem antes de a bolsa ir para o canto) -->
+      <g class="bolso-alcas" mask="url(#bolso-alca-mascara)">
+        <path d="M46 52 C34 -10 4 -80 -40 -200" fill="none" stroke="${TINTA}" stroke-width="21" stroke-linecap="round"/>
+        <path d="M46 52 C34 -10 4 -80 -40 -200" fill="none" stroke="${LONA_SOMBRA}" stroke-width="16" stroke-linecap="round"/>
+        <path d="M254 52 C258 -20 196 -120 100 -210" fill="none" stroke="${TINTA}" stroke-width="21" stroke-linecap="round"/>
+        <path d="M254 52 C258 -20 196 -120 100 -210" fill="none" stroke="${LONA_SOMBRA}" stroke-width="16" stroke-linecap="round"/>
+      </g>
       <!-- as costas da bolsa, que aparecem acima da boca -->
       <path d="M32 ${DOBRA_Y} H268 C280 ${DOBRA_Y} 287 54 285 66 L281 ${BOCA_Y + 16} H19 L15 66 C13 54 20 ${DOBRA_Y} 32 ${DOBRA_Y} Z" fill="${LONA_SOMBRA}" stroke="${TINTA}" stroke-width="2.4" stroke-linejoin="round"/>
       <!-- o escuro de dentro, logo abaixo da boca -->
@@ -130,10 +145,9 @@ export function criarBolso({ conteudo, amb, som, raiz }) {
     const L = window.innerWidth; const A = window.innerHeight;
     const reduzido = !!amb?.reduzido;
 
-    // A carta aparece onde a carta do mundo estava (o meio da tela, um pouco acima).
     const larguraCarta = Math.min(L * 0.66, A * 0.42, 340);
     const alturaCarta = larguraCarta * (16 / 23);
-    const centro = { x: L / 2, y: A * 0.36 };
+    const centro = { x: L / 2, y: A * 0.36 };     // (no movimento reduzido, a carta aparece aqui)
 
     const carta = desenharCarta(tema);
     Object.assign(carta.style, { width: `${larguraCarta}px`, height: `${alturaCarta}px`, left: `${-larguraCarta / 2}px`, top: `${-alturaCarta / 2}px` });
@@ -166,26 +180,40 @@ export function criarBolso({ conteudo, amb, som, raiz }) {
     const bolsa = el('div', 'bolso-bolsa');
     Object.assign(bolsa.style, { left: `${esquerda}px`, top: `${topo}px`, width: `${largura}px`, height: `${altura}px` });
     const fundo = svg(desenhoFundo());
+    const alcas = fundo.querySelector('.bolso-alcas');
     const frente = svg(desenhoFrente());
     const aba = svg(desenhoAba());
     aba.classList.add('bolso-aba');
     aba.style.transformOrigin = `50% ${(DOBRA_Y / VB_A) * 100}%`;
-    // A carta fica entre o fundo e a frente: entra pela boca e some atrás da frente.
-    bolsa.append(fundo, levaCarta, frente, aba);
-    // (a aba aberta fica atrás da carta; fechada, por cima de tudo)
+    bolsa.append(fundo, frente, aba);
+    // (dentro da bolsa a carta fica entre o fundo e a frente; a aba aberta fica atrás
+    // dela e, fechada, por cima de tudo)
     [fundo, levaCarta, frente, aba].forEach((n, i) => { n.style.zIndex = String([1, 3, 4, 5][i]); });
     const veu = el('div', 'bolso-veu');
-    raiz.append(veu, bolsa);
+    // A carta desce por cima de tudo, fora da bolsa (assim não pega o fade nem a subida dela).
+    raiz.append(veu, bolsa, levaCarta);
+    // Por cima da cara do tema, a cor do papel: é a folha que voltou dobrada.
+    const papel = el('div', 'bolso-carta-papel');
+    carta.prepend(papel);
 
-    // Em px dentro da bolsa: a carta é medida pela boca e cabe inteira atrás da frente.
+    // Em px da tela: a carta é medida pela boca e cabe inteira atrás da frente.
     const escalaFinal = (largura * 0.74) / larguraCarta;
     const alturaFinal = alturaCarta * escalaFinal;
-    const bocaY = BOCA_Y * k;
-    const pose = { x: centro.x - esquerda, y: centro.y - topo, giro: 0.08, escala: 1 };
-    const naBoca = { x: largura / 2, y: bocaY - alturaFinal * 0.42 };
-    const guardada = { y: bocaY + alturaFinal * 0.62 };
+    const bocaY = topo + BOCA_Y * k;
+    // Ela entra pela borda de cima, de onde a folha saiu, inclinada como a folha ia.
+    const pose = { x: L / 2 + larguraCarta * 0.08, y: -alturaCarta * 0.6, giro: -0.08, escala: 1, dentro: 0 };
+    const naBoca = { x: L / 2, y: bocaY - alturaFinal * 0.42 };
+    // (lá dentro ela fica um pouco menor e reta: some inteira atrás da frente, sem o pé
+    // aparecer embaixo da bolsa)
+    const guardada = { y: bocaY + alturaFinal * 0.47 + 3, escala: escalaFinal * 0.94 };
     const aplicar = () => {
-      levaCarta.style.transform = `translate3d(${pose.x.toFixed(2)}px, ${pose.y.toFixed(2)}px, 0) rotate(${pose.giro.toFixed(4)}rad) scale(${pose.escala.toFixed(4)})`;
+      // Dentro da bolsa (que a essa altura já parou), a pose é medida do canto dela.
+      // (se a rede de segurança já limpou o #bolso, a bolsa saiu do DOM e a carta não volta)
+      const casa = pose.dentro ? bolsa : raiz;
+      if (levaCarta.parentNode !== casa && bolsa.isConnected) casa.insertBefore(levaCarta, pose.dentro ? frente : null);
+      const x = pose.x - (pose.dentro ? esquerda : 0);
+      const y = pose.y - (pose.dentro ? topo : 0);
+      levaCarta.style.transform = `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0) rotate(${pose.giro.toFixed(4)}rad) scale(${pose.escala.toFixed(4)})`;
     };
     aplicar();
 
@@ -200,28 +228,32 @@ export function criarBolso({ conteudo, amb, som, raiz }) {
     await new Promise((ok) => {
       const tl = gsap.timeline({ onComplete: ok, onUpdate: aplicar });
       // 1. o olhar desce: o caminho sobe um pouco, escurece por baixo e a bolsa chega
-      tl.to(mundo, { yPercent: -5, scale: 1.04, duration: 0.8, ease: 'power2.out' }, 0)
+      //    (o mundo sobe 3% e cresce 7% do meio: a caixa vai de −6,5% a 100,5% da tela,
+      //    sem deixar faixa embaixo em quadro nenhum)
+      tl.to(mundo, { yPercent: -3, scale: 1.07, duration: 0.8, ease: 'power2.out' }, 0)
         .fromTo(veu, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.6, ease: 'none' }, 0)
         .fromTo(bolsa, { y: altura * 0.9, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.75, ease: curvas.branco.entrar }, 0.05)
-        .fromTo(carta, { autoAlpha: 0, scale: 0.94 }, { autoAlpha: 1, scale: 1, duration: 0.4, ease: curvas.branco.entrar }, 0)
-        // 2. a aba abre
+        // 2. a carta desce até a boca, ficando do tamanho da bolsa; a cor do papel vira a cara do tema
+        .to(pose, { x: naBoca.x, y: naBoca.y, giro: -0.03, escala: escalaFinal, duration: 1.5, ease: 'power1.out' }, 0)
+        .to(papel, { opacity: 0, duration: 0.45, ease: 'sine.inOut' }, 0.3)
+        // 3. a aba abre e a carta, ainda acima da boca, passa para dentro da bolsa
         .to(aba, { scaleY: -0.45, duration: 0.45, ease: 'power2.out' }, 0.55)
         .set(aba, { zIndex: 2 }, 0.78)
+        .set(pose, { dentro: 1 }, 0.85)
         .add(() => efeito('papel'), 0.6)
-        // 3. a carta desce até a boca, ficando do tamanho da bolsa
-        .to(pose, { x: naBoca.x, y: naBoca.y, giro: -0.03, escala: escalaFinal, duration: 0.65, ease: 'power2.inOut' }, 0.85)
         // 4. e entra (some atrás da frente)
-        .to(pose, { y: guardada.y, duration: 0.42, ease: 'power2.in' }, 1.5)
+        .to(pose, { y: guardada.y, giro: 0, escala: guardada.escala, duration: 0.42, ease: 'power2.in' }, 1.5)
         .set(levaCarta, { autoAlpha: 0 }, 1.94)
-        // 5. a aba fecha com o fecho e a bolsa dá um pulinho
+        // 5. a aba fecha com o fecho, a bolsa dá um pulinho e as alças se apagam
         .to(aba, { scaleY: 1, duration: 0.32, ease: 'power3.in' }, 1.9)
         .set(aba, { zIndex: 5 }, 2.02)
         .add(() => efeito('toque'), 2.2)
         .to(bolsa, { scaleY: 0.95, scaleX: 1.03, transformOrigin: '50% 100%', duration: 0.1, ease: 'power1.out' }, 2.2)
         .to(bolsa, { scaleY: 1, scaleX: 1, duration: 0.3, ease: 'back.out(3)' }, 2.3)
-        // 6. a bolsinha vai para o botão da bolsa e o olhar volta para o caminho
-        .to(bolsa, { x: ate.x, y: ate.y, scale: ate.escala, transformOrigin: '50% 50%', duration: 0.6, ease: 'power2.in' }, 2.55)
-        .to(bolsa, { autoAlpha: 0, duration: 0.18, ease: 'none' }, 2.97)
+        .to(alcas, { autoAlpha: 0, duration: 0.2, ease: 'none' }, 2.35)
+        // 6. a bolsinha vai até o botão da bolsa e só some quando chega; o olhar volta para o caminho
+        .to(bolsa, { x: ate.x, y: ate.y, scale: ate.escala, transformOrigin: '50% 50%', duration: 0.6, ease: 'power3.inOut' }, 2.55)
+        .to(bolsa, { autoAlpha: 0, duration: 0.1, ease: 'none' }, 3.05)
         .to(veu, { autoAlpha: 0, duration: 0.5, ease: 'none' }, 2.6)
         .to(mundo, { yPercent: 0, scale: 1, duration: 0.6, ease: 'power2.inOut' }, 2.55);
     });
