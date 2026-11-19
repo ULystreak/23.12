@@ -612,6 +612,22 @@ export const RECEITAS = {
       return 1.26;
     },
   },
+
+  // Caixinha de música: a lâmina do pente tocada pelo pino. A nota pura, dois parciais de
+  // lâmina (×2,76 e ×5,4) que somem antes dela e o clique do mecanismo. opcoes: { nota (Hz) }.
+  // Fica abaixo do brilho: na senha ela toca sozinha, no silêncio.
+  caixinha: {
+    nivel: 0.03,      // ~−30 dB de pico, 2,5 dB abaixo do brilho
+    bruto: 1.38,
+    fazer(k, opcoes = {}) {
+      const nota = clamp(Number(opcoes.nota) || 784, 200, 3000);
+      for (const [vezes, a, queda] of [[1, 1, 1.4], [2.76, 0.28, 0.45], [5.4, 0.1, 0.18]]) {
+        k.liga(k.osc('sine', nota * vezes, 0, queda + 0.02), k.ganho([[0, 0], [0.002, a], [queda, 0.0001, 'exp']]));
+      }
+      k.liga(k.ruido(0, 0.008, 0.37), k.filtro('bandpass', 4200, 1.2), k.ganho([[0, 0], [0.0005, 0.22], [0.006, 0.0001, 'exp']]));
+      return 1.42;
+    },
+  },
 };
 
 /**

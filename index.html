@@ -49,6 +49,20 @@
     /* A tela preta da senha e da música: a primeira coisa que ela vê, por cima de tudo. */
     #entrada { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; height: 100dvh; z-index: 60; background: #000; color: #fff; }
     html.sem-entrada #entrada { display: none; }
+    /* Sinal de vida enquanto a carta carrega: um ponto do fio respirando no meio do preto.
+       Só aparece se a espera passar de 0,8 s e some quando a senha (ou a música) chega. */
+    @supports selector(:has(*)) {
+      #entrada::after {
+        content: ""; position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px;
+        border-radius: 50%; background: #d7192d; opacity: 0;
+        animation: entrada-vida 1.6s ease-in-out 0.8s infinite alternate;
+      }
+      #entrada:has(:not(:empty))::after { display: none; }
+    }
+    @keyframes entrada-vida { from { opacity: 0; transform: scale(0.7); } to { opacity: 0.9; transform: none; } }
+    @keyframes entrada-aparece { to { opacity: 0.7; } }
+    html.reduzido #entrada::after { animation: entrada-aparece 1.2s linear 0.8s both; }
+    @media (prefers-reduced-motion: reduce) { #entrada::after { animation: entrada-aparece 1.2s linear 0.8s both; } }
   </style>
 
   <!-- Atalho ?cena= de "inicio" em diante: a tela preta nem chega a aparecer.
@@ -86,6 +100,10 @@
   <!-- O mundo 3D começa a baixar junto com a página, sem atrasar a primeira frase. -->
   <link rel="modulepreload" href="lib/three.module.min.js">
   <link rel="modulepreload" href="lib/three.core.min.js">
+  <!-- A voz, a letra e a senha eram pedidas uma atrás da outra, depois do mundo: vêm junto. -->
+  <link rel="modulepreload" href="js/voz.js">
+  <link rel="modulepreload" href="js/letra.js">
+  <link rel="modulepreload" href="js/cenas/senha.js">
 
   <!-- Conteúdo editável (textos, músicas, imagens) e bibliotecas locais. Nada vem de fora. -->
   <script defer src="js/content.js"></script>

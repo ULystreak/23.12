@@ -53,8 +53,16 @@
   transition: opacity 240ms linear;
 }
 .senha:focus-within .senha-cadeado,
+.senha[data-chegou] .senha-cadeado,
 .senha[data-certa] .senha-cadeado { opacity: 1; }
-.senha-cadeado-coracao { fill: var(--sakura); stroke: none; }
+.senha-cadeado-coracao {
+  fill: var(--sakura);
+  stroke: none;
+  transform-origin: 12px 15.4px;
+  transition: fill 700ms linear;
+}
+/* Meia-noite do dia, com ela aqui: o coração acende (e bate duas vezes, no js). */
+.senha[data-chegou] .senha-cadeado-coracao { fill: var(--fio); }
 .senha-cadeado-arco {
   transform-origin: 15.5px 10.5px;
   transition: transform var(--dur-mola) var(--mola);
@@ -95,9 +103,16 @@
   height: 2px;
   border-radius: 1px;
   background: repeating-linear-gradient(90deg, var(--luar) 0 7px, transparent 7px 14px);
-  opacity: 0.34;
+  opacity: 0.55;                 /* 5,9:1 sobre o preto */
   transition: opacity 240ms linear;
 }
+/* Antes do toque, o traço respira devagar: é ali que se escreve. */
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.reduzido) .senha:not(:focus-within):not([data-certa]) .senha-traco {
+    animation: senha-chama 1.8s var(--curva-branco-deriva) infinite alternate;
+  }
+}
+@keyframes senha-chama { from { opacity: 0.45; } to { opacity: 0.85; } }
 .senha-campo:focus ~ .senha-traco { opacity: 0.82; }
 .senha[data-erro] .senha-traco { opacity: 0.82; background-image: repeating-linear-gradient(90deg, var(--sakura) 0 7px, transparent 7px 14px); }
 .senha[data-certa] .senha-traco { opacity: 0; transition-duration: 500ms; }
@@ -234,6 +249,29 @@ html.reduzido .senha-cadeado-arco { transition-duration: 0.01ms; }
 
 /* Enquanto a tela preta existe, o disco que voa e o mini ficam por cima dela. */
 html:not(.sem-entrada) #mini { z-index: 62; }
+
+/* Ela abre os olhos (sairDaEntrada, em js/cenas/senha.js): duas pálpebras pretas com a
+   borda de dentro em amêndoa e macia (o desfoque é o próprio degradê, pintado uma vez; só
+   o translateY anda) e, por baixo delas, a luz da manhã, que ofusca e assenta. */
+.entrada-olhos { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.entrada-olhos > i { position: absolute; left: 0; right: 0; }
+.entrada-luz { top: 0; bottom: 0; background: #fff; opacity: 0.55; }
+.entrada-palpebra {
+  top: 0;
+  height: 75%;
+  background: radial-gradient(64% 30% at 50% 100%, rgba(0, 0, 0, 0) 42%, rgba(0, 0, 0, 0.55) 72%, #000 100%);
+  /* nos cantos o degradê não chega a sumir: a borda de dentro some aos poucos */
+  -webkit-mask-image: linear-gradient(to top, transparent, #000 20%);
+  mask-image: linear-gradient(to top, transparent, #000 20%);
+  will-change: transform;
+}
+.entrada-palpebra-baixo {
+  top: auto;
+  bottom: 0;
+  background: radial-gradient(64% 30% at 50% 0, rgba(0, 0, 0, 0) 42%, rgba(0, 0, 0, 0.55) 72%, #000 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 20%);
+  mask-image: linear-gradient(to bottom, transparent, #000 20%);
+}
 
 /* Contagem até o dia: quatro casinhas em Klee, pequenas, acima do cadeado. */
 .senha-conta { display: grid; justify-items: center; gap: 10px; margin-bottom: 14px; }
