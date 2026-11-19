@@ -52,11 +52,13 @@
 /* Com uma carta da bolsa reaberta na frente, o botão não fica por cima do que ela lê. */
 #inventario[data-relendo] .inventario-botao { opacity: 0; pointer-events: none; }
 /* Onde ele só seria ruído, sai de cena do mesmo jeito: os quadros do encontro, a última
-   carta saindo da mão dele e a leitura de um capítulo. Nunca em "guardando" (a bolsa que
-   desce mira o botão) nem nas esperas em que a bolsa abre (BOLSA_LIVRE em
-   js/nucleo/diretor.js; carta2:carta-chegando é uma delas, por isso o final vai pelo nome). */
+   carta da mão dele até abrir (em desdobrando ele sai de vez; sem a espera e a abertura
+   aqui, voltava a 50% por uns segundos só para sumir) e a leitura de um capítulo. Nunca
+   em "guardando" (a bolsa que desce mira o botão) nem nas esperas em que a bolsa abre
+   (BOLSA_LIVRE em js/nucleo/diretor.js; carta2:carta-chegando é uma delas, por isso o
+   final vai pelo nome). */
 html[data-cena="encontro"] #inventario .inventario-botao,
-html[data-cena="final"][data-etapa="carta-chegando"] #inventario .inventario-botao,
+html[data-cena="final"]:is([data-etapa="carta-chegando"], [data-etapa="carta-espera"], [data-etapa="carta-abrindo"]) #inventario .inventario-botao,
 html[data-etapa="lendo"] #inventario .inventario-botao { opacity: 0; pointer-events: none; }
 /* Aberta: o botão fica afundado, como a bolsa de boca aberta (no celular a folha o cobre). */
 #inventario[data-aberto] .inventario-botao { transform: scale(0.92); }
