@@ -99,9 +99,13 @@ export const capitulo = {
     api.fundo.classList.add('yn-fundo');
 
     // ---- carrega as imagens todas de uma vez (falta = null, e a peça some) -----------
-    const img = (url, alt = '') => recursos.elementoImagem(url, alt);
+    // Um pedido que nunca responde não segura a folha em branco: as imagens têm 7 s,
+    // juntas, e a que não chegar fica de fora (o pedido da pré-carga continua o mesmo).
+    const prazo = espera(7000).then(() => null);
+    const img = (url, alt = '') => Promise.race([recursos.elementoImagem(url, alt), prazo]);
+    const pedidoCapa = recursos.elementoImagem(c.capa, '');
     const [capa, ...imagensBlocos] = await Promise.all([
-      img(c.capa, ''),
+      Promise.race([pedidoCapa, prazo]),
       ...blocos.map((b) => {
         if (!b) return null;
         if (b.tipo === 'imagem-cheia' || b.tipo === 'imagem') return img(b.arquivo, b.alt || '');
@@ -122,7 +126,7 @@ export const capitulo = {
     // ---- capa e título -------------------------------------------------------------
     const tituloEl = c.titulo ? el('h2', 'yn-titulo', c.titulo) : null;
     const subEl = c.subtitulo ? el('p', 'yn-subtitulo', c.subtitulo) : null;
-    const capaEl = capa ? el('div', 'yn-capa', capa) : null;
+    let capaEl = capa ? el('div', 'yn-capa', capa) : null;
     const titulosEl = tituloEl || subEl ? el('div', 'yn-titulos', [tituloEl, subEl]) : null;
     const abre = el('header', 'yn-abre', [capaEl, titulosEl]);
     raiz.append(abre);
@@ -297,7 +301,7 @@ export const capitulo = {
     }
 
     // ---- o cordão ------------------------------------------------------------------------
-    const cordao = criarCordao({ tras: svgTras, frente: svgFrente, palco: null });
+    const cordao = criarCordao({ tras: svgTras, frente: svgFrente });
 
     // ---- medidas ---------------------------------------------------------------------------
     const M = {
@@ -705,6 +709,17 @@ export const capitulo = {
     medir();
     ultimoTam = `${raiz.clientWidth}x${rolagem.el.clientHeight}x${raiz.scrollHeight}`;
     id = requestAnimationFrame(laco);
+
+    // A capa que passou do prazo ainda entra, devagar, se ela estiver no alto da folha
+    // (mais abaixo, nem veria); o título desce para dar lugar, sem pulo.
+    if (!capa && !reduzido) pedidoCapa.then((tarde) => {
+      if (!tarde || !vivo || rolagem.el.scrollTop > M.vh * 0.3) return;
+      const antes = titulosEl ? titulosEl.offsetTop : 0;
+      capaEl = el('div', 'yn-capa yn-tarde', tarde);
+      abre.prepend(capaEl);
+      titulosEl?.style.setProperty('--yn-desce', `${antes - titulosEl.offsetTop}px`);
+      sujo = true;
+    });
 
     // O título floresce palavra por palavra enquanto a folha termina de desenrolar.
     const revelacoes = [api.aberto || espera(1800)];

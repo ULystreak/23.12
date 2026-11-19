@@ -10,7 +10,6 @@
   --pp-tinta: #0f1c24;                   /* letra escura sobre plástico claro */
   --pp-vidro: rgba(8, 22, 32, 0.8);
   --pp-plastico: #e9dfc8;
-  --pp-metal: #a9b6b2;
   --pp-chassi: #141d22;
   /* a janela do pergaminho já desconta as áreas seguras: aqui dentro basta a margem */
   --pp-lateral: var(--margem);
@@ -869,3 +868,17 @@ html[data-nivel="baixo"] .poppy-vidro,
 html.reduzido .poppy-osd-modo.visivel,
 html.reduzido .poppy-contador.visivel { animation: none; }
 html.reduzido .poppy-tecla { transition: none; }
+
+/* Um toque num bloco do título ou numa caixa da esteira, com movimento reduzido:
+   só uma piscada de cor, uma luz creme que acende e apaga por baixo da letra. */
+.poppy-bloco.piscou::before,
+.esteira-caixa.piscou::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: #fff4e0;
+  animation: poppy-pisca 0.5s var(--curva-ui) both;
+}
+@keyframes poppy-pisca { from { opacity: 0.9; } to { opacity: 0; } }

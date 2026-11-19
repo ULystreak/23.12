@@ -6,9 +6,10 @@
 // aqui: gravidade, quique com perda, atrito da lona. Rolar depressa acelera a
 // esteira.
 //
-//   criarEsteira(bloco, ctx) → { el, quadro(dt, info), medir(), destruir() }
+//   criarEsteira(bloco, ctx) → { el, quadro(dt, info), medir(), tocar(alvo), destruir() }
 //   bloco = { itens: ['palavra', ...] }
 //   ctx = { amb, gsap, som, anima }
+//   tocar(alvo): um toque de verdade numa caixa, e ela treme na lona
 //
 // A última caixa é a única vermelha.
 
@@ -51,7 +52,7 @@ const PECAS = {
 const ORDEM_PECAS = ['bola', 'tijolo', 'argola', 'cunha'];
 const CORES_CAIXA = ['amarelo', 'azul', 'verde', 'creme'];
 
-export function criarEsteira(bloco, { amb }) {
+export function criarEsteira(bloco, { amb, som }) {
   const palavras = (Array.isArray(bloco?.itens) ? bloco.itens : []).map((s) => String(s ?? '').trim()).filter(Boolean);
 
   // A fila: palavra, peça, palavra, peça... (sem palavras, só as peças)
@@ -275,6 +276,21 @@ export function criarEsteira(bloco, { amb }) {
         }
         posicionar(item);
       }
+    },
+
+    tocar(alvo) {
+      const no = alvo.closest('.esteira-caixa');
+      const item = no && vivos.find((it) => it.no === no);
+      if (!item) return;
+      som.efeito('toque');
+      if (amb.reduzido) {
+        no.classList.add('piscou');
+        no.addEventListener('animationend', () => no.classList.remove('piscou'), { once: true });
+        return;
+      }
+      // um tranco: a caixa salta um dedo e balança na própria mola até assentar
+      item.w2 += (item.ang > 0 ? -1 : 1) * 110;
+      if (item.naLona) { item.naLona = false; item.vy = -120; }
     },
 
     destruir() {

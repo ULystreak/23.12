@@ -1,4 +1,4 @@
-// O cordão trançado (kumihimo) e o fio simples, em SVG.
+// O cordão trançado (kumihimo), em SVG.
 //
 // O cordão é uma trança de três fios de verdade: cada fio serpenteia em volta
 // da linha central com um terço de volta de diferença dos outros, e a cada
@@ -8,13 +8,10 @@
 // "de cima" (com uma casca escura que separa) depois. Revelar o cordão é
 // acender esses <g> um a um, na ordem do comprimento: nada é redesenhado.
 //
-//   const cordao = criarCordao({ tras, frente, palco })      // três <svg>
-//   cordao.construir(pontos, { linha, palco })                // pontos de passagem
-//   cordao.revelar(rolagem, teto) → { x, y, camada } | null   // ponta atual
-//   cordao.total, cordao.ate(rolagem)
-//
-//   const traco = criarTraco(svg, pontos, { cor, largura })   // fio simples
-//   traco.desenhar(comprimento)
+//   const cordao = criarCordao({ tras, frente })        // dois <svg>
+//   cordao.construir(pontos, { linha })                  // pontos de passagem
+//   cordao.revelar(rolagem) → { x, y, camada } | null    // ponta atual
+//   amostrar(pontos, passo) → a linha central suave (o fio do par também usa)
 
 import { clamp, suave } from '../../nucleo/util.js';
 
@@ -115,31 +112,28 @@ const f1 = (v) => (Math.round(v * 10) / 10).toString();
 // ---------------------------------------------------------------------------
 // O cordão trançado
 // ---------------------------------------------------------------------------
-export function criarCordao({ tras, frente, palco }) {
-  const camadas = { tras, frente, palco };
+export function criarCordao({ tras, frente }) {
+  const camadas = { tras, frente };
   let grupos = [];          // <g> de cada período, na ordem do comprimento
   let limiares = [];        // rolagem a partir da qual cada período aparece
   let pontas = [];          // { x, y, camada } do fim de cada período (coordenadas do próprio svg)
   let mostrados = 0;
-  let fim = null;
 
   function limpar() {
-    for (const svgEl of Object.values(camadas)) if (svgEl) svgEl.textContent = '';
-    grupos = []; limiares = []; pontas = []; mostrados = 0; fim = null;
+    for (const svgEl of Object.values(camadas)) svgEl.textContent = '';
+    grupos = []; limiares = []; pontas = []; mostrados = 0;
   }
 
   /**
-   * @param pontos  [{ x, y, camada: 'tras'|'frente'|'palco', desloc }] em coordenadas
-   *                "virtuais" (a seção presa do encontro conta só a altura da tela);
-   *                desloc é o que somar ao y para chegar ao y dentro do svg da camada.
-   * @param opcoes  { linha: px da tela em que a ponta do cordão fica, palco: { topo, pan, alt } | null }
+   * @param pontos  [{ x, y, camada: 'tras'|'frente' }] em px dentro do capítulo
+   * @param opcoes  { linha: px da tela em que a ponta do cordão fica }
    */
-  function construir(pontos, { linha, palco: infoPalco = null } = {}) {
+  function construir(pontos, { linha } = {}) {
     limpar();
     const c = amostrar(pontos);
     if (c.n < 2) return;
     const L = c.comprimento;
-    const html = { tras: '', frente: '', palco: '' };
+    const html = { tras: '', frente: '' };
     const ordem = [];
 
     // posição do fio j no comprimento s
@@ -164,7 +158,6 @@ export function criarCordao({ tras, frente, palco }) {
       const meio = Math.min(c.n - 1, Math.round(((s0 + s1) / 2) / c.passo));
       const ref = pontos[c.seg[meio]] || pontos[0];
       const camada = camadas[ref.camada] ? ref.camada : 'tras';
-      const dy = ref.desloc || 0;
 
       const baixo = ['', '', ''];
       const cima = ['', '', ''];
@@ -186,7 +179,7 @@ export function criarCordao({ tras, frente, palco }) {
           let d = '';
           for (let q = 0; q <= passos; q++) {
             ponto(ini + ((ate - ini) * q) / passos, fase, tmp);
-            d += `${q ? 'L' : 'M'}${f1(tmp.x)} ${f1(tmp.y + dy)}`;
+            d += `${q ? 'L' : 'M'}${f1(tmp.x)} ${f1(tmp.y)}`;
           }
           if (porCima) { cima[j] += d; casca += d; } else baixo[j] += d;
           a = b;
@@ -202,32 +195,21 @@ export function criarCordao({ tras, frente, palco }) {
       ordem.push(camada);
 
       // onde este período aparece, em rolagem
-      const yMeio = c.y[meio];
-      let yReal;
-      if (camada === 'palco' && infoPalco) {
-        const local = yMeio - infoPalco.topo;
-        yReal = local <= linha ? yMeio : yMeio + infoPalco.pan;
-      } else {
-        yReal = yMeio + dy;
-      }
-      const lim = yReal - linha;
+      const lim = c.y[meio] - linha;
       limiares.push(k ? Math.max(lim, limiares[k - 1]) : lim);
 
       const iFim = Math.min(c.n - 1, Math.round(s1 / c.passo));
-      pontas.push({ x: c.x[iFim], y: c.y[iFim] + dy, camada });
+      pontas.push({ x: c.x[iFim], y: c.y[iFim], camada });
     }
 
     const atributos = `fill="none" stroke-width="${ESPESSURA}" stroke-linecap="butt" stroke-linejoin="round"`;
     const iter = {};
     for (const nome of Object.keys(camadas)) {
       const svgEl = camadas[nome];
-      if (!svgEl) continue;
       svgEl.innerHTML = html[nome] ? `<g ${atributos}>${html[nome]}</g>` : '';
       iter[nome] = { lista: svgEl.querySelectorAll('.yn-c'), i: 0 };
     }
     grupos = ordem.map((nome) => iter[nome].lista[iter[nome].i++]);
-    const ult = pontos[pontos.length - 1];
-    fim = { x: ult.x, y: ult.y + (ult.desloc || 0) };
   }
 
   /** Quantos períodos a rolagem já alcançou. */
@@ -241,89 +223,12 @@ export function criarCordao({ tras, frente, palco }) {
     return a;
   }
 
-  function revelar(rolagem, teto = Infinity) {
-    const alvo = Math.min(ate(rolagem), teto, grupos.length);
+  function revelar(rolagem) {
+    const alvo = ate(rolagem);
     while (mostrados < alvo) grupos[mostrados++].classList.add('v');
     while (mostrados > alvo) grupos[--mostrados].classList.remove('v');
     return mostrados > 0 && mostrados < grupos.length ? pontas[mostrados - 1] : null;
   }
 
-  return {
-    construir,
-    revelar,
-    ate,
-    get total() { return grupos.length; },
-    get fim() { return fim; },
-    destruir: limpar,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// O fio simples: um traço que se desenha por comprimento. É cortado em pedaços
-// curtos para que, a cada quadro, só o pedaço da ponta seja redesenhado.
-// ---------------------------------------------------------------------------
-export function criarTraco(svgEl, pontos, { cor = '#d7192d', largura = 2.4, pedaco = 44, sombra = true } = {}) {
-  const c = amostrar(pontos);
-  const L = c.comprimento;
-  const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-  g.setAttribute('fill', 'none');
-  g.setAttribute('stroke-linecap', 'round');
-  g.setAttribute('stroke-linejoin', 'round');
-  const partes = [];
-  let html = '';
-  const quantos = c.n < 2 ? 0 : Math.max(1, Math.ceil(L / pedaco));
-  for (let k = 0; k < quantos; k++) {
-    const i0 = Math.round((k * pedaco) / c.passo);
-    const i1 = Math.min(c.n - 1, Math.round(((k + 1) * pedaco) / c.passo));
-    let d = '';
-    for (let i = i0; i <= i1; i++) d += `${i === i0 ? 'M' : 'L'}${f1(c.x[i])} ${f1(c.y[i])}`;
-    html += '<g visibility="hidden">';
-    if (sombra) html += `<path stroke="rgba(40, 2, 14, 0.4)" stroke-width="${largura + 2.2}" d="${d}"/>`;
-    html += `<path stroke="${cor}" stroke-width="${largura}" d="${d}"/></g>`;
-  }
-  g.innerHTML = html;
-  svgEl.append(g);
-  for (const no of g.children) partes.push({ no, estado: 0 });
-
-  let atual = -1;
-
-  function aplicar(k, visivel) {
-    const p = partes[k];
-    if (!p) return;
-    const inicio = k * pedaco;
-    const tam = Math.min(pedaco, L - inicio);
-    const estado = visivel <= 0.01 ? 0 : visivel >= tam - 0.01 ? 2 : 1;
-    if (estado === 0) {
-      if (p.estado !== 0) p.no.setAttribute('visibility', 'hidden');
-    } else {
-      if (p.estado === 0) p.no.removeAttribute('visibility');
-      if (estado === 2) {
-        if (p.estado !== 2) p.no.removeAttribute('stroke-dasharray');
-      } else {
-        p.no.setAttribute('stroke-dasharray', `${f1(visivel)} ${Math.ceil(tam + 20)}`);
-      }
-    }
-    p.estado = estado;
-  }
-
-  return {
-    comprimento: L,
-    amostras: c,
-    /** Desenha o fio do começo até `s` px de comprimento. */
-    desenhar(s) {
-      if (!quantos) return;
-      const alvo = clamp(s, 0, L);
-      const k = Math.min(quantos - 1, Math.floor(alvo / pedaco));
-      const de = atual < 0 ? 0 : Math.min(atual, k);
-      const para = atual < 0 ? quantos - 1 : Math.max(atual, k);
-      for (let i = de; i <= para; i++) aplicar(i, alvo - i * pedaco);
-      atual = k;
-    },
-    /** Ponto do fio a `s` px do começo. */
-    posicao(s) {
-      const i = Math.min(c.n - 1, Math.max(0, Math.round(clamp(s, 0, L) / c.passo)));
-      return { x: c.x[i], y: c.y[i] };
-    },
-    remover() { g.remove(); },
-  };
+  return { construir, revelar, destruir: limpar };
 }

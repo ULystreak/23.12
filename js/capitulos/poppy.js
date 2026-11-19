@@ -73,7 +73,10 @@ export const capitulo = {
     api.fundo.classList.add('poppy-fundo');
 
     // ---- o fundo: a fábrica pela fita ------------------------------------------------
-    const imagemFundo = await api.recursos.imagem(c.fundo);
+    // Um pedido que nunca responde não segura a folha em branco: as imagens do capítulo
+    // têm 7 s, juntas, e a que não chegar fica de fora (sem o fundo, a fábrica desenhada).
+    const prazo = espera(7000).then(() => null);
+    const imagemFundo = await Promise.race([api.recursos.imagem(c.fundo), prazo]);
     const fundo = criarFundo({ recipiente: api.fundo, amb, imagem: imagemFundo });
 
     // ---- a camada do videocassete -----------------------------------------------------
@@ -112,13 +115,13 @@ export const capitulo = {
     const ctx = { amb, gsap, som, anima, falha, piscarModo };
 
     // ---- título -----------------------------------------------------------------------
-    const titulo = criarTitulo({ texto: c.titulo, subtitulo: c.subtitulo, amb, gsap, anima });
+    const titulo = criarTitulo({ texto: c.titulo, subtitulo: c.subtitulo, amb, gsap, anima, som });
     corpo.append(titulo.el);
 
     // ---- blocos -----------------------------------------------------------------------
-    // As imagens são pedidas todas de uma vez; a que não existir vira null e some.
+    // As imagens são pedidas todas de uma vez; a que não existir (ou passar do prazo) vira null e some.
     const imagens = await Promise.all(blocos.map((bloco) => (
-      bloco?.tipo === 'imagem' ? api.recursos.elementoImagem(bloco.arquivo, bloco.alt || '') : null
+      bloco?.tipo === 'imagem' ? Promise.race([api.recursos.elementoImagem(bloco.arquivo, bloco.alt || ''), prazo]) : null
     )));
     if (!vivo) return { destruir() {} };
 
@@ -186,6 +189,17 @@ export const capitulo = {
     });
 
     titulo.preparar();
+
+    // ---- os brinquedos respondem ao dedo ---------------------------------------------------
+    // Só um toque de verdade (o dedo andou menos de 8 px): rolar a folha não mexe em nada.
+    let dedo = null;
+    corpo.addEventListener('pointerdown', (e) => { dedo = { x: e.clientX, y: e.clientY }; });
+    corpo.addEventListener('pointerup', (e) => {
+      if (!dedo || Math.hypot(e.clientX - dedo.x, e.clientY - dedo.y) >= 8) return;
+      dedo = null;
+      titulo.tocar(e.target);
+      for (const cena of cenas) cena.tocar?.(e.target);
+    });
 
     // ---- medidas ---------------------------------------------------------------------------
     const janela = rolagem.el;

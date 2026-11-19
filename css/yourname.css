@@ -129,6 +129,11 @@
   margin: clamp(18px, 3.4vh, 36px) auto 0;
   will-change: transform, opacity;
 }
+/* A capa que chegou depois do prazo (yourname.js) surge devagar, e o título desce para dar lugar. */
+.yn-capa.yn-tarde { animation: yn-surge 1.6s var(--curva-yn-florescer); }
+.yn-tarde + .yn-titulos { animation: yn-desce 1.2s var(--curva-yn-florescer); }
+@keyframes yn-surge { from { opacity: 0; } }
+@keyframes yn-desce { from { translate: 0 var(--yn-desce, 0px); } }
 .yn-titulo {
   font-family: var(--fonte-titulo);
   font-weight: 600;
@@ -149,9 +154,9 @@
 
 /* ---------------------------------------------------------------------------
    Versos: soltos no céu. Atrás de cada um, um véu sem contorno, de ponta a
-   ponta, que o JS acende conforme a hora (--a: quanto; --d: quanto de azul de
-   dia por cima do índigo). As variáveis ficam no próprio véu, que não tem
-   filhos: mudar uma não recalcula mais nada.
+   ponta, que o JS acende conforme a hora (a opacidade: quanto; --d: quanto de
+   azul de dia por cima do índigo). O --d fica no próprio véu, que não tem
+   filhos: mudar o valor não recalcula mais nada.
    ------------------------------------------------------------------------- */
 .yn-verso {
   margin-top: calc(var(--yn-vh) * 0.2);
@@ -162,7 +167,7 @@
   top: 0; right: 0; bottom: 0; left: 0;
   z-index: -1;
   pointer-events: none;
-  opacity: var(--a, 0.8);
+  opacity: 0.8;
   background: linear-gradient(to bottom,
     rgba(var(--yn-veu-noite), 0) 0%,
     rgba(var(--yn-veu-noite), 0.1) 7%,
@@ -321,7 +326,6 @@
   will-change: transform;
   transform-origin: 0 50%;
 }
-.yn-encontro .yn-cordao-palco { display: none; }
 
 /* Celular em pé: a seção fica presa e a imagem atravessa a tela de lado. */
 .yn-encontro.pan {
@@ -349,15 +353,6 @@
   width: auto;
   max-width: none;
   will-change: auto;
-}
-.yn-encontro.pan .yn-cordao-palco {
-  display: block;
-  position: absolute;
-  top: 0; left: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  pointer-events: none;
 }
 
 /* O trecho de céu livre onde o cometa passa e se divide. */

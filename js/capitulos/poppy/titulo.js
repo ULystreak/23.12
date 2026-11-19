@@ -1,10 +1,11 @@
 // O título do capítulo como uma pilha de blocos de brinquedo (uma letra por
 // bloco) e o subtítulo digitado com letra de videocassete.
 //
-//   const titulo = criarTitulo({ texto, subtitulo, amb, gsap, anima });
+//   const titulo = criarTitulo({ texto, subtitulo, amb, gsap, anima, som });
 //   titulo.el            <header>
 //   titulo.cair()        → Promise: os blocos caem, fileira de baixo primeiro
 //   titulo.digitar()     → Promise: o subtítulo aparece letra por letra
+//   titulo.tocar(alvo)   um toque de verdade num bloco: ele pula e balança na mola
 //   titulo.destruir()
 //
 // O texto inteiro vai no aria-label do <h2>; os blocos são só desenho.
@@ -23,7 +24,7 @@ const segmentador = typeof Intl !== 'undefined' && Intl.Segmenter
 const grafemas = (texto) => (segmentador ? Array.from(segmentador.segment(texto), (s) => s.segment) : Array.from(texto));
 const ehLetra = (g) => /[\p{L}\p{N}]/u.test(g);
 
-export function criarTitulo({ texto = '', subtitulo = '', amb, gsap, anima }) {
+export function criarTitulo({ texto = '', subtitulo = '', amb, gsap, anima, som }) {
   const inteiro = String(texto || '').replace(/\s+/g, ' ').trim();
   const palavras = inteiro ? inteiro.split(' ').map((p) => grafemas(p)) : [];
   const larguraDe = (palavra) => palavra.reduce((soma, g) => soma + (ehLetra(g) ? 1 : ESTREITO), 0);
@@ -241,6 +242,23 @@ export function criarTitulo({ texto = '', subtitulo = '', amb, gsap, anima }) {
           },
         }));
       });
+    },
+
+    /** O bloco tocado pula e balança a partir da pose de descanso (no reduzido, só pisca). */
+    tocar(alvo) {
+      const b = alvo.closest('.poppy-bloco');
+      if (!b) return;
+      som.efeito('mola');
+      if (amb.reduzido) {
+        b.classList.add('piscou');
+        b.addEventListener('animationend', () => b.classList.remove('piscou'), { once: true });
+        return;
+      }
+      const lado = b._giro < 0 ? -1 : 1;
+      anima(gsap.timeline())
+        .to(b, { y: b._desvio - b.offsetHeight * 0.45, rotation: b._giro + lado * 9, duration: 0.18, ease: 'power2.out', overwrite: true })
+        .to(b, { y: b._desvio, duration: 0.6, ease: curvas.poppy.quique })
+        .to(b, { rotation: b._giro, duration: 1.2, ease: curvas.poppy.mola }, '<');
     },
 
     destruir() {
