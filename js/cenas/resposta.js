@@ -11,6 +11,7 @@
 // Tudo é DOM dentro de #palco (some sozinho enquanto ela relê uma carta pela bolsa):
 //   .depois
 //     .depois-veu          a noite por cima da folha final, para o número se ler
+//     .contador-flor       a flor dos dias (canvas 2D atrás do número) e .contador-hoje, o ponto de hoje
 //     .contador            .contador-numero + .contador-rotulo + .contador-frase
 //     .resposta            a folha: .resposta-convite, textarea, botões
 //     .depois-reabrir      no estado final: abre a folha de novo
@@ -24,7 +25,7 @@
 // "resposta-abrir"; .contador[data-dias].
 // Parâmetro só de teste: ?hoje=AAAA-MM-DD finge a data de hoje.
 
-import { el, svg } from '../nucleo/util.js';
+import { el, svg, suave } from '../nucleo/util.js';
 
 // Ícones da papelaria (_dev/UI.md): grade 24, traço 1.75, pontas redondas.
 const AVIAO = `
@@ -78,7 +79,8 @@ export function criarDepois(ctx) {
   const texto = (v) => (typeof v === 'string' ? v.trim() : '');
 
   const dadosC = conteudo.contador || {};
-  const dias = diasDeVida(dadosC.nascimento, (amb.params && amb.params.get('hoje')) || new Date());
+  const hoje = (amb.params && amb.params.get('hoje')) || new Date();
+  const dias = diasDeVida(dadosC.nascimento, hoje);
   const temContador = dias !== null;
 
   const dadosR = conteudo.resposta || null;
@@ -94,6 +96,26 @@ export function criarDepois(ctx) {
     if (montado) return;
     montado = true;
     document.getElementById('palco').append(raiz);
+  };
+
+  // Debaixo da noite fechada o mundo 3D não precisa desenhar (a DPR 3, é o quadro mais caro
+  // da carta): desliga quando o véu fecha e religa antes de ele abrir; o último quadro fica
+  // parado atrás do véu. Sem WebGL fica ligado (lá desligar esconde a foto, e a borda do véu
+  // clarearia). Se ela reler um capítulo pela bolsa com a folha reaberta, a noite sai da
+  // frente (html.relendo): o mundo volta na hora.
+  let vigia = null;
+  const acordar = () => {
+    if (!vigia) return;
+    vigia.disconnect();
+    vigia = null;
+    ctx.mundo.ligar();
+  };
+  const relendo = () => document.documentElement.classList.contains('relendo');
+  const dormir = () => {
+    if (!ctx.mundo?.ok || !ctx.mundo.ligado || relendo()) return;
+    ctx.mundo.desligar();
+    vigia = new MutationObserver(() => { if (relendo()) acordar(); });
+    vigia.observe(document.documentElement, { attributeFilter: ['class'] });
   };
 
   // ---- o contador ---------------------------------------------------------------------
@@ -115,6 +137,87 @@ export function criarDepois(ctx) {
   };
   mostrarDias(0);
 
+  // ---- a flor dos dias ------------------------------------------------------------------
+  // Enquanto o número conta, cada dia de vida dela vira um pontinho de luz numa espiral de
+  // girassol (filotaxia: o dia i no raio R·√(i/N), no ângulo i·137,508°), num canvas atrás
+  // do número. O miolo fica vazio (o número mora na noite limpa) e a luz se junta em 14
+  // pétalas. Os dias desde que eles se conheceram (contador.conhecemos) ficam em vermelho,
+  // nas pontas; hoje é um ponto um pouco maior na ponta da pétala de baixo, logo acima do
+  // fio, e pulsa quando o número chega. Antes do rótulo e da frase a flor baixa para 35%;
+  // ao recolher o contador ela se dissolve ali mesmo (não sobe junto).
+  const juntos = Math.min(dias || 0, diasDeVida(dadosC.conhecemos, hoje) || 0);
+  let flor = null;
+  function criarFlor() {
+    const fs = parseFloat(getComputedStyle(numero).fontSize) || 60;
+    const R = fs * 2.08;                                   // ~140 px no iPhone dela, proporcional no computador
+    const miolo = R / 2;
+    const n = numero.getBoundingClientRect();
+    const tela0 = raiz.getBoundingClientRect();
+    const cy = n.top + n.height / 2;
+    // o fio, o rótulo e a frase descem para fora da flor; sem lugar (celular deitado), sem flor
+    const d = cy + R + 16 - fio.getBoundingClientRect().top;
+    if (cy - R < tela0.top + 8 || (frase || rotulo).getBoundingClientRect().bottom + d > tela0.bottom - 16) return null;
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const lado = Math.ceil(2 * R + 4);
+    const meioY = cy - (tela0.top + tela0.height / 2);      // o centro do número, contado do meio da tela
+    const tela = el('canvas', {
+      class: 'contador-flor', 'aria-hidden': 'true', width: Math.round(lado * dpr), height: Math.round(lado * dpr),
+      style: { width: `${lado}px`, height: `${lado}px`, marginLeft: `${-lado / 2}px`, marginTop: `${meioY - lado / 2}px` },
+    });
+    const ponto = el('span', { class: 'contador-hoje', 'aria-hidden': 'true', style: { marginTop: `${meioY + R - 2.5}px` } });
+    const c = tela.getContext('2d');
+    if (!c) return null;
+    c.setTransform(dpr, 0, 0, dpr, (lado / 2) * dpr, (lado / 2) * dpr);
+    const cor = (nome) => getComputedStyle(raiz).getPropertyValue(nome).trim();
+    const luar = cor('--luar') || '#fdf6ee';
+    const vermelho = cor('--fio') || '#d7192d';
+    const N = dias;
+    const i0 = (N * miolo * miolo) / (R * R - miolo * miolo);   // os dias que caberiam no miolo (ficam de fora)
+    const ouro = (137.508 * Math.PI) / 180;
+    const petala = (2 * Math.PI) / 14;                      // 14: uma pétala embaixo (a de hoje) e vãos nas pontas do número
+    const rp = Math.min(0.8, 0.25 * Math.sqrt((Math.PI * (R * R - miolo * miolo)) / N));   // pontinho de ≤ 0,8 px
+    const ax = (String(N).length * 0.66 * fs) / 2 + 4;     // a caixa do número: ali não nasce ponto
+    const ay = 0.36 * fs + 6;
+    let feitos = 0;
+    const desenhar = (ate) => {
+      for (const fim = Math.min(Math.floor(ate), N - 1); feitos < fim; feitos++) {   // o último é o ponto de hoje
+        const i = feitos;
+        const r = R * Math.sqrt((i + i0) / (N - 1 + i0));
+        const a = (i - N + 1) * ouro;                       // hoje (a = 0) fica embaixo
+        const x = -r * Math.sin(a);
+        const y = r * Math.cos(a);
+        const s = (r - miolo) / (R - miolo);                // 0 no miolo, 1 na borda
+        const meia = 0.72 * petala * Math.sqrt(s * (1 - s)) + 0.012;   // a pétala é uma elipse
+        const naPetala = 1 - suave((Math.abs(a - petala * Math.round(a / petala)) / meia - 0.55) / 0.45);
+        const limpo = suave(((x / ax) ** 2 + (y / ay) ** 2 - 1) / 0.6);
+        const nos = i >= N - juntos;
+        c.globalAlpha = (nos ? 0.7 * (0.12 + 0.88 * naPetala) : 0.04 + 0.18 * naPetala) * limpo;
+        c.fillStyle = nos ? vermelho : luar;
+        c.beginPath();
+        c.arc(x, y, rp, 0, Math.PI * 2);
+        c.fill();
+      }
+    };
+    raiz.insertBefore(tela, contador);
+    raiz.insertBefore(ponto, contador);
+    return { tela, ponto, d, desenhar };
+  }
+
+  /** A flor se dissolve onde está (não sobe com o contador) e o texto volta para baixo do número. */
+  function soltarFlor() {
+    if (!flor) return;
+    const { tela, ponto, d } = flor;
+    flor = null;
+    removeEventListener('resize', aoGirar);
+    gsap.to([tela, ponto], { autoAlpha: 0, duration: calmo ? 0.4 : 0.9, ease: 'none', overwrite: true, onComplete: () => { tela.remove(); ponto.remove(); } });
+    // sai da margem e, na mesma hora, desliza de onde estava (nada pula)
+    fio.style.marginTop = '';
+    gsap.fromTo(frase ? [fio, rotulo, frase] : [fio, rotulo], { y: d }, { y: 0, duration: calmo ? 0.01 : 1.5, ease: 'power2.inOut' });
+  }
+  // girou o aparelho no meio da conta: a flor, medida para a outra tela, sai
+  let largura = 0;
+  const aoGirar = () => { if (innerWidth !== largura) soltarFlor(); };
+
   async function contar() {
     if (!temContador) return;
     montar();
@@ -124,24 +227,42 @@ export function criarDepois(ctx) {
     gsap.set([contador, rotulo, fio, ...(frase ? [frase] : [])], { autoAlpha: 0 });
     gsap.set(contador, { autoAlpha: 1 });
     gsap.set(numero, { autoAlpha: 0 });
+    flor = criarFlor();
+    if (flor) {
+      gsap.set([flor.tela, flor.ponto], { autoAlpha: 0 });
+      fio.style.marginTop = `${flor.d}px`;                // o fio, o rótulo e a frase descem para fora da flor
+      largura = innerWidth;
+      addEventListener('resize', aoGirar);
+    }
     await new Promise((ok) => {
       const tl = gsap.timeline({ onComplete: ok });
-      tl.to(veu, { opacity: 1, duration: calmo ? 0.8 : 1.6, ease: 'sine.inOut' }, 0);
+      tl.to(veu, { opacity: 1, duration: calmo ? 0.8 : 1.6, ease: 'sine.inOut', onComplete: dormir }, 0);
       tl.to(numero, { autoAlpha: 1, duration: 0.9, ease: 'none' }, calmo ? 0.4 : 0.9);
       if (calmo) {
         tl.call(() => mostrarDias(dias), null, 0);
+        // movimento reduzido: a flor já vem inteira, só a opacidade entra
+        if (flor) {
+          flor.desenhar(dias);
+          tl.to([flor.tela, flor.ponto], { autoAlpha: 1, duration: 0.9, ease: 'none' }, 0.4);
+        }
       } else {
         const conta = { v: 0 };
+        if (flor) tl.set(flor.tela, { autoAlpha: 1 }, 1.3);
         tl.to(conta, {
           v: dias, duration: 3.4, ease: 'power2.out',
-          onUpdate: () => mostrarDias(conta.v),
-          onComplete: () => { mostrarDias(dias); som.efeito?.('brilho'); },
+          onUpdate: () => { mostrarDias(conta.v); flor?.desenhar(conta.v); },
+          onComplete: () => { mostrarDias(dias); flor?.desenhar(dias); som.efeito?.('brilho'); },
         }, 1.3);
-        // chegou: o número assenta com um pulinho
+        // chegou: o número assenta com um pulinho, e o ponto de hoje acende pulsando junto
         tl.fromTo(numero, { scale: 1 }, { scale: 1.07, duration: 0.16, ease: 'power2.out' }, 4.7);
         tl.to(numero, { scale: 1, duration: 0.5, ease: 'back.out(2.2)' }, 4.86);
+        if (flor) {
+          tl.fromTo(flor.ponto, { autoAlpha: 0, scale: 0.4 }, { autoAlpha: 1, scale: 2.4, duration: 0.16, ease: 'power2.out' }, 4.7);
+          tl.to(flor.ponto, { scale: 1, duration: 0.5, ease: 'back.out(2.2)' }, 4.86);
+        }
       }
-      const depois = calmo ? 1.4 : 4.9;
+      const depois = (calmo ? 1.4 : 4.9) + (flor ? (calmo ? 1.2 : 0.7) : 0);
+      if (flor) tl.to(flor.tela, { opacity: 0.35, duration: calmo ? 0.6 : 0.9, ease: 'sine.inOut' }, depois - 0.6);
       tl.fromTo(fio, { autoAlpha: 0, scaleX: calmo ? 1 : 0 }, { autoAlpha: 1, scaleX: 1, duration: calmo ? 0.6 : 0.9, ease: 'power3.out' }, depois - (calmo ? 0 : 0.1));
       tl.to(rotulo, { autoAlpha: 1, duration: 0.9, ease: 'none' }, depois + (calmo ? 0 : 0.25));
       if (frase) tl.fromTo(frase, { autoAlpha: 0, y: calmo ? 0 : 10 }, { autoAlpha: 1, y: 0, duration: 1.4, ease: 'power2.out' }, depois + 1.1);
@@ -163,6 +284,7 @@ export function criarDepois(ctx) {
     const numY = (meioNumero.top + meioNumero.height / 2 - caixa.top) * escala;
     const y = alvoY - numY - origemY;
     if (frase) gsap.to(frase, { autoAlpha: 0, duration: 0.7, ease: 'none' });
+    soltarFlor();
     return new Promise((ok) => gsap.to(contador, {
       y, scale: escala, duration: calmo ? 0.01 : 1.5, ease: 'power2.inOut', onComplete: ok,
     }));
@@ -194,6 +316,8 @@ export function criarDepois(ctx) {
     enviar.href = tem ? enderecoWhats() : '#';
     enviar.setAttribute('aria-disabled', tem ? 'false' : 'true');
   };
+  // com zoom a folha pode não caber: aí ela rola por dentro (css/resposta.css)
+  const conferirRola = () => folha.toggleAttribute('data-rola', folha.scrollHeight > folha.clientHeight + 1);
   /** O aviso pequeno embaixo do texto. erro = ela tocou em enviar sem ter escrito: o aviso balança. */
   const avisar = (frase_, erro = false) => {
     if (!aviso) return;
@@ -201,6 +325,7 @@ export function criarDepois(ctx) {
     const mudou = aviso.textContent !== t || erro;
     aviso.textContent = t;
     aviso.toggleAttribute('data-erro', !!erro && !!t);
+    if (mudou && aberta) conferirRola();                 // o aviso em duas linhas pode não caber mais
     if (!mudou || !t) return;
     aviso.classList.remove('ui-entra', 'resposta-nega');
     void aviso.offsetWidth;                               // recomeça a animação
@@ -267,6 +392,7 @@ export function criarDepois(ctx) {
     const comTeclado = altura < innerHeight * 0.78;
     raiz.style.setProperty('--depois-vista', `${Math.round(altura)}px`);
     raiz.toggleAttribute('data-teclado', comTeclado);
+    conferirRola();
     // o Safari rola a página para mostrar o campo: a carta não rola, volta ao lugar
     if (comTeclado && (window.scrollY || document.documentElement.scrollTop)) window.scrollTo(0, 0);
   };
@@ -282,7 +408,7 @@ export function criarDepois(ctx) {
     aoViewport();
     gsap.killTweensOf([folha, veu, reabrir]);
     gsap.to(reabrir, { autoAlpha: 0, duration: 0.3, ease: 'none' });
-    gsap.to(veu, { opacity: 1, duration: 0.8, ease: 'sine.inOut' });
+    gsap.to(veu, { opacity: 1, duration: 0.8, ease: 'sine.inOut', onComplete: dormir });
     som.efeito?.('papel');
     await new Promise((ok) => gsap.fromTo(folha,
       { autoAlpha: 0, y: calmo ? 0 : 34, scale: calmo ? 1 : 0.94, rotation: calmo ? 0 : 1.6 },
@@ -312,23 +438,31 @@ export function criarDepois(ctx) {
     await fecharFolha();
   }
 
+  /** Sem toque (teclado, leitor de tela), o foco não fica perdido no body quando a folha sai. */
+  const focarReabrir = () => {
+    if (amb.toque || (document.activeElement && document.activeElement !== document.body)) return;
+    try { reabrir.focus({ preventScroll: true }); } catch { /* sem foco */ }
+  };
+
   /** O estado final: a noite, a folha com a frase, o contador pequeno no alto. */
   function repousar() {
     montar();
     recolherContador();
-    gsap.to(veu, { opacity: 0, duration: calmo ? 0.8 : 2.2, ease: 'sine.inOut' });
+    acordar();
+    gsap.to(veu, { opacity: 0, duration: calmo ? 0.8 : 2.2, ease: 'sine.inOut', overwrite: true });
     raiz.dataset.fim = '';
     if (!temResposta) return;
     raiz.append(reabrir);
-    gsap.fromTo(reabrir, { autoAlpha: 0 }, { autoAlpha: 1, duration: 1.2, delay: calmo ? 0.2 : 1.2, ease: 'none' });
+    gsap.fromTo(reabrir, { autoAlpha: 0 }, { autoAlpha: 1, duration: 1.2, delay: calmo ? 0.2 : 1.2, ease: 'none', onComplete: focarReabrir });
     reabrir.addEventListener('click', async () => {
       if (aberta || ctx.inventario?.aberto) return;
       await abrirFolha();
       await new Promise((ok) => { aoGuardar = ok; });
       aoGuardar = null;
       await fecharFolha();
-      gsap.to(veu, { opacity: 0, duration: 1.2, ease: 'sine.inOut' });
-      gsap.to(reabrir, { autoAlpha: 1, duration: 0.8, ease: 'none' });
+      acordar();
+      gsap.to(veu, { opacity: 0, duration: 1.2, ease: 'sine.inOut', overwrite: true });
+      gsap.to(reabrir, { autoAlpha: 1, duration: 0.8, ease: 'none', onComplete: focarReabrir });
     });
   }
 

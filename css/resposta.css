@@ -6,6 +6,7 @@
 
    .depois
      .depois-veu       a noite por cima da folha final
+     .contador-flor    a flor dos dias (canvas atrás do número) + .contador-hoje (o ponto de hoje)
      .contador         número + fio costurado + rótulo + frase (depois sobe e fica pequeno no alto)
      .resposta         a folha (.ui-folha): laço, convite, caderno, botões
      .depois-reabrir   no estado final: abre a folha de novo
@@ -27,6 +28,24 @@
     radial-gradient(120% 70% at 50% 46%, rgb(5, 8, 24) 46%, rgba(5, 8, 24, 0.975) 72%, rgba(5, 8, 24, 0.9));
   opacity: 0;
   will-change: opacity;
+}
+
+/* ---- a flor dos dias: centrada no número (o JS acerta a margem a partir do meio) --- */
+.contador-flor,
+.contador-hoje {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  pointer-events: none;
+}
+.contador-flor { will-change: opacity; }
+/* hoje: um ponto um pouco maior, na ponta da pétala de baixo */
+.contador-hoje {
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  border-radius: 50%;
+  background: var(--fio);
 }
 
 /* ---- o contador: a letra à mão da senha, sobre a noite ------------------------ */
@@ -123,6 +142,9 @@
   transform-origin: 50% 0;
   will-change: transform, opacity;
 }
+/* Folha que não cabe (zoom do Safari, Zoom de Tela): rola por dentro, sem levar a página.
+   Só quando precisa (o JS marca data-rola): rolando, o laço do alto sairia cortado. */
+.resposta[data-rola] { overflow-y: auto; overscroll-behavior: contain; }
 /* com o teclado aberto a folha sobe até o alto e usa só o que sobra de tela */
 .depois[data-teclado] .resposta {
   top: calc(var(--depois-topo) + 16px);
@@ -172,6 +194,7 @@
 .resposta-texto:focus { --pauta: var(--sakura); outline: none; }
 .resposta-aviso {
   display: flex;
+  flex-shrink: 0;                    /* numa folha apertada, quem encolhe é o caderno, não o aviso */
   align-items: center;
   gap: 6px;
   margin: 0;
@@ -198,6 +221,7 @@
 .depois[data-teclado] .resposta-aviso { display: none; }
 .resposta-botoes {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
@@ -205,7 +229,12 @@
   margin-top: 2px;
 }
 .resposta-botoes .ui-pilula { padding: 0 18px; gap: 8px; font-size: 1.0625rem; -webkit-tap-highlight-color: transparent; }
-.resposta-enviar { flex: 0 1 auto; }
+/* com zoom o Enviar pode encolher e quebrar o rótulo */
+.resposta-botoes .resposta-enviar { flex: 0 1 auto; min-width: 0; white-space: normal; text-align: center; }
+/* abaixo de 420 px as duas pílulas não cabem (ou cabem raspando) lado a lado: uma por linha */
+@media (max-width: 419px) {
+  .resposta-botoes .ui-pilula { flex: 1 1 100%; }
+}
 .resposta-enviar .ui-icone { width: 22px; height: 22px; }
 .resposta-coracao { flex: none; width: 12px; height: 12px; fill: #ffffff; opacity: 0.92; transform: rotate(10deg); }
 /* sem texto o botão fica apagado, mas ainda responde: o toque explica o que falta */

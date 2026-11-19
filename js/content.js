@@ -865,6 +865,12 @@ window.CONTEUDO = {
     // Deixe vazio ('') para o contador não aparecer.
     nascimento: '2004-12-23',
 
+    // O dia em que vocês se conheceram, no formato 'ano-mês-dia' (opcional).
+    // Enquanto o número conta, cada dia dela vira um pontinho de luz numa flor
+    // atrás dele; os dias desde que vocês se conheceram ficam em vermelho.
+    // Deixe vazio ('') para não marcar nenhum (só o dia de hoje fica vermelho).
+    conhecemos: '',
+
     // O que vem escrito embaixo do número.
     rotulo: 'dias até aqui',
 
