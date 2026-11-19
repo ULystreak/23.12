@@ -75,7 +75,11 @@ export const capitulo = {
     // ---- o fundo: a fábrica pela fita ------------------------------------------------
     // Um pedido que nunca responde não segura a folha em branco: as imagens do capítulo
     // têm 7 s, juntas, e a que não chegar fica de fora (sem o fundo, a fábrica desenhada).
+    // As dos blocos saem junto com a do fundo: um fundo pendurado não leva as que chegaram.
     const prazo = espera(7000).then(() => null);
+    const pedidoImagens = Promise.all(blocos.map((bloco) => (
+      bloco?.tipo === 'imagem' ? Promise.race([api.recursos.elementoImagem(bloco.arquivo, bloco.alt || ''), prazo]) : null
+    )));
     const imagemFundo = await Promise.race([api.recursos.imagem(c.fundo), prazo]);
     const fundo = criarFundo({ recipiente: api.fundo, amb, imagem: imagemFundo });
 
@@ -119,10 +123,8 @@ export const capitulo = {
     corpo.append(titulo.el);
 
     // ---- blocos -----------------------------------------------------------------------
-    // As imagens são pedidas todas de uma vez; a que não existir (ou passar do prazo) vira null e some.
-    const imagens = await Promise.all(blocos.map((bloco) => (
-      bloco?.tipo === 'imagem' ? Promise.race([api.recursos.elementoImagem(bloco.arquivo, bloco.alt || ''), prazo]) : null
-    )));
+    // As imagens já foram pedidas lá em cima; a que não existir (ou passar do prazo) vira null e some.
+    const imagens = await pedidoImagens;
     if (!vivo) return { destruir() {} };
 
     const entradas = new Map();       // elemento → peça com entrar()

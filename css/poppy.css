@@ -882,3 +882,11 @@ html.reduzido .poppy-tecla { transition: none; }
   animation: poppy-pisca 0.5s var(--curva-ui) both;
 }
 @keyframes poppy-pisca { from { opacity: 0.9; } to { opacity: 0; } }
+/* Os brinquedos são desenho: brincar com eles (cliques seguidos, dedo parado em
+   cima) não seleciona a letra nem abre o menu do iPhone. */
+.poppy-pilha,
+.esteira-palco {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}

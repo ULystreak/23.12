@@ -255,8 +255,9 @@ export function criarTitulo({ texto = '', subtitulo = '', amb, gsap, anima, som 
         return;
       }
       const lado = b._giro < 0 ? -1 : 1;
+      // o overwrite também mata o amasso da queda: o pulo desamassa o bloco
       anima(gsap.timeline())
-        .to(b, { y: b._desvio - b.offsetHeight * 0.45, rotation: b._giro + lado * 9, duration: 0.18, ease: 'power2.out', overwrite: true })
+        .to(b, { y: b._desvio - b.offsetHeight * 0.45, rotation: b._giro + lado * 9, scaleY: 1, duration: 0.18, ease: 'power2.out', overwrite: true })
         .to(b, { y: b._desvio, duration: 0.6, ease: curvas.poppy.quique })
         .to(b, { rotation: b._giro, duration: 1.2, ease: curvas.poppy.mola }, '<');
     },
