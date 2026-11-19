@@ -8,6 +8,11 @@ echo   1. Vou abrir a pagina de marcar a letra. Escolha a musica, cole a letra,
 echo      aperte "Comecar do zero" e a barra de espaco a cada verso.
 echo   2. No fim, aperte "Copiar".
 echo.
+rem Se o arquivo ja tem a letra sem tempo, ela vai para o Ctrl+V: e so colar na pagina.
+if exist "_dev\letra-marcada.txt" findstr /r /c:"^\[[0-9]*:[0-9]" "_dev\letra-marcada.txt" >nul || (
+  powershell -NoProfile -Command "Get-Content -Raw -Encoding UTF8 '_dev\letra-marcada.txt' | Set-Clipboard" && echo   A letra que voce ja salvou esta copiada: na pagina, clique no campo Letra e aperte Ctrl+V.
+  echo.
+)
 start "" "https://ulystreak.github.io/23.12/_dev/marcar-letra.html"
 pause
 echo.
