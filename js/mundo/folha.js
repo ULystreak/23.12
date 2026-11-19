@@ -14,6 +14,7 @@
 //   folha.assumir(papel)                aparece dobrada exatamente onde está o papel que saiu da carta
 //   folha.repousarFio() → Promise       o fio, solto, vem repousar sobre o canto de baixo da folha
 //   folha.viver()                       de tempos em tempos uma pétala pousa num canto, fica e escorrega
+//   folha.recuar()                      no fim, em tela baixa, recua um pouco: o contador e o botão respiram
 //
 // A escrita é um motor só (canvas 2D), usado pelas duas variantes: no 3D o
 // canvas é a textura da tinta (atualizada só enquanto escreve e seca); sem
@@ -36,6 +37,9 @@ const FECHADA_BAIXO = Math.PI * 0.985;
 const ABERTA_CIMA = 0.06;             // o papel guarda a memória da dobra: nunca fica plano de todo
 const ABERTA_BAIXO = 0.085;
 const COLUNAS = 10;
+// No fim o contador fica no alto e o botão de reabrir embaixo: recuar() deixa esta
+// faixa (px de tela) livre em cima e embaixo. Só pesa em tela baixa (a do Safari).
+const MARGEM_FIM = 100;
 
 // ---- a letra -------------------------------------------------------------------
 const COR_TINTA = [42, 27, 34];       // --tinta, depois de seca
@@ -1085,7 +1089,10 @@ function criarFolha3D(mundo) {
   });
   const malha = new THREE.Mesh(geometria, material);
   malha.frustumCulled = false;
-  malha.renderOrder = 2;
+  // O papel é opaco e cobre ~70% da tela: desenhado antes de tudo, a profundidade dele
+  // descarta a alameda que está atrás (sombra, manchas, pétala e fio são transparentes
+  // e continuam por cima). Se um dia ele ficar translúcido, isto volta para depois.
+  malha.renderOrder = -20;
   interno.add(malha);
 
   // ---- sombra macia atrás -------------------------------------------------------------
@@ -1302,12 +1309,14 @@ function criarFolha3D(mundo) {
   const viagem = { p: 0, ativa: false };
   let noLugar = false;
   let assumiu = false;
+  let margemFim = 0;                     // px livres em cima e embaixo depois de recuar()
 
   function medirLeitura() {
     const cam = mundo.camera;
     const { largura, altura } = mundo.tamanho;
     const tangente = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
-    const fracao = altura < 520 ? 0.9 : 0.8;                       // ~80% da altura da tela
+    // ~80% da altura da tela (no fim, menos se a margem não couber: só em tela baixa)
+    const fracao = altura < 520 ? 0.9 : Math.min(0.8, 1 - (2 * margemFim) / altura);
     const porAltura = ALTURA / (2 * tangente * fracao);
     const porLargura = LARGURA / (2 * tangente * (largura / altura) * 0.86);
     leitura.distancia = Math.max(porAltura, porLargura);
@@ -1659,6 +1668,21 @@ function criarFolha3D(mundo) {
       vidaDasPetalas().catch((erro) => console.error('[carta] pétala', erro));
     },
 
+    recuar() {
+      const de = leitura.distancia;
+      margemFim = MARGEM_FIM;
+      medirLeitura();
+      if (!(leitura.distancia > de + 1e-4)) return;
+      const k = { v: 0 };
+      gsap.to(k, {
+        v: 1,
+        duration: amb.reduzido ? 1.2 : 2.4,
+        ease: curvas.branco.deriva,
+        // (a distância de chegada é a de agora: se a tela mudar no meio, ela acompanha)
+        onUpdate: () => { leitura.pos.z = mundo.rig.position.z - lerp(de, leitura.distancia, k.v); aplicarViagem(); },
+      });
+    },
+
     atualizar(dt, t) {
       if (!grupo.visible) return;
 
@@ -1759,28 +1783,12 @@ function criarFolhaLeve(mundo) {
   const sombra = el('div', 'fl-sombra');
   const corpo = el('div', 'fl-corpo', [sombra, meio, abaCima, abaBaixo]);
   const folha = el('div', 'folha-leve', corpo);
-  const petalas = el('div', 'folha-petalas');           // algumas pétalas por cima da folha
-  mundo.recipienteLeve.append(folha, petalas);
+  mundo.recipienteLeve.append(folha);
   gsap.set(folha, { autoAlpha: 0 });
   gsap.set(abaCima, { rotationX: -178.5, z: 1 });
   gsap.set(abaBaixo, { rotationX: 176, z: 2.5 });
   gsap.set([escuroCima, escuroBaixo], { opacity: 0.035 });
   gsap.set(sombra, { scaleY: 1 / 3 });
-
-  // Na frente da folha só passam poucas, grandes e fora de foco (como as perto da câmera no 3D).
-  for (let i = 0; i < (calmo ? 1 : 3); i++) {
-    const p = el('i', 'folha-petala');
-    const tamanho = 26 + Math.random() * 18;
-    p.style.setProperty('--x', `${(8 + Math.random() * 84).toFixed(1)}%`);
-    p.style.setProperty('--tam', `${tamanho.toFixed(0)}px`);
-    p.style.setProperty('--dur', `${((calmo ? 22 : 8) + Math.random() * 6).toFixed(1)}s`);
-    p.style.setProperty('--atraso', `${(-Math.random() * 20).toFixed(1)}s`);
-    p.style.setProperty('--deriva', `${(Math.random() * 18 - 5).toFixed(0)}vw`);
-    p.style.setProperty('--giro', `${(Math.random() * 640 - 320).toFixed(0)}deg`);
-    if (tamanho > 25) p.classList.add('folha-petala-perto');
-    petalas.append(p);
-  }
-  gsap.set(petalas, { autoAlpha: 0 });
 
   const escrita = criarEscrita({ amb, largura: amb.nivel === 'baixo' ? 768 : 1024 });
   escrita.tela.className = 'fl-tinta';
@@ -1835,7 +1843,6 @@ function criarFolhaLeve(mundo) {
       recortar(fracaoBolso);
     }
     gsap.set(folha, { x, y, scale: escala, autoAlpha: 1 });
-    gsap.fromTo(petalas, { autoAlpha: 0 }, { autoAlpha: 1, duration: 3, ease: 'none' });
     assumiu = true;
   }
 
@@ -2019,6 +2026,12 @@ function criarFolhaLeve(mundo) {
       vidaDasPetalas().catch((erro) => console.error('[carta] pétala', erro));
     },
 
+    recuar() {
+      // a mesma faixa livre do 3D: a folha encolhe um pouco para caber entre o contador e o botão
+      const s = innerHeight < 520 ? 1 : Math.min(1, (innerHeight - 2 * MARGEM_FIM) / Math.max(1, folha.offsetHeight));
+      if (s < 1) gsap.to(folha, { scale: s, duration: calmo ? 1.2 : 2.4, ease: curvas.branco.deriva });
+    },
+
     atualizar(dt, t) {
       if (escrita.ativo) { escrita.avancar(dt * (amb.rapido || 1)); escrita.tirarFaixas(); }
       if (calmo || !assumiu) return;
@@ -2034,7 +2047,6 @@ function criarFolhaLeve(mundo) {
     dispose() {
       descartada = true;
       folha.remove();
-      petalas.remove();
       if (espelho) espelho.remove();
     },
   };

@@ -23,7 +23,7 @@
 // Parâmetro só de teste: ?frase=… troca a frase (para ver uma longa e uma curta).
 
 import { espera } from '../nucleo/util.js';
-import { cenaCarta, distanciaDaCarta } from './carta.js';
+import { cenaCarta, poseParada } from './carta.js';
 import { criarFio } from '../mundo/fio.js';
 import { criarFolha } from '../mundo/folha.js';
 import { criarEle, pintarEleEntrega } from '../mundo/ele.js';
@@ -34,6 +34,7 @@ const ALTURA_OLHOS = 1.5;
 const PARADA = 1.25;               // a carta para a esta distância dela (igual a carta.js)
 const ELE_PERTO = 2.25;            // na entrega ele fica a esta distância dela (m)
 const ELE_LADO = -0.05;            // e um nada para a esquerda: a mão estendida cai no meio da tela
+const NA_MAO = 0.45;               // na entrega a carta para na altura da mão dele (o `baixar` de carta.js): o rosto fica livre
 
 /**
  * A entrega: ele vem para perto, de frente, e a última carta (que a cena da mão
@@ -72,13 +73,6 @@ export function entregaNaMao(ctx) {
   }
 }
 
-/** Onde a carta para diante dela (a mesma conta de carta.js). */
-function poseParada(mundo) {
-  const d = distanciaDaCarta(mundo);
-  const meia = Math.tan(((mundo.camera?.fov || 58) * Math.PI) / 360);
-  return { x: mundo.rig.position.x, y: ALTURA_OLHOS - d * meia * 0.12, z: mundo.rig.position.z - d };
-}
-
 export async function cenaFinal(ctx, { frio } = {}) {
   const { conteudo, diretor, mundo, som, musica, estado, amb } = ctx;
   const gsap = window.gsap;
@@ -110,7 +104,7 @@ export async function cenaFinal(ctx, { frio } = {}) {
     const env = estado.envelope;
     const pararEnv = mundo.aoQuadro((dt, t) => env.atualizar(dt, t));
     await espera(amb.reduzido ? 500 : 1300);              // ela o vê, de mão estendida
-    const alvo = poseParada(mundo);
+    const alvo = poseParada(mundo, NA_MAO);
     const de = env.grupo.position.clone();
     const voo = { k: 0 };
     som.efeito('papel');
@@ -194,6 +188,7 @@ export async function cenaFinal(ctx, { frio } = {}) {
     distancia,
     entregar: false,
     anunciarCaminhada: false,
+    baixar: estado.entrega ? NA_MAO : undefined,
   });
 
   pararFaisca();
@@ -263,6 +258,8 @@ export async function cenaFinal(ctx, { frio } = {}) {
   // O estado final, calmo: a noite, a música, a bolsa (o diretor a devolve nesta etapa).
   diretor.etapa('fim');
   depois.repousar();
+  // O contador fica no alto e o botão de reabrir embaixo: em tela baixa a folha recua um pouco.
+  if (depois.temContador || depois.temResposta) folha.recuar();
   musica.mostrarMini();
   await new Promise(() => {});                           // fica aqui, com as pétalas
 }

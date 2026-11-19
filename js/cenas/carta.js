@@ -1,7 +1,7 @@
 // A carta: caminha, a carta chega, espera o toque, abre e entrega o papel.
 // Usada três vezes (coração, estrela e a última, amarrada só com o fio).
 //
-//   cenaCarta(ctx, { tema, lacre, amarracao, distancia, entregar = true, anunciarCaminhada = true })
+//   cenaCarta(ctx, { tema, lacre, amarracao, distancia, entregar = true, anunciarCaminhada = true, baixar = 0.12 })
 //     → Promise<{ env, papel, parar }>
 //
 //   tema               'poppy' | 'yourname' | null: a cara da carta (null = a carta branca, a última)
@@ -12,14 +12,17 @@
 //                      false: para depois de abrir (a cena final assume o papel, que fica
 //                      fora do envelope, de frente e parado)
 //   anunciarCaminhada  false: não publica a etapa `caminhada` (a cena final começa em `carta-chegando`)
+//   baixar             quanto a carta para abaixo da linha dos olhos, em meias-alturas da tela
+//                      (0,12: um nada abaixo; a última, na mão dele, para mais baixo e deixa o rosto dele livre)
 //
 // Etapas: caminhada → carta-chegando → carta-espera → carta-abrindo → papel
 // O envelope fica em ctx.estado.envelope até a cena seguinte mandá-lo embora.
 // Se a cena anterior já deixou em estado.envelope uma carta igual e ainda fechada
 // (a cena da mão cria a última carta para o fio terminar nela), ela é reaproveitada.
 //
-// Extra exportado: distanciaDaCarta(mundo) → metros entre os olhos e a carta parada
-// (~72% da largura da tela em pé, ~28% no computador).
+// Extras exportados: distanciaDaCarta(mundo) → metros entre os olhos e a carta parada
+// (~72% da largura da tela em pé, ~28% no computador); poseParada(mundo, baixar?, zOlhos?)
+// → { x, y, z }, onde a carta para.
 //
 // Gancho para os testes: tocar no centro da tela na etapa `carta-espera`.
 
@@ -32,6 +35,7 @@ const LARGURA_CARTA = 0.23;        // o envelope tem 23 × 16 cm
 const ALTURA_CARTA = 0.16;
 const ESPERA_DICA = 4000;          // ms sem toque até a dica aparecer
 const LONGE = 2.6;                 // metros além do ponto de parada de onde a carta vem
+const BAIXAR = 0.12;               // a carta para um nada abaixo da linha dos olhos (em meias-alturas da tela)
 
 // Ela já usou o teclado? (só então o foco levado até a carta pede o anel; um toque nunca o vê)
 let usouTeclado = false;
@@ -57,15 +61,15 @@ export function distanciaDaCarta(mundo) {
   return Math.max(pelaLargura, pelaAltura, 0.4);
 }
 
-/** Onde a carta para, com a câmera em `zOlhos`: um pouco abaixo da linha dos olhos. */
-function poseParada(mundo, zOlhos) {
+/** Onde a carta para, com a câmera em `zOlhos`: `baixar` meias-alturas da tela abaixo da linha dos olhos. */
+export function poseParada(mundo, baixar = BAIXAR, zOlhos = mundo.rig.position.z) {
   const d = distanciaDaCarta(mundo);
   const meia = Math.tan(((mundo.camera?.fov || 58) * Math.PI) / 360);
-  return { x: mundo.rig.position.x, y: ALTURA_OLHOS - d * meia * 0.12, z: zOlhos - d };
+  return { x: mundo.rig.position.x, y: ALTURA_OLHOS - d * meia * baixar, z: zOlhos - d };
 }
 
 export async function cenaCarta(ctx, opcoes = {}) {
-  const { tema = null, lacre = 'coracao', amarracao = 'cordao', distancia = 7, entregar = true, anunciarCaminhada = true } = opcoes;
+  const { tema = null, lacre = 'coracao', amarracao = 'cordao', distancia = 7, entregar = true, anunciarCaminhada = true, baixar = BAIXAR } = opcoes;
   const { mundo, diretor, pergaminho, som, estado } = ctx;
   const gsap = window.gsap;
 
@@ -93,7 +97,7 @@ export async function cenaCarta(ctx, opcoes = {}) {
   // a rajada de pétalas do lacre: o programa dela já pronto (na carta inteira, a abertura já fez isto)
   if (mundo.ok) mundo.petalas?.preparar?.();
   if (mundo.ok) {
-    const alvo = poseParada(mundo, zOlhosFinal);
+    const alvo = poseParada(mundo, baixar, zOlhosFinal);
     if (reaproveitar) {
       gsap.to(env.grupo.position, { x: alvo.x, y: alvo.y, z: alvo.z, duration: Math.max(1.6, duracao), ease: curvas.branco.camera });
     } else {
@@ -128,7 +132,7 @@ export async function cenaCarta(ctx, opcoes = {}) {
   }
 
   diretor.etapa('carta-espera');
-  await esperarToque(ctx, env);
+  await esperarToque(ctx, env, baixar);
 
   diretor.etapa('carta-abrindo');
   const { papel } = await env.abrir();
@@ -146,7 +150,7 @@ export async function cenaCarta(ctx, opcoes = {}) {
 }
 
 /** Espera ela tocar na carta. Depois de alguns segundos sem toque, mostra a dica. */
-function esperarToque(ctx, env) {
+function esperarToque(ctx, env, baixar) {
   const { conteudo, som, mundo, amb } = ctx;
   const gsap = window.gsap;
   const dica = document.getElementById('dica');
@@ -191,8 +195,12 @@ function esperarToque(ctx, env) {
       if (dica.hidden) return;
       const folga = Math.max(22, caixa.height * 0.14);
       if (dicaAcima) {
+        // (parada mais baixo, na mão dele, a dica fica onde ficaria com a carta na altura
+        // de sempre: acima da cabeça dele, nunca no rosto, e o toque ali também vale. A
+        // folga dobra: a carta flutua e o passo balança, e a dica parada não acompanha.)
+        const baixou = ((baixar - BAIXAR) * innerHeight) / 2;
         dica.style.top = 'auto';
-        dica.style.bottom = `${Math.max(16, innerHeight - caixa.top + folga)}px`;
+        dica.style.bottom = `${Math.max(16, innerHeight - caixa.top + baixou + folga * (baixou > 0 ? 2 : 1))}px`;
       } else {
         dica.style.bottom = 'auto';
         dica.style.top = `${Math.min(innerHeight - 64, caixa.bottom + folga)}px`;
@@ -204,7 +212,7 @@ function esperarToque(ctx, env) {
     const pararTamanho = mundo.aoRedimensionar(() => {
       if (terminado) return;
       if (mundo.ok) {
-        const alvoPose = poseParada(mundo, mundo.rig.position.z);
+        const alvoPose = poseParada(mundo, baixar);
         gsap.to(env.grupo.position, { x: alvoPose.x, y: alvoPose.y, z: alvoPose.z, duration: 0.6, ease: curvas.branco.entrar, onComplete: posicionar });
       } else {
         posicionar();
@@ -230,6 +238,9 @@ function esperarToque(ctx, env) {
       window.removeEventListener('pointerup', aoSoltar);
       window.removeEventListener('pointerdown', aoApertar);
       window.removeEventListener('pointercancel', aoCancelar);
+      window.removeEventListener('pointermove', aoMover);
+      window.removeEventListener('pointerout', aoMover);
+      marcarSobre(false);
       pararTamanho();
       alvo.remove();
       if (!dica.hidden) {
@@ -248,12 +259,17 @@ function esperarToque(ctx, env) {
     // (o mini da música e a bolsa são dela: um toque neles, ou com a bolsa aberta, não é na carta)
     const foraDaCarta = (e) => !!(ctx.inventario?.aberto
       || (e.target && e.target.closest && e.target.closest('#mini, #inventario')));
+    // Parada mais baixo (na mão dele), um toque onde ela pararia normalmente (o meio
+    // da tela, o rosto dele) também vale. `exato`: só a carta (para o cursor).
+    const acertou = (e, exato = false) => {
+      const { x, y } = pxParaNdc(e.clientX, e.clientY);
+      return env.acertou(x, y) || (!exato && baixar > BAIXAR && env.acertou(x, y - (baixar - BAIXAR)));
+    };
     let apertou = null;
     const aoApertar = (e) => {
       if (foraDaCarta(e)) return;
       apertou = { x: e.clientX, y: e.clientY };
-      const ndc = pxParaNdc(e.clientX, e.clientY);
-      if (env.acertou(ndc.x, ndc.y)) env.pressionar?.(true);
+      if (acertou(e)) env.pressionar?.(true);
     };
     const aoCancelar = () => { apertou = null; env.pressionar?.(false); };
     const aoSoltar = (e) => {
@@ -261,14 +277,33 @@ function esperarToque(ctx, env) {
       const arrastou = apertou && Math.hypot(e.clientX - apertou.x, e.clientY - apertou.y) > 14;
       apertou = null;
       if (arrastou) { env.pressionar?.(false); return; }
-      const ndc = pxParaNdc(e.clientX, e.clientY);
-      if (env.acertou(ndc.x, ndc.y)) concluir();
+      if (acertou(e)) concluir();
       else { env.pressionar?.(false); mostrarDica(); }      // tocou fora: mostra logo onde é
+    };
+
+    // No mouse a carta diz que é alvo: a seta vira mão sobre ela e a carta vem um nada
+    // para a frente. No toque não há nada disso (pointerType 'touch').
+    let sobre = false;
+    const marcarSobre = (sim) => {
+      if (sim === sobre) return;
+      sobre = sim;
+      document.documentElement.style.cursor = sim ? 'pointer' : '';
+      if (mundo.ok && !amb.reduzido) {
+        const k = sim ? 1.025 : 1;
+        gsap.to(env.grupo.scale, { x: k, y: k, z: k, duration: sim ? 0.35 : 0.5, ease: curvas.branco.entrar, overwrite: 'auto' });
+      }
+    };
+    const aoMover = (e) => {
+      // (pointerout sem relatedTarget: o mouse saiu da janela)
+      if (e.pointerType !== 'mouse' || (e.type === 'pointerout' && e.relatedTarget)) return;
+      marcarSobre(e.type === 'pointermove' && !foraDaCarta(e) && acertou(e, true));
     };
 
     window.addEventListener('pointerdown', aoApertar);
     window.addEventListener('pointerup', aoSoltar);
     window.addEventListener('pointercancel', aoCancelar);
+    window.addEventListener('pointermove', aoMover);
+    window.addEventListener('pointerout', aoMover);
     alvo.addEventListener('click', () => { if (!ctx.inventario?.aberto) concluir(); });   // teclado (Enter/Espaço) e leitores de tela
   });
 }

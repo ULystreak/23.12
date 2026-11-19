@@ -12,7 +12,6 @@
        .fl-tinta    o canvas da escrita
        .fl-fio      o fio que repousa no canto (SVG)
        .fl-petala   a pétala que pousa num canto
-   .folha-petalas   algumas pétalas por cima da folha (as do mundo leve ficam atrás)
    ========================================================================== */
 
 .folha-leve {
@@ -151,23 +150,3 @@
   overflow: visible;
   pointer-events: none;
 }
-
-/* Pétalas na frente da folha (poucas; as de trás são as do mundo leve). */
-.folha-petalas {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 2;
-}
-.folha-petala {
-  position: absolute;
-  top: -8%;
-  left: var(--x, 50%);
-  width: var(--tam, 16px);
-  height: calc(var(--tam, 16px) * 1.25);
-  background: var(--rosa);
-  border-radius: 60% 60% 55% 55% / 85% 85% 35% 35%;
-  animation: petala-cai var(--dur, 14s) linear var(--atraso, 0s) infinite;
-  will-change: transform;
-}
-.folha-petala-perto { filter: blur(5px); opacity: 0.7; }
