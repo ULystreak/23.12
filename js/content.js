@@ -174,40 +174,42 @@ window.CONTEUDO = {
         arquivo: 'assets/music/undressed.mp3',
         capa: 'assets/music/undressed.webp',
         letra: `
-[00:10.00] Você tinha um sonho, queria algo melhor
-[00:14.71] Estava cansada de todos os buracos no seu suéter
-[00:19.42] Você olhou para mim e se perguntou se
-[00:24.14] Eu era o poste ao qual você estava amarrada
-[00:28.85] Estou olhando para você e você está olhando para mim
-[00:33.56] Mas o brilho nos seus olhos me diz que você quer partir
-[00:38.27] Você está me dizendo uma coisa, repetindo sem parar
-[00:42.98] Mas o brilho nos seus olhos me diz uma coisa diferente
-[00:47.70] Não quero me despir
-[00:52.41] Para outra pessoa de novo
-[00:57.12] Não quero beijar o pescoço de outra pessoa
-[01:01.83] E ter que fingir que é o seu
-[01:06.54] Peguei o trem para ver minha mãe
-[01:11.26] Olho do outro lado dos trilhos e vejo você com outro
-[01:15.97] Não há nada pior do que ver seu amor
-[01:20.68] Seguindo em frente enquanto você ainda sofre
-[01:25.39] Estou olhando para você e você está olhando para mim
-[01:30.10] Mas o brilho nos seus olhos me diz que você quer partir
-[01:34.82] Você está me dizendo uma coisa, repetindo sem parar
-[01:39.53] Mas o brilho nos seus olhos me diz uma coisa diferente
-[01:44.24] Não quero me despir
-[01:48.95] Para outra pessoa de novo
-[01:53.66] Não quero beijar o pescoço de outra pessoa
-[01:58.38] E ter que fingir que é o seu
-[02:03.09] E não quero conhecer outro cheiro
-[02:07.80] Não quero que os filhos de outro homem
-[02:12.51] Tenham os olhos da garota que não vou esquecer
-[02:17.22] Não vou esquecer
-[02:21.94] Não quero me despir
-[02:26.65] Para outra pessoa de novo
-[02:31.36] Não quero beijar o pescoço de outra pessoa
-[02:36.07] E ter que fingir que é o seu
-[02:40.78] Não quero me despir
-[02:45.50] Para outra pessoa de novo
+[00:15.99] Você tinha um sonho, queria algo melhor
+[00:20.53] Estava cansada de todos os buracos no seu suéter
+[00:24.57] Você olhou para mim e se perguntou se
+[00:28.69] Eu era o poste ao qual você estava amarrada
+[00:32.65] Estou olhando para você e você está olhando para mim
+[00:36.31] Mas o brilho nos seus olhos me diz que você quer partir
+[00:40.53] Você está me dizendo uma coisa, repetindo sem parar
+[00:44.57] Mas o brilho nos seus olhos me diz uma coisa diferente
+[00:48.69] Não quero me despir
+[00:53.55] Para outra pessoa de novo
+[00:57.37] Não quero beijar o pescoço de outra pessoa
+[01:01.31] E ter que fingir que é o seu
+[01:07.34]
+[01:13.85] Peguei o trem para ver minha mãe
+[01:18.95] Olho do outro lado dos trilhos e vejo você com outro
+[01:22.45] Não há nada pior do que ver seu amor
+[01:28.89] Seguindo em frente enquanto você ainda sofre
+[01:30.61] Estou olhando para você e você está olhando para mim
+[01:35.79] Mas o brilho nos seus olhos me diz que você quer partir
+[01:40.91] Você está me dizendo uma coisa, repetindo sem parar
+[01:44.67] Mas o brilho nos seus olhos me diz uma coisa diferente
+[01:51.49] Não quero me despir
+[01:55.23] Para outra pessoa de novo
+[01:56.63] Não quero beijar o pescoço de outra pessoa
+[02:04.59] E ter que fingir que é o seu
+[02:08.91] E não quero conhecer outro cheiro
+[02:10.31] Não quero que os filhos de outro homem
+[02:13.55] Tenham os olhos da garota que não vou esquecer
+[02:32.43] Não vou esquecer
+[02:33.83] Não quero me despir
+[02:37.57] Para outra pessoa de novo
+[02:40.77] Não quero beijar o pescoço de outra pessoa
+[02:45.59] E ter que fingir que é o seu
+[02:49.03] Não quero me despir
+[02:53.81] Para outra pessoa de novo
+[02:59.10]
 `,
       },
       {
@@ -225,56 +227,58 @@ window.CONTEUDO = {
         // (https://ulystreak.github.io/23.12/_dev/marcar-letra.html): cole a letra,
         // toque "Agora!" a cada verso enquanto a música toca e copie o resultado.
         letra: `
-[00:10.00] Nós nunca namoramos
-[00:13.50] Você era inteligente, sabia quando dizer suas falas
-[00:17.00] E fazer parecer que você não era tão inteligente
-[00:20.50] Você era melhor em todos os sentidos por design
-[00:24.00] Você era boa demais para o confinamento de um homem
-[00:27.50] Como é que nunca namoramos?
-[00:31.01] Mas ainda me pego pensando em você todos os dias?
-[00:34.51] Por que você sempre me deixa dolorido?
-[00:38.01] Quando você nunca foi minha para ser tomada?
-[00:41.51] Eu não posso fazer você me amar
-[00:45.01] Não, eu não posso fazer você me amar
-[00:48.51] Querida, eu não consigo fazer você me amar
-[00:52.01] Não, eu não posso fazer você me amar
-[00:55.51] Eu não posso fazer você me amar
-[00:59.01] Não, eu não posso fazer você me amar
-[01:02.51] Querida, eu não consigo fazer você me amar
-[01:06.01] Não, eu não posso fazer você me amar
-[01:09.52] Você é bonita, boa para romantizar
-[01:13.02] Mas você não se torna fácil de gostar
-[01:16.52] Você gosta de se divertir, você dança ao redor da linha
-[01:20.02] Do que é errado e do que é certo
-[01:23.52] Como é que nunca namoramos?
-[01:27.02] Mas ainda me pego pensando em você todos os dias?
-[01:30.52] Por que você sempre me deixa dolorido?
-[01:34.02] Quando você nunca foi minha para ser tomada?
-[01:37.52] Eu não posso fazer você me amar
-[01:41.02] Não, eu não posso fazer você me amar
-[01:44.52] Querida, não consigo fazer você me amar
-[01:48.02] Não, eu não posso fazer você me amar
-[01:51.53] Eu não posso fazer você me amar
-[01:55.03] Não, eu não posso fazer você me amar
-[01:58.53] Querida, eu não consigo fazer você me amar
-[02:02.03] Não, eu não posso fazer você me amar
-[02:05.53] Eu desejo nada além do melhor para você
-[02:09.03] Mas espero que o próximo veja o resto de você
-[02:12.53] Como é que nunca namoramos?
-[02:16.03] Mas ainda me pego pensando em você todos os dias?
-[02:19.53] (Ainda me pego pensando em você)
-[02:23.03] Por que você sempre me deixa dolorido?
-[02:26.53] Quando você nunca foi minha para ser tomada?
-[02:30.04] (Quando você nunca foi minha para ser tomada)
-[02:33.54] Como é que nunca namoramos?
-[02:37.04] Mas ainda me pego pensando em você todos os dias?
-[02:40.54] (Ainda me pego pensando em você)
-[02:44.04] Por que você sempre me deixa dolorido?
-[02:47.54] Quando você nunca foi minha para ser tomada?
-[02:51.04] Eu não posso fazer você me amar
-[02:54.54] Não, eu não posso fazer você me amar
-[02:58.04] Querida, eu não consigo fazer você me amar
-[03:01.54] Não, eu não posso fazer você me amar
+[00:11.47] Nós nunca namoramos
+[00:12.87] Você era inteligente, sabia quando dizer suas falas
+[00:16.51] E fazer parecer que você não era tão inteligente
+[00:21.29] Você era melhor em todos os sentidos por design
+[00:22.69] Você era boa demais para o confinamento de um homem
+[00:26.47] Como é que nunca namoramos?
+[00:30.05] Mas ainda me pego pensando em você todos os dias?
+[00:33.67] Por que você sempre me deixa dolorido?
+[00:35.07] Quando você nunca foi minha para ser tomada?
+[00:38.69] Eu não posso fazer você me amar
+[00:40.09] Não, eu não posso fazer você me amar
+[00:43.87] Querida, eu não consigo fazer você me amar
+[00:47.93] Não, eu não posso fazer você me amar
+[01:01.89] Eu não posso fazer você me amar
+[01:06.77] Não, eu não posso fazer você me amar
+[01:08.17] Querida, eu não consigo fazer você me amar
+[01:12.67] Não, eu não posso fazer você me amar
+[01:16.45] Você é bonita, boa para romantizar
+[01:17.85] Mas você não se torna fácil de gostar
+[01:19.25] Você gosta de se divertir, você dança ao redor da linha
+[01:25.41] Do que é errado e do que é certo
+[01:29.03] Como é que nunca namoramos?
+[01:30.43] Mas ainda me pego pensando em você todos os dias?
+[01:34.13] Por que você sempre me deixa dolorido?
+[01:38.85] Quando você nunca foi minha para ser tomada?
+[01:40.61] Eu não posso fazer você me amar
+[01:43.01] Não, eu não posso fazer você me amar
+[01:57.83] Querida, não consigo fazer você me amar
+[01:59.37] Não, eu não posso fazer você me amar
+[02:02.13] Eu não posso fazer você me amar
+[02:03.53] Não, eu não posso fazer você me amar
+[02:06.19] Querida, eu não consigo fazer você me amar
+[02:08.11] Não, eu não posso fazer você me amar
+[02:14.58]
+[02:20.35] Eu desejo nada além do melhor para você
+[02:24.21] Mas espero que o próximo veja o resto de você
+[02:29.87] Como é que nunca namoramos?
+[02:31.27] Mas ainda me pego pensando em você todos os dias?
+[02:34.55] (Ainda me pego pensando em você)
+[02:39.21] Por que você sempre me deixa dolorido?
+[02:40.61] Quando você nunca foi minha para ser tomada?
+[02:43.29] (Quando você nunca foi minha para ser tomada)
+[02:44.69] Como é que nunca namoramos?
+[02:48.15] Mas ainda me pego pensando em você todos os dias?
+[02:52.43] (Ainda me pego pensando em você)
+[02:53.83] Por que você sempre me deixa dolorido?
+[02:56.63] Quando você nunca foi minha para ser tomada?
+[02:59.07] Eu não posso fazer você me amar
+[03:01.03] Não, eu não posso fazer você me amar
+[03:02.43] Querida, eu não consigo fazer você me amar
+[03:04.55] Não, eu não posso fazer você me amar
+[03:08.88]
 `,
       },
 

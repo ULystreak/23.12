@@ -3,32 +3,37 @@
    Fica longe do disco da música (canto de cima à direita). Só opacity e transform. */
 .letra {
   position: fixed;
-  top: calc(var(--seguro-topo, 0px) + 14px);
+  top: calc(var(--seguro-topo, 0px) + 72px);   /* logo abaixo do disco da música */
   left: 50%;
   z-index: 45;
   width: max-content;
-  max-width: min(560px, calc(100% - 2 * max(78px, var(--seguro-dir, 0px) + 70px)));
+  max-width: min(640px, calc(100% - 2 * max(16px, var(--seguro-dir, 0px) + 12px)));
   transform: translateX(-50%);
   pointer-events: none;
   opacity: 1;
-  transition: opacity 600ms linear;
+  transition: opacity 400ms linear;
 }
 .letra[data-vazia] { opacity: 0; }
 .letra-linha {
   margin: 0;
-  padding: 7px 14px 8px;
-  border-radius: 14px;
-  background: rgba(22, 16, 34, 0.46);
+  padding: 10px 20px 11px;
+  border-radius: 18px;
+  background: rgba(22, 16, 34, 0.68);
+  box-shadow: 0 8px 28px -10px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   font-family: var(--fonte-titulo);
-  font-size: 0.9375rem;
-  line-height: 1.4;
-  letter-spacing: 0.02em;
+  font-size: 1.3125rem;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
   color: #fff;
   text-align: center;
   text-wrap: balance;
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
 }
 @media (min-width: 900px) {
-  .letra-linha { font-size: 1.0625rem; padding: 8px 18px 9px; }
+  .letra { top: calc(var(--seguro-topo, 0px) + 22px); max-width: min(760px, calc(100% - 200px)); }
+  .letra-linha { font-size: 1.75rem; padding: 12px 28px 13px; }
 }
 /* Na tela preta da senha e da escolha da música ela fica por trás (o #entrada cobre). */
