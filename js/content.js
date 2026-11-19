@@ -223,9 +223,11 @@ window.CONTEUDO = {
         //   [00:12.50] primeiro verso
         //   [00:16.80] segundo verso
         // Cole tudo entre as duas crases (`). Vazio = sem letra para esta música.
-        // Para marcar os tempos sem esforço, abra _dev/marcar-letra.html no site
-        // (https://ulystreak.github.io/23.12/_dev/marcar-letra.html): cole a letra,
+        // Para marcar os tempos sem esforço, abra _dev/marcar-letra.html no computador
+        // (dois cliques no arquivo; o site publicado não tem a pasta _dev): cole a letra,
         // toque "Agora!" a cada verso enquanto a música toca e copie o resultado.
+        // Ou ponha a letra em letra-1.txt (primeira música) ou letra-2.txt (segunda),
+        // na pasta do site, e rode o colocar-letra.bat.
         letra: `
 [00:11.47] <00:11.72>Nós <00:11.72>nunca <00:11.72>namoramos
 [00:12.87] <00:12.87>Você <00:12.87>era <00:12.94>inteligente, <00:14.62>sabia <00:14.86>quando <00:15.08>dizer <00:15.24>suas <00:15.84>falas
@@ -527,11 +529,11 @@ window.CONTEUDO = {
 
   /* --------------------------------------------------------------------------
      O BOLSO E A BOLSA (o inventário)
-     Quando ela toca em "Guardar no bolso" no fim de um capítulo, a mão dela
-     (com o uniforme de verão da Mitsuha) leva a carta até o bolso da saia.
-     Depois da primeira carta guardada aparece o botão da bolsa, no canto de
-     baixo, à direita: ali fica tudo o que ela já guardou (as duas cartas e
-     cada carta do chão que ela já abriu). Tocar num item abre de novo.
+     Quando ela toca em "Guardar no bolso" no fim de um capítulo, o olhar dela
+     desce, a bolsinha de ombro aparece embaixo e a carta entra nela; a bolsa
+     vai para o botão do canto de baixo, à direita. Ali fica tudo o que ela já
+     guardou (as duas cartas e cada carta do chão que ela já abriu). Tocar num
+     item abre de novo.
      ------------------------------------------------------------------------ */
   inventario: {
     // O título no alto da bolsa aberta.

@@ -611,9 +611,7 @@ export async function criarMundo(opcoes) {
   // nascendo do branco (até lá o mundo é o branco de sempre).
   if (comAlameda) {
     try {
-      const t0 = performance.now();
       alameda = criarAlameda(mundo);
-      alameda.custoMs = Math.round(performance.now() - t0);     // só informativo (testes)
       mundo.alameda = alameda;
       mundo.aoMudarNivel((nivel) => alameda.nivel(nivel));
       alameda.pronta.then(() => {

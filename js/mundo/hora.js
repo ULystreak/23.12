@@ -12,7 +12,6 @@
 //   mundo.hora()                         → nome da hora mais próxima ('manha'…'noite')
 //   mundo.hora('noite', { duracao: 12 }) → Promise (duracao em segundos; 0 = já)
 //   mundo.hora(2.5, { duracao })         → aceita a posição direto (entre duas horas)
-//   mundo.horaPosicao                    → 0..4, a posição de agora
 //
 // Quem manda é o roteiro: ligarHora({ mundo, diretor, amb }) (uma linha no
 // main.js) ouve o diretor e leva cada cena:etapa à sua hora (o mapa ROTEIRO, aqui
@@ -20,8 +19,8 @@
 // hora daquela cena.
 //
 // Para o CSS: <html data-hora="manha|dia|entardecer|crepusculo|noite"> (a hora
-// mais próxima da posição de agora) e as variáveis --hora-tarde e --hora-noite
-// (0..1). À noite as frases e os botões do mundo ficam claros (css/mundo.css);
+// mais próxima da posição de agora; só muda quando a hora troca, nunca a cada
+// quadro). À noite as frases e os botões do mundo ficam claros (css/mundo.css);
 // qualquer cena pode usar html[data-hora="noite"] no próprio CSS.
 
 import { clamp, lerp } from '../nucleo/util.js';
@@ -167,8 +166,6 @@ export function criarHora(mundo, amb, aplicar) {
     const e = estadoDaHora(atual.p);
     const nome = HORAS[Math.round(e.p)];
     if (nome !== nomeAtual) { nomeAtual = nome; raiz.dataset.hora = nome; }
-    raiz.style.setProperty('--hora-tarde', e.tarde.toFixed(3));
-    raiz.style.setProperty('--hora-noite', e.noite.toFixed(3));
     try { aplicar(e); } catch (erro) { console.error('[carta] hora', erro); }
   }
 
@@ -188,7 +185,6 @@ export function criarHora(mundo, amb, aplicar) {
     });
   }
 
-  Object.defineProperty(mundo, 'horaPosicao', { get: () => atual.p, configurable: true });
   mundo.hora = hora;
   pintar();
   return hora;

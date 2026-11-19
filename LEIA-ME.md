@@ -90,13 +90,13 @@ Depois que ela corre pelo fio, vê as cartas do chão e toca em "Seguir em frent
 - `foco` e `ate` dizem de onde até onde a câmera desliza na imagem; `dedo` (só nas duas imagens das mãos) é onde está o dedinho com o fio; `fio` (só na primeira) é onde o fio vermelho da imagem chega perto da borda de baixo. Todos são frações: `x` de 0 (esquerda) a 1 (direita), `y` de 0 (topo) a 1 (base). Se trocar a imagem, ajuste esses números olhando com `?cena=encontro`;
 - para **tirar** esta parte, deixe a lista vazia (`quadros: []`): a carta vai direto das cartas do chão para a última carta.
 
-A última imagem da lista, a do abraço (`encontro-5-abraco.webp`), tem `fim: true`: ela entra depois das mãos e é dela que vem o clarão. Ela veio com o logotipo do filme e uma assinatura no alto, por isso tem `aparar: { topo: 0.18 }`, que corta essa parte. Para tirar o abraço, apague o bloco dela; o clarão volta a vir das mãos. O original (`encontro-5-abraco.png`) ficou na pasta, sem uso.
+A última imagem da lista, a do abraço (`encontro-5-abraco.webp`), tem `fim: true`: ela entra depois das mãos e é dela que vem o clarão. Ela veio com o logotipo do filme e uma assinatura no alto, por isso tem `aparar: { topo: 0.18 }`, que corta essa parte. Para tirar o abraço, apague o bloco dela; o clarão volta a vir das mãos.
 
 As versões menores (`encontro-1-ela-ve.webp` e `encontro-3-ela-mao.webp`) ficaram na pasta sem uso: as duas imagens largas dela têm o dobro da resolução e dão mais espaço para a câmera deslizar.
 
 ## 5. O bolso, a bolsa e a corrida
 
-- No fim de cada capítulo o botão é **"Guardar no bolso"** (os textos são `poppy.fechar` e `yourname.fechar`). A carta vai para o bolso da saia e aparece o botão da **bolsa** no canto de baixo, à direita. Na bolsa ela encontra tudo o que já guardou e pode reabrir (as duas cartas e, mais adiante, cada carta do chão já aberta, com o nome).
+- No fim de cada capítulo o botão é **"Guardar no bolso"** (os textos são `poppy.fechar` e `yourname.fechar`). O olhar dela desce, a carta entra na bolsinha de ombro e a bolsa vai para o botão da **bolsa**, no canto de baixo, à direita. Na bolsa ela encontra tudo o que já guardou e pode reabrir (as duas cartas e, mais adiante, cada carta do chão já aberta, com o nome).
 - Os nomes que aparecem na bolsa ficam na parte `inventario`: `titulo` (o título da bolsa), `cartaPoppy` e `cartaYourname`.
 - A corrida até você dura `corrida.segundos` (hoje 7; vale de 5 a 10).
 

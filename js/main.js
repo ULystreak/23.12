@@ -1,6 +1,6 @@
 // Boot: detecta o ambiente, monta o contexto e entrega ao diretor.
 //
-//   ctx = { conteudo, amb, mundo, som, musica, pergaminho, inventario, bolso, diretor, gsap, ScrollTrigger }
+//   ctx = { conteudo, amb, mundo, som, musica, pergaminho, inventario, bolso, diretor, gsap }
 // mais dois apoios: ctx.recursos (pré-carga e imagens) e ctx.estado (objeto livre
 // para uma cena deixar algo para a seguinte, como o envelope e o fio).
 
@@ -16,6 +16,7 @@ import { criarInventario } from './inventario.js';
 import { criarBolso } from './cenas/bolso.js';
 import { criarMundo } from './mundo/mundo.js';
 import { ligarHora } from './mundo/hora.js';
+import { ligarToque } from './mundo/toque.js';
 
 // O diretor nasce primeiro: é ele que instala window.__carta (com a Promise `pronto`).
 const diretor = criarDiretor();
@@ -23,7 +24,6 @@ const diretor = criarDiretor();
 async function iniciar() {
   const conteudo = window.CONTEUDO || {};
   const gsap = window.gsap;
-  const ScrollTrigger = window.ScrollTrigger;
   if (!gsap) throw new Error('lib/gsap.min.js não carregou');
 
   if (conteudo.pagina?.titulo) document.title = conteudo.pagina.titulo;
@@ -79,13 +79,14 @@ async function iniciar() {
   });
 
   const ctx = {
-    conteudo, amb, mundo, som, musica, pergaminho, inventario, bolso, diretor, gsap, ScrollTrigger,
+    conteudo, amb, mundo, som, musica, pergaminho, inventario, bolso, diretor, gsap,
     recursos,
     estado: {},
   };
 
   ctx.voz = (await import('./voz.js')).criarVoz(ctx);   // a fita com a voz dele, na bolsa
   try { ctx.letra = (await import('./letra.js')).criarLetra(ctx); } catch (erro) { console.error(erro); }   // a letra no alto
+  ligarToque(ctx);             // pétalas que fogem do dedo nas esperas (js/mundo/toque.js)
   vigiarContexto(ctx);
   await diretor.rodar(ctx, diretor.cenaInicial());
 }

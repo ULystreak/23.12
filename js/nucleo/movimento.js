@@ -45,8 +45,8 @@ export function iniciarMovimento(ambiente) {
   if (iniciado || !gsap) return;
   iniciado = true;
 
-  const { CustomEase, ScrollTrigger, SplitText, DrawSVGPlugin } = window;
-  gsap.registerPlugin(...[CustomEase, ScrollTrigger, SplitText, DrawSVGPlugin].filter(Boolean));
+  const { CustomEase, DrawSVGPlugin } = window;
+  gsap.registerPlugin(...[CustomEase, DrawSVGPlugin].filter(Boolean));
 
   const curva = (nome, bezier, reserva) => {
     if (CustomEase) CustomEase.create(nome, bezier);
@@ -76,29 +76,19 @@ export function iniciarMovimento(ambiente) {
 
   // ?rapido=N acelera tudo o que passa pela linha do tempo global da GSAP.
   if (amb.rapido !== 1) gsap.globalTimeline.timeScale(amb.rapido);
-
-  if (ScrollTrigger) ScrollTrigger.config({ ignoreMobileResize: true });
 }
 
 // ---------------------------------------------------------------------------
 // Texto em pedaços
 // ---------------------------------------------------------------------------
 
-const segmentador = typeof Intl !== 'undefined' && Intl.Segmenter
-  ? new Intl.Segmenter('pt-BR', { granularity: 'grapheme' })
-  : null;
-
-function grafemas(texto) {
-  return segmentador ? Array.from(segmentador.segment(texto), (s) => s.segment) : Array.from(texto);
-}
-
 /**
- * Monta o texto dentro do elemento, quebrado em palavras (e, se pedido, letras).
+ * Monta o texto dentro do elemento, quebrado em palavras.
  * Acessibilidade: o texto inteiro vai no aria-label do elemento; os pedaços
  * ficam dentro de um invólucro aria-hidden, para o leitor de tela ler a frase
- * de uma vez e não sílaba por sílaba.
+ * de uma vez e não palavra por palavra.
  */
-function montarPedacos(elemento, texto, porLetra) {
+function montarPedacos(elemento, texto) {
   const inteiro = String(texto ?? '');
   elemento.textContent = '';
   elemento.setAttribute('aria-label', inteiro.replace(/\s+/g, ' ').trim());
@@ -112,7 +102,6 @@ function montarPedacos(elemento, texto, porLetra) {
   involucro.setAttribute('aria-hidden', 'true');
 
   const palavras = [];
-  const letras = [];
   const linhas = inteiro.split('\n');
 
   linhas.forEach((linha, i) => {
@@ -126,24 +115,14 @@ function montarPedacos(elemento, texto, porLetra) {
       }
       const palavra = document.createElement('span');
       palavra.className = 'palavra';
-      if (porLetra) {
-        for (const g of grafemas(parte)) {
-          const letra = document.createElement('span');
-          letra.className = 'letra';
-          letra.textContent = g;
-          palavra.append(letra);
-          letras.push(letra);
-        }
-      } else {
-        palavra.textContent = parte;
-      }
+      palavra.textContent = parte;
       involucro.append(palavra);
       palavras.push(palavra);
     }
   });
 
   elemento.append(involucro);
-  elemento._pedacos = { palavras, letras };
+  elemento._pedacos = { palavras };
   return elemento._pedacos;
 }
 
@@ -174,18 +153,8 @@ const usaDesfoque = () => !amb.reduzido && amb.nivel !== 'baixo';
  */
 export function revelarPalavras(elemento, texto, opcoes = {}) {
   if (!elemento) return Promise.resolve();
-  const { palavras } = montarPedacos(elemento, texto ?? elemento.textContent, false);
+  const { palavras } = montarPedacos(elemento, texto ?? elemento.textContent);
   return animarEntrada(elemento, palavras, { duracao: 1.4, intervalo: 0.14, ...opcoes });
-}
-
-/**
- * Revela um texto letra por letra (as palavras continuam inteiras na quebra de linha).
- * revelarLetras(elemento, texto, { duracao = 0.9, intervalo = 0.045, ... }) → Promise
- */
-export function revelarLetras(elemento, texto, opcoes = {}) {
-  if (!elemento) return Promise.resolve();
-  const { letras } = montarPedacos(elemento, texto ?? elemento.textContent, true);
-  return animarEntrada(elemento, letras, { duracao: 0.9, intervalo: 0.045, subida: '0.25em', ...opcoes });
 }
 
 function animarEntrada(elemento, pedacos, { duracao, intervalo, atraso = 0, subida = '0.4em', curva }) {
@@ -223,7 +192,7 @@ export function ocultarPalavras(elemento, opcoes = {}) {
   if (!elemento) return Promise.resolve();
   const { duracao = 0.9, intervalo = 0.06, atraso = 0, subida = '-0.35em', curva } = opcoes;
   const guardado = elemento._pedacos;
-  const pedacos = guardado ? (guardado.letras.length ? guardado.letras : guardado.palavras) : [elemento];
+  const pedacos = guardado ? guardado.palavras : [elemento];
 
   const limpar = () => {
     if (!guardado) return;

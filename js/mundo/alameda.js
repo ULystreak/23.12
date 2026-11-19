@@ -21,9 +21,7 @@
 //   alameda.pronta                   Promise: programas compilados e a alameda entrando
 //   alameda.atualizar(dt, t)         a cada quadro, antes do render (mundo.js chama)
 //   alameda.aplicarHora(estado)      a hora do dia (js/mundo/hora.js): luz, névoa, céu, estrelas e cometa
-//   alameda.tarde(k)                 (antigo) 0..1 do dia ao crepúsculo; quem manda agora é mundo.hora()
 //   alameda.nivel(nivel)             'alto'|'medio'|'baixo' (qualidade adaptativa)
-//   alameda.corNevoa                 THREE.Color da névoa (a cena.fog acompanha)
 //   alameda.centro(z)                x do meio do caminho na profundidade z
 //
 // O chão é y = 0. O caminho tem 3,5 m de largura e o meio dele fica sempre a
@@ -935,6 +933,7 @@ void main() {
     vec4 a = uArvores[i];
     vec2 d = p - a.xy;
     float r2 = dot(d, d);
+    if (r2 > 14.0 * a.z) continue;          // longe: o que esta árvore somaria fica abaixo de 1/255
     sh += 0.5 * exp(-r2 / (0.35 * a.z)) + 0.16 * exp(-r2 / (3.0 * a.z));
     terra += exp(-r2 / (1.3 * a.z));
   }
@@ -1404,7 +1403,6 @@ export function criarAlameda(mundo) {
 `;
   const comDeriva = (glsl) => DERIVA_GLSL + glsl.replace(/cameraPosition/g, 'camA').replace(/viewMatrix/g, 'viewA');
 
-  const materiais = [];
   const material = (op) => {
     op.vertexShader = comDeriva(op.vertexShader);
     op.fragmentShader = comDeriva(op.fragmentShader);
@@ -1419,7 +1417,6 @@ export function criarAlameda(mundo) {
         blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor,
       });
     }
-    materiais.push(m);
     return m;
   };
 
@@ -1428,7 +1425,9 @@ export function criarAlameda(mundo) {
     new THREE.SphereGeometry(50, 24, 12),
     material({ vertexShader: VERT_CEU, fragmentShader: FRAG_CEU, uniforms: { ...comuns }, side: THREE.BackSide, depthWrite: false }),
   );
-  ceu.renderOrder = -10;
+  // Por último entre os opacos (depois do chão): o vertex shader já o põe no fundo, então
+  // ele só pinta o que sobrou (~3% da tela no túnel), e não a tela inteira por baixo de tudo.
+  ceu.renderOrder = 3;
   ceu.frustumCulled = false;
   grupo.add(ceu);
 
@@ -1740,10 +1739,6 @@ export function criarAlameda(mundo) {
     corNevoa.copy(aux);
     if (cena.fog && surgido) cena.fog.color.copy(aux);
   }
-  /** (antigo) 0 = dia, 1 = crepúsculo. Quem manda na hora agora é mundo.hora(). */
-  function tarde(k) {
-    if (typeof mundo.hora === 'function') mundo.hora(1 + 2 * clamp(k), { duracao: 0 });
-  }
 
   // ---- entrada: compilar antes de aparecer, e nascer do branco ---------------------------
 
@@ -1777,7 +1772,6 @@ export function criarAlameda(mundo) {
     surgir,
     atualizar,
     aplicarHora,
-    tarde,
     nivel: aplicarNivel,
     /** Nenhum cacho mais perto da câmera que `metros` (a folha final); devagar. 0 volta ao padrão. */
     afastar(metros = 0, duracao = 1.2) {
@@ -1786,32 +1780,9 @@ export function criarAlameda(mundo) {
       if (window.gsap && duracao > 0) window.gsap.to(v, { x: alvo[0], y: alvo[1], duration: duracao, ease: 'power2.out', overwrite: true });
       else v.set(alvo[0], alvo[1]);
     },
-    corNevoa,
     /** Os uniformes da névoa e da hora (uNevoa, uCeu, uDens, uTarde, e também uLuz e uNoite): quem entra na alameda usa os mesmos (js/mundo/ele.js). */
     uniformes: comuns,
     /** x do meio do caminho na profundidade z DO MUNDO (a deriva do passo de base já descontada). */
     centro: (z) => centroCaminho(z - derivaAtual),
-    materiais,
-    /** (testes) o mesmo deslocamento do vão que os shaders aplicam, num ponto do mundo. */
-    vao(x, y, z) {
-      const { x: cx, y: cy, z: rMin } = comuns.uVao.value;
-      const rOut = rMin + 1.0;
-      let qx = x - cx; let qy = y - cy;
-      const r = Math.hypot(qx, qy);
-      if (r < rOut && rMin > 0) {
-        const r2 = rMin + (rOut - rMin) * Math.pow(r / rOut, rOut / (rOut - rMin));
-        const dx = r > 1e-4 ? qx / r : 0; const dy = r > 1e-4 ? qy / r : 1;
-        const t = clamp((y - 0.3) / 0.8); const w = t * t * (3 - 2 * t);
-        const tz = clamp((Math.abs(z - comuns.uVaoZ.value) - 2.5) / 4); const wz = 1 - tz * tz * (3 - 2 * tz);
-        qx += dx * (r2 - r) * w * wz; qy += dy * (r2 - r) * w * wz;
-      }
-      return [qx + cx, qy + cy, z];
-    },
-    contar() {
-      let cartoes = 0;
-      for (const v of variantes) cartoes += v.copa.count * (v.copa.geometry.drawRange.count === Infinity ? v.indices : v.copa.geometry.drawRange.count) / 6;
-      cartoes += salCopa.count * sal.copa.index.count / 6 + capim.count * capim.geometry.index.count / 6;
-      return { arvores: variantes.reduce((s, v) => s + v.n, 0), cartoes: Math.round(cartoes), postes: postes.count, triTronco: variantes.map((v) => v.tronco.geometry.index.count / 3) };
-    },
   };
 }

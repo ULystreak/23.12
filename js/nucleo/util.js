@@ -47,11 +47,6 @@ export function quadro() {
 export const clamp = (v, min = 0, max = 1) => Math.min(max, Math.max(min, v));
 export const lerp = (a, b, t) => a + (b - a) * t;
 
-/** Leva `v` do intervalo [a, b] para [c, d], preso nas pontas. */
-export function mapear(v, a, b, c, d) {
-  return c + (d - c) * clamp((v - a) / (b - a));
-}
-
 /** Curva em S entre 0 e 1. */
 export function suave(t) {
   const x = clamp(t);
@@ -65,9 +60,6 @@ export function suave(t) {
 export function amortecer(atual, alvo, lambda, dt) {
   return lerp(atual, alvo, 1 - Math.exp(-lambda * dt));
 }
-
-/** Número aleatório entre min e max. */
-export const aleatorio = (min = 0, max = 1) => min + Math.random() * (max - min);
 
 /** Gerador aleatório com semente (mesma semente = mesma sequência). */
 export function semente(s = 1) {
@@ -146,13 +138,6 @@ export function carregarImagem(endereco) {
     };
     img.onerror = () => resolver(null);
     img.src = endereco;
-  });
-}
-
-/** Promise que resolve na próxima vez que `evento` acontecer em `alvo`. */
-export function umaVez(alvo, evento, opcoes) {
-  return new Promise((resolver) => {
-    alvo.addEventListener(evento, resolver, { once: true, ...opcoes });
   });
 }
 

@@ -12,7 +12,6 @@ PROMPT.md
 # grafo do graphify (gerado)
 graphify-out/
 
-# o rascunho da letra marcada (colocar-letra.bat)
-_dev/letra-marcada.txt
+# os rascunhos da letra que o colocar-letra.bat lê
 letra-1.txt
 letra-2.txt

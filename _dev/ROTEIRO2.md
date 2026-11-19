@@ -39,13 +39,13 @@ Regras do diretor (já implementadas, ninguém precisa tocar):
 - Atalho de `inicio` em diante: `#entrada` nem aparece (script no `<head>` do index.html põe `html.sem-entrada`; o diretor remove o nó), `frio: true`, e a bolsa já vem com as cartas dos capítulos anteriores àquela cena (`semearBolsa`).
 - `?cena=musica` mostra a tela preta só com a música (para testar o carrossel).
 - Atrás do preto o mundo fica desligado (`mundo.desligar()`), e é religado em `musica:entrando`.
-- A bolsa só abre nas etapas de espera: `carta2:carta-espera`, `mao:mao-espera`, `cartas:escolhendo` (o diretor chama `inventario.liberar(bool)` a cada etapa). Em `final:desdobrando` o botão sai (`esconderBotao`).
+- A bolsa só abre nas etapas de espera (`BOLSA_LIVRE`): `carta2:caminhada`, `carta2:carta-chegando`, `carta2:carta-espera`, `mao:mao-espera`, `cartas:escolhendo`, `final:fim` (o diretor chama `inventario.liberar(bool)` a cada etapa). Em `final:desdobrando` o botão sai (`esconderBotao`).
 - Depois de `musica`, seguir leva ao que já existia: `encontro` (quadros) e `final`. O autor ainda vai decidir a continuação.
 
 ## 2. Contexto novo
 
 ```
-ctx = { conteudo, amb, mundo, som, musica, pergaminho, inventario, bolso, diretor, gsap, ScrollTrigger, recursos, estado }
+ctx = { conteudo, amb, mundo, som, musica, pergaminho, inventario, bolso, diretor, gsap, recursos, estado }
 ```
 
 `ctx.inventario` e `ctx.bolso` são criados no main.js. DOM novo no index.html: `aside#inventario[hidden]`, `div#bolso[hidden]`, `section#entrada > #entrada-senha + #entrada-musica`. O preto de `#entrada` (fixo, `z-index: 60`, acima de `--z-topo`) está no CSS crítico do index.html; `theme-color` começa `#000000`.
@@ -120,10 +120,10 @@ bolso.guardar({ tema, envelope }) → Promise
 bolso.ocupado → boolean
 ```
 
-- O diretor chama em `poppy:guardando` e `yourname:guardando`, **depois** de `pergaminho.enrolar()` e `soltar()`: o mundo está à vista e a carta aberta (`envelope`, que era `ctx.estado.envelope`) ainda está lá, de onde saiu o papel. É a continuidade: a própria carta vai para a mão e para o bolso.
+- O diretor chama em `poppy:guardando` e `yourname:guardando`, **depois** de `pergaminho.enrolar()` e `soltar()`: o mundo está à vista e a carta aberta (`envelope`, que era `ctx.estado.envelope`) ainda está lá, de onde saiu o papel. É a continuidade: a própria carta vai para a bolsa.
 - `envelope` pode ser `null` (entrada por atalho, cena que quebrou): a animação desenha a carta sozinha, com a cara do `tema`.
 - Ao resolver: o envelope **descartado** (`dispose()`), `#bolso` vazio e `hidden`, mundo ligado e limpo. Nunca rejeita, nunca passa de uns 4 s. Em movimento reduzido: uma dissolvência curta. Sem WebGL: funciona igual (a animação é DOM/SVG).
-- Primeira pessoa, olhando para baixo: a mão dela (mesmo traço de `js/cenas/mao.js`; **não edite mao.js**, copie o que precisar ou peça ao grupo C para exportar) leva a carta ao bolso da saia do uniforme de verão (ver `assets/images/encontro-mitsuha-costas.webp` e `encontro-mitsuha-mao.webp`), e a carta some dentro. 2 a 3 s. Só `transform` e `opacity`.
+- Primeira pessoa: o olhar desce, a bolsinha de ombro dela aparece embaixo, a aba abre, a carta entra e some lá dentro; a aba fecha e a bolsa vai, pequenininha, para o botão da bolsa no canto. ~3 s. Só `transform` e `opacity`.
 - Texto para leitor de tela: `conteudo.inventario.rotulos.guardando`.
 - Depois que `guardar` resolve, o diretor faz `inventario.guardar(...)` e `inventario.mostrarBotao()`. Se quiser que a carta "caia" no botão da bolsa, combine pelo `aoMudar` do inventário; a ordem das chamadas não muda.
 - No `yourname`, logo depois vem `mao:olha` ("o fio vermelho aparece ao guardar"): a mão do grupo C entra no mesmo mundo, sem corte.
@@ -171,7 +171,6 @@ cenaCarta(ctx, { tema, lacre, amarracao, distancia, entregar, anunciarCaminhada 
 - Frase opcional no alto: `cartasChao.frase`.
 - Ganchos de teste, obrigatórios: `[data-acao="carta-chao"]` com `data-id` e `data-estado="fechada|aberta|falhou"` (o estado muda **antes** de a etapa voltar a `escolhendo`); `[data-acao="fechar-carta"]`; `[data-acao="seguir-cartas"]` (com `data-destaque` quando todas abertas); o visor aberto é `.carta-chao-visor` com `data-tipo="video|galeria|vazio"`. As cartas e o botão precisam ser tocáveis pelo Playwright (elemento DOM visível sobre o desenho, como o `alvo-carta`), mesmo que o desenho seja 3D.
 - Só reage a toques com `diretor.etapa() === 'escolhendo'` e `!ctx.inventario.aberto`.
-- Matéria-prima: `js/cenas/segredos.js` e `css/segredos.css` (moldura do vídeo, medidas em pé/deitado, nome escrito à mão, falha de vídeo). Eles **não são mais carregados** (o index.html e o diretor apontam para cartas); absorva o que servir e apague os dois no fim.
 
 **`js/cenas/encontro.js`**: entra depois de `cartas:seguindo` em vez de logo depois da mão. O estado que recebe é o mesmo; só conferir a emenda (o entardecer, o pulso de luz no fio, ele dando lugar à carta).
 
@@ -193,10 +192,9 @@ cenaCarta(ctx, { tema, lacre, amarracao, distancia, entregar, anunciarCaminhada 
 - `js/cenas/mao.js`, `css/mao.css`
 - `js/mundo/ele.js`, `js/mundo/fio.js`
 - `js/cenas/cartas.js`, `css/cartas.css` (novos; esqueleto pronto)
-- `js/cenas/segredos.js`, `css/segredos.css` (matéria-prima; apagar no fim)
 - `js/cenas/encontro.js`, `css/encontro.css`
 
-**Ajuste em relação ao pedido original:** as cartas do chão ganharam arquivos novos (`cartas.js` / `cartas.css`) em vez de transformar `segredos.js` no lugar. Motivo: a cena mudou de nome, de posição na ordem e de ganchos, e o esqueleto precisava rodar hoje sem depender do código antigo. Os arquivos antigos ficam com o grupo C como matéria-prima.
+**Ajuste em relação ao pedido original:** as cartas do chão ganharam arquivos novos (`cartas.js` / `cartas.css`) em vez de transformar `segredos.js` no lugar. Motivo: a cena mudou de nome, de posição na ordem e de ganchos, e o esqueleto precisava rodar hoje sem depender do código antigo. (Os arquivos antigos já foram apagados.)
 
 **De ninguém (compartilhados; já feitos pelo arquiteto, não tocar):** `js/nucleo/**`, `js/main.js`, `index.html`, `js/content.js`, `css/base.css`, `css/mundo.css`, `css/final.css`, `js/cenas/final.js`, `js/som.js`, `js/mundo/mundo.js` e o resto de `js/mundo/`, `_dev/**`, `lib/**`. Se um grupo precisar de algo num desses (um campo novo no content.js, um z-index, um nó no index.html), **não edita**: devolve o pedido no relatório, com o texto exato. Para conteúdo novo, leia com valor padrão no código (`conteudo.x?.y || 'padrão'`) e peça o campo.
 
@@ -243,7 +241,7 @@ Feito por três grupos (FIM, VOZ, CÉU) e integrado depois. Onde esta seção di
 
 ### A hora do dia: `js/mundo/hora.js` (+ alameda.js, petalas.js, fundo.js, leve.js, css/mundo.css)
 
-- Uma linha só: `0 manha → 1 dia → 2 entardecer → 3 crepusculo → 4 noite`. `mundo.hora(alvo, { duracao })` (nome ou posição 0..4; devolve Promise; anda pela linha, nunca salta), `mundo.hora()` (nome atual), `mundo.horaPosicao` (0..4). Existe com e sem WebGL.
+- Uma linha só: `0 manha → 1 dia → 2 entardecer → 3 crepusculo → 4 noite`. `mundo.hora(alvo, { duracao })` (nome ou posição 0..4; devolve Promise; anda pela linha, nunca salta), `mundo.hora()` (nome atual). Existe com e sem WebGL.
 - Quem manda é o mapa `ROTEIRO` de hora.js, ligado ao diretor por `ligarHora({ mundo, diretor, amb })` no main.js. **As cenas não chamam nada.** Atalho `?cena=` já nasce na hora da cena.
 
 | cena:etapa | hora | passagem |
@@ -258,8 +256,8 @@ Feito por três grupos (FIM, VOZ, CÉU) e integrado depois. Onde esta seção di
 | encontro:planos | noite | 16 s, atrás dos quadros |
 | encontro:carta, final | noite | |
 
-- Para o CSS: `html[data-hora="manha|dia|entardecer|crepusculo|noite"]` e as variáveis `--hora-tarde` e `--hora-noite` (0..1). À noite `#frases`, `#dica` e `#acoes > .botao` ficam claros (css/mundo.css). A cor troca de uma vez quando a posição passa de 3,5 (hoje atrás dos quadros, sem texto na tela).
-- Alameda 3D: uniformes `uLuz` (multiplica a cor de tudo) e `uNoite` (estrelas no shader do céu); `alameda.aplicarHora(estado)`; `alameda.tarde(k)` ficou só por compatibilidade. O cometa é um plano que soma luz a 3,2 m, criado quando a noite chega (`renderOrder = -5`: a carta, a folha, ele e as pétalas são desenhados por cima). Sem WebGL: três camadas sobre a foto (tarde, noite, cometa); só a opacidade anda. Reduzido: passagens de no máximo 2,4 s, cometa parado.
+- Para o CSS: `html[data-hora="manha|dia|entardecer|crepusculo|noite"]` (muda só quando a hora troca; nada é escrito no `<html>` a cada quadro). À noite `#frases`, `#dica` e `#acoes > .botao` ficam claros (css/mundo.css). A cor troca de uma vez quando a posição passa de 3,5 (hoje atrás dos quadros, sem texto na tela).
+- Alameda 3D: uniformes `uLuz` (multiplica a cor de tudo) e `uNoite` (estrelas no shader do céu); `alameda.aplicarHora(estado)`. O cometa é um plano que soma luz a 3,2 m, criado quando a noite chega (`renderOrder = -5`: a carta, a folha, ele e as pétalas são desenhados por cima). Sem WebGL: três camadas sobre a foto (tarde, noite, cometa); só a opacidade anda. Reduzido: passagens de no máximo 2,4 s, cometa parado.
 - `entardecer()` de js/cenas/mao.js continua exportada, mas **não faz mais nada** (cartas.js e encontro.js ainda a chamam; pode sair). A regra `html.entardecer #mundo-fundo::after` de css/mao.css ficou morta.
 
 ### A última carta está na mão dele: `js/mundo/ele.js`, `js/cenas/final.js`, `js/cenas/encontro.js`

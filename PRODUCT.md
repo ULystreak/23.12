@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-HTML, CSS e JavaScript puros, módulos ES, sem etapa de build. Publicado direto pelo GitHub Pages (repositório `ULystreak/23.12`, branch `main`). Bibliotecas ficam em `lib/` como arquivos locais (Three.js, GSAP com ScrollTrigger/SplitText/DrawSVG/CustomEase, Lenis). Fontes hospedadas em `assets/fonts/`.
+HTML, CSS e JavaScript puros, módulos ES, sem etapa de build. Publicado direto pelo GitHub Pages (repositório `ULystreak/23.12`, branch `main`). Bibliotecas ficam em `lib/` como arquivos locais (Three.js, GSAP com DrawSVG/CustomEase, Lenis). Fontes hospedadas em `assets/fonts/`.
 
 ## Users
 

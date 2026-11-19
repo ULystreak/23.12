@@ -4,10 +4,9 @@ Fontes hospedadas aqui (baixadas do Google Fonts, formato woff2)
 Todas sob a SIL Open Font License 1.1 (https://openfontlicense.org).
 
 shippori-mincho-400.woff2, shippori-mincho-600.woff2 ... Shippori Mincho (FONTDASU), subconjunto latin
-shippori-mincho-akaiito-400.woff2 ...................... Shippori Mincho, só os glifos de "赤い糸"
 klee-one-400.woff2, klee-one-600.woff2 ................. Klee One (Fontworks), subconjunto latin
 fredoka-var.woff2 ...................................... Fredoka (variável, pesos 300 a 700), subconjunto latin
 vt323-400.woff2 ........................................ VT323 (Peter Hull), subconjunto latin
 
 O subconjunto latin cobre o português inteiro (acentos, cedilha, aspas, travessão).
-As declarações @font-face ficam em css/base.css.
+As declarações @font-face ficam em css/base.css (a da Shippori Mincho 400, no CSS crítico do index.html).

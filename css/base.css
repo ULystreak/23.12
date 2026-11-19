@@ -6,17 +6,9 @@
 
 /* ---------------------------------------------------------------------------
    Fontes (hospedadas em assets/fonts; nada vem de fora)
-   A Shippori Mincho 400 também está declarada no CSS crítico do index.html,
-   com a mesma descrição, para a primeira frase não esperar este arquivo.
+   A Shippori Mincho 400 é declarada só no CSS crítico do index.html, para a
+   primeira frase não esperar este arquivo.
    ------------------------------------------------------------------------- */
-@font-face {
-  font-family: "Shippori Mincho";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("../assets/fonts/shippori-mincho-400.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
 @font-face {
   font-family: "Shippori Mincho";
   font-style: normal;
@@ -24,15 +16,6 @@
   font-display: swap;
   src: url("../assets/fonts/shippori-mincho-600.woff2") format("woff2");
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-/* Só os três glifos de "赤い糸" (akai ito), para quem quiser escrever o nome do fio. */
-@font-face {
-  font-family: "Shippori Mincho";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("../assets/fonts/shippori-mincho-akaiito-400.woff2") format("woff2");
-  unicode-range: U+3044, U+7CF8, U+8D64;
 }
 @font-face {
   font-family: "Klee One";
@@ -87,17 +70,13 @@
 
   /* Capítulo do jogo */
   --poppy-fundo: #0d2534;
-  --poppy-fundo-claro: #16384c;
   --poppy-vermelho: #e2332f;
   --poppy-amarelo: #f6c12d;
-  --poppy-azul: #2f8fd8;
-  --poppy-verde: #3fb86b;
   --poppy-texto: #f2ead8;
 
   /* Capítulo do filme */
   --yn-noite: #090e33;
   --yn-crepusculo: #4a398c;
-  --yn-rosa: #b25d9b;
   --yn-pessego: #ffd1a1;
   --yn-texto: #fdf6ee;
 
@@ -109,7 +88,6 @@
 
   /* Escala de texto (fluida entre 360 px e 1440 px) */
   --texto-frase: clamp(1.625rem, 6.6vw, 2.75rem);
-  --texto-titulo: clamp(1.75rem, 1.2rem + 3vw, 3.25rem);
   --texto-subtitulo: clamp(1.0625rem, 0.95rem + 0.6vw, 1.375rem);
   --texto-corpo: clamp(1.0625rem, 1rem + 0.35vw, 1.25rem);
   --texto-pequeno: clamp(0.875rem, 0.84rem + 0.2vw, 1rem);
@@ -138,12 +116,8 @@
 
   /* Curvas (as mesmas registradas na GSAP em js/nucleo/movimento.js) */
   --curva-branco-entrar: cubic-bezier(0.16, 1, 0.3, 1);
-  --curva-branco-sair: cubic-bezier(0.5, 0, 0.75, 0.4);
   --curva-branco-camera: cubic-bezier(0.6, 0, 0.2, 1);
   --curva-branco-deriva: cubic-bezier(0.37, 0, 0.63, 1);
-  --curva-poppy-pulo: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --curva-poppy-cair: cubic-bezier(0.6, 0, 0.9, 0.5);
-  --curva-yn-tempo: cubic-bezier(0.37, 0, 0.63, 1);
   --curva-yn-florescer: cubic-bezier(0.16, 1, 0.3, 1);
   --curva-ui: cubic-bezier(0.2, 0.8, 0.2, 1);
 
@@ -159,7 +133,6 @@
   --z-mini: 40;
   --z-topo: 50;
 
-  --raio: 14px;
   --alvo: 44px;                             /* menor alvo de toque permitido */
 
   /* ---- Papelaria da alameda: a linguagem das interfaces (ver _dev/UI.md) ---- */
@@ -167,8 +140,6 @@
   --sakura: #f4b8c8;                        /* pétala clara: enfeite e fundo, nunca texto */
   --sakura-clara: #fbe6ec;                  /* papel rosado (realce, item escolhido) */
   --sakura-tinta: #8f1f45;                  /* texto rosa sobre papel: 7,4:1 */
-  --noite: #141a44;                         /* vidro da noite (painéis sobre a alameda escura) */
-  --noite-funda: #090e33;
   --noite-veu: rgba(9, 12, 40, 0.66);       /* véu atrás de folha aberta; sem blur */
   --luar: #fdf6ee;                          /* texto sobre a noite */
   --luar-suave: #cfc6dc;                    /* texto secundário sobre a noite: 9:1 */
@@ -347,7 +318,6 @@ html.relendo #palco {
   white-space: nowrap;
   will-change: transform, opacity;
 }
-.letra { display: inline-block; white-space: pre; }
 
 /* ---------------------------------------------------------------------------
    Dica do mundo branco (discreta, embaixo)
@@ -486,8 +456,8 @@ html.reduzido #dica::after { animation: none; }
 
 /* ---- pílula: o botão de papel ----------------------------------------------
    Papel creme, letra à mão, pesponto por dentro. Tons: data-tom="fio" (a ação
-   principal, uma por tela), "noite" (sobre a alameda escura e a tela preta),
-   "sakura" (realce macio). Com ícone: <svg class="ui-icone"> antes do texto.   */
+   principal, uma por tela) e "noite" (sobre a alameda escura e a tela preta).
+   Com ícone: <svg class="ui-icone"> antes do texto.                           */
 .ui-pilula, .ui-redondo {
   --ui-fundo: var(--papel);
   --ui-tinta: var(--tinta);
@@ -536,9 +506,6 @@ html.reduzido #dica::after { animation: none; }
 .ui-pilula[data-tom="noite"], .ui-redondo[data-tom="noite"] {
   --ui-fundo: rgba(20, 26, 68, 0.88); --ui-tinta: var(--luar); --ui-ponto: var(--ponto-noite);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14) inset, 0 10px 24px -8px rgba(2, 4, 20, 0.7);
-}
-.ui-pilula[data-tom="sakura"], .ui-redondo[data-tom="sakura"] {
-  --ui-fundo: var(--sakura-clara); --ui-tinta: var(--sakura-tinta); --ui-ponto: rgba(143, 31, 69, 0.3);
 }
 .ui-pilula[disabled], .ui-pilula[aria-disabled="true"],
 .ui-redondo[disabled], .ui-redondo[aria-disabled="true"] { opacity: 0.45; pointer-events: none; box-shadow: none; }
@@ -675,12 +642,7 @@ html.reduzido #dica::after { animation: none; }
   box-shadow: 0 0 0 2px var(--papel);
 }
 
-/* ---- véu, rolagem, foco no escuro ------------------------------------------ */
-.ui-veu {
-  position: fixed;
-  inset: 0;
-  background: var(--noite-veu);
-}
+/* ---- rolagem, foco no escuro ----------------------------------------------- */
 .ui-rola {
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -695,28 +657,19 @@ html.reduzido #dica::after { animation: none; }
 
 /* ---- movimento compartilhado ------------------------------------------------
    .ui-entra: a peça chega de 10 px abaixo, um pouco menor, na mola; em fila,
-   ponha style="--i: n". .ui-sai: some rápido. .ui-pulo: um pulinho (algo foi
-   guardado, uma carta chegou). .ui-respira: chama para o próximo toque.        */
+   ponha style="--i: n". ui-pulo é o pulinho de quando algo é guardado (a bolsa). */
 .ui-entra { animation: ui-entra var(--dur-mola) var(--mola) both; animation-delay: calc(var(--i, 0) * var(--passo)); }
-.ui-sai { animation: ui-sai var(--dur-sair) var(--curva-sair) both; }
-.ui-pulo { animation: ui-pulo 520ms var(--mola) both; }
-.ui-respira { animation: ui-respira 1.8s var(--curva-branco-deriva) infinite alternate; }
 @keyframes ui-entra { from { opacity: 0; transform: translateY(10px) scale(0.96); } }
-@keyframes ui-sai { to { opacity: 0; transform: scale(0.97); } }
 @keyframes ui-pulo { 0% { transform: scale(1); } 30% { transform: scale(1.14) rotate(-4deg); } 100% { transform: scale(1); } }
-@keyframes ui-respira { from { transform: scale(1); } to { transform: scale(1.045); } }
 @keyframes ui-boia { from { transform: translateY(-2px) rotate(-10deg); } to { transform: translateY(3px) rotate(12deg); } }
 @keyframes ui-aparece { from { opacity: 0; } }
 
 /* Versão calma: nada desliza nem pula; só dissolve. */
 html.reduzido .ui-entra { animation: ui-aparece 240ms linear both; animation-delay: 0s; }
-html.reduzido .ui-sai { animation-timing-function: linear; }
-html.reduzido .ui-pulo,
-html.reduzido .ui-respira { animation: none; }
 html.reduzido .ui-toque,
 html.reduzido .ui-pilula,
 html.reduzido .ui-redondo { transition-duration: 0.01ms; }
 @media (prefers-reduced-motion: reduce) {
   .ui-entra { animation: ui-aparece 240ms linear both; animation-delay: 0s; }
-  .ui-pulo, .ui-respira, #dica::after { animation: none; }
+  #dica::after { animation: none; }
 }

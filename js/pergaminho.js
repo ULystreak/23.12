@@ -21,19 +21,16 @@
 //   perg.estado                         'oculto' | 'folha' | 'aberto'
 //
 // Capítulo: { id, montar(raiz, api) → { destruir() } }, com
-//   api = { conteudo, amb, som, rolagem, fundo, gsap, ScrollTrigger, fechar(), recursos }
+//   api = { conteudo, amb, som, rolagem, fundo, gsap, fechar(), recursos }
 // O fio de progresso (a costura na margem direita) é do pergaminho, não do capítulo.
 //
 // Para quem escreve um capítulo:
-// - O rolador é `api.rolagem.el` (já é o padrão de ScrollTrigger.defaults). No toque a
-//   rolagem é a nativa; com mouse, Lenis.
+// - O rolador é `api.rolagem.el`. No toque a rolagem é a nativa; com mouse, Lenis.
 // - O capítulo mora numa janela recortada no papel. `api.fundo` fica parado atrás do
 //   conteúdo, dentro da janela. Um `position: fixed` dentro do capítulo fica preso à
-//   janela (não à tela) e é recortado por ela.
-// - `api.rolagem.el` carrega `--perg-altura` e `--perg-largura` (px da janela), para
-//   seções de uma tela: `height: var(--perg-altura)`. `position: sticky` funciona.
+//   janela (não à tela) e é recortado por ela. `position: sticky` funciona.
 // - Quando a altura do conteúdo muda (imagem ou fonte que chega depois), o pergaminho
-//   chama `ScrollTrigger.refresh(true)` sozinho.
+//   refaz sozinho as medidas da rolagem (o Lenis, a costura e o progresso).
 //
 // Como o desenrolar é feito: o capítulo é montado inteiro atrás de um recorte
 // (clip-path) que acompanha o eixo de um rolo de papel. Só transform, clip-path e
@@ -135,7 +132,6 @@ function desenharFibra() {
 
 export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
   const gsap = window.gsap;
-  const ScrollTrigger = window.ScrollTrigger || null;
   const palco = document.getElementById('palco');
 
   // ---- estrutura ------------------------------------------------------------------
@@ -171,8 +167,6 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
   const papel = el('div', 'perg-papel', [fibraFolha, folha, camada, rolo]);
   const moldura = el('div', 'perg-moldura', [sombra, sombraAlta, papel]);
   raiz.append(moldura);
-
-  if (ScrollTrigger) ScrollTrigger.defaults({ scroller: rolagemEl });
 
   let estado = 'oculto';
   let geracao = 0;               // muda a cada abrir/soltar: o que ficou esperando percebe que perdeu a vez
@@ -248,8 +242,6 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
     medida.dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
     if (!rolo.hidden) medida.rolo = corpoRolo.offsetHeight || medida.rolo;
     if (!camada.hidden) {
-      rolagemEl.style.setProperty('--perg-altura', `${vista.clientHeight}px`);
-      rolagemEl.style.setProperty('--perg-largura', `${vista.clientWidth}px`);
       const v = vista.getBoundingClientRect();
       vistaMedida = { largura: Math.round(v.width), altura: Math.round(v.height) };
     }
@@ -278,7 +270,7 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
   };
 
   // ---- o ponto da leitura ------------------------------------------------------------
-  // Os capítulos medem as seções pela altura da folha (--perg-altura): girar o aparelho
+  // Os capítulos medem as seções pela altura da folha: girar o aparelho
   // ou a barra do Safari mudam a altura do texto, e um scrollTop fixo faria o texto
   // pular. A cada rolagem guarda-se o que está a 35% da altura da folha; depois de um
   // redimensionamento esse trecho volta para o mesmo lugar (o Safari não tem
@@ -384,7 +376,6 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
       lenis = new window.Lenis({ wrapper: rolagemEl, content: conteudoEl, eventsTarget: camada, autoRaf: false, lerp: 0.11 });
       tiqueLenis = (t) => lenis.raf(t * 1000);
       gsap.ticker.add(tiqueLenis);
-      if (ScrollTrigger) lenis.on('scroll', ScrollTrigger.update);
     } catch {
       lenis = null;
     }
@@ -400,14 +391,13 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
     if (lenis) travar ? lenis.stop() : lenis.start();
   }
 
-  // Imagem ou fonte que chega depois muda a altura do capítulo: os gatilhos de
-  // rolagem precisam ser refeitos. `refresh(true)` espera a rolagem parar.
+  // Imagem ou fonte que chega depois muda a altura do capítulo: as medidas da
+  // rolagem (o Lenis, a costura e o progresso) precisam ser refeitas.
   let alturaConferida = -1;
   const refazerGatilhos = debounce(() => {
     if (estado !== 'aberto') return;
     alturaConferida = conteudoEl.offsetHeight;
     if (lenis) lenis.resize();
-    if (ScrollTrigger) ScrollTrigger.refresh(true);
     if (redimensionando) reancorar();
     avisarRolagem();
   }, 140);
@@ -627,9 +617,6 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
     esconderDica(true);
     destruirInstancia(instancia);
     instancia = null;
-    if (ScrollTrigger) {
-      for (const st of ScrollTrigger.getAll()) if (st.scroller === rolagemEl) st.kill();
-    }
     if (observadorConteudo) observadorConteudo.disconnect();
     refazerGatilhos.cancelar();
     marco = null;
@@ -710,10 +697,6 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
     if (estado === 'aberto' && !camada.hidden && marco && antes.altura > 0
       && (antes.largura !== vistaMedida.largura || antes.altura !== vistaMedida.altura)) {
       segurarLeitura();
-      // Os gatilhos de rolagem dos capítulos (entradas, parallax) acham o lugar novo
-      // agora, e não no refresh atrasado do próprio ScrollTrigger: sem isso o trecho
-      // seria reposto contra medidas velhas e pularia por um quadro.
-      if (ScrollTrigger) ScrollTrigger.refresh();
       reancorar();
     }
     if (!camada.hidden && vista.clientHeight !== fio.altura) {
@@ -803,7 +786,7 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
       promessaFechar = new Promise((resolver) => { liberar = resolver; });
       let avisarAberto = null;
       const api = {
-        conteudo, amb, som, rolagem, fundo, gsap, ScrollTrigger, recursos,
+        conteudo, amb, som, rolagem, fundo, gsap, recursos,
         fechar() { liberar(); },
         // Resolve com true quando o capítulo acabou de desenrolar e a rolagem está livre
         // (false se a abertura foi interrompida): para o que só deve começar à vista dela.
@@ -887,7 +870,6 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
       medir();
       alturaConferida = conteudoEl.offsetHeight;
       if (lenis) lenis.resize();
-      if (ScrollTrigger) ScrollTrigger.refresh();
       if (observadorConteudo) observadorConteudo.observe(conteudoEl);
       if (palco) palco.setAttribute('aria-hidden', 'true');
       focarTitulo();

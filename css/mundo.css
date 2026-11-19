@@ -261,7 +261,7 @@ html.com-fundo #dica::before {
 
 /* À noite as frases, a dica e os botões do mundo ficam claros, sobre um véu
    escuro em vez do claro. (As cenas podem usar html[data-hora="noite"] nos
-   próprios estilos; --hora-noite e --hora-tarde valem de 0 a 1.) */
+   próprios estilos.) */
 html[data-hora="noite"] .fundo-veu,
 html[data-hora="noite"].com-fundo #dica::before { background-image: var(--fundo-veu-noite, none); }
 html[data-hora="noite"] #frases,

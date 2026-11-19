@@ -11,8 +11,6 @@ gsap 3.15.1 .............. licença padrão "no charge" da GreenSock/Webflow
                            https://gsap.com/standard-license
                            (desde a 3.13 todos os plugins são gratuitos e vêm no pacote gsap)
   gsap.min.js              UMD; define window.gsap
-  ScrollTrigger.min.js     UMD; window.ScrollTrigger
-  SplitText.min.js         UMD; window.SplitText
   DrawSVGPlugin.min.js     UMD; window.DrawSVGPlugin
   CustomEase.min.js        UMD; window.CustomEase
 
