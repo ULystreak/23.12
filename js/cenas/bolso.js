@@ -99,7 +99,14 @@ function desenharCarta(tema) {
   let face = null;
   try { face = imagemDoTema(tema, 512); } catch { face = null; }
   if (face) {
-    try { carta.style.backgroundImage = `url(${face.toDataURL('image/jpeg', 0.86)})`; } catch { /* fica na cor do papel */ }
+    // (uma cópia em <canvas>, não um fundo em data URL: a carta troca de pai no meio do
+    // caminho e, com o fundo, o navegador redesenha a imagem e engasga uns 50 ms bem ali)
+    try {
+      const copia = el('canvas', { width: face.width, height: face.height });
+      copia.getContext('2d').drawImage(face, 0, 0);
+      carta.append(copia);
+      carta.style.backgroundColor = 'transparent';   // (o papel por baixo vazaria na borda como um fio claro)
+    } catch { /* fica na cor do papel */ }
   }
   // as dobras do verso: a aba de cima fechada e as duas de baixo
   carta.append(svg(`
@@ -192,9 +199,9 @@ export function criarBolso({ conteudo, amb, som, raiz }) {
     const veu = el('div', 'bolso-veu');
     // A carta desce por cima de tudo, fora da bolsa (assim não pega o fade nem a subida dela).
     raiz.append(veu, bolsa, levaCarta);
-    // Por cima da cara do tema, a cor do papel: é a folha que voltou dobrada.
+    // Por cima da cara do tema (e por baixo das dobras), a cor do papel: é a folha que voltou dobrada.
     const papel = el('div', 'bolso-carta-papel');
-    carta.prepend(papel);
+    carta.lastElementChild.before(papel);
 
     // Em px da tela: a carta é medida pela boca e cabe inteira atrás da frente.
     const escalaFinal = (largura * 0.74) / larguraCarta;

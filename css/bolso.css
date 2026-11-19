@@ -52,13 +52,12 @@
   position: absolute;
   border-radius: 2.2% / 3.2%;
   background-color: var(--papel);
-  background-size: 100% 100%;
   box-shadow: 0 10px 26px rgba(42, 27, 34, 0.2), 0 2px 5px rgba(42, 27, 34, 0.16);
   overflow: hidden;
 }
-/* (a cor do papel por cima da cara do tema: a folha volta dobrada e vira a carta) */
-.bolso-carta-papel,
-.bolso-carta > svg {
+/* A cara do tema (canvas), a cor do papel por cima dela (a folha volta dobrada e vira a
+   carta) e as dobras, empilhadas. */
+.bolso-carta > * {
   position: absolute;
   top: 0; left: 0;
   width: 100%; height: 100%;
