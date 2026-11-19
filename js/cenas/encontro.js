@@ -5,8 +5,8 @@
 //
 // Etapas: chegando → planos → maos → carta
 //
-// A caminhada pelo fio termina no crepúsculo (a cena da mão deixa o entardecer
-// aceso e a última carta escondida). Aqui a luz corre pelo fio, a alameda
+// A caminhada pelo fio termina no crepúsculo (a cena da mão deixa a última carta
+// escondida). Aqui a luz corre pelo fio, a alameda
 // escurece e os quadros do content.js (encontro.quadros) entram como planos de
 // um filme, um de cada vez, sozinhos: cada um com uma panorâmica lenta do `foco`
 // até o `ate`. Os dois quadros que têm `dedo` (as mãos) voltam juntos no fim: o
@@ -38,7 +38,6 @@
 import { clamp, el, espera, lerp } from '../nucleo/util.js';
 import { curvas } from '../nucleo/movimento.js';
 import { temEncontro } from '../nucleo/diretor.js';
-import { entardecer } from './mao.js';
 import { entregaNaMao } from './final.js';
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -159,7 +158,6 @@ async function chegadaSimples(ctx) {
     som.efeito('brilho');
     await chegou;
   }
-  entardecer(ctx, false, calmo ? 1.6 : 3.2);
   if (fio && fio.halo) {
     const luz = { halo: 0.55 };
     gsap.to(luz, { halo: 0.12, duration: 3, ease: 'sine.inOut', onUpdate: () => fio.halo(luz.halo) });
@@ -201,12 +199,10 @@ export async function cenaEncontro(ctx, { frio } = {}) {
   diretor.etapa('chegando');
   // a pose da entrega (ele de frente, de mão estendida) é pintada já, longe do clarão
   espera(600).then(() => { try { estado.ele?.prepararEntrega?.(); } catch (erro) { console.error(erro); } });
-  // O crepúsculo inteiro (na caminhada ele tinha clareado pela metade).
-  entardecer(ctx, true, calmo ? 1.2 : T.escurecer);
   const quadros = await Promise.race([prepararEncontro(ctx), espera(ESPERA_QUADROS).then(() => [])]).catch(() => []);
 
   if (!quadros.length) {
-    try { await chegadaSimples(ctx); } finally { entardecer(ctx, false, 1.2); mostrarCarta(ctx, 0.8); }
+    try { await chegadaSimples(ctx); } finally { mostrarCarta(ctx, 0.8); }
     return;
   }
 
@@ -520,7 +516,6 @@ export async function cenaEncontro(ctx, { frio } = {}) {
       for (const no of [ceu, grao, desenho, clarao, ...todos.map((p) => p.no), ...(brasa ? [brasa] : []), ...(maos ? maos.map((m) => m.no) : [])]) no.remove();
       religar();
       mostrarCarta(ctx, 1.2);
-      entardecer(ctx, false, calmo ? 1.2 : 2.6);
       estado.envelope?.brilharLaco?.(0.85, 0.2);
       if (fio && fio.halo) {
         const luz = { halo: 0.55 };
@@ -538,6 +533,5 @@ export async function cenaEncontro(ctx, { frio } = {}) {
     raiz.remove();
     religar();
     mostrarCarta(ctx, 0.8);
-    entardecer(ctx, false, 1.2);       // (já pedido no caminho normal: aqui só vale se a cena quebrou)
   }
 }

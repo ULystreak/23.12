@@ -33,23 +33,6 @@
   background: radial-gradient(ellipse 72% 58% at var(--vx, 50%) var(--vy, 62%),
     rgba(70, 14, 34, 0) 0%, rgba(70, 14, 34, 0) 40%, rgba(70, 14, 34, 0.12) 72%, rgba(52, 10, 26, 0.3) 100%);
 }
-/* O entardecer (js/cenas/mao.js): enquanto o fio está acordado, a foto da
-   alameda escurece e esfria um pouco, com as bordas mais fundas. Fica dentro
-   de #mundo-fundo, atrás do canvas: o fio e a luz dele continuam inteiros por
-   cima. Pintada uma vez; só a opacidade anda. Vale com e sem WebGL. */
-#mundo-fundo::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0;
-  background:
-    radial-gradient(ellipse 92% 74% at 50% 56%, rgba(26, 14, 40, 0) 34%, rgba(24, 12, 38, 0.32) 76%, rgba(16, 8, 28, 0.62) 100%),
-    linear-gradient(rgba(44, 30, 68, 0.4), rgba(44, 30, 68, 0.4));
-  transition: opacity var(--entardecer-dur, 2.6s) cubic-bezier(0.45, 0, 0.35, 1);
-  will-change: opacity;
-}
-html.entardecer #mundo-fundo::after { opacity: var(--entardecer-k, 1); }
 
 .mao-corpo {
   transform-origin: 69% 69%;          /* com a imagem do autor; no desenho o js põe aqui o nó do laço (o zoom chega perto dele) */
@@ -62,6 +45,32 @@ html.entardecer #mundo-fundo::after { opacity: var(--entardecer-k, 1); }
   width: 100%;
   height: auto;
   overflow: visible;
+}
+
+/* O pulso dela (js/cenas/mao.js, só em mao-espera): um alvo invisível sobre o nó do
+   fio, posto pelo js (transform). Sem texto: é para ela achar. Com a imagem do autor,
+   o toque acende um brilho morno ali (só opacidade), por cima da imagem. O botão fica
+   por cima do alvo (onde os dois se encostarem, o toque é do botão) e a bolsa fica
+   por cima do palco inteiro. */
+.mao-pulso {
+  position: absolute;
+  z-index: 1;
+  left: -44px;
+  top: -44px;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  pointer-events: auto;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.mao-pulso-brilho {
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 244, 214, 0.95), rgba(255, 199, 122, 0.55) 35%, rgba(255, 138, 110, 0.18) 65%, rgba(255, 138, 110, 0));
+  opacity: 0;
 }
 
 /* Com a imagem do autor: a caixa de antes (centrada, entre a frase e o botão);
@@ -81,6 +90,7 @@ html.entardecer #mundo-fundo::after { opacity: var(--entardecer-k, 1); }
 /* ---- botão "Seguir o fio": o sublinhado é um pedaço de fio que se desenha -- */
 .botao-fio::after { display: none; }
 .botao-fio {
+  z-index: 2;                          /* por cima do alvo do pulso */
   flex-direction: column;
   gap: 2px;
   padding: 10px 10px 8px;
@@ -90,6 +100,12 @@ html.entardecer #mundo-fundo::after { opacity: var(--entardecer-k, 1); }
   /* um pouco abaixo da linha das ações, livre da ponta do fio; no iPhone a área
      segura já sobe as ações, e o botão desce o mesmo tanto (continua acima dela) */
   top: calc(30px + min(var(--seguro-base), 36px));
+}
+/* Celular baixo (o Safari com as barras): ali embaixo o botão encostaria na bolsa.
+   Sobe até ficar 12 px acima dela e vai um pouco para a direita, para o texto passar
+   ao lado da ponta do fio que cai do pulso (e longe do antebraço). */
+@media (min-width: 375px) and (max-width: 699px) and (max-height: 800px) {
+  .botao-fio { left: calc(var(--mao-l) * 0.3 + 22px); top: calc(clamp(48px, 12vh, 112px) - 84px); }
 }
 @media (min-width: 700px) { .botao-fio { left: calc(var(--mao-l) * 0.44); top: 0; } }
 /* Com a imagem do autor a mão não chega à base: o botão fica no centro, como antes. */

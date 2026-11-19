@@ -1400,13 +1400,12 @@ export async function cenaMao(ctx, { frio } = {}) {
 
   let pararPose = () => {};
   let pararMagia = () => {};
+  let pararPulso = () => {};
   let limparEscrito = () => {};
-  let clarear = null;                   // a tarde que clareia pela metade na caminhada
-  let escurecer = null;                 // ... e volta a cair aos poucos até a chegada
   let ele = null;                       // ele, no fim do fio
   let surgirEle = null;
   const haEncontro = temEncontro(ctx.conteudo);
-  let inteira = false;                  // chegou ao fim com o encontro por vir (o entardecer continua aceso)
+  let inteira = false;                  // chegou ao fim com o encontro por vir (ele fica para o encontro)
   try {
     // 1. O capítulo fecha e a carta vai embora.
     if (frio) musica.mostrarMini();
@@ -1433,8 +1432,9 @@ export async function cenaMao(ctx, { frio } = {}) {
     caberEmDuasLinhas(frase);
 
     // 3. A mão sobe e se desenha, já enquanto a frase ainda assenta.
+    // (uma imagem que trava na rede não prende a cena: em 7 s segue com a mão desenhada)
     const [imagem] = await Promise.all([
-      recursos.elementoImagem(dados.imagem, ''),
+      Promise.race([recursos.elementoImagem(dados.imagem, ''), espera(7000).then(() => null)]),
       espera(calmo ? 500 : 1000),
     ]);
     const corpo = el('div', 'mao-corpo');
@@ -1512,6 +1512,12 @@ export async function cenaMao(ctx, { frio } = {}) {
       return ponta;
     }
 
+    // O nó do fio no pulso, em px (no desenho é a origem do zoom; com a imagem, a âncora dela).
+    const noPx = () => (desenho
+      ? { x: caixa.left + caixa.width * ORIGEM_X + vivo.x, y: caixa.top + caixa.height * ORIGEM_Y + pose.y + vivo.y }
+      : pulsoPx());
+    let alvoPulso = null;                // o alvo do toque no nó (só em mao-espera)
+
     const caudaG = desenho && desenho.cordao.caudaG;
     const folga = { x: 0, y: 0 };
     pararPose = mundo.aoQuadro((dt, t) => {
@@ -1528,10 +1534,15 @@ export async function cenaMao(ctx, { frio } = {}) {
       corpo.style.transform = `translate3d(${vivo.x.toFixed(2)}px, ${(pose.y + vivo.y).toFixed(2)}px, 0) rotate(${(pose.rot + vivo.rot).toFixed(3)}deg) scale(${pose.zoom.toFixed(4)})`;
       corpo.style.opacity = pose.opacidade.toFixed(3);
       if (desenho) {
-        // a luz do nó respira devagar enquanto está acesa
-        const luz = pose.luz * (0.82 + 0.18 * Math.sin(t * 1.7));
-        desenho.luz.setAttribute('opacity', luz.toFixed(3));
+        // a luz do nó bate devagar enquanto está acesa, como um coração (~60 bpm: tum-tum e a pausa)
+        const f = t % 1;
+        const bate = Math.exp(-(((f - 0.2) / 0.09) ** 2)) + 0.6 * Math.exp(-(((f - 0.5) / 0.1) ** 2));
+        desenho.luz.setAttribute('opacity', (pose.luz * (0.84 + 0.26 * bate)).toFixed(3));
         desenho.brasas.atualizar(Math.min(dt, 0.05), t);
+      }
+      if (alvoPulso) {
+        const p = noPx();
+        alvoPulso.style.transform = `translate3d(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px, 0)`;
       }
       if (caudaG) {
         const vento = calmo ? 1.2 : 4.5;
@@ -1617,6 +1628,11 @@ export async function cenaMao(ctx, { frio } = {}) {
     if (rotulo) botao.setAttribute('aria-label', rotulo);
     acoes.append(botao);
     requestAnimationFrame(() => botao.classList.add('botao-fio-visivel'));
+    // O pulso dela: o nó responde ao dedo (o botão e a bolsa ficam por cima do alvo: css/mao.css).
+    const pulso = criarPulso(gsap, { pose, desenho, amb, inventario: ctx.inventario });
+    palco.append(pulso.alvo);
+    alvoPulso = pulso.alvo;
+    pararPulso = () => { alvoPulso = null; pulso.parar(); };
     // Quem navega pelo teclado não fica perdido no body: o foco vai para a ação da etapa.
     // (Só sem toque: no celular o anel de foco apareceria sobre o botão sem ninguém ter usado teclado.)
     if (!amb.toque && (!document.activeElement || document.activeElement === document.body)) {
@@ -1626,6 +1642,7 @@ export async function cenaMao(ctx, { frio } = {}) {
 
     // 5. O fio sai do pulso e vira o caminho.
     diretor.etapa('correndo');
+    pararPulso();
     botao.disabled = true;
     som.destravar();
     som.efeito('toque');
@@ -1640,9 +1657,8 @@ export async function cenaMao(ctx, { frio } = {}) {
       mundo.petalas.definirFoco?.();
     }
 
-    // O entardecer: a alameda escurece e esfria um pouco (a foto, não o fio), e a
-    // luz do fio passa a ler como luz. O véu da mão sai: quem escurece agora é o mundo.
-    entardecer(ctx, true, calmo ? 1.6 : 2.8);
+    // O véu da mão sai: quem escurece agora é o mundo (a hora do mundo leva a
+    // corrida ao crepúsculo, js/mundo/hora.js), e a luz do fio passa a ler como luz.
     gsap.to(veu, { opacity: 0, duration: 2.4, ease: 'sine.inOut', onComplete: () => veu.remove() });
     const luzFio = { halo: 0 };
     gsap.to(luzFio, { halo: calmo ? 0.6 : 0.55, duration: 2.6, ease: 'sine.inOut', onUpdate: () => fio.halo?.(luzFio.halo) });
@@ -1747,16 +1763,6 @@ export async function cenaMao(ctx, { frio } = {}) {
     const andar = mundo.caminhar({
       distancia: Math.max(0.5, CAMINHADA + RESTO - andado), duracao: DURACAO, curva: calmo ? undefined : curvaDaCorrida,
     });
-    // Andando, a tarde clareia pela metade: a alameda volta a ter cor (o rosa das
-    // cerejeiras não fica cinza a caminhada inteira) e o fio ainda lê como luz.
-    // Com o encontro por vir ela clareia menos: a caminhada já vai dar no crepúsculo dele,
-    // e a luz não pode ir ao dia e voltar em poucos segundos.
-    // Depois de clarear, a tarde volta a cair, e ela chega no fim do dia (com o
-    // encontro, quase no crepúsculo dele).
-    if (magico) {
-      clarear = gsap.delayedCall(0.5, () => entardecer(ctx, haEncontro ? 0.58 : 0.4, DURACAO * 0.36));
-      escurecer = gsap.delayedCall(DURACAO * 0.42, () => entardecer(ctx, haEncontro ? 0.93 : 0.62, DURACAO * 0.56));
-    }
     // A câmera assenta no eixo da carta durante o fim da própria corrida.
     const ALINHAR = calmo ? 0.3 : 1.5;
     const alinhada = espera((DURACAO - ALINHAR) * 1000).then(() => new Promise((ok) => {
@@ -1777,7 +1783,7 @@ export async function cenaMao(ctx, { frio } = {}) {
     corrida.k = 0;
     olhar.k = 0;
 
-    // 7. Chegada: a luz corre pelo fio inteiro até o laço da carta, que acende; e a luz do dia volta.
+    // 7. Chegada: a luz corre pelo fio inteiro até o laço da carta, que acende.
     // (com o encontro, a chegada é dele: a luz corre pelo fio, o crepúsculo fecha e os quadros entram)
     const cartaAqui = estado.envelope;
     if (haEncontro) inteira = true;
@@ -1788,27 +1794,22 @@ export async function cenaMao(ctx, { frio } = {}) {
       som.efeito('brilho');
       await chegou;
     }
-    if (!haEncontro) {
-      entardecer(ctx, false, calmo ? 1.6 : 3.2);
-      gsap.to(luzFio, { halo: 0.12, duration: 3, ease: 'sine.inOut', onUpdate: () => fio.halo?.(luzFio.halo) });
-    }
+    if (!haEncontro) gsap.to(luzFio, { halo: 0.12, duration: 3, ease: 'sine.inOut', onUpdate: () => fio.halo?.(luzFio.halo) });
 
     pararPose();
     pararMedida();
     window.removeEventListener('resize', ouvirJanela);
     mao.remove();
   } finally {
-    clarear?.kill();
-    escurecer?.kill();
     surgirEle?.kill();
     if (!inteira && ele) {              // a cena quebrou no meio: ele não fica para trás
       ele.dispose();
       if (estado.ele === ele) estado.ele = null;
       estado.seguidorFio?.ancorar?.(null);
     }
-    if (!inteira) entardecer(ctx, false, 1.2);          // com o encontro, o crepúsculo fica para ele
     olhar.k = 0;
     limparEscrito();
+    pararPulso();
     pararPose();
     pararMagia();
     pararCamera();
@@ -1827,23 +1828,10 @@ export async function cenaMao(ctx, { frio } = {}) {
   }
 }
 
-// =============================================================================
-// O entardecer: enquanto o fio está acordado, a alameda escurece e esfria um
-// pouco e a névoa vai junto, para o fio ao longe sumir numa névoa da mesma cor.
-// Com WebGL é a luz da alameda 3D (mundo.alameda.tarde: luz, névoa e céu); sem
-// WebGL, uma camada sobre a imagem da alameda (css/mao.css, só opacidade). O fio
-// e a luz dele ficam por cima, intactos: a magia se lê por contraste de luz.
-// =============================================================================
-
-const ZOOM_MERGULHO = 2.5;            // quanto o olhar chega perto do nó no mergulho
-
-/**
- * (antigo) A luz da tarde agora é a hora do dia do mundo: js/mundo/hora.js leva
- * cada cena:etapa à sua hora (entardecer quando o fio aparece, crepúsculo na
- * corrida e nas cartas do chão, noite depois do encontro), ouvindo o diretor.
- * Esta função ficou só para as cenas que ainda a chamam: não faz mais nada.
- */
-export function entardecer() {}
+// Quanto o olhar chega perto do nó no mergulho. Pouco: o desenho de nanquim não
+// aguenta crescer muito (o traço engrossa e a mão enche a tela); o resto do
+// "chegar perto" é da câmera, e a mão se dissolve enquanto cresce.
+const ZOOM_MERGULHO = 1.7;
 
 /**
  * O mergulho (só com WebGL e sem movimento reduzido). Devolve a timeline com
@@ -1852,7 +1840,7 @@ export function entardecer() {}
  *        (as pétalas da frente viram luz macia)
  *   0,9  a estrela nasce do nó, num clarão que assenta
  *   1,1  ela desenha o fio no ar, numa curva larga; o olhar vai atrás dela, de perto,
- *        e a mão fica para trás
+ *        e a mão fica para trás (dissolve de 1,0 a 2,8)
  *   4,4  a câmera recua e sobe; o fio assenta no chão de perto para longe e a
  *        estrela corre até sumir na névoa; um pulso de luz percorre o fio inteiro
  */
@@ -1886,10 +1874,11 @@ function mergulhar(gsap, { pose, descer, cam, olhar, fio, seguidor, mundo, som, 
     // 3. ela desenha o fio no ar; o olhar vai atrás
     .to(ponta, { s: 4.6, duration: 3.8, ease: 'sine.inOut', onUpdate: aplicarPonta }, 1.1)
     .to(olhar, { k: 1, duration: 1.8, ease: 'sine.inOut' }, 1.3)
+    // a mão fica para trás: dissolve enquanto o olhar vai atrás da estrela (nunca enche a tela inteira)
+    .to(pose, { opacidade: 0, duration: 1.8, ease: 'sine.inOut' }, 1.0)
     .to(pose, { respiro: 0, duration: 1.0, ease: 'none' }, 1.8)
     // a mão sai de quadro para baixo (o braço abaixa): sem crescer mais, até a última ponta de dedo passar da borda
     .to(pose, { y: descer, rot: -3, duration: 1.75, ease: 'power2.in' }, 1.9)
-    .to(pose, { opacidade: 0, duration: 0.15, ease: 'none' }, 3.65)
     .to(rig, { z: z0 - 2.3, duration: 3.6, ease: 'power2.inOut' }, 1.6)
     // 4. o plano aberto: recua e sobe, e o fio inteiro aparece
     .to(olhar, { k: 0, duration: 2.8, ease: 'sine.inOut' }, 4.5)
@@ -1958,7 +1947,8 @@ function desenharMao(gsap, { pose, desenho, imagem, calmo }) {
       t += d * (i === 0 ? 0.3 : 0.62);
     });
     const fimContorno = t + 0.3;
-    tl.to(fundo, { opacity: 1, duration: 1.5, ease: curvas.branco.entrar }, fimContorno - 0.9);
+    // a aguada sobe devagar enquanto o contorno ainda corre (sem o branco estourar de uma vez)
+    tl.to(fundo, { opacity: 1, duration: 1.8, ease: 'sine.inOut' }, Math.max(0.4, fimContorno - 1.8));
     let t2 = fimContorno - 0.5;
     detalhes.forEach((traco) => {
       const d = clamp(traco.comprimento / (VEL * 0.85), 0.28, 0.75);
@@ -2022,6 +2012,63 @@ function verOFio(gsap, { pose, desenho, calmo, mundo, cam, olharMao, som }) {
     }
     tl.add(() => {}, calmo ? 1.8 : 3.0);
   });
+}
+
+/**
+ * O pulso dela (mao:mao-espera): um alvo invisível de 88 px sobre o nó do fio, sem
+ * texto pedindo o toque. Se ela encosta ali, a luz corre pelo cordão, sobem umas
+ * faíscas, o nó acende e o aparelho bate duas vezes na mão dela, tum-tum. No máximo
+ * uma vez por segundo. Movimento reduzido: só a luz do nó. Com a imagem do autor
+ * (sem desenho): só as batidas e um brilho em css.
+ */
+function criarPulso(gsap, { pose, desenho, amb, inventario }) {
+  const brilho = desenho ? null : el('span', 'mao-pulso-brilho');
+  const alvo = el('div', { class: 'mao-pulso', 'aria-hidden': 'true' }, brilho);
+  let ultimo = -Infinity;
+  let tl = null;
+  alvo.addEventListener('click', () => {
+    const agora = performance.now();
+    if (agora - ultimo < 1000 || inventario?.aberto) return;
+    ultimo = agora;
+    vibrar(amb);
+    tl?.kill();
+    tl = gsap.timeline();
+    if (brilho) {
+      tl.fromTo(brilho, { opacity: 0 }, { opacity: 1, duration: 0.25, ease: curvas.yourname.florescer })
+        .to(brilho, { opacity: 0, duration: 0.9, ease: 'sine.inOut' });
+      return;
+    }
+    tl.to(pose, { luz: 1, duration: 0.25, ease: curvas.yourname.florescer })
+      .to(pose, { luz: 0.55, duration: 0.9, ease: 'sine.inOut' });
+    if (amb.reduzido) return;
+    const luz = { p: 0 };
+    tl.to(luz, { p: 1, duration: 0.6, ease: 'sine.inOut', onUpdate: () => desenho.cordao.volta.correrLuz(luz.p, 0.28) }, 0);
+    for (let i = 0; i < 6; i++) tl.call(() => desenho.brasas.soltar(), null, 0.05 + i * 0.07);
+  });
+  return {
+    alvo,
+    parar() {
+      tl?.kill();
+      if (desenho) desenho.cordao.volta.correrLuz(0);
+      alvo.remove();
+    },
+  };
+}
+
+// O pulso no aparelho: duas batidinhas (tum-tum). Android: vibrate. iPhone (Safari 18
+// ou mais novo): o toque de um interruptor (<input switch>) escondido, clicado dentro
+// do gesto dela; criado uma vez. Onde não houver nenhum dos dois, fica só a luz.
+let interruptor = null;
+function vibrar(amb) {
+  try {
+    if (!amb.ios) { navigator.vibrate?.([14, 120, 22]); return; }
+    if (!interruptor) {
+      interruptor = el('label', { hidden: true, 'aria-hidden': 'true' }, el('input', { type: 'checkbox', switch: true }));
+      document.body.append(interruptor);
+    }
+    interruptor.click();
+    setTimeout(() => interruptor.click(), 130);
+  } catch { /* sem háptico: fica a luz */ }
 }
 
 /**

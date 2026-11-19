@@ -7,7 +7,7 @@
 //
 // Etapas: pousando → escolhendo ⇄ assistindo → seguindo   (contrato: _dev/ROTEIRO2.md)
 // Chega com o que a mão deixou (estado.fio, estado.ele, estado.envelope escondido,
-// estado.seguidorFio, o entardecer aceso) e NÃO mexe em nada disso: o encontro
+// estado.seguidorFio) e NÃO mexe em nada disso: o encontro
 // continua dali. Só o olhar muda: ela olha para o chão enquanto escolhe, e volta
 // a olhar para a frente ao seguir.
 //
@@ -27,7 +27,6 @@ import { el, espera, svg, clamp, lerp, semente } from '../nucleo/util.js';
 import { curvas, revelarPalavras, ocultarPalavras } from '../nucleo/movimento.js';
 import { cartasDoChao, temEncontro } from '../nucleo/diretor.js';
 import { criarEle } from '../mundo/ele.js';
-import { entardecer } from './mao.js';
 
 const GRAU = Math.PI / 180;
 const ALTURA_OLHOS = 1.5;            // = mundo.js
@@ -748,7 +747,6 @@ export async function cenaCartas(ctx, { frio } = {}) {
           eleFrio.mostrar(calmo ? 0.6 : 1.4);
         } catch (erro) { console.error(erro); eleFrio = null; }
       }
-      if (temEncontro(conteudo)) entardecer(ctx, 0.93, 1.2);
     }
 
     diretor.etapa('pousando');
@@ -810,7 +808,6 @@ export async function cenaCartas(ctx, { frio } = {}) {
     if (frase) frase.remove();
     if (eleFrio) {
       try { eleFrio.sair(0.6); } catch { /* nada */ }
-      if (!temEncontro(conteudo)) entardecer(ctx, false, 1.2);
     }
     voltarMusica();
     raiz.remove();
