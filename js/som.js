@@ -52,6 +52,7 @@ export function criarSom(conteudo, amb) {
   let rampaReserva = 0;
   let pedindoPlay = false;   // um tocar() trabalhando: o play() sem resposta ou entre tentativas
   let pedidos = 0;           // conta os tocar(): só o último continua tentando
+  let recusar = () => {};    // recusa o play() sem resposta (ver o ouvinte de 'error')
 
   // Índices das faixas que têm arquivo (as que dá para tocar), na ordem do content.js.
   function tocaveis() {
@@ -103,8 +104,11 @@ export function criarSom(conteudo, amb) {
       audio.setAttribute('playsinline', '');
       audio.addEventListener('error', () => {
         // Antes da escolha (arquivo só adiantado) não há o que avisar: o seletor confere sozinho.
-        // Durante um tocar() quem decide é ele, que tenta de novo antes de desistir.
-        if (!audio.getAttribute('src') || estado.indice < 0 || pedindoPlay || !estado.tocando) return;
+        if (!audio.getAttribute('src') || estado.indice < 0 || !estado.tocando) return;
+        // Durante um tocar() quem decide é ele, que tenta de novo antes de desistir. O erro que
+        // chega com o arquivo já começado não recusa o play() (ele ficaria sem resposta para
+        // sempre, com o disco girando mudo): a recusa vem daqui.
+        if (pedindoPlay) { recusar(audio.error); return; }
         // A rede caiu no meio da faixa: recarrega e tenta de novo. Outro erro: segue sem ela.
         if (audio.error && audio.error.code === MediaError.MEDIA_ERR_NETWORK) { som.tocar(estado.indice); return; }
         estado.tocando = false;
@@ -251,7 +255,7 @@ export function criarSom(conteudo, amb) {
             if (audio.getAttribute('src') !== faixa.arquivo) audio.src = faixa.arquivo;
             else if (audio.error || audio.networkState === audio.NETWORK_NO_SOURCE) { zerar(); audio.load(); }
             // play() precisa sair ainda dentro do gesto: nada de await antes daqui.
-            await audio.play();
+            await new Promise((ok, falha) => { recusar = falha; Promise.resolve(audio.play()).then(ok, falha); });
             // Ela pode ter pausado ou trocado de faixa enquanto o arquivo carregava.
             if (estado.indice === indice && estado.tocando) rampa(estado.volume, ENTRADA);
             return true;
