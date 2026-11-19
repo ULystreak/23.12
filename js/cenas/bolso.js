@@ -1,4 +1,4 @@
-// O bolso: a carta lida vai para o bolso da saia, em primeira pessoa.
+// O bolso: a carta lida vai para a bolsa dela, em primeira pessoa.
 // (contrato: _dev/ROTEIRO2.md, seção 3d)
 //
 //   criarBolso({ conteudo, amb, som, mundo, raiz }) → bolso      (raiz = #bolso, no index.html)
@@ -9,19 +9,15 @@
 //       Nunca rejeita e nunca passa de uns 4 s; em movimento reduzido, uma dissolvência curta.
 //   bolso.ocupado → boolean (true enquanto a animação roda)
 //
-// O que ela vê (uns 3 s): olhando para baixo, o uniforme de verão (o laço vermelho,
-// o colete, a saia de pregas, a ponta dos sapatos lá embaixo). A carta fechada
-// aparece no meio da tela, a mão direita dela a segura e a leva até o bolso da
-// saia; a carta entra e some lá dentro; a mão sai e o olhar volta para o caminho.
+// O que ela vê (uns 3 s): o olhar desce (o caminho sobe um pouco e escurece por baixo)
+// e a bolsinha de ombro dela aparece embaixo, com a alça subindo para fora da tela.
+// A aba abre, a carta fechada desce do meio da tela, entra na bolsa e some lá dentro;
+// a aba fecha com o fecho de fio vermelho, a bolsa dá um pulinho e vai, pequenininha,
+// para o botão da bolsa no canto (é lá que a carta fica guardada). O olhar volta.
 //
 // Tudo é DOM/SVG desenhado aqui (funciona igual sem WebGL) e só anima transform e
-// opacity. A carta some no bolso porque passa POR BAIXO de um remendo: uma segunda
-// cópia do desenho da saia, recortada (recorte parado) só no pano do bolso, da boca
-// para dentro. O remendo só aparece quando a carta chega à boca. A mão fica por cima
-// de tudo e recebe a mesma pose da carta.
-//
-// O traço é o da mão de js/cenas/mao.js (tinta #2a1b22, papel branco, aguada cor
-// de pele deslocada); o desenho da mão aqui é outro (as costas da mão, de cima).
+// opacity. A carta some porque passa entre o fundo da bolsa e a frente dela: são três
+// desenhos empilhados (fundo + alça, a carta, a frente) e a aba por cima de todos.
 
 import { el, espera, svg } from '../nucleo/util.js';
 import { curvas } from '../nucleo/movimento.js';
@@ -30,93 +26,55 @@ import { imagemDoTema } from '../mundo/envelope.js';
 const TINTA = '#2a1b22';
 const LIMITE_MS = 4200;          // rede de segurança: o bolso nunca prende a carta
 
-// ---- o corpo, visto de cima (viewBox 500 × 600; a borda de baixo é o que está mais perto dos olhos)
-const VB_L = 500;
-const VB_A = 600;
-// A boca do bolso, na costura do lado direito da saia.
-const BOCA = { x1: 284, y1: 482, x2: 402, y2: 388 };
+// ---- a bolsa (viewBox 300 × 240). A boca fica em y = 74; a aba abre a partir de y = 44.
+const VB_L = 300;
+const VB_A = 240;
+const BOCA_Y = 74;
+const DOBRA_Y = 44;
+const LONA = '#efdcc6';          // a lona da bolsa
+const LONA_SOMBRA = '#d9bfa3';
+const FORRO = '#5b3f3a';         // o escuro de dentro
 
-function desenhoCorpo() {
-  // pregas: da cintura (embaixo) abrem em leque até a barra (em cima)
-  const N = 11;
-  const cintura = (i) => { const t = i / N; return [128 + 244 * t, 512 + 26 * Math.sin(Math.PI * t)]; };
-  const barra = (i) => { const t = i / N; return [14 + 472 * t, 236 - 78 * Math.sin(Math.PI * t)]; };
-  let pregas = '';
-  let sombras = '';
-  for (let i = 0; i <= N; i++) {
-    const [cx, cy] = cintura(i); const [bx, by] = barra(i);
-    if (i > 0 && i < N) {
-      pregas += `<path d="M${cx.toFixed(1)} ${cy.toFixed(1)} L${bx.toFixed(1)} ${by.toFixed(1)}" stroke="#1d2136" stroke-width="${i % 2 ? 1.6 : 2.4}" stroke-opacity="${i % 2 ? 0.55 : 0.8}" fill="none" stroke-linecap="round"/>`;
-    }
-    if (i < N && i % 2 === 0) {
-      const [cx2, cy2] = cintura(i + 1); const [bx2, by2] = barra(i + 1);
-      sombras += `<path d="M${cx.toFixed(1)} ${cy.toFixed(1)} L${bx.toFixed(1)} ${by.toFixed(1)} L${bx2.toFixed(1)} ${by2.toFixed(1)} L${cx2.toFixed(1)} ${cy2.toFixed(1)} Z" fill="#232842" fill-opacity="0.34"/>`;
-    }
-  }
-  // a barra em zigue-zague suave (cada prega termina num degrau)
-  let barraD = '';
-  for (let i = 0; i <= N; i++) {
-    const [bx, by] = barra(i);
-    barraD += i === 0 ? `M${bx.toFixed(1)} ${by.toFixed(1)}` : ` L${(bx - 5).toFixed(1)} ${(by + (i % 2 ? 7 : -1)).toFixed(1)} L${bx.toFixed(1)} ${by.toFixed(1)}`;
-  }
-  const [c0x, c0y] = cintura(0); const [cNx, cNy] = cintura(N);
-  const saia = `${barraD} L${cNx} ${cNy} Q250 548 ${c0x} ${c0y} Z`;
-  const sapato = (x, giro) => `
-    <g transform="translate(${x} 122) rotate(${giro}) scale(0.74)">
-      <path d="M-27 60 C-33 14 -27 -40 0 -46 C27 -40 33 14 27 60 Z" fill="#ffffff"/>
-      <path d="M-27 60 C-33 14 -27 -40 0 -46 C27 -40 33 14 27 60 Z" fill="#5a4038" fill-opacity="0.9" stroke="${TINTA}" stroke-width="2.2" stroke-linejoin="round"/>
-      <path d="M-22 12 C-10 2 10 2 22 12" fill="none" stroke="${TINTA}" stroke-width="1.6" stroke-opacity="0.7" stroke-linecap="round"/>
-      <path d="M-13 -28 C-6 -36 6 -36 13 -28" fill="none" stroke="#ffffff" stroke-width="2" stroke-opacity="0.35" stroke-linecap="round"/>
-      <path d="M-25 60 C-24 36 24 36 25 60 Z" fill="#fdfbf7" stroke="${TINTA}" stroke-width="1.6" stroke-linejoin="round"/>
-    </g>`;
-  const { x1, y1, x2, y2 } = BOCA;
+function desenhoFundo() {
   return `
-    <svg class="bolso-corpo" viewBox="0 0 ${VB_L} ${VB_A}" aria-hidden="true" focusable="false">
-      <ellipse cx="250" cy="150" rx="250" ry="120" fill="${TINTA}" fill-opacity="0.07"/>
-      ${sapato(204, -6)}${sapato(296, 6)}
-      <path d="${saia}" fill="#ffffff"/>
-      <path d="${saia}" fill="#454c6e"/>
-      ${sombras}
-      ${pregas}
-      <path d="${saia}" fill="none" stroke="${TINTA}" stroke-width="2.6" stroke-linejoin="round"/>
-      <!-- a boca do bolso: um vinco escuro e a beirada que pega luz -->
-      <path d="M${x1 - 4} ${y1 + 5} L${x2 + 4} ${y2 - 2}" stroke="#12152a" stroke-width="7" stroke-linecap="round" stroke-opacity="0.85" fill="none"/>
-      <path d="M${x1 - 2} ${y1 + 10} L${x2 + 6} ${y2 + 3}" stroke="#8088ad" stroke-width="1.6" stroke-linecap="round" stroke-opacity="0.8" fill="none"/>
-      <!-- camisa branca aparecendo sob o colete, e o colete -->
-      <path d="M96 600 C100 560 112 530 ${c0x - 6} ${c0y - 6} Q250 540 ${cNx + 6} ${cNy - 6} C388 530 400 560 404 600 Z" fill="#fdfbf7" stroke="${TINTA}" stroke-width="2" stroke-linejoin="round"/>
-      <path d="M84 600 C92 566 104 542 124 524 Q250 566 376 524 C396 542 408 566 416 600 Z" fill="#ffffff"/>
-      <path d="M84 600 C92 566 104 542 124 524 Q250 566 376 524 C396 542 408 566 416 600 Z" fill="#2f3553" stroke="${TINTA}" stroke-width="2.4" stroke-linejoin="round"/>
-      <path d="M150 600 C156 580 162 566 170 556 M330 556 C338 566 344 580 350 600" fill="none" stroke="#161a30" stroke-width="1.6" stroke-opacity="0.7" stroke-linecap="round"/>
-      <!-- o laço vermelho, bem perto dos olhos -->
-      <g transform="translate(250 574)">
-        <path d="M-6 -4 C-40 -44 -92 -40 -96 -2 C-92 30 -40 26 -6 6 Z" fill="#b3202f" stroke="${TINTA}" stroke-width="2.2" stroke-linejoin="round"/>
-        <path d="M6 -4 C40 -44 92 -40 96 -2 C92 30 40 26 6 6 Z" fill="#b3202f" stroke="${TINTA}" stroke-width="2.2" stroke-linejoin="round"/>
-        <path d="M-18 -8 C-40 -22 -66 -22 -82 -10 M18 -8 C40 -22 66 -22 82 -10" fill="none" stroke="#6f0f1c" stroke-width="1.6" stroke-linecap="round" stroke-opacity="0.8"/>
-        <rect x="-11" y="-13" width="22" height="24" rx="6" fill="#c7283a" stroke="${TINTA}" stroke-width="2"/>
-      </g>
+    <svg class="bolso-bolsa-parte" viewBox="0 0 ${VB_L} ${VB_A}" aria-hidden="true" focusable="false">
+      <!-- a alça, atravessada: sobe para o ombro do outro lado e sai da tela pela esquerda -->
+      <path d="M46 52 C30 -10 -60 -110 -1400 -720" fill="none" stroke="${TINTA}" stroke-width="21" stroke-linecap="round"/>
+      <path d="M46 52 C30 -10 -60 -110 -1400 -720" fill="none" stroke="${LONA_SOMBRA}" stroke-width="16" stroke-linecap="round"/>
+      <path d="M254 52 C262 -20 180 -170 -1300 -940" fill="none" stroke="${TINTA}" stroke-width="21" stroke-linecap="round"/>
+      <path d="M254 52 C262 -20 180 -170 -1300 -940" fill="none" stroke="${LONA_SOMBRA}" stroke-width="16" stroke-linecap="round"/>
+      <!-- as costas da bolsa, que aparecem acima da boca -->
+      <path d="M32 ${DOBRA_Y} H268 C280 ${DOBRA_Y} 287 54 285 66 L281 ${BOCA_Y + 16} H19 L15 66 C13 54 20 ${DOBRA_Y} 32 ${DOBRA_Y} Z" fill="${LONA_SOMBRA}" stroke="${TINTA}" stroke-width="2.4" stroke-linejoin="round"/>
+      <!-- o escuro de dentro, logo abaixo da boca -->
+      <path d="M16 ${BOCA_Y} H284 L281 ${BOCA_Y + 40} H19 Z" fill="${FORRO}"/>
     </svg>`;
 }
 
-// ---- a mão direita, de cima (costas da mão; dedos juntos apontando para a boca do bolso)
-// Desenhada com os dedos para cima em 160 × 420 e deitada para a esquerda (os dedos
-// apontam para −x no quadro da carta); o antebraço sai da tela.
-function desenhoMao() {
-  const forma = 'M50 900 L54 252 C46 226 35 200 38 170 C39 150 43 132 46 118 L46 34 C46 19 62 19 63.5 34 L64.5 24 C65.5 6 85 6 86 24 L87 32 C88 15 105.5 15 106.5 32 L107.5 58 C108.5 43 123.5 43 124.5 58 L125.5 150 C126.5 192 119 226 115 252 L120 900 Z';
+function desenhoFrente() {
   return `
-    <svg class="bolso-mao" viewBox="0 0 420 160" aria-hidden="true" focusable="false">
-      <g transform="translate(0 160) rotate(-90)">
-        <path d="${forma}" fill="#ffffff"/>
-        <path d="${forma}" fill="#f3d3c8" fill-opacity="0.78"/>
-        <path d="M111 262 C119 226 126.5 192 125.5 150 L124.5 58 C123.5 49 117 46 112 50 L111 150 C111 196 105 230 99 262 Z" fill="#d49f8d" fill-opacity="0.34"/>
-        <path d="${forma}" fill="none" stroke="${TINTA}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
-        <g fill="none" stroke="${TINTA}" stroke-linecap="round">
-          <path d="M64 36 L64.5 122 M86.5 28 L86.5 120 M107 50 L106.5 124" stroke-width="1.8" stroke-opacity="0.85"/>
-          <path d="M48 132 q6 -5 12 0 M70 128 q6 -5 12 0 M92 130 q6 -5 11 0 M112 136 q5 -4 10 0" stroke-width="1.3" stroke-opacity="0.6"/>
-          <path d="M49 84 q6 -3 12 0 M68 78 q7 -3 14 0 M90 82 q7 -3 13 0 M110 94 q6 -3 11 0" stroke-width="1.1" stroke-opacity="0.45"/>
-          <path d="M50 38 q5 -9 10 0 M69.5 28 q6 -10 12 0 M91 36 q5.5 -9 11 0 M111.5 60 q5 -8 9.5 0" stroke-width="1.1" stroke-opacity="0.5"/>
-          <path d="M60 250 q26 9 50 0" stroke-width="1.2" stroke-opacity="0.5"/>
-        </g>
-      </g>
+    <svg class="bolso-bolsa-parte" viewBox="0 0 ${VB_L} ${VB_A}" aria-hidden="true" focusable="false">
+      <path d="M24 ${BOCA_Y} H276 C288 ${BOCA_Y} 294 82 293 94 L284 206 C282 226 268 238 248 238 H52 C32 238 18 226 16 206 L7 94 C6 82 12 ${BOCA_Y} 24 ${BOCA_Y} Z" fill="${LONA}" stroke="${TINTA}" stroke-width="2.6" stroke-linejoin="round"/>
+      <!-- a sombra do lado e o pesponto -->
+      <path d="M262 ${BOCA_Y + 2} C280 ${BOCA_Y + 4} 286 90 285 100 L277 204 C275 220 266 228 252 230 C264 214 266 140 262 ${BOCA_Y + 2} Z" fill="${LONA_SOMBRA}" fill-opacity="0.7"/>
+      <path d="M28 ${BOCA_Y + 9} H272 C281 ${BOCA_Y + 9} 285 88 284 96 L276 202 C274 218 264 228 248 228 H52 C36 228 26 218 24 202 L16 96 C15 88 19 ${BOCA_Y + 9} 28 ${BOCA_Y + 9} Z" fill="none" stroke="${TINTA}" stroke-width="1.3" stroke-opacity="0.4" stroke-dasharray="6 5"/>
+      <!-- a beirada da boca, que pega luz -->
+      <path d="M22 ${BOCA_Y + 1.5} H278" stroke="#ffffff" stroke-width="2" stroke-opacity="0.75" stroke-linecap="round"/>
+      <!-- um bolsinho na frente, com uma pétala bordada -->
+      <path d="M96 150 H204 L200 206 C199 214 194 218 186 218 H114 C106 218 101 214 100 206 Z" fill="none" stroke="${TINTA}" stroke-width="1.6" stroke-opacity="0.55" stroke-linejoin="round"/>
+      <path d="M150 172 c-7 -9 -16 -3 -12 5 c3 6 12 11 12 11 s9 -5 12 -11 c4 -8 -5 -14 -12 -5 z" fill="#f4b8c8" stroke="${TINTA}" stroke-width="1.3" stroke-opacity="0.6"/>
+    </svg>`;
+}
+
+function desenhoAba() {
+  return `
+    <svg class="bolso-bolsa-parte" viewBox="0 0 ${VB_L} ${VB_A}" aria-hidden="true" focusable="false">
+      <path d="M24 ${DOBRA_Y} H276 C285 ${DOBRA_Y} 290 52 288 61 L277 126 C262 150 202 162 150 162 C98 162 38 150 23 126 L12 61 C10 52 15 ${DOBRA_Y} 24 ${DOBRA_Y} Z" fill="${LONA}" stroke="${TINTA}" stroke-width="2.6" stroke-linejoin="round"/>
+      <path d="M26 ${DOBRA_Y + 10} H274 C279 ${DOBRA_Y + 10} 281 58 280 63 L270 121 C256 141 200 151 150 151 C100 151 44 141 30 121 L20 63 C19 58 21 ${DOBRA_Y + 10} 26 ${DOBRA_Y + 10} Z" fill="none" stroke="${TINTA}" stroke-width="1.3" stroke-opacity="0.4" stroke-dasharray="6 5"/>
+      <path d="M24 ${DOBRA_Y + 3} H276" stroke="${LONA_SOMBRA}" stroke-width="5" stroke-linecap="round"/>
+      <!-- o fecho: um botão vermelho com uma volta do fio -->
+      <path d="M150 140 C132 150 132 176 150 180 C168 176 168 150 150 140" fill="none" stroke="#d7192d" stroke-width="2.2" stroke-linecap="round"/>
+      <circle cx="150" cy="156" r="10" fill="#d7192d" stroke="${TINTA}" stroke-width="2"/>
+      <circle cx="146.5" cy="152.5" r="3" fill="#ffffff" fill-opacity="0.55"/>
     </svg>`;
 }
 
@@ -139,9 +97,18 @@ function desenharCarta(tema) {
   return carta;
 }
 
+/** Onde está o botão da bolsa (para onde a bolsinha vai no fim). */
+function alvoDaBolsa(L, A) {
+  const botao = document.querySelector('.inventario-botao');
+  const caixa = botao?.getBoundingClientRect?.();
+  if (caixa && caixa.width > 0 && !botao.closest('[hidden]')) return { x: caixa.left + caixa.width / 2, y: caixa.top + caixa.height / 2 };
+  return { x: L - 44, y: A - 44 };
+}
+
 export function criarBolso({ conteudo, amb, som, raiz }) {
   let ocupado = false;
   const rotulo = conteudo?.inventario?.rotulos?.guardando || '';
+  const olhar = () => ['mundo', 'mundo-leve'].map((id) => document.getElementById(id)).filter(Boolean);
 
   function descartar(envelope) {
     if (!envelope || envelope.descartado) return;
@@ -163,13 +130,14 @@ export function criarBolso({ conteudo, amb, som, raiz }) {
     const L = window.innerWidth; const A = window.innerHeight;
     const reduzido = !!amb?.reduzido;
 
-    // A carta aparece onde a carta do mundo estava (o meio da tela, um pouco abaixo dos olhos).
-    const larguraCarta = Math.min(L * 0.7, A * 0.5, 380);
+    // A carta aparece onde a carta do mundo estava (o meio da tela, um pouco acima).
+    const larguraCarta = Math.min(L * 0.66, A * 0.42, 340);
     const alturaCarta = larguraCarta * (16 / 23);
-    const centro = { x: L / 2, y: A * 0.46 };
+    const centro = { x: L / 2, y: A * 0.36 };
 
     const carta = desenharCarta(tema);
     Object.assign(carta.style, { width: `${larguraCarta}px`, height: `${alturaCarta}px`, left: `${-larguraCarta / 2}px`, top: `${-alturaCarta / 2}px` });
+    const levaCarta = el('div', 'bolso-leva', carta);
 
     raiz.textContent = '';
     raiz.dataset.tema = tema || '';
@@ -177,108 +145,85 @@ export function criarBolso({ conteudo, amb, som, raiz }) {
 
     if (reduzido || !gsap) {
       // Sem viagem: a carta aparece, fica um instante e se desfaz.
-      const leva = el('div', 'bolso-leva', carta);
-      leva.style.transform = `translate3d(${centro.x}px, ${centro.y}px, 0)`;
-      raiz.append(leva);
+      levaCarta.style.transform = `translate3d(${centro.x}px, ${centro.y}px, 0)`;
+      raiz.append(levaCarta);
       descartar(envelope);
       if (!gsap) { await espera(700); return; }
       await new Promise((ok) => {
         gsap.timeline({ onComplete: ok })
-          .fromTo(leva, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3, ease: 'none' })
-          .to(leva, { autoAlpha: 0, duration: 0.6, ease: 'none' }, 0.75);
+          .fromTo(levaCarta, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3, ease: 'none' })
+          .to(levaCarta, { autoAlpha: 0, duration: 0.6, ease: 'none' }, 0.75);
       });
       return;
     }
 
-    // O corpo: ancorado embaixo, no meio; no computador não passa de ~72% da altura.
-    const larguraCorpo = Math.min(L * 1.2, A * 0.6, 640);
-    const alturaCorpo = larguraCorpo * (VB_A / VB_L);
-    const k = larguraCorpo / VB_L;
-    // (um pouco para a esquerda: ela olha para o lado direito do corpo, onde fica o bolso)
-    const ox = (L - larguraCorpo) / 2 - larguraCorpo * 0.13; const oy = A - alturaCorpo;
-    const corpo = svg(desenhoCorpo());
-    Object.assign(corpo.style, { left: `${ox}px`, top: `${oy}px`, width: `${larguraCorpo}px`, height: `${alturaCorpo}px` });
-    const palco = el('div', 'bolso-palco', corpo);
-    const remendoSvg = svg(desenhoCorpo());
-    Object.assign(remendoSvg.style, { left: `${ox}px`, top: `${oy}px`, width: `${larguraCorpo}px`, height: `${alturaCorpo}px` });
-    const remendo = el('div', 'bolso-palco bolso-remendo', remendoSvg);
+    // A bolsa: no meio, embaixo, inteira na tela.
+    const largura = Math.min(L * 0.8, A * 0.44, 380);
+    const altura = largura * (VB_A / VB_L);
+    const k = largura / VB_L;
+    const esquerda = (L - largura) / 2;
+    const topo = A - altura - Math.max(A * 0.05, 18);
+    const bolsa = el('div', 'bolso-bolsa');
+    Object.assign(bolsa.style, { left: `${esquerda}px`, top: `${topo}px`, width: `${largura}px`, height: `${altura}px` });
+    const fundo = svg(desenhoFundo());
+    const frente = svg(desenhoFrente());
+    const aba = svg(desenhoAba());
+    aba.classList.add('bolso-aba');
+    aba.style.transformOrigin = `50% ${(DOBRA_Y / VB_A) * 100}%`;
+    // A carta fica entre o fundo e a frente: entra pela boca e some atrás da frente.
+    bolsa.append(fundo, levaCarta, frente, aba);
+    // (a aba aberta fica atrás da carta; fechada, por cima de tudo)
+    [fundo, levaCarta, frente, aba].forEach((n, i) => { n.style.zIndex = String([1, 3, 4, 5][i]); });
+    const veu = el('div', 'bolso-veu');
+    raiz.append(veu, bolsa);
 
-    // A boca do bolso, em px de tela.
-    const p1 = { x: ox + BOCA.x1 * k, y: oy + BOCA.y1 * k };
-    const p2 = { x: ox + BOCA.x2 * k, y: oy + BOCA.y2 * k };
-    const boca = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-    const phi = Math.atan2(p2.y - p1.y, p2.x - p1.x);           // direção da boca
-    const meio = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
-    // para dentro do bolso: perpendicular à boca, para cima e para o meio do corpo
-    const dentro = { x: Math.sin(phi), y: -Math.cos(phi) };
-
-    const levaCarta = el('div', 'bolso-leva', carta);
-
-    // A mão: fora do recorte, com a mesma pose da carta.
-    const mao = svg(desenhoMao());
-    const alturaMao = alturaCarta * 0.86;
-    const un = alturaMao / 160;
-    Object.assign(mao.style, {
-      width: `${420 * un}px`, height: `${alturaMao}px`,
-      left: `${larguraCarta * 0.02 - 12 * un}px`, top: `${-alturaMao / 2 + alturaCarta * 0.04}px`,
-    });
-    const levaMao = el('div', 'bolso-leva', mao);
-
-    // Pose da carta (centro, giro, escala) e, à parte, quanto a mão está afastada dela.
-    const giroFinal = phi + Math.PI / 2;                          // o lado comprido na direção de entrar
-    const escalaFinal = Math.min(1, (boca * 0.8) / alturaCarta);
-    const larguraFinal = larguraCarta * escalaFinal;
-
-    // O remendo: o pano do bolso, da boca para dentro (um quadrilátero, em px do próprio svg).
-    {
-      const fundo = larguraFinal * 1.3;
-      const dx = Math.cos(phi) * boca * 0.07; const dy = Math.sin(phi) * boca * 0.07;
-      const cantos = [
-        [p1.x - dx, p1.y - dy], [p2.x + dx, p2.y + dy],
-        [p2.x + dx + dentro.x * fundo, p2.y + dy + dentro.y * fundo], [p1.x - dx + dentro.x * fundo, p1.y - dy + dentro.y * fundo],
-      ].map(([x, y]) => `${(x - ox).toFixed(1)}px ${(y - oy).toFixed(1)}px`).join(', ');
-      remendoSvg.style.clipPath = `polygon(${cantos})`;
-      remendoSvg.style.webkitClipPath = `polygon(${cantos})`;
-    }
-    remendo.style.visibility = 'hidden';
-    raiz.append(palco, levaCarta, remendo, levaMao);
-    const naBoca = { x: meio.x - dentro.x * larguraFinal * 0.42, y: meio.y - dentro.y * larguraFinal * 0.42 };
-    const guardada = { x: meio.x + dentro.x * larguraFinal * 0.62, y: meio.y + dentro.y * larguraFinal * 0.62 };
-    const pose = { x: centro.x, y: centro.y, giro: 0.1, escala: 1, mao: larguraCarta * 2.2, maoY: alturaCarta * 0.7 };
+    // Em px dentro da bolsa: a carta é medida pela boca e cabe inteira atrás da frente.
+    const escalaFinal = (largura * 0.74) / larguraCarta;
+    const alturaFinal = alturaCarta * escalaFinal;
+    const bocaY = BOCA_Y * k;
+    const pose = { x: centro.x - esquerda, y: centro.y - topo, giro: 0.08, escala: 1 };
+    const naBoca = { x: largura / 2, y: bocaY - alturaFinal * 0.42 };
+    const guardada = { y: bocaY + alturaFinal * 0.62 };
     const aplicar = () => {
-      const base = `translate3d(${pose.x.toFixed(2)}px, ${pose.y.toFixed(2)}px, 0) rotate(${pose.giro.toFixed(4)}rad) scale(${pose.escala.toFixed(4)})`;
-      levaCarta.style.transform = base;
-      levaMao.style.transform = `${base} translate3d(${pose.mao.toFixed(2)}px, ${pose.maoY.toFixed(2)}px, 0)`;
+      levaCarta.style.transform = `translate3d(${pose.x.toFixed(2)}px, ${pose.y.toFixed(2)}px, 0) rotate(${pose.giro.toFixed(4)}rad) scale(${pose.escala.toFixed(4)})`;
     };
     aplicar();
 
+    // Para onde a bolsinha vai no fim: o botão da bolsa.
+    const alvo = alvoDaBolsa(L, A);
+    const ate = { x: alvo.x - (esquerda + largura / 2), y: alvo.y - (topo + altura / 2), escala: Math.max(0.08, 48 / largura) };
+
     descartar(envelope);                       // a carta do mundo já não aparece: a daqui assume
     const efeito = (nome) => { try { som?.efeito?.(nome); } catch { /* sem som */ } };
+    const mundo = olhar();
 
     await new Promise((ok) => {
       const tl = gsap.timeline({ onComplete: ok, onUpdate: aplicar });
-      // 1. o olhar desce: o uniforme sobe na tela; a carta aparece no meio
-      tl.fromTo(palco, { yPercent: 46, autoAlpha: 0 }, { yPercent: 0, autoAlpha: 1, duration: 0.75, ease: curvas.branco.entrar }, 0)
+      // 1. o olhar desce: o caminho sobe um pouco, escurece por baixo e a bolsa chega
+      tl.to(mundo, { yPercent: -5, scale: 1.04, duration: 0.8, ease: 'power2.out' }, 0)
+        .fromTo(veu, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.6, ease: 'none' }, 0)
+        .fromTo(bolsa, { y: altura * 0.9, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.75, ease: curvas.branco.entrar }, 0.05)
         .fromTo(carta, { autoAlpha: 0, scale: 0.94 }, { autoAlpha: 1, scale: 1, duration: 0.4, ease: curvas.branco.entrar }, 0)
-        // 2. a mão dela pega a carta
-        .to(pose, { mao: 0, maoY: 0, duration: 0.6, ease: 'power3.out' }, 0.12)
-        .fromTo(levaMao, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.25, ease: 'none' }, 0.12)
-        .add(() => efeito('papel'), 0.55)
-        // 3. e a leva até a boca do bolso, girando e ficando menor (está mais longe dos olhos)
-        .to(pose, { x: naBoca.x, y: naBoca.y, duration: 0.95, ease: 'power2.inOut' }, 0.68)
-        .to(pose, { giro: giroFinal, escala: escalaFinal, duration: 0.95, ease: 'power2.inOut' }, 0.68)
-        // 4. a carta entra: escorrega para dentro e some atrás da boca (por baixo do remendo)
-        .set(remendo, { visibility: 'visible' }, 1.64)
-        .to(pose, { x: guardada.x, y: guardada.y, duration: 0.6, ease: 'power2.in' }, 1.66)
-        .to(pose, { mao: larguraCarta * 0.6, duration: 0.6, ease: 'power2.in' }, 1.66)   // os dedos param na boca
+        // 2. a aba abre
+        .to(aba, { scaleY: -0.45, duration: 0.45, ease: 'power2.out' }, 0.55)
+        .set(aba, { zIndex: 2 }, 0.78)
+        .add(() => efeito('papel'), 0.6)
+        // 3. a carta desce até a boca, ficando do tamanho da bolsa
+        .to(pose, { x: naBoca.x, y: naBoca.y, giro: -0.03, escala: escalaFinal, duration: 0.65, ease: 'power2.inOut' }, 0.85)
+        // 4. e entra (some atrás da frente)
+        .to(pose, { y: guardada.y, duration: 0.42, ease: 'power2.in' }, 1.5)
+        .set(levaCarta, { autoAlpha: 0 }, 1.94)
+        // 5. a aba fecha com o fecho e a bolsa dá um pulinho
+        .to(aba, { scaleY: 1, duration: 0.32, ease: 'power3.in' }, 1.9)
+        .set(aba, { zIndex: 5 }, 2.02)
         .add(() => efeito('toque'), 2.2)
-        // já está toda coberta pelo remendo: some de vez, senão reaparece através da saia
-        // enquanto o uniforme se apaga
-        .set(levaCarta, { autoAlpha: 0 }, 2.3)
-        // 5. a mão sai e o olhar volta para o caminho
-        .to(pose, { mao: larguraCarta * 2.4, maoY: alturaCarta * 0.9, duration: 0.6, ease: 'power2.in' }, 2.32)
-        .to(levaMao, { autoAlpha: 0, duration: 0.3, ease: 'none' }, 2.62)
-        .to([palco, remendo], { yPercent: 40, autoAlpha: 0, duration: 0.6, ease: curvas.branco.sair }, 2.42);
+        .to(bolsa, { scaleY: 0.95, scaleX: 1.03, transformOrigin: '50% 100%', duration: 0.1, ease: 'power1.out' }, 2.2)
+        .to(bolsa, { scaleY: 1, scaleX: 1, duration: 0.3, ease: 'back.out(3)' }, 2.3)
+        // 6. a bolsinha vai para o botão da bolsa e o olhar volta para o caminho
+        .to(bolsa, { x: ate.x, y: ate.y, scale: ate.escala, transformOrigin: '50% 50%', duration: 0.6, ease: 'power2.in' }, 2.55)
+        .to(bolsa, { autoAlpha: 0, duration: 0.18, ease: 'none' }, 2.97)
+        .to(veu, { autoAlpha: 0, duration: 0.5, ease: 'none' }, 2.6)
+        .to(mundo, { yPercent: 0, scale: 1, duration: 0.6, ease: 'power2.inOut' }, 2.55);
     });
   }
 
@@ -299,6 +244,8 @@ export function criarBolso({ conteudo, amb, som, raiz }) {
         console.error('[carta] o bolso falhou', erro);
       } finally {
         descartar(envelope);
+        const mundo = olhar();
+        try { window.gsap?.killTweensOf?.(mundo); window.gsap?.set?.(mundo, { clearProps: 'transform' }); } catch { /* o mundo fica como está */ }
         if (raiz) {
           try { window.gsap?.killTweensOf?.(raiz.querySelectorAll('*')); } catch { /* nada a matar */ }
           raiz.textContent = '';

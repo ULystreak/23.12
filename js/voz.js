@@ -2,8 +2,8 @@
 //
 //   criarVoz(ctx) → voz          (o main.js guarda em ctx.voz)
 //
-//   voz.liberar()   põe a fita na bolsa e mostra o botão da bolsa. Quem chama é o fim
-//                   da última carta (ctx.voz?.liberar()); por garantia, a etapa final:fim
+//   voz.liberar()   põe a fita na bolsa e mostra o botão da bolsa. Quem chama é a carta
+//                   Surpresinha (js/cenas/cartas.js), que abre este cartão; por garantia, a etapa final:fim
 //                   também libera sozinha. Fica anotado no aparelho dela
 //                   (localStorage): numa visita seguinte a fita já está na bolsa desde
 //                   que a bolsa aparece. Chamar de novo não faz mal nenhum.

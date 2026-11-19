@@ -77,6 +77,7 @@ async function agir(s, etapa, { curto = 6000 } = {}) {
     await tentar(abertas ? '[data-acao="seguir-cartas"]' : '[data-acao="carta-chao"][data-estado="fechada"]');
   } else if (etapa === 'assistindo') {
     await tentar('[data-acao="fechar-carta"]');
+    await tentar('#voz[data-aberto] [data-acao="voz-fechar"]');   // a Surpresinha abre os áudios
     await s.page.waitForFunction(() => window.__carta.etapa === 'escolhendo', null, { timeout: 20000, polling: 50 }).catch(() => {});
   }
   else if (etapa === 'carta-espera') await s.tocarCentro();

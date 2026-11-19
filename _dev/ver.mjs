@@ -110,7 +110,14 @@ async function verCartas(s, { fotos, fluxo, prefixo, sufixo, timeout = 30000 }) 
     if (s.perfil.toque) await c.tap(); else await c.click();
     // Abriu, ou falhou no meio e voltou a escolher (vídeo que não carrega): um dos dois.
     await s.page.waitForFunction(() => document.querySelector('.carta-chao-visor')
+      || document.querySelector('#voz[data-aberto]')
       || document.querySelector('[data-acao="carta-chao"][data-estado="falhou"]'), null, { timeout, polling: 50 });
+    // A Surpresinha abre o cartão com os áudios dele (js/voz.js).
+    if (await s.page.evaluate(() => !!document.querySelector('#voz[data-aberto]'))) {
+      await s.pausa(800);
+      if (fotos) await s.foto(`${prefixo}-assistindo${i + 1}${sufixo}`);
+      await s.acionar('[data-acao="voz-fechar"]');
+    }
     if (await s.page.evaluate(() => !!document.querySelector('.carta-chao-visor'))) {
       await s.pausa(1000);
       if (fotos) await s.foto(`${prefixo}-assistindo${i + 1}${sufixo}`);

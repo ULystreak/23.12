@@ -702,14 +702,21 @@ export async function cenaCartas(ctx, { frio } = {}) {
     som.efeito('papel');
     const carta = item.carta;
     let resultado = { falhou: false };
-    try { resultado = await mostrar(carta, { de: item.desenho }); } catch (erro) { console.error('[carta] carta do chão', erro); }
+    // A Surpresinha guarda os áudios com a voz dele (js/voz.js): se houver fotos e vídeos,
+    // eles vêm antes; depois (ou só) a fita com os áudios. A fita fica na bolsa.
+    const comVoz = item.ultima && ctx.voz && (conteudo.voz?.itens || []).length > 0;
+    try {
+      if (!comVoz || carta.midias.length) resultado = await mostrar(carta, { de: item.desenho });
+      if (comVoz) await ctx.voz.abrir();
+    } catch (erro) { console.error('[carta] carta do chão', erro); }
     // Só agora ela sabe de quem é: o estado muda, a carta vai para a bolsa e o nome é escrito.
     item.estado = resultado.falhou ? 'falhou' : 'aberta';
     item.botao.dataset.estado = item.estado;
     item.desenho.dataset.estado = item.estado;
     item.botao.setAttribute('aria-label', carta.nome);
     abertas.add(carta.id);
-    inventario.guardar({ id: carta.id, tipo: carta.tipo, titulo: carta.nome, abrir: () => mostrar(carta) });
+    if (comVoz) ctx.voz.liberar();     // a fita com os áudios é o que vai para a bolsa
+    if (!comVoz || carta.midias.length) inventario.guardar({ id: carta.id, tipo: carta.tipo, titulo: carta.nome, abrir: () => mostrar(carta) });
     inventario.mostrarBotao();
     atualizarSeguir();
     const ult = itens.find((o) => o.ultima);

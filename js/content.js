@@ -546,14 +546,15 @@ window.CONTEUDO = {
       abrir: 'Abrir a bolsa',
       fechar: 'Fechar a bolsa',
       // Dito enquanto a animação do bolso acontece.
-      guardando: 'Você guarda a carta no bolso.',
+      guardando: 'Você guarda a carta na bolsa.',
     },
   },
 
   /* --------------------------------------------------------------------------
      A SUA VOZ
-     Três áudios com a sua voz, para ela ouvir sempre que quiser. Eles moram na
-     bolsa, numa fita cassete que aparece quando ela termina a última carta.
+     Três áudios com a sua voz, para ela ouvir sempre que quiser. Eles são o
+     presente da carta Surpresinha (a última do chão): quando ela abre a
+     Surpresinha, abre o cartão com os áudios, e depois a fita fica na bolsa.
      O aparelho dela lembra disso: da segunda visita em diante a fita já está
      na bolsa desde o começo. Tocar na fita abre um cartão com os áudios; cada
      um tem tocar/pausar, o fio para ir e voltar, o tempo e o botão de baixar.
@@ -675,8 +676,8 @@ window.CONTEUDO = {
      frente; quando ela já abriu todas, ele ganha destaque.
 
      A ordem das cartas é a ordem desta lista. A última, a Surpresinha, é
-     diferente: em vez de um vídeo só, é uma sequência de fotos e vídeos de
-     vocês, que ela passa para o lado.
+     diferente: só abre depois das outras e guarda os áudios com a sua voz
+     (veja "A SUA VOZ", mais acima).
 
      ENQUANTO O VÍDEO NÃO CHEGA
      Carta com video: '' aparece do mesmo jeito e abre um cartão com o texto
@@ -744,8 +745,9 @@ window.CONTEUDO = {
       { nome: 'Nup', video: '', capa: '' },
     ],
 
-    // A última carta do chão: os momentos de vocês dois, em fotos e vídeos que
-    // ela passa para o lado. Para tirar a Surpresinha, deixe o nome vazio ('').
+    // A última carta do chão: abre os seus áudios (a seção "A SUA VOZ", lá em
+    // cima). Se você puser fotos e vídeos em "midias", eles passam antes dos
+    // áudios. Para tirar a Surpresinha, deixe o nome vazio ('').
     surpresinha: {
       nome: 'Surpresinha',
 

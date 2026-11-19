@@ -1,4 +1,4 @@
-/* A carta indo para o bolso da saia, em primeira pessoa (js/cenas/bolso.js).
+/* A carta indo para a bolsa dela, em primeira pessoa (js/cenas/bolso.js).
    #bolso fica por cima do mundo e abaixo da folha e do palco. Tudo aqui dentro é
    posto em px pelo bolso.js e só anima transform e opacity. */
 #bolso {
@@ -14,22 +14,30 @@
 }
 #bolso[hidden] { display: none; }
 
-/* O uniforme (laço, colete, saia, sapatos), ancorado embaixo. */
-.bolso-palco {
+/* O olhar descendo: escurece de leve por baixo, onde a bolsa está. */
+.bolso-veu {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(42, 27, 34, 0) 30%, rgba(42, 27, 34, 0.38) 100%);
+  will-change: opacity;
+}
+
+/* A bolsa: fundo (com a alça), a carta, a frente e a aba, empilhados no mesmo lugar. */
+.bolso-bolsa {
+  position: absolute;
+  will-change: transform, opacity;
+}
+.bolso-bolsa-parte {
   position: absolute;
   top: 0; left: 0;
   width: 100%; height: 100%;
-  will-change: transform, opacity;
-}
-.bolso-corpo {
-  position: absolute;
   max-width: none;
-  overflow: visible;
+  overflow: visible;                 /* a alça sobe para fora do desenho */
 }
-
-/* O remendo: a mesma saia, recortada só no pano do bolso (o recorte é posto pelo
-   bolso.js e fica parado). A carta passa por baixo dele e some. */
-.bolso-remendo { will-change: transform, opacity; }
+.bolso-aba {
+  filter: drop-shadow(0 6px 8px rgba(42, 27, 34, 0.18));
+  will-change: transform;
+}
 
 /* Quem leva a carta (e, com a mesma pose, a mão): um ponto; o conteúdo se centra nele. */
 .bolso-leva {
@@ -51,12 +59,6 @@
   position: absolute;
   top: 0; left: 0;
   width: 100%; height: 100%;
-}
-
-.bolso-mao {
-  position: absolute;
-  max-width: none;                 /* (quem a leva é um ponto, de largura zero) */
-  overflow: visible;
 }
 
 /* O aviso para leitores de tela (o desenho é mudo). */
