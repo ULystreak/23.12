@@ -162,6 +162,7 @@ Quando a frase termina, o número volta com a mesma letra da tela da senha e con
 - `nascimento`: o dia em que ela nasceu, `'ano-mês-dia'` (hoje `'2004-12-23'`). Vazio (`''`) tira o contador.
 - `rotulo`: o que vem embaixo do número (`'dias até aqui'`).
 - `frase`: a **sua** frase embaixo do contador. Hoje é um exemplo entre colchetes: troque pelo seu texto, ou deixe `''` para não ter frase.
+- `conhecemos`: o dia em que vocês se conheceram, `'ano-mês-dia'`. Enquanto o número sobe, cada dia da vida dela vira um pontinho de luz numa flor; com esta data, os dias desde que vocês se conheceram acendem em vermelho, na borda da flor. Vazio (`''`) = só o dia de hoje fica vermelho.
 
 Se você abrir antes do dia 23, o número é menor que 8035 (é a conta de verdade até aquele dia). Para ver como vai ficar no dia, use `?cena=final&hoje=2026-12-23`.
 
@@ -220,6 +221,8 @@ Sem nada no endereço, o site abre na tela preta da senha (o número está em `j
 Para testar mais rápido, junte `&rapido=4` (tudo anda 4 vezes mais rápido). Para ver a versão leve (celular fraco), junte `&webgl=0`. Para ver a versão calma (movimento reduzido), `&reduzido=1`.
 
 O link que você manda para ela é o endereço **sem** nada no final.
+
+Conforme ela avança, o endereço ganha sozinho um `?cena=…` (da primeira carta em diante). É de propósito: se a página recarregar no meio (o iPhone às vezes recarrega quando ela volta do WhatsApp), ela continua do começo da parte em que estava, com a mesma música, e não da senha. Para você ver do zero no seu celular, abra de novo o link limpo.
 
 ## 9. Testar no seu computador
 

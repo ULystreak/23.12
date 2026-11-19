@@ -143,7 +143,7 @@ function novaImagem(q, alt = '') {
 
 /**
  * A chegada sem quadros (nenhum carregou): o que a cena da mão fazia sozinha.
- * A luz corre pelo fio até o laço da carta, que acende, e a luz do dia volta.
+ * A luz corre pelo fio até o laço da carta, que acende.
  */
 async function chegadaSimples(ctx) {
   const { estado, som, amb } = ctx;
@@ -512,7 +512,7 @@ export async function cenaEncontro(ctx, { frio } = {}) {
     const tCarta = tClarao + (calmo ? 0.95 : 1.15);
     tl.call(() => {
       diretor.etapa('carta');
-      // Debaixo do clarão: os quadros saem, o mundo volta, a carta está lá e o dia retorna.
+      // Debaixo do clarão: os quadros saem, o mundo volta e a carta está lá.
       for (const no of [ceu, grao, desenho, clarao, ...todos.map((p) => p.no), ...(brasa ? [brasa] : []), ...(maos ? maos.map((m) => m.no) : [])]) no.remove();
       religar();
       mostrarCarta(ctx, 1.2);

@@ -195,12 +195,15 @@ function esperarToque(ctx, env, baixar) {
       if (dica.hidden) return;
       const folga = Math.max(22, caixa.height * 0.14);
       if (dicaAcima) {
-        // (parada mais baixo, na mão dele, a dica fica onde ficaria com a carta na altura
-        // de sempre: acima da cabeça dele, nunca no rosto, e o toque ali também vale. A
-        // folga dobra: a carta flutua e o passo balança, e a dica parada não acompanha.)
-        const baixou = ((baixar - BAIXAR) * innerHeight) / 2;
+        // (parada mais baixo, na mão dele, a dica fica acima de onde ficaria o alto da carta
+        // na altura de sempre, com a folga dobrada: acima da cabeça dele, nunca no rosto, e o
+        // toque ali também vale. A conta é pela pose, não pela caixa de agora: o passo e o
+        // mouse mexem a carta, que está perto, bem mais que a cabeça dele, e a dica não acompanha.)
+        const naMao = baixar > BAIXAR && mundo.ok;
+        const meia = Math.tan(((mundo.camera?.fov || 58) * Math.PI) / 360);
+        const topo = naMao ? ((1 + BAIXAR - ALTURA_CARTA / (2 * distanciaDaCarta(mundo) * meia)) * innerHeight) / 2 : caixa.top;
         dica.style.top = 'auto';
-        dica.style.bottom = `${Math.max(16, innerHeight - caixa.top + baixou + folga * (baixou > 0 ? 2 : 1))}px`;
+        dica.style.bottom = `${Math.max(16, innerHeight - topo + folga * (naMao ? 2 : 1))}px`;
       } else {
         dica.style.bottom = 'auto';
         dica.style.top = `${Math.min(innerHeight - 64, caixa.bottom + folga)}px`;

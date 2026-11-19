@@ -31,7 +31,7 @@ import { criarEnvelope } from '../mundo/envelope.js';
 import { criarDepois } from './resposta.js';
 
 const ALTURA_OLHOS = 1.5;
-const PARADA = 1.25;               // a carta para a esta distância dela (igual a carta.js)
+const PARADA = 1.25;               // a carta para a esta distância dela
 const ELE_PERTO = 2.25;            // na entrega ele fica a esta distância dela (m)
 const ELE_LADO = -0.05;            // e um nada para a esquerda: a mão estendida cai no meio da tela
 const NA_MAO = 0.45;               // na entrega a carta para na altura da mão dele (o `baixar` de carta.js): o rosto fica livre

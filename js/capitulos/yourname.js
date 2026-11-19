@@ -1,7 +1,7 @@
 // Capítulo 2: o filme. Um céu que passa do dia à noite com a rolagem.
 //
 //   export const capitulo = { id, montar(raiz, api) → { destruir() } }
-//   api = { conteudo, amb, som, rolagem, fundo, gsap, ScrollTrigger, fechar(), recursos }
+//   api = { conteudo, amb, som, rolagem, fundo, gsap, fechar(), recursos }
 //
 // Blocos (conteudo.yourname.blocos), em ordem livre:
 //   { tipo: 'texto', texto }

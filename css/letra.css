@@ -16,15 +16,16 @@
 .letra[data-vazia] { opacity: 0; }
 /* A letra dá passagem quando outra voz fala (o vídeo de um amigo, a voz dele: a música
    fica a 4–5%) e quando é a carta que fala: uma frase dele na tela, a folha de um
-   capítulo (leitura e releitura), a bolsa aberta, as cartas do chão (a caixa cobriria a
-   cabeça dele), o encontro (os quadros do filme) e o fim, da escrita em diante.
+   capítulo (leitura e releitura), o guardar na bolsa (a carta desce pela borda de cima,
+   por baixo dela), a bolsa aberta, as cartas do chão (a caixa cobriria a cabeça dele),
+   o encontro (os quadros do filme) e o fim, da escrita em diante.
    Na abertura ela espera, do preto se desfazendo até a última frase: sem isso a caixa
    aparecia antes da primeira frase e, no movimento reduzido, no respiro entre duas
    frases (#frases fica vazio ~0,4 s), para sumir em seguida.
    data-cena e data-etapa ficam no <html> (js/nucleo/diretor.js). Duas regras: um
    navegador sem :has() descarta só a primeira. */
 html:has(#frases > *, #pergaminho:not([hidden]), #inventario[data-aberto], .carta-chao-visor, #voz[data-aberto]) #letra { opacity: 0; }
-html:is([data-cena="cartas"], [data-cena="encontro"], [data-etapa="entrando"], [data-etapa="frases"]) #letra,
+html:is([data-cena="cartas"], [data-cena="encontro"], [data-etapa="entrando"], [data-etapa="frases"], [data-etapa="guardando"]) #letra,
 html[data-cena="final"]:is([data-etapa="escrevendo"], [data-etapa="contador"], [data-etapa="resposta"], [data-etapa="fim"]) #letra { opacity: 0; }
 .letra-linha {
   margin: 0;

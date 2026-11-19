@@ -10,8 +10,8 @@
 //   som.estado             { destravado, tocando, indice, volume, falhou }
 //   som.aoMudar(fn)        fn(estado) a cada mudança; devolve a função que cancela
 //   som.efeito(nome, opcoes)
-//                          'lacre' | 'papel' | 'desenrolar' | 'toque' | 'caneta' | 'fita' | 'mola' | 'brilho'
-//                          só a caneta usa opções: { duracao (s), intensidade (0..1,5) }
+//                          'lacre' | 'papel' | 'desenrolar' | 'toque' | 'caneta' | 'fita' | 'mola' | 'brilho' | 'caixinha'
+//                          opções: a caneta usa { duracao (s), intensidade (0..1,5) }; a caixinha, { nota (Hz) }
 //   som.abafar(fator, ms)  abaixa a música para `fator` (0..1) por `ms` milissegundos e volta
 //   som.progresso()        0..1: em que ponto da faixa a música está
 //   som.segundos()         o segundo da faixa agora, lido na hora

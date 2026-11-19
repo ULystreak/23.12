@@ -139,8 +139,8 @@
 .cartas-chao-seguir { transition-property: transform, opacity; }
 #palco:has(.carta-chao-visor) .cartas-chao-seguir { opacity: 0; pointer-events: none; transition-duration: var(--dur-sair); }
 /* Com todas abertas o botão chama o toque: uma onda clara sai da borda e a seta
-   aponta o caminho. (Não é o .ui-respira: o botão em si fica parado, para o toque
-   afundar na hora e a caixa dele não mudar de tamanho.) */
+   aponta o caminho. (O botão em si fica parado, para o toque afundar na hora e a
+   caixa dele não mudar de tamanho.) */
 .cartas-chao-seguir[data-destaque]::after {
   content: "";
   position: absolute;
@@ -490,7 +490,8 @@ html.reduzido .galeria-ponto { transition-duration: 0.01ms; }
 html:not(.reduzido) .carta-chao-desenho:not([data-trancada]) .cc-volta { transform: scale(1.06); }
 html:not(.reduzido) .carta-chao-desenho:not([data-trancada]) .cc-alca[data-lado="e"] { transform: rotate(-32deg) translate(-4px, 5px); }
 html:not(.reduzido) .carta-chao-desenho:not([data-trancada]) .cc-alca[data-lado="d"] { transform: rotate(32deg) translate(4px, 5px); }
-.carta-chao-desenho[data-negou] .carta-chao-face { animation: ui-pulo 520ms var(--mola); }
+/* (somado ao transform da face: com o mouse em cima, ela não perde o hover num salto no começo e no fim) */
+.carta-chao-desenho[data-negou] .carta-chao-face { animation: ui-pulo 520ms var(--mola); animation-composition: add; }
 .carta-chao-desenho[data-negou] .cc-alca { animation: cc-aperta 520ms var(--mola); }
 @keyframes cc-aperta { 35% { transform: scale(0.78); } }
 html.reduzido .cc-amarra > * { transition: opacity 0.4s linear; }

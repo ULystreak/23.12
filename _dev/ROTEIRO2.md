@@ -258,7 +258,7 @@ Feito por três grupos (FIM, VOZ, CÉU) e integrado depois. Onde esta seção di
 
 - Para o CSS: `html[data-hora="manha|dia|entardecer|crepusculo|noite"]` (muda só quando a hora troca; nada é escrito no `<html>` a cada quadro). À noite `#frases`, `#dica` e `#acoes > .botao` ficam claros (css/mundo.css). A cor troca de uma vez quando a posição passa de 3,5 (hoje atrás dos quadros, sem texto na tela).
 - Alameda 3D: uniformes `uLuz` (multiplica a cor de tudo) e `uNoite` (estrelas no shader do céu); `alameda.aplicarHora(estado)`. O cometa é um plano que soma luz a 3,2 m, criado quando a noite chega (`renderOrder = -5`: a carta, a folha, ele e as pétalas são desenhados por cima). Sem WebGL: três camadas sobre a foto (tarde, noite, cometa); só a opacidade anda. Reduzido: passagens de no máximo 2,4 s, cometa parado.
-- `entardecer()` de js/cenas/mao.js continua exportada, mas **não faz mais nada** (cartas.js e encontro.js ainda a chamam; pode sair). A regra `html.entardecer #mundo-fundo::after` de css/mao.css ficou morta.
+- `entardecer()` saiu de js/cenas/mao.js, com as chamadas de cartas.js e encontro.js e a regra `html.entardecer #mundo-fundo::after` de css/mao.css: a luz do dia é toda de mundo.hora.
 
 ### A última carta está na mão dele: `js/mundo/ele.js`, `js/cenas/final.js`, `js/cenas/encontro.js`
 

@@ -1,7 +1,7 @@
 // Capítulo 1: o jogo. Uma fita VHS achada numa fábrica de brinquedos.
 //
 //   export const capitulo = { id, montar(raiz, api) → { destruir() } }
-//   api = { conteudo, amb, som, rolagem, fundo, gsap, ScrollTrigger, fechar(), recursos }
+//   api = { conteudo, amb, som, rolagem, fundo, gsap, fechar(), recursos }
 //
 // Blocos (conteudo.poppy.blocos), em ordem livre:
 //   { tipo: 'texto', texto }

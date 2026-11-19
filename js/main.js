@@ -39,17 +39,18 @@ async function iniciar() {
   // ?musica=N (posto pela rede de segurança lá embaixo): a faixa que estava tocando
   // antes de a página recarregar volta nesse mesmo primeiro toque.
   const faixaAnterior = amb.params.has('musica') ? Number(amb.params.get('musica')) : -1;
+  // (touchend e click também: depois de recarregar num capítulo, rolar a folha com o dedo
+  // não termina em pointerup, e a música voltaria só no primeiro toque parado.)
+  const GESTOS = ['pointerup', 'touchend', 'click', 'keydown'];
   let destravado = false;
   const destravar = () => {
     if (destravado) return;
     destravado = true;
-    window.removeEventListener('pointerup', destravar, true);
-    window.removeEventListener('keydown', destravar, true);
+    for (const tipo of GESTOS) window.removeEventListener(tipo, destravar, true);
     som.destravar();
     if (Number.isInteger(faixaAnterior) && faixaAnterior >= 0) som.tocar(faixaAnterior);
   };
-  window.addEventListener('pointerup', destravar, true);
-  window.addEventListener('keydown', destravar, true);
+  for (const tipo of GESTOS) window.addEventListener(tipo, destravar, true);
 
   const mundo = await criarMundo({
     amb,

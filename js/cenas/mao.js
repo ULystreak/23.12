@@ -27,7 +27,7 @@ import { criarEle } from '../mundo/ele.js';
 
 const CAMINHADA = 26;                // metros percorridos nesta cena, seguindo o fio (agora correndo: conteudo.corrida.segundos)
 const RESTO = 4;                     // metros que ficam para a cena final
-const PARADA = 1.25;                 // distância em que a última carta fica dela (= carta.js)
+const PARADA = 1.25;                 // distância em que a última carta fica dela
 const S_CARTA = CAMINHADA + RESTO + PARADA;
 const ALTURA_CARTA = 1.46;           // = carta.js (olhos − 4 cm)
 const ALTURA_OLHOS = 1.5;

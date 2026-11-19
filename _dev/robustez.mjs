@@ -378,7 +378,8 @@ const casos = {
     const foco2 = await s.page.evaluate(() => document.activeElement?.dataset?.acao);
     await s.page.keyboard.press('Enter');
     await pausa(500);
-    // Com mais de uma música, as setas do carrossel vêm antes do continuar: tabula até ele.
+    // As setas do carrossel ficam fora do Tab (tabindex -1): o Tab vai direto ao continuar.
+    // O laço só garante, caso alguma peça nova entre no meio.
     let foco3 = '';
     for (let i = 0; i < 6 && foco3 !== 'continuar'; i++) {
       await s.page.keyboard.press('Tab');
