@@ -477,15 +477,22 @@ html.reduzido .galeria-ponto { transition-duration: 0.01ms; }
   .cartao-glifo { width: 44px; height: 33px; padding: 16px 10px; }
 }
 
-/* A Surpresinha fica por último: trancada até as outras serem abertas. Um toque antes
-   da hora só faz a carta balançar. */
-.carta-chao-vento { transition: opacity 600ms linear; }
-.carta-chao-desenho[data-trancada] .carta-chao-vento { opacity: 0.5; }
-.carta-chao-desenho[data-negou] .carta-chao-vento { animation: carta-chao-negou 0.46s cubic-bezier(0.36, 0.07, 0.19, 0.97); }
-@keyframes carta-chao-negou {
-  0%, 100% { transform: translateX(0); }
-  20% { transform: translateX(-6px); }
-  45% { transform: translateX(5px); }
-  70% { transform: translateX(-3px); }
+/* A Surpresinha fica por último: até as outras serem abertas, o fio dá uma volta em cruz
+   nela, com um lacinho no nó. Destrancada, o laço se desfaz (as alças se abrem e caem, a
+   volta afrouxa) e fica o coração de lacre. Um toque antes da hora: um pulinho e o laço
+   aperta. Movimento reduzido: só o estado (sem pulinho nem aperto; o laço só se dissolve). */
+.cc-amarra > * {
+  transform-box: view-box;
+  transform-origin: 80px 62px;         /* o nó */
+  transition: opacity 0.6s linear 0.5s, transform 1.1s var(--curva-branco-entrar) 0.5s;
 }
-html.reduzido .carta-chao-desenho[data-negou] .carta-chao-vento { animation: none; }
+.carta-chao-desenho:not([data-trancada]) .cc-amarra > * { opacity: 0; }
+html:not(.reduzido) .carta-chao-desenho:not([data-trancada]) .cc-volta { transform: scale(1.06); }
+html:not(.reduzido) .carta-chao-desenho:not([data-trancada]) .cc-alca[data-lado="e"] { transform: rotate(-32deg) translate(-4px, 5px); }
+html:not(.reduzido) .carta-chao-desenho:not([data-trancada]) .cc-alca[data-lado="d"] { transform: rotate(32deg) translate(4px, 5px); }
+.carta-chao-desenho[data-negou] .carta-chao-face { animation: ui-pulo 520ms var(--mola); }
+.carta-chao-desenho[data-negou] .cc-alca { animation: cc-aperta 520ms var(--mola); }
+@keyframes cc-aperta { 35% { transform: scale(0.78); } }
+html.reduzido .cc-amarra > * { transition: opacity 0.4s linear; }
+html.reduzido .carta-chao-desenho[data-negou] .carta-chao-face,
+html.reduzido .carta-chao-desenho[data-negou] .cc-alca { animation: none; }

@@ -78,12 +78,20 @@ const AMARRA = `
     <circle class="cc-no" cx="40" cy="38" r="3"/>
   </svg>`;
 
-// A Surpresinha: sem cruz; um coração de lacre na ponta da aba e o fio em laço.
+// A Surpresinha: um coração de lacre na ponta da aba e, enquanto ela espera a vez, o fio
+// dando uma volta em cruz com um lacinho no nó, que se desfaz quando ela pode abrir (css).
 const LACRE = `
   <svg class="carta-chao-fio" viewBox="0 0 160 110" aria-hidden="true" focusable="false">
-    <path class="cc-fio" d="M0 61 C30 59 52 63 80 61 S132 59 160 61"/>
-    <path class="cc-fio" d="M80 62 C66 44 46 46 49 58 C51 67 68 66 80 62 M80 62 C94 44 114 46 111 58 C109 67 92 66 80 62"/>
-    <path class="cc-fio" d="M80 62 C76 74 70 82 62 90 M80 62 C85 75 92 82 101 87"/>
+    <g class="cc-amarra">
+      <g class="cc-volta">
+        <g class="cc-fio-sombra" transform="translate(0.5 1.3)">
+          <path d="M0 61 C30 59 52 63 80 61 S132 59 160 61 M80 0 C79 20 81 40 80 61 S79 92 80 110"/>
+        </g>
+        <path class="cc-fio" d="M0 61 C30 59 52 63 80 61 S132 59 160 61 M80 0 C79 20 81 40 80 61 S79 92 80 110"/>
+      </g>
+      <path class="cc-fio cc-alca" data-lado="e" d="M80 62 C66 44 46 46 49 58 C51 67 68 66 80 62 M80 62 C76 74 70 82 62 90"/>
+      <path class="cc-fio cc-alca" data-lado="d" d="M80 62 C94 44 114 46 111 58 C109 67 92 66 80 62 M80 62 C85 75 92 82 101 87"/>
+    </g>
     <path class="cc-lacre" d="M80 71 C72 64 67.5 60 67.5 55.5 C67.5 51.6 70.6 49 74 49 C76.6 49 78.8 50.4 80 52.6 C81.2 50.4 83.4 49 86 49 C89.4 49 92.5 51.6 92.5 55.5 C92.5 60 88 64 80 71 Z"/>
   </svg>`;
 
@@ -201,7 +209,7 @@ export async function cenaCartas(ctx, { frio } = {}) {
   const campo = el('div', 'cartas-chao-campo');
   const vivo = el('p', { class: 'so-leitor', 'aria-live': 'polite' });
   raiz.append(campo, vivo);
-  palco.append(raiz);
+  palco.insertBefore(raiz, acoes);     // antes das ações: no foco e na leitura, as cartas vêm antes de seguir em frente
 
   // ---- a câmera: ela olha para o chão ----------------------------------------
   // geo: a lente do mundo neste tamanho de tela e o quanto o olhar desce.
@@ -623,7 +631,8 @@ export async function cenaCartas(ctx, { frio } = {}) {
       mundo.petalas.definirDensidade(0.4);
       vivo.textContent = carta.nome;
       gsap.fromTo(veu, { autoAlpha: 0 }, { autoAlpha: 1, duration: calmo ? 0.4 : 0.5, ease: 'none' });
-      gsap.fromTo(fechar, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3, delay: calmo ? 0 : 0.3, ease: 'none' });
+      // (só a opacidade: invisível, o botão continua focável e recebe o foco logo abaixo)
+      gsap.fromTo(fechar, { opacity: 0 }, { opacity: 1, duration: 0.3, delay: calmo ? 0 : 0.3, ease: 'none' });
       const origem = de && !calmo ? saidaPara(de) : null;
       if (origem) {
         // sobe da carta no chão: o caminho desacelera, o tamanho assenta com um nada de mola
@@ -644,7 +653,7 @@ export async function cenaCartas(ctx, { frio } = {}) {
 
   // ---- o nome, escrito na carta depois de aberta -----------------------------
   function escreverNome(item) {
-    if (item.escrito) return;
+    if (item.escrito) return Promise.resolve();
     item.escrito = true;
     const alvo = item.nome;
     // primeiro mede com o texto inteiro (a letra diminui até caber), depois escreve
@@ -655,7 +664,7 @@ export async function cenaCartas(ctx, { frio } = {}) {
       tamanho *= 0.9;
       alvo.style.fontSize = `calc(var(--b) * ${tamanho.toFixed(4)})`;
     }
-    escrever(gsap, alvo, item.carta.nome, { calmo, som });
+    return escrever(gsap, alvo, item.carta.nome, { calmo, som });
   }
 
   // ---- o botão de seguir em frente -------------------------------------------
@@ -684,12 +693,43 @@ export async function cenaCartas(ctx, { frio } = {}) {
     if (todas) seguir.dataset.tom = 'fio'; else delete seguir.dataset.tom;
   }
 
+  // ---- o fio responde -------------------------------------------------------------
+  // Cada carta fechada acende um pouco mais o fio e manda uma luz do pulso dela até a mão
+  // dele, que faísca quando ela chega; um toque livre no chão manda a mesma luz. O fio já
+  // foi revelado: é luz, não anúncio. Na cena fria (?cena=cartas) não há fio; sem WebGL o
+  // fio em SVG só acende e apaga. Ao seguir em frente, a luz volta ao que era.
+  const fio = estado.fio;
+  const luzFio = { v: fio?.acender?.() || 0 };
+  const acesoAntes = luzFio.v;
+  let luz = null;                      // o pulso que está correndo: pulso() mata o anterior no meio
+  function correrLuz() {
+    if (!fio?.pulso || luz || !/^(escolhendo|assistindo)$/.test(diretor.etapa())) return;
+    // (no movimento reduzido o próprio fio troca a luz que corre por um acender e apagar)
+    gsap.delayedCall(1.6, () => { const ponta = estado.ele?.ancora?.(); if (ponta) fio.faiscar?.(ponta, 14); });
+    luz = fio.pulso({ de: 0.1, ate: 1, duracao: 1.6, forca: 0.9, brasas: 10 }).then(() => {
+      luz = null;
+      // (sem WebGL o pulso apaga o fio inteiro: o nível volta junto)
+      gsap.to(luzFio, {
+        v: acesoAntes + 0.4 * abertas.size / itens.length, duration: 0.8, ease: 'sine.out', overwrite: true,
+        onUpdate: () => fio.acender?.(luzFio.v),
+      });
+    });
+  }
+  let toqueLivre = 0;
+  ouvir(window, 'pointerup', (ev) => {
+    if (diretor.etapa() !== 'escolhendo' || inventario.aberto || visorAberto) return;
+    if (ev.target?.closest?.('button, #mini, #inventario')) return;     // as cartas e os botões têm o toque deles
+    if (performance.now() - toqueLivre < 2500) return;
+    toqueLivre = performance.now();
+    correrLuz();
+  });
+
   // ---- abrir uma carta ----------------------------------------------------------
   let ocupado = false;
   async function abrirCarta(item) {
     if (ocupado || visorAberto || inventario.aberto || diretor.etapa() !== 'escolhendo') return;
     if (item.ultima && itens.some((o) => o !== item && !abertas.has(o.carta.id))) {
-      // Ainda não: a carta só balança, sem abrir.
+      // Ainda não: um pulinho e o laço aperta, sem abrir (css).
       item.desenho.removeAttribute('data-negou');
       void item.desenho.offsetWidth;
       item.desenho.dataset.negou = '1';
@@ -725,7 +765,7 @@ export async function cenaCartas(ctx, { frio } = {}) {
     }
     ocupado = false;
     diretor.etapa('escolhendo');
-    escreverNome(item);
+    escreverNome(item).then(correrLuz);   // depois do nome, a luz corre pelo fio até ele
     if (!amb.toque) { try { item.botao.focus({ preventScroll: true }); } catch { /* sem foco */ } }
   }
 
@@ -802,7 +842,13 @@ export async function cenaCartas(ctx, { frio } = {}) {
       gsap.to(item.anim, { op: 0, duration: 0.6, delay: k * 0.05, ease: 'none' });
       if (!calmo) gsap.to(item.anim, { alt: 0.1, vira: 10, duration: 0.9, delay: k * 0.05, ease: 'power1.in' });
     });
-    await new Promise((ok) => gsap.to(olhar, { k: 0, duration: calmo ? 0.8 : 1.6, ease: calmo ? 'none' : 'sine.inOut', onComplete: ok }));
+    // A luz que as cartas acenderam volta ao que era, depois de o último pulso chegar
+    // (o encontro manda o pulso dele; se pegasse este no meio, a luz pularia).
+    const apagar = fio && Promise.race([luz, espera(3000)]).then(() => new Promise((ok) => gsap.to(luzFio, {
+      v: acesoAntes, duration: calmo ? 0.8 : 1.2, ease: 'sine.inOut', overwrite: true,
+      onUpdate: () => fio.acender?.(luzFio.v), onComplete: ok,
+    })));
+    await Promise.all([apagar, new Promise((ok) => gsap.to(olhar, { k: 0, duration: calmo ? 0.8 : 1.6, ease: calmo ? 'none' : 'sine.inOut', onComplete: ok }))]);
   } finally {
     for (const fn of cancelamentos) { try { fn(); } catch { /* nada */ } }
     if (frase) frase.remove();
