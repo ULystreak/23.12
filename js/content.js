@@ -802,6 +802,12 @@ window.CONTEUDO = {
                pode ser em pé (opcional; sem ela, o clarão vem das mãos)
      ------------------------------------------------------------------------ */
   encontro: {
+    // Na hora das duas mãos é ela quem amarra o fio: uma brasinha de luz espera
+    // no dedinho dela, e ela leva o fio com o dedo até o seu. Esta é a dica que
+    // aparece se ela demorar uns segundos (se ela não fizer nada, o fio se liga
+    // sozinho logo depois). Está entre colchetes porque é um exemplo: troque
+    // pela sua frase. Vazio ('') = sem dica.
+    dicaFio: '[Leva o fio até ele.]',
     quadros: [
       {
         imagem: 'assets/images/encontro-mitsuha-costas.webp',

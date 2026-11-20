@@ -9,9 +9,11 @@
 // escondida). Aqui a luz corre pelo fio, a alameda
 // escurece e os quadros do content.js (encontro.quadros) entram como planos de
 // um filme, um de cada vez, sozinhos: cada um com uma panorâmica lenta do `foco`
-// até o `ate`. Os dois quadros que têm `dedo` (as mãos) voltam juntos no fim: o
-// fio vermelho do site liga um dedinho ao outro, a luz corre por ele e vira um
-// clarão. Quando o clarão passa, ele está diante dela, de mão estendida, com a
+// até o `ate`. Os dois quadros que têm `dedo` (as mãos) voltam juntos no fim, e é
+// ela quem amarra o fio: uma brasinha espera no dedinho dela, o fio vermelho do site
+// acompanha o dedo dela até o dedinho dele, o aparelho bate na mão dela, a luz corre
+// pelo fio e vira um clarão. (Um toque no dedinho dele, Enter ou Espaço também valem;
+// sem gesto nenhum, o fio se liga sozinho depois de ESPERA_SOZINHO.) Quando o clarão passa, ele está diante dela, de mão estendida, com a
 // última carta pousada na mão (entregaNaMao, em js/cenas/final.js); sem ele, a
 // carta surge sozinha, já com o fio no laço. A cena final segue dali.
 //
@@ -23,6 +25,8 @@
 //                              .enc-faixa (máscara de bordas) > img (só transform anima)
 //     .enc-mao × 2             os recortes das mãos
 //     svg.enc-fio              o fio de verdade: a emenda com o fio do primeiro quadro e o laço entre os dedinhos
+//     .enc-dica                a dica do fio (encontro.dicaFio), só se ela demorar
+//     .enc-arrasto > button.enc-alvo   só na espera do fio: a área que segue o dedo dela e o alvo no dedinho dele
 //     .enc-grao                grão de filme (esconde a baixa resolução)
 //     .enc-clarao              o clarão
 //
@@ -39,11 +43,14 @@ import { clamp, el, espera, lerp } from '../nucleo/util.js';
 import { curvas } from '../nucleo/movimento.js';
 import { temEncontro } from '../nucleo/diretor.js';
 import { entregaNaMao } from './final.js';
+import { vibrar } from './mao.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const COR_FIO = '#d7192d';
 const SOBRA = 1.04;                 // o quadro cobre a faixa com esta folga (a panorâmica tem para onde ir)
 const ESPERA_QUADROS = 5000;        // ms no máximo esperando os quadros (rede lenta: o que não veio é pulado)
+const ESPERA_DICA = 4000;           // ms sem ela puxar o fio até a dica aparecer
+const ESPERA_SOZINHO = 12000;       // ms sem gesto até o fio se ligar sozinho (a cena nunca fica presa)
 
 // Tempos, em segundos de cena.
 const T = {
@@ -51,7 +58,8 @@ const T = {
   entrada: 1.2,                     // quando o primeiro plano começa a aparecer
   dissolver: 1.0,                   // dissolvência entre dois planos
   plano: [3.8, 3.1, 3.2, 3.2],      // quanto cada plano fica (os seguintes repetem o último)
-  maos: 4.2,                        // as mãos: o fio se desenha (0,9 → 2,3), fica, e a luz corre (3,0 → 4,0)
+  maos: 1.7,                        // as mãos chegam e a brasinha acende no dedinho dela; aqui a cena espera por ela
+  no: 1.5,                          // do nó até o plano final (ou o clarão): a luz corre pelo fio (0,3 → 1,3)
   fim: 3.3,                         // o plano final (`fim: true`), das mãos até o clarão
 };
 
@@ -186,7 +194,7 @@ function mostrarCarta(ctx, duracao = 1.4) {
 }
 
 export async function cenaEncontro(ctx, { frio } = {}) {
-  const { diretor, mundo, som, musica, estado, amb } = ctx;
+  const { diretor, mundo, som, musica, estado, amb, conteudo, inventario } = ctx;
   const gsap = window.gsap;
   const calmo = amb.reduzido;
   const palco = document.getElementById('palco');
@@ -253,20 +261,26 @@ export async function cenaEncontro(ctx, { frio } = {}) {
   const emenda = todos.some((p) => p.q.fio) ? { sombra: traco('enc-fio-sombra'), fio: traco('enc-fio-linha') } : null;
   // o laço entre os dedinhos
   const laco = maos ? { sombra: traco('enc-fio-sombra'), fio: traco('enc-fio-linha'), luz: traco('enc-fio-luz') } : null;
-  if (laco) {
-    for (const p of [laco.sombra, laco.fio, laco.luz]) { p.setAttribute('pathLength', '1'); p.setAttribute('stroke-dasharray', '1 1'); p.setAttribute('stroke-dashoffset', '1'); }
-  }
-  // a luz que corre pelo laço: uma conta de luz macia (não um traço)
+  // a brasinha que espera na ponta do fio e, depois do nó, a luz que corre pelo laço:
+  // uma conta de luz macia (não um traço)
   const brasa = laco ? el('div', { class: 'enc-brasa', 'aria-hidden': 'true' }) : null;
+  // Ela amarra o fio: o alvo no dedinho dele (toque, teclado, leitor de tela) dentro da
+  // área que segue o dedo dela (só entram na tela durante a espera), e a dica.
+  const textoDica = typeof conteudo.encontro?.dicaFio === 'string' ? conteudo.encontro.dicaFio.trim() : '';
+  const alvo = laco ? el('button', { class: 'enc-alvo ui-escuro', type: 'button', 'aria-label': textoDica || 'Amarrar o fio', dataset: { acao: 'amarrar-fio' } }) : null;
+  const arrasto = laco ? el('div', 'enc-arrasto', alvo) : null;
+  const dica = laco && textoDica ? el('p', { class: 'enc-dica', 'aria-hidden': 'true' }, textoDica) : null;
   const grao = el('div', { class: 'enc-grao', 'aria-hidden': 'true' });
   const clarao = el('div', { class: 'enc-clarao', 'aria-hidden': 'true' });
   const branco = el('div', { class: 'enc-branco', 'aria-hidden': 'true' });
-  raiz.append(desenho, ...(brasa ? [brasa] : []), grao, clarao, branco);
+  raiz.append(desenho, ...(brasa ? [brasa] : []), grao, ...(dica ? [dica] : []), clarao, branco);
   palco.append(raiz);
 
   // ---- geometria ----------------------------------------------------------------------
   const geo = { L: 1, A: 1, emPe: true, faixa: { x: 0, y: 0, w: 1, h: 1 }, maos: [] };
-  const estadoFio = { desenhado: 0, luz: 0, conta: 0, alfa: 0 };
+  // ponta: a brasinha na ponta solta do fio; puxa: 0 = a ponta no dedinho dela, 1 = no dedo
+  // dela (x, y); no: 1 = amarrado no dedinho dele
+  const estadoFio = { luz: 0, conta: 0, alfa: 0, ponta: 0, brilho: 0.66, puxa: 0, no: 0, x: 0, y: 0 };
 
   function medir() {
     const L = Math.max(1, raiz.clientWidth || innerWidth);
@@ -396,9 +410,15 @@ export async function cenaEncontro(ctx, { frio } = {}) {
         m.dedo.y = r.y + oy + e.ty + m.q.dedo.y * e.H;
       });
       const [a, b] = maos;
-      // Do dedinho dela ao dele, com uma barriga que estica conforme as mãos chegam.
-      const dx = b.dedo.x - a.dedo.x;
-      const dy = b.dedo.y - a.dedo.y;
+      alvo.style.transform = `translate3d(${b.dedo.x.toFixed(1)}px, ${b.dedo.y.toFixed(1)}px, 0)`;
+      // A ponta do fio: no dedinho dela, atrás do dedo dela enquanto ela puxa e, depois do nó, no dele.
+      const fim = {
+        x: lerp(lerp(a.dedo.x, estadoFio.x, estadoFio.puxa), b.dedo.x, estadoFio.no),
+        y: lerp(lerp(a.dedo.y, estadoFio.y, estadoFio.puxa), b.dedo.y, estadoFio.no),
+      };
+      // Do dedinho dela até a ponta, com uma barriga que estica conforme as mãos chegam.
+      const dx = fim.x - a.dedo.x;
+      const dy = fim.y - a.dedo.y;
       const comp = Math.hypot(dx, dy) || 1;
       const folga = comp * lerp(0.2, 0.09, a.perto);
       let c1;
@@ -406,31 +426,32 @@ export async function cenaEncontro(ctx, { frio } = {}) {
       if (geo.emPe) {
         // Em pé o fio cai reto do nó dela (por fora da mão), cruza o céu entre os dois
         // recortes e chega ao dedinho dele por cima e por fora, sem cruzar os dedos.
-        const lado = dx < 0 ? -1 : 1;
-        const abre = geo.L * lerp(0.2, 0.15, a.perto);
+        // (com a ponta ainda perto do dedinho dela, a curva abre menos e troca de lado sem salto)
+        const lado = clamp(dx / (geo.L * 0.12), -1, 1);
+        const abre = Math.min(geo.L * lerp(0.2, 0.15, a.perto), comp * 0.5);
         c1 = { x: a.dedo.x - lado * geo.L * 0.02, y: a.dedo.y + dy * 0.42 };
-        c2 = { x: b.dedo.x + lado * abre * 0.9, y: b.dedo.y - dy * 0.5 };
+        c2 = { x: fim.x + lado * abre * 0.9, y: fim.y - dy * 0.5 };
       } else {
         // Deitado, de um dedinho ao outro com uma barriga para baixo (o fio tem peso).
         c1 = { x: a.dedo.x + dx * 0.3, y: a.dedo.y + dy * 0.3 + folga };
         c2 = { x: a.dedo.x + dx * 0.7, y: a.dedo.y + dy * 0.7 + folga };
       }
-      const d = `M${a.dedo.x.toFixed(1)} ${a.dedo.y.toFixed(1)} C${c1.x.toFixed(1)} ${c1.y.toFixed(1)} ${c2.x.toFixed(1)} ${c2.y.toFixed(1)} ${b.dedo.x.toFixed(1)} ${b.dedo.y.toFixed(1)}`;
+      const d = `M${a.dedo.x.toFixed(1)} ${a.dedo.y.toFixed(1)} C${c1.x.toFixed(1)} ${c1.y.toFixed(1)} ${c2.x.toFixed(1)} ${c2.y.toFixed(1)} ${fim.x.toFixed(1)} ${fim.y.toFixed(1)}`;
       for (const p of [laco.sombra, laco.fio, laco.luz]) p.setAttribute('d', d);
-      const off = (1 - estadoFio.desenhado).toFixed(4);
-      laco.sombra.setAttribute('stroke-dashoffset', off);
-      laco.fio.setAttribute('stroke-dashoffset', off);
-      laco.luz.setAttribute('stroke-dashoffset', off);
       laco.sombra.style.opacity = laco.fio.style.opacity = estadoFio.alfa.toFixed(3);
       laco.luz.style.opacity = (estadoFio.alfa * estadoFio.luz).toFixed(3);
       // a conta de luz corre do dedinho dela ao dele (nasce e some nas pontas)
       const u = estadoFio.conta;
       const acesa = u > 0.001 && u < 0.999 && estadoFio.alfa > 0.001;
-      brasa.style.opacity = acesa ? (Math.min(1, u * 8, (1 - u) * 6) * estadoFio.alfa).toFixed(3) : '0';
+      // antes do nó, a brasinha espera (menor, respirando) na ponta solta do fio
+      const naPonta = acesa ? 0 : estadoFio.ponta * (1 - estadoFio.no) * estadoFio.alfa;
+      brasa.style.opacity = acesa ? (Math.min(1, u * 8, (1 - u) * 6) * estadoFio.alfa).toFixed(3) : naPonta.toFixed(3);
       if (acesa) {
         let pt = null;
         try { pt = laco.fio.getPointAtLength(laco.fio.getTotalLength() * u); } catch { /* sem geometria: fica onde está */ }
         if (pt) brasa.style.transform = `translate3d(${pt.x.toFixed(1)}px, ${pt.y.toFixed(1)}px, 0)`;
+      } else if (naPonta > 0.001) {
+        brasa.style.transform = `translate3d(${fim.x.toFixed(1)}px, ${fim.y.toFixed(1)}px, 0) scale(${estadoFio.brilho.toFixed(3)})`;
       }
       // o clarão nasce no meio do fio (o lugar é escrito uma vez, quando ele começa: ver centrarClarao)
       geo.centro = { x: (a.dedo.x + b.dedo.x) / 2, y: (a.dedo.y + b.dedo.y) / 2 };
@@ -448,6 +469,101 @@ export async function cenaEncontro(ctx, { frio } = {}) {
   const pararTamanho = mundo.aoRedimensionar(aoGirar);
   window.addEventListener('resize', aoGirar, { passive: true });
   const tl = gsap.timeline({ onUpdate: desenhar });
+
+  // ---- ela amarra o fio ---------------------------------------------------------------
+  // A linha do tempo para em `maos` e só segue com o nó. O fio acompanha o dedo dela (a
+  // ponta chega ao dedinho dele: amarra); um toque no dedinho dele, Enter ou Espaço também
+  // amarram; e, sem gesto, ele se liga sozinho.
+  let amarrado = false;
+  let dedoNaTela = null;              // o ponteiro que está puxando o fio
+  let vez = 0;                        // cada gesto recomeça a contagem do "sozinho"
+  let respiro = null;
+  const mexer = (alvos, opcoes) => gsap.to(estadoFio, { ...alvos, onUpdate: desenhar, overwrite: 'auto', ...opcoes });
+
+  function amarrar(sozinho = false) {
+    if (amarrado) return;
+    amarrado = true;
+    vez++;
+    respiro?.kill();
+    window.removeEventListener('keydown', aoTeclar);
+    // a batidinha na mão dela (no iPhone ela só sai dentro de um toque: se o nó veio no meio
+    // do arrasto, ela vem quando o dedo levanta)
+    if (!sozinho) {
+      if (amb.ios && dedoNaTela !== null) window.addEventListener('pointerup', () => vibrar(amb), { once: true });
+      else vibrar(amb);
+    }
+    arrasto.remove();
+    if (dica) gsap.to(dica, { opacity: 0, duration: 0.4, ease: 'none', overwrite: true });
+    // quanto falta para a ponta chegar: de perto é um estalo; de longe, o fio se estende
+    const [a, b] = maos;
+    const falta = clamp((1 - estadoFio.puxa) + estadoFio.puxa * Math.hypot(estadoFio.x - b.dedo.x, estadoFio.y - b.dedo.y) / (Math.hypot(a.dedo.x - b.dedo.x, a.dedo.y - b.dedo.y) || 1));
+    mexer({ no: 1 }, {
+      duration: calmo ? 0.01 : sozinho ? 1.4 : lerp(0.2, 0.9, falta),
+      ease: sozinho ? 'power2.inOut' : 'power2.out',
+      onComplete: () => tl.play(),
+    });
+  }
+
+  const contarSozinho = () => {
+    const v = ++vez;
+    espera(ESPERA_SOZINHO).then(() => {
+      if (v !== vez || amarrado) return;
+      if (inventario?.aberto) contarSozinho();   // relendo algo da bolsa: espera ela voltar
+      else amarrar(true);
+    });
+  };
+
+  function seguirDedo(ev) {
+    const caixa = raiz.getBoundingClientRect();
+    estadoFio.x = ev.clientX - caixa.left;
+    estadoFio.y = ev.clientY - caixa.top;
+    const b = maos[1].dedo;
+    const perto = clamp(Math.min(geo.L, geo.A) * 0.13, 48, 84);
+    if (Math.hypot(estadoFio.x - b.x, estadoFio.y - b.y) < perto) amarrar();
+    else desenhar();
+  }
+  const aoApertar = (ev) => {
+    if (amarrado || dedoNaTela !== null || ev.button > 0 || ev.target === alvo) return;
+    dedoNaTela = ev.pointerId;
+    vez++;
+    try { arrasto.setPointerCapture(ev.pointerId); } catch { /* sem captura: segue enquanto estiver por cima */ }
+    mexer({ puxa: 1 }, { duration: calmo ? 0.01 : 0.25, ease: 'power2.out' });
+    seguirDedo(ev);
+  };
+  const aoMover = (ev) => { if (!amarrado && ev.pointerId === dedoNaTela) seguirDedo(ev); };
+  const aoSoltar = (ev) => {
+    if (ev.pointerId !== dedoNaTela) return;
+    dedoNaTela = null;
+    if (amarrado) return;
+    // soltou no caminho: a ponta volta para o dedinho dela
+    mexer({ puxa: 0 }, { duration: calmo ? 0.01 : 0.5, ease: 'power2.inOut' });
+    contarSozinho();
+  };
+
+  // Enter ou Espaço com o foco solto (no body) também amarram; com Tab, o alvo é um botão.
+  // (O foco não é levado até ele: num toque, o anel de foco apareceria no dedinho dele.)
+  const aoTeclar = (ev) => {
+    if ((ev.key !== 'Enter' && ev.key !== ' ') || inventario?.aberto) return;
+    if (document.activeElement && document.activeElement !== document.body) return;
+    ev.preventDefault();
+    amarrar();
+  };
+
+  function esperarFio() {
+    arrasto.addEventListener('pointerdown', aoApertar);
+    arrasto.addEventListener('pointermove', aoMover);
+    arrasto.addEventListener('pointerup', aoSoltar);
+    arrasto.addEventListener('pointercancel', aoSoltar);
+    alvo.addEventListener('click', () => amarrar());
+    raiz.append(arrasto);
+    window.addEventListener('keydown', aoTeclar);
+    if (!calmo) respiro = gsap.fromTo(estadoFio, { brilho: 0.58 }, { brilho: 0.8, duration: 1.1, ease: 'sine.inOut', yoyo: true, repeat: -1, onUpdate: desenhar });
+    contarSozinho();
+    espera(ESPERA_DICA).then(() => {
+      if (amarrado || dedoNaTela !== null || !dica) return;
+      gsap.fromTo(dica, { opacity: 0, y: calmo ? 0 : 8 }, { opacity: 1, y: 0, duration: 1.4, ease: curvas.branco.entrar });
+    });
+  }
 
   try {
     // ---- chegando: a luz corre pelo fio e a alameda escurece ----------------------------
@@ -472,23 +588,24 @@ export async function cenaEncontro(ctx, { frio } = {}) {
     // Em pé o céu do crepúsculo cobre a tela: o mundo 3D descansa atrás dele.
     tl.call(() => { if (geo.emPe && mundo.ligado) { mundoDesligado = true; mundo.desligar(); } }, null, (calmo ? 0.9 : T.entrada) + 1.6);
 
-    // ---- maos: os dois dedinhos, o fio de verdade entre eles, a luz ---------------------
+    // ---- maos: os dois dedinhos, a espera por ela, o fio de verdade entre eles, a luz ---
     const tMaos = t;
     let tFim = t;                       // quando o plano final pode entrar
     let tClarao = t + 0.5;
     if (maos) {
       tl.call(() => diretor.etapa('maos'), null, tMaos);
       tl.to(maos, { opacidade: 1, duration: 1.0, stagger: 0.28, ease: 'sine.inOut' }, tMaos);
-      tl.to(maos, { perto: 1, duration: T.maos, ease: curvas.branco.camera }, tMaos);
-      tl.to(estadoFio, { alfa: 1, duration: 0.3, ease: 'none' }, tMaos + 0.9);
-      if (calmo) tl.set(estadoFio, { desenhado: 1 }, tMaos + 0.9);
-      else tl.to(estadoFio, { desenhado: 1, duration: 1.4, ease: 'power2.inOut' }, tMaos + 0.9);
-      // o fio fica um instante inteiro entre os dois antes de a luz correr
-      tl.call(() => som.efeito('brilho'), null, tMaos + 3.0);
-      if (!calmo) tl.to(estadoFio, { conta: 1, duration: 1.0, ease: 'power1.inOut' }, tMaos + 3.0);
-      tl.to(estadoFio, { luz: 1, duration: 0.9, ease: 'power2.in' }, tMaos + 3.1);
-      tFim = tMaos + T.maos - 0.3;
-      tClarao = tMaos + T.maos - 0.3;
+      tl.to(maos, { perto: 1, duration: T.maos + T.no, ease: curvas.branco.camera }, tMaos);
+      // a brasinha acende no dedinho dela, e a cena espera: é ela quem leva o fio (esperarFio)
+      tl.to(estadoFio, { alfa: 1, ponta: 1, duration: 0.6, ease: 'sine.out' }, tMaos + 0.9);
+      const tNo = tMaos + T.maos;
+      tl.addPause(tNo, esperarFio);
+      // amarrado: a luz corre de um dedinho ao outro
+      tl.call(() => som.efeito('brilho'), null, tNo + 0.3);
+      if (!calmo) tl.to(estadoFio, { conta: 1, duration: 1.0, ease: 'power1.inOut' }, tNo + 0.3);
+      tl.to(estadoFio, { luz: 1, duration: 0.9, ease: 'power2.in' }, tNo + 0.4);
+      tFim = tNo + T.no;
+      tClarao = tNo + T.no;
     }
 
     // ---- o plano final: as mãos dissolvem nele, e é dele que o clarão nasce ---------------
@@ -513,7 +630,7 @@ export async function cenaEncontro(ctx, { frio } = {}) {
     tl.call(() => {
       diretor.etapa('carta');
       // Debaixo do clarão: os quadros saem, o mundo volta e a carta está lá.
-      for (const no of [ceu, grao, desenho, clarao, ...todos.map((p) => p.no), ...(brasa ? [brasa] : []), ...(maos ? maos.map((m) => m.no) : [])]) no.remove();
+      for (const no of [ceu, grao, desenho, clarao, ...todos.map((p) => p.no), ...(brasa ? [brasa] : []), ...(dica ? [dica] : []), ...(maos ? maos.map((m) => m.no) : [])]) no.remove();
       religar();
       mostrarCarta(ctx, 1.2);
       estado.envelope?.brilharLaco?.(0.85, 0.2);
@@ -528,6 +645,9 @@ export async function cenaEncontro(ctx, { frio } = {}) {
     await new Promise((ok) => tl.eventCallback('onComplete', ok));
   } finally {
     tl.kill();
+    amarrado = true;
+    window.removeEventListener('keydown', aoTeclar);
+    gsap.killTweensOf(estadoFio);
     pararTamanho();
     window.removeEventListener('resize', aoGirar);
     raiz.remove();

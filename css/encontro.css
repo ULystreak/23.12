@@ -10,6 +10,7 @@
      .enc-plano    um quadro: .enc-fundo (ele mesmo, desfocado) + .enc-faixa > img
      .enc-mao      os dois recortes das mãos
      .enc-fio      o fio de verdade (SVG)
+     .enc-dica     a dica do fio; .enc-arrasto > .enc-alvo: onde ela puxa e amarra o fio
      .enc-grao     grão de filme
      .enc-clarao / .enc-branco   o clarão de onde a carta surge
    ========================================================================== */
@@ -149,6 +150,50 @@
   opacity: 0;
   will-change: transform, opacity;
   background: radial-gradient(circle closest-side, #fffaf2 0%, rgba(255, 236, 214, 0.95) 9%, rgba(255, 190, 160, 0.5) 26%, rgba(255, 150, 130, 0.16) 55%, rgba(255, 150, 130, 0) 100%);
+}
+
+/* ---- ela amarra o fio --------------------------------------------------------
+   A área que segue o dedo dela (a tela toda, invisível), o alvo no dedinho dele
+   (88 px; o lugar vem do js, por transform) e a dica, que só aparece se ela demorar. */
+.enc-arrasto {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.enc-alvo {
+  position: absolute;
+  left: 0; top: 0;
+  width: 88px;
+  height: 88px;
+  margin: -44px 0 0 -44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.enc-dica {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: calc(var(--seguro-base, 0px) + clamp(22px, 5vh, 56px));
+  margin: 0;
+  padding: 0 var(--margem);
+  text-align: center;
+  font-family: var(--fonte-mao);
+  font-weight: 600;
+  font-size: clamp(1rem, 0.94rem + 0.3vw, 1.15rem);
+  letter-spacing: 0.03em;
+  color: var(--luar);
+  text-shadow: 0 1px 8px rgba(12, 7, 26, 0.7);
+  opacity: 0;
+  will-change: transform, opacity;
 }
 
 /* ---- grão ------------------------------------------------------------------ */

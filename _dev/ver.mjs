@@ -34,7 +34,8 @@
 // mao:mao-espera) e uma carta do chão e um capítulo (em cartas:escolhendo), e falha se a
 // etapa mudar, se faltar item na bolsa ou se o botão de seguir não ganhar destaque.
 // A cena "encontro" só existe com algum quadro em encontro.quadros; ela anda sozinha
-// (chegando → planos → maos → carta), sem toque nenhum.
+// (chegando → planos → maos → carta) até as mãos, onde é ela quem amarra o fio: aqui, um
+// toque no dedinho dele ([data-acao="amarrar-fio"]; sem toque, o fio se liga sozinho).
 
 import { abrir, lerConteudo, senhaDoConteudo, temCartas, temEncontro, etapasDoFinal, videosDeTeste, injetarVideos, ERRO_ESPERADO } from './lib.mjs';
 
@@ -220,6 +221,8 @@ async function agir(s, cena, etapa, extra = {}) {
     await s.acionar('[data-acao="seguir-fio"]');
   } else if (cena === 'cartas' && etapa === 'escolhendo') {
     await verCartas(s, extra);
+  } else if (cena === 'encontro' && etapa === 'maos') {
+    await s.acionar('[data-acao="amarrar-fio"]');
   } else if (etapa === 'resposta') {
     await escreverDeVolta(s, extra);
   }
