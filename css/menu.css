@@ -1,0 +1,683 @@
+/* ============================================================================
+   O MENU DO FIM: "o varal do fio" (js/cenas/menu.js)
+   A alameda à noite é o menu. O fio vermelho desce do alto (passa por trás do
+   contador pequeno) e cada parte da carta é uma etiqueta de papel com ilhó,
+   amarrada nele, em zigue-zague; a ponta do fio é a pílula da saudade (do
+   outro lado está ele). No chão, as coisas dela: a fita com a voz, o
+   caderninho das referências, a folha com a pena e a bolsa.
+   Linguagem: _dev/UI.md (as peças .ui-* vêm de css/base.css). Só transform e
+   opacity são animados; sem backdrop-filter; sombras fixas. Tudo é DOM por
+   cima do mundo: com e sem WebGL é a mesma tela.
+
+   section.menu[data-etapa="referencias|menu"]
+     .menu-sombra      o chão escurece um pouco
+     .menu-corda       o fio com tudo o que está amarrado nele
+       .menu-fio         o fio (SVG) por trás do papel; .menu-fio-frente por cima, até o furo
+       .menu-creditos    as referências passando (só na primeira chegada)
+       .menu-partes      as etiquetas
+       .menu-ponta       a pílula da saudade e a frase dele
+     .menu-chao        os objetos do chão
+     .menu-pular       pula as referências
+     .menu-veu         a noite do próprio menu
+   .menu-gaveta        a folha das referências (e a dos bilhetes), no <body>
+   .menu-portao        o portão do som, no <body>
+   ========================================================================== */
+
+.menu {
+  --menu-topo: clamp(84px, 13.2vh, 122px);      /* onde a primeira etiqueta para (o contador fica acima) */
+  --menu-alt: 52px;                             /* a altura de cada etiqueta */
+  --menu-passo: clamp(5px, 1.35vh - 4px, 15px); /* o vão entre uma e outra */
+  --menu-cruza: 30px;                           /* quanto cada etiqueta passa do meio (o fio ondula) */
+  --menu-letra: clamp(1rem, 0.955rem + 0.22vw, 1.125rem);
+  --menu-halo: 0 0 0.3em rgba(6, 8, 26, 0.9), 0 0 0.9em rgba(6, 8, 26, 0.7);   /* o mesmo das frases à noite (css/mundo.css) */
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  font-family: var(--fonte-mao);
+  color: var(--luar);
+}
+.menu[data-sem-contador] { --menu-topo: clamp(44px, 13.2vh - 40px, 82px); }
+
+/* O chão escurece um pouco embaixo: as coisas dela e os nomes se leem sobre o caminho claro. */
+.menu-sombra {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to top, rgba(7, 9, 30, 0.8), rgba(7, 9, 30, 0.5) 15%, rgba(7, 9, 30, 0) 34%),
+    linear-gradient(to bottom, rgba(7, 9, 30, 0.34), rgba(7, 9, 30, 0) 15%);
+  opacity: 0;
+  transition: opacity 1.2s linear;
+}
+.menu[data-etapa="menu"] .menu-sombra { opacity: 1; }
+/* A noite do próprio menu: cobre quando ela sai para uma parte (e, no movimento reduzido, na troca). */
+.menu-veu {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: rgb(7, 9, 30);
+  pointer-events: none;
+}
+
+/* Enquanto as referências passam, o contador pequeno sai de cena; volta quando o menu assenta. */
+html[data-cena="menu"] .depois { transition: opacity 0.4s linear; }
+html[data-cena="menu"][data-etapa="referencias"] .depois { opacity: 0; }
+/* A letra da música dá passagem: o alto da tela é do contador e do fio. */
+html[data-cena="menu"] #letra,
+html[data-portao] #letra { opacity: 0; }
+
+/* ---- a corda: o fio com tudo o que está amarrado nele ----------------------
+   No descanso fica em translateY(0). Na primeira vez sobe de baixo: as
+   referências na frente (.menu-creditos, acima do topo) e as partes por último. */
+.menu-corda {
+  position: absolute;
+  left: 50%;
+  top: var(--menu-topo);
+  width: min(100%, 620px);
+  margin-left: calc(min(100%, 620px) / -2);
+}
+.menu-corda[data-viaja] { will-change: transform; }
+.menu-fio {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.menu-fio path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.menu-fio-sombra { stroke: rgba(4, 6, 20, 0.42); stroke-width: 2.6; transform: translate(2px, 3px); }
+.menu-fio-linha { stroke: var(--fio); stroke-width: 2.3; }
+/* a torção da linha: um brilho miúdo e interrompido por cima */
+.menu-fio-torcao { stroke: rgba(255, 214, 205, 0.36); stroke-width: 0.9; stroke-dasharray: 2.4 3.6; }
+/* O mesmo fio, de novo, por cima das etiquetas: só o trecho que vem da borda de cima de
+   cada uma até o furo (o resto passa por trás do papel). A sombra dele cai no papel. */
+.menu-fio-frente .menu-fio-sombra { stroke: rgba(42, 27, 34, 0.2); stroke-width: 2.3; transform: translate(1.6px, 1.2px); }
+/* Aparelho fraco: uma sombra só (a do fio de trás). */
+html[data-nivel="baixo"] .menu-fio-frente .menu-fio-sombra { display: none; }
+
+/* ---- as etiquetas: as partes da carta --------------------------------------- */
+.menu-partes {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--menu-passo);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.menu-partes li { display: flex; }
+.menu-partes li[data-lado="esq"] {
+  justify-content: flex-end;
+  padding: 0 calc(50% - var(--menu-cruza)) 0 calc(var(--seguro-esq) + 12px);
+  transform-origin: calc(50% + var(--menu-cruza) - 18px) 50%;
+}
+.menu-partes li[data-lado="dir"] {
+  justify-content: flex-start;
+  padding: 0 calc(var(--seguro-dir) + 12px) 0 calc(50% - var(--menu-cruza));
+  transform-origin: calc(50% - var(--menu-cruza) + 18px) 50%;
+}
+.menu-etiqueta {
+  --giro: 1deg;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: var(--menu-alt);
+  min-width: 44px;
+  max-width: 100%;
+  padding: 6px 18px 7px 37px;
+  border: 0;
+  font-family: var(--fonte-mao);
+  font-weight: 600;
+  font-size: var(--menu-letra);
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  text-align: left;
+  text-decoration: none;
+  white-space: nowrap;
+  color: var(--tinta);
+  background: linear-gradient(168deg, #fffdf8, var(--papel) 46%, #f6efe3);
+  border-radius: 999px 13px 13px 999px;
+  box-shadow: var(--sombra-flutua);
+  pointer-events: auto;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  /* pendurada pelo ilhó: a ponta livre cai um pouco, e balança por ali */
+  transform: rotate(var(--giro));
+  transform-origin: 18px 50%;
+  transition: transform var(--dur-mola) var(--mola);
+}
+li[data-lado="esq"] > .menu-etiqueta {
+  padding: 6px 37px 7px 18px;
+  border-radius: 13px 999px 999px 13px;
+  transform-origin: calc(100% - 18px) 50%;
+}
+.menu-etiqueta::before {                /* o pesponto, a 4 px da borda */
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px dashed var(--ponto);
+  border-radius: inherit;
+  pointer-events: none;
+}
+/* o ilhó: o furo reforçado por onde o fio passa (o ponto vermelho é o fio lá dentro) */
+.menu-ilho {
+  position: absolute;
+  left: 12px; top: 50%;
+  width: 12px; height: 12px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: #141a44;
+  box-shadow: 0 0 0 2.5px #efe7da, 0 0 0 3.5px rgba(42, 27, 34, 0.2), inset 0 1px 2px rgba(2, 4, 20, 0.7);
+  pointer-events: none;
+}
+.menu-ilho::after {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 6px; height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--fio);
+}
+li[data-lado="esq"] > .menu-etiqueta > .menu-ilho { left: auto; right: 12px; }
+.menu-etiqueta:active { transform: rotate(var(--giro)) scale(0.96); transition-duration: var(--dur-toque); transition-timing-function: var(--curva-ui); }
+.menu-etiqueta:focus-visible { outline: 2px solid var(--estrela); outline-offset: 4px; }
+@media (hover: hover) and (pointer: fine) {
+  .menu-etiqueta:hover { transform: rotate(0deg) translateY(-1px); }
+  .menu-etiqueta:active { transform: rotate(var(--giro)) scale(0.96); }
+}
+/* cada uma pendurou de um jeito (nunca mais de 1,2 grau) */
+.menu-partes li:nth-child(1) > .menu-etiqueta { --giro: -1.1deg; }
+.menu-partes li:nth-child(2) > .menu-etiqueta { --giro: 0.9deg; }
+.menu-partes li:nth-child(3) > .menu-etiqueta { --giro: -0.7deg; }
+.menu-partes li:nth-child(4) > .menu-etiqueta { --giro: 1.2deg; }
+.menu-partes li:nth-child(5) > .menu-etiqueta { --giro: -0.9deg; }
+.menu-partes li:nth-child(6) > .menu-etiqueta { --giro: 0.8deg; }
+.menu-partes li:nth-child(7) > .menu-etiqueta { --giro: -1.2deg; }
+/* O vento da alameda: um balanço miúdo, cada uma no seu tempo (o <li> balança pelo furo; a
+   etiqueta guarda o toque). Parte do repouso (0 grau) e só então vai e volta: nada pula
+   quando o balanço começa. */
+.menu[data-vivo] .menu-partes li {
+  animation:
+    menu-balanco-ida calc(var(--tempo, 6s) / 2) var(--curva-branco-deriva) both,
+    menu-balanco var(--tempo, 6s) var(--curva-branco-deriva) calc(var(--tempo, 6s) / 2) infinite alternate;
+}
+.menu-partes li:nth-child(1) { --tempo: 6.3s; }
+.menu-partes li:nth-child(2) { --tempo: 5.4s; }
+.menu-partes li:nth-child(3) { --tempo: 5.9s; }
+.menu-partes li:nth-child(4) { --tempo: 6.1s; }
+.menu-partes li:nth-child(5) { --tempo: 5.6s; }
+.menu-partes li:nth-child(6) { --tempo: 6.2s; }
+.menu-partes li:nth-child(7) { --tempo: 5.5s; }
+@keyframes menu-balanco-ida { from { transform: rotate(0deg); } to { transform: rotate(-0.7deg); } }
+@keyframes menu-balanco { from { transform: rotate(-0.7deg); } to { transform: rotate(0.9deg); } }
+
+/* ---- a ponta do fio: sempre que sentir saudade ------------------------------ */
+.menu-ponta {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: clamp(18px, 3.4vh, 40px);
+  padding: 0 calc(var(--seguro-dir) + 16px) 0 calc(var(--seguro-esq) + 16px);
+}
+.menu-saudade {
+  min-height: 54px;
+  padding: 0 24px 0 20px;
+  pointer-events: auto;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.menu-saudade:focus-visible { outline: 2px solid var(--estrela); outline-offset: 4px; }
+.menu-saudade-coracao { flex: none; width: 17px; height: 17px; fill: #fff; opacity: 0.94; }
+.menu-saudade-frase {
+  margin: 11px 0 0;
+  max-width: 19em;
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+  text-align: center;
+  text-wrap: balance;
+  color: var(--luar);
+  text-shadow: var(--menu-halo);
+}
+/* sem a pílula (sem número e sem mensagem), o fio termina num lacinho */
+.menu-ponta-laco { width: 52px; height: 28px; margin-top: -4px; }
+
+/* ---- o chão: as coisas dela -------------------------------------------------- */
+.menu-chao {
+  position: absolute;
+  left: calc(var(--seguro-esq) + 6px);
+  bottom: calc(var(--seguro-base) + 16px);
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.menu-chao > li { display: flex; }
+.menu-coisa {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 7px;
+  box-sizing: border-box;
+  min-width: 96px;
+  min-height: 84px;
+  padding: 8px 5px 6px;
+  border: 0;
+  border-radius: var(--raio-m);
+  background: none;
+  font-family: var(--fonte-mao);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  line-height: 1.22;
+  letter-spacing: 0.02em;
+  text-align: center;
+  white-space: nowrap;
+  color: var(--luar);
+  text-shadow: var(--menu-halo);
+  pointer-events: auto;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* nome comprido: quebra em duas linhas equilibradas, em vez de empurrar os vizinhos */
+.menu-coisa[data-longo] .menu-coisa-nome { white-space: normal; max-width: 6.6em; text-wrap: balance; }
+.menu-coisa-desenho {
+  display: grid;
+  align-items: end;
+  width: 66px;
+  height: 46px;
+  transform: rotate(var(--pouso, -4deg));
+  transition: transform var(--dur-mola) var(--mola);
+}
+.menu-coisa-desenho svg { display: block; width: 100%; height: auto; overflow: visible; filter: drop-shadow(0 2px 2px rgba(2, 4, 20, 0.5)) drop-shadow(0 9px 8px rgba(2, 4, 20, 0.42)); }
+.menu-coisa:active .menu-coisa-desenho { transform: rotate(var(--pouso, -4deg)) scale(0.94); transition-duration: var(--dur-toque); transition-timing-function: var(--curva-ui); }
+.menu-coisa:focus-visible { outline: 2px solid var(--estrela); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) {
+  .menu-coisa:hover .menu-coisa-desenho { transform: translateY(-3px) rotate(0deg); }
+  .menu-coisa:active .menu-coisa-desenho { transform: rotate(var(--pouso, -4deg)) scale(0.94); }
+}
+/* com um quarto objeto (os bilhetes) todos encolhem: cabem ao lado da bolsa */
+.menu-chao[data-muitos] { gap: 0; }
+.menu-chao[data-muitos] .menu-coisa { min-width: 72px; width: 72px; padding-left: 0; padding-right: 0; font-size: 0.8125rem; }
+.menu-chao[data-muitos] .menu-coisa-nome { white-space: normal; max-width: 72px; text-wrap: balance; }
+.menu-chao[data-muitos] .menu-coisa-desenho { width: 56px; height: 40px; }
+
+/* ---- as referências passando (só na primeira vez) --------------------------- */
+.menu-creditos {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(46px, 8vh, 76px);
+  padding: 0 0 clamp(110px, 17vh, 160px);
+  color: var(--tinta);
+}
+.menu-cred {
+  --giro: -1.3deg;
+  position: relative;
+  box-sizing: border-box;
+  width: min(calc(100% - 48px), 400px);
+  margin: 0;
+  padding: 40px 26px 24px;
+  text-align: center;
+  border-radius: 22px;
+  transform: rotate(var(--giro));
+  transform-origin: 50% 19px;
+}
+.menu-cred::before { border-radius: 14px; }
+.menu-cred > .menu-ilho { left: 50%; top: 19px; margin: -6px 0 0 -6px; }
+.menu-marca { display: block; width: 30px; height: 30px; margin: 2px auto 6px; color: var(--tinta); }
+.menu-marca.ui-laco { width: 46px; height: 25px; margin: 4px auto 8px; }
+.menu-cred .ui-titulo { margin: 0; font-size: 1.375rem; text-wrap: balance; }
+.menu-cred-de { margin: 4px auto 0; max-width: 22em; font-size: 0.875rem; line-height: 1.4; letter-spacing: 0.02em; color: var(--tinta-suave); text-wrap: balance; }
+.menu-cred-sobre { margin: 9px auto 0; max-width: 19em; font-size: 0.9375rem; line-height: 1.5; color: var(--tinta-suave); text-wrap: pretty; }
+.menu-cred-dele { margin: 12px auto 0; max-width: 16em; font-weight: 600; font-size: 1.0625rem; line-height: 1.45; color: var(--tinta); text-wrap: balance; }
+.menu-cred .ui-fio { width: 54px; margin: 13px auto 0; }
+/* o bilhete dele: abre e fecha a fila */
+.menu-bilhete {
+  width: min(calc(100% - 104px), 290px);
+  padding: 38px 24px 22px;
+  font-weight: 600;
+  font-size: 1.1875rem;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+  text-wrap: balance;
+}
+/* as músicas: cada uma com o seu disco */
+.menu-musicas { display: grid; gap: 11px; justify-content: center; margin: 14px 0 2px; padding: 0; list-style: none; text-align: left; }
+.menu-musicas li { display: flex; align-items: center; gap: 13px; }
+.menu-disco {
+  position: relative;
+  flex: none;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #2a1b22;
+  box-shadow: 0 0 0 1px rgba(42, 27, 34, 0.5), var(--sombra-baixa);
+}
+.menu-disco img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.menu-disco::after {                    /* o furo do disco */
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 9px; height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 50%;
+  background: var(--papel);
+  box-shadow: 0 0 0 1px rgba(42, 27, 34, 0.4);
+}
+.menu-musica-nome { display: block; font-weight: 600; font-size: 1.0625rem; line-height: 1.2; }
+.menu-musica-artista { display: block; font-size: 0.9375rem; line-height: 1.3; color: var(--tinta-suave); }
+/* os amigos: os nomes em linha, com um espaço largo entre eles */
+.menu-amigos {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 1.5em;
+  margin: 12px auto 2px;
+  max-width: 20em;
+  font-weight: 600;
+  font-size: 1.0625rem;
+  line-height: 1.45;
+}
+
+/* pular: um botão de verdade, no canto onde a bolsa vai voltar (um toque em qualquer lugar
+   também pula). Redondo e no canto: os cartões passam sem que ele cubra nenhuma palavra. */
+.menu-pular {
+  position: absolute;
+  z-index: 2;
+  right: calc(var(--seguro-dir) + 16px);
+  bottom: calc(var(--seguro-base) + 16px);
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+.menu-pular .ui-icone { width: 22px; height: 22px; }
+
+/* Movimento reduzido: nada desliza. O fio fica parado no meio e os cartões dissolvem, um
+   por vez, no centro (todos no DOM, um sobre o outro; só a opacidade muda). */
+.menu[data-calmo] .menu-creditos {
+  inset: 0;
+  bottom: auto;
+  height: 100%;
+  display: block;
+  padding: 0;
+}
+.menu[data-calmo] .menu-cred {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  max-height: calc(100% - 140px);
+  transform: translate(-50%, -50%);
+}
+
+/* ---- a folha das referências (e a dos bilhetes): sobe de baixo, como a bolsa ---- */
+.menu-gaveta { position: fixed; inset: 0; z-index: var(--z-topo); font-family: var(--fonte-mao); color: var(--tinta); pointer-events: none; }
+.menu-gaveta[hidden] { display: none; }
+.menu-gaveta-fundo {
+  position: absolute;
+  inset: 0;
+  background: var(--noite-veu);
+  opacity: 0;
+  pointer-events: auto;
+  transition: opacity var(--dur-sair) linear;
+}
+.menu-gaveta[data-aberto] .menu-gaveta-fundo { opacity: 1; transition-duration: var(--dur-ui-lenta); }
+.menu-folha {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: min(84vh, 84dvh);
+  pointer-events: auto;
+  transform: translateY(100%);
+  transition: transform var(--dur-sair) var(--curva-sair);
+}
+.menu-gaveta[data-aberto] .menu-folha { transform: none; transition: transform var(--dur-folha) var(--mola-firme); }
+.menu-folha .ui-puxador { flex: none; margin: 16px auto 4px; }
+.menu-folha-topo {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px calc(var(--seguro-dir) + 18px) 0 calc(var(--seguro-esq) + 26px);
+}
+.menu-folha-topo .ui-titulo { margin: 0; }
+.menu-folha-fechar { border: 0; padding: 0; cursor: pointer; color: var(--tinta-suave); box-shadow: var(--sombra-baixa); -webkit-tap-highlight-color: transparent; }
+.menu-folha-fechar:focus-visible { outline: 2px solid var(--fio); outline-offset: 3px; }
+.menu-folha-costura { flex: none; margin: 10px calc(var(--seguro-dir) + 26px) 0 calc(var(--seguro-esq) + 26px); }
+.menu-folha-miolo { flex: 1 1 auto; min-height: 0; padding: 2px calc(var(--seguro-dir) + 26px) 6px calc(var(--seguro-esq) + 22px); outline: none; }
+.menu-folha-miolo:focus-visible { box-shadow: inset 0 0 0 2px var(--papel-linha); border-radius: var(--raio-p); }
+.menu-refs, .menu-bilhetes { margin: 0; padding: 0; list-style: none; }
+.menu-ref { display: grid; grid-template-columns: 46px 1fr; gap: 0 12px; align-items: start; padding: 15px 0 14px; }
+.menu-ref + .menu-ref { border-top: 1px dashed var(--ponto); }
+.menu-ref > * { grid-column: 2; }
+.menu-ref > .menu-marca { grid-column: 1; grid-row: 1 / span 5; margin: 1px auto 0; }
+.menu-ref > .menu-marca.ui-laco { width: 42px; height: 23px; margin-top: 3px; }
+.menu-ref > .menu-marca.ui-coracao { width: 20px; height: 20px; margin-top: 4px; }
+.menu-ref-titulo { margin: 0; font-weight: 600; font-size: 1.1875rem; line-height: 1.25; letter-spacing: 0.02em; }
+.menu-ref-de { margin: 2px 0 0; font-size: 0.875rem; line-height: 1.4; letter-spacing: 0.02em; color: var(--tinta-suave); }
+.menu-ref-sobre { margin: 5px 0 0; font-size: 0.9375rem; line-height: 1.45; color: var(--tinta-suave); }
+.menu-ref-dele { margin: 7px 0 0; font-weight: 600; font-size: 1.0625rem; line-height: 1.4; color: var(--tinta); }
+.menu-ref .menu-musicas { justify-content: start; margin: 9px 0 2px; }
+.menu-ref .menu-disco { width: 40px; height: 40px; }
+.menu-ref .menu-amigos { justify-content: flex-start; margin: 6px 0 2px; max-width: none; }
+
+/* os bilhetes "abra quando...": cada um desdobra ali mesmo; o que ainda não abre mostra o dia */
+.menu-bilhete-item { padding: 6px 0; }
+.menu-bilhete-item + .menu-bilhete-item { border-top: 1px dashed var(--ponto); }
+.menu-bilhete-abrir {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 4px 2px;
+  border: 0;
+  background: none;
+  color: var(--tinta);
+  font-family: var(--fonte-mao);
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.menu-bilhete-abrir:focus-visible { outline: 2px solid var(--fio); outline-offset: 2px; border-radius: var(--raio-p); }
+.menu-bilhete-titulo { margin: 0; font-weight: 600; font-size: 1.125rem; line-height: 1.3; letter-spacing: 0.02em; }
+.menu-bilhete-seta { color: var(--tinta-suave); transition: transform var(--dur-mola) var(--mola); }
+.menu-bilhete-item[data-aberto] .menu-bilhete-seta { transform: rotate(180deg); }
+.menu-bilhete-texto { margin: 2px 2px 10px; font-size: 1.0625rem; line-height: 1.6; color: var(--tinta); white-space: pre-line; animation: ui-aparece 240ms linear both; }
+.menu-bilhete-item[data-fechado] { padding: 12px 2px; }
+.menu-bilhete-item[data-fechado] .menu-bilhete-titulo { color: var(--tinta-suave); }
+.menu-bilhete-quando { margin: 2px 0 0; }
+
+/* ---- o portão: depois de recarregar numa parte, o som espera o toque dela ---- */
+.menu-portao {
+  --menu-halo: 0 0 0.3em rgba(6, 8, 26, 0.9), 0 0 0.9em rgba(6, 8, 26, 0.7);
+  --menu-letra: clamp(1.5rem, 1.3rem + 1vw, 1.875rem);
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%;
+  height: var(--tela);
+  z-index: var(--z-topo);
+  overflow: hidden;
+  font-family: var(--fonte-mao);
+}
+.menu-portao-toque {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.menu-portao-toque:focus-visible { outline: 2px solid var(--estrela); outline-offset: -6px; }
+/* a noite, lisa (sem desfoque), sobre a alameda daquela parte */
+.menu-portao-veu { position: absolute; inset: 0; background: radial-gradient(120% 80% at 50% 44%, rgba(9, 12, 40, 0.58), rgba(9, 12, 40, 0.8)); }
+.menu-portao-fio { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.menu-portao-fio .menu-fio-sombra { stroke: rgba(42, 27, 34, 0.22); transform: translate(1.8px, 1.4px); }
+.menu-portao-meio {
+  position: absolute;
+  left: 0; right: 0;
+  top: 37%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 34px;
+}
+.menu-portao-pendura { display: block; max-width: calc(100% - 40px); animation: menu-balanco 5.6s var(--curva-branco-deriva) infinite alternate; transform-origin: 30px 50%; }
+.menu-portao-etiqueta {
+  --giro: 1.2deg;
+  min-height: 76px;
+  padding: 10px 36px 12px 60px;
+  white-space: normal;
+  transform-origin: 30px 50%;
+  pointer-events: none;
+}
+.menu-portao-etiqueta::before { inset: 6px; }
+.menu-portao-etiqueta > .menu-ilho { left: 22px; width: 16px; height: 16px; margin-top: -8px; }
+.menu-portao-etiqueta > .menu-ilho::after { width: 8px; height: 8px; margin: -4px 0 0 -4px; }
+.menu-portao-dica {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 1.0625rem;
+  letter-spacing: 0.06em;
+  color: var(--luar);
+  text-shadow: var(--menu-halo);
+  text-align: center;
+}
+.menu-portao-petala { animation: ui-boia 2.6s var(--curva-branco-deriva) infinite alternate; }
+.menu-portao-voltar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--seguro-base) + 22px);
+  translate: -50% 0;
+  min-height: 48px;
+  padding: 0 20px;
+  font-size: 1rem;
+  -webkit-tap-highlight-color: transparent;
+}
+.menu-portao-voltar .ui-icone { width: 18px; height: 18px; }
+/* enquanto o portão espera, o disco e a bolsa (se já estiverem lá) não disputam o toque */
+html[data-portao] #mini,
+html[data-portao] #inventario { visibility: hidden; }
+
+/* ---- telas largas ----------------------------------------------------------- */
+@media (min-width: 760px) {
+  .menu { --menu-cruza: 44px; --menu-letra: 1.3125rem; --menu-alt: 64px; --menu-passo: clamp(6px, 1.1vh, 14px); }
+  .menu-corda { width: 720px; margin-left: -360px; }
+  .menu-etiqueta { padding: 6px 24px 7px 42px; }
+  li[data-lado="esq"] > .menu-etiqueta { padding: 6px 42px 7px 24px; }
+  .menu-saudade { min-height: 58px; padding: 0 30px 0 26px; font-size: 1.25rem; }
+  .menu-saudade-frase { font-size: 1.0625rem; }
+  .menu-chao { left: 50%; translate: -50% 0; bottom: calc(var(--seguro-base) + 20px); gap: 22px; }
+  .menu-coisa, .menu-chao[data-muitos] .menu-coisa { min-width: 124px; width: auto; font-size: 1rem; }
+  .menu-coisa[data-longo] .menu-coisa-nome, .menu-chao[data-muitos] .menu-coisa-nome { white-space: nowrap; max-width: none; }
+  .menu-coisa-desenho, .menu-chao[data-muitos] .menu-coisa-desenho { width: 78px; height: 54px; }
+  .menu-folha {
+    left: 50%; right: auto; bottom: 50%;
+    width: 500px;
+    max-height: min(82vh, 700px);
+    padding-bottom: 18px;
+    border-radius: var(--raio-g);
+    box-shadow: var(--sombra-papel);
+    /* cartão no meio: entra crescendo um pouco, na mola, em vez de subir da borda */
+    transform: translate(-50%, 50%) scale(0.94);
+    opacity: 0;
+    transition: transform var(--dur-sair) var(--curva-sair), opacity var(--dur-sair) linear;
+  }
+  .menu-gaveta[data-aberto] .menu-folha { transform: translate(-50%, 50%); opacity: 1; transition: transform var(--dur-folha) var(--mola-firme), opacity 140ms linear; }
+  .menu-folha[data-borda="base"]::before { bottom: 8px; border-bottom: 1px dashed var(--ponto); border-radius: calc(var(--raio-g) - 8px); }
+  .menu-folha .ui-puxador { visibility: hidden; height: 0; margin-bottom: 12px; }
+  .menu-cred { width: 420px; padding: 42px 34px 28px; }
+  .menu-cred .ui-titulo { font-size: 1.5rem; }
+  .menu-cred-de { font-size: 0.9375rem; }
+  .menu-cred-sobre { font-size: 1.0625rem; }
+  .menu-cred-dele { font-size: 1.1875rem; }
+  .menu-bilhete { width: 340px; font-size: 1.3125rem; }
+  .menu-pular { right: 29px; bottom: 29px; }
+}
+/* tela alta (o iPhone dela fora do Safari): mais ar entre as etiquetas e antes do chão */
+@media (min-height: 860px) and (max-width: 759px) {
+  .menu { --menu-topo: 124px; --menu-passo: 17px; }
+  .menu[data-sem-contador] { --menu-topo: 84px; }
+  .menu-chao { bottom: calc(var(--seguro-base) + 22px); }
+}
+/* tela baixa (iPhone pequeno): etiquetas de 48 px e a frase da saudade sai; o resto aperta sem encostar */
+@media (max-height: 699px) {
+  .menu { --menu-alt: 48px; }
+  .menu-saudade-frase { display: none; }
+  .menu-ponta { margin-top: clamp(14px, 3.2vh, 30px); }
+}
+@media (max-height: 699px) and (min-width: 760px) {
+  .menu { --menu-alt: 52px; --menu-topo: clamp(76px, 12vh, 96px); }
+}
+@media (max-width: 400px) {
+  .menu { --menu-cruza: 34px; --menu-letra: 0.9688rem; }
+  .menu-etiqueta { padding-right: 15px; }
+  li[data-lado="esq"] > .menu-etiqueta { padding-left: 15px; }
+  .menu-saudade { padding: 0 18px 0 15px; gap: 8px; letter-spacing: 0.015em; font-size: 1rem; }
+  .menu-coisa { min-width: 88px; padding-left: 2px; padding-right: 2px; font-size: 0.875rem; }
+  .menu-coisa-desenho { width: 60px; height: 42px; }
+  .menu-chao[data-muitos] .menu-coisa { min-width: 64px; width: 64px; }
+}
+/* Celular deitado (menos de 560 px de altura): o menu vira uma coluna que rola, com as
+   etiquetas empilhadas e o chão no fim dela. */
+@media (max-height: 559px) {
+  .menu[data-etapa="menu"] {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    pointer-events: auto;
+  }
+  .menu[data-etapa="menu"] .menu-corda { position: relative; top: auto; margin-top: var(--menu-topo); }
+  .menu[data-etapa="menu"] .menu-chao {
+    position: relative;
+    left: auto; bottom: auto;
+    translate: none;
+    justify-content: center;
+    margin: 26px auto calc(var(--seguro-base) + 18px);
+    padding: 0 76px 0 12px;
+  }
+  .menu[data-etapa="menu"] .menu-sombra,
+  .menu[data-etapa="menu"] .menu-veu { position: fixed; }
+}
+
+/* ---- versão calma: nada balança nem desliza; só dissolve --------------------- */
+html.reduzido .menu[data-vivo] .menu-partes li,
+html[data-nivel="baixo"] .menu[data-vivo] .menu-partes li,
+html.reduzido .menu-portao-pendura,
+html.reduzido .menu-portao-petala { animation: none; }
+html.reduzido .menu-etiqueta,
+html.reduzido .menu-coisa-desenho,
+html.reduzido .menu-bilhete-seta { transition-duration: 0.01ms; }
+html.reduzido .menu-folha,
+html.reduzido .menu-gaveta[data-aberto] .menu-folha { transition: opacity 150ms linear; }
+@media (prefers-reduced-motion: reduce) {
+  .menu[data-vivo] .menu-partes li,
+  .menu-portao-pendura,
+  .menu-portao-petala { animation: none; }
+}

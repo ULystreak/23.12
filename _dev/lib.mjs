@@ -199,6 +199,12 @@ export function etapasDoFinal(conteudo = lerConteudo()) {
     ...(temContador(conteudo) ? ['contador'] : []), ...(temResposta(conteudo) ? ['resposta'] : []), 'fim'];
 }
 
+/** O menu do fim existe? (= temMenu do diretor: o bloco menu do content.js) */
+export function temMenu(conteudo) {
+  const m = conteudo && conteudo.menu;
+  return !!m && typeof m === 'object' && !Array.isArray(m);
+}
+
 /**
  * Vídeos de teste para as cartas do chão: o caminho (relativo à raiz) de cada .mp4
  * da pasta, na ordem; a carta 1 recebe o primeiro, a 2 o segundo... Com `falho`,
@@ -231,7 +237,7 @@ export async function injetarVideos(page, videos, midias = null) {
 
 /**
  * Abre a carta.
- *   cena    'senha' | 'musica' | 'inicio' | 'poppy' | 'carta2' | 'yourname' | 'mao' | 'cartas' | 'encontro' | 'final'
+ *   cena    'senha' | 'musica' | 'inicio' | 'poppy' | 'carta2' | 'yourname' | 'mao' | 'cartas' | 'encontro' | 'final' | 'menu'
  *           (omitido = o começo de verdade: a tela preta da senha)
  *   entrar  true: sem `cena`, já digita a senha e escolhe a música (a sessão é entregue
  *           a caminho de inicio:frases, com a música tocando). Para testes que não são
