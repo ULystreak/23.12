@@ -63,7 +63,7 @@ const MIME = {
   '.webm': 'video/webm',
 };
 
-function carregarPlaywright() {
+export function carregarPlaywright() {
   const require = createRequire(import.meta.url);
   const candidatos = [process.env.CARTA_PW, PW_PADRAO, 'playwright'].filter(Boolean);
   let ultimoErro = null;

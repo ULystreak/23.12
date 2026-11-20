@@ -49,6 +49,7 @@ async function iniciar() {
     for (const tipo of GESTOS) window.removeEventListener(tipo, destravar, true);
     som.destravar();
     if (Number.isInteger(faixaAnterior) && faixaAnterior >= 0) som.tocar(faixaAnterior);
+    manterTelaAcesa(diretor);
   };
   for (const tipo of GESTOS) window.addEventListener(tipo, destravar, true);
 
@@ -90,6 +91,43 @@ async function iniciar() {
   ligarToque(ctx);             // pétalas que fogem do dedo nas esperas (js/mundo/toque.js)
   vigiarContexto(ctx);
   await diretor.rodar(ctx, diretor.cenaInicial());
+}
+
+/**
+ * A tela não apaga sozinha enquanto a carta anda: o iPhone escurece com 30 s sem toque,
+ * e o encontro e a última folha têm trechos mais longos que isso. Chamada no primeiro
+ * toque dela; o navegador solta a trava quando a aba some, então ela é pedida de novo
+ * na volta (e a cada etapa, caso um pedido tenha falhado). No estado final (final:fim)
+ * e no menu a carta descansa: a trava é solta e a tela volta a apagar como sempre.
+ * Sem a API (Safari antes do 16.4) ou com o pedido negado (pouca bateria), nada muda.
+ */
+function manterTelaAcesa(diretor) {
+  const api = navigator.wakeLock;
+  if (!api || typeof api.request !== 'function') return;
+  const descansa = () => (diretor.cena === 'final' && diretor.etapaAtual === 'fim') || diretor.cena === 'menu';
+  let trava = null;
+  let pedindo = false;
+  const soltar = () => {
+    const antiga = trava;
+    trava = null;
+    if (antiga) Promise.resolve(antiga.release()).catch(() => {});
+  };
+  const conferir = async () => {
+    if (descansa()) { soltar(); return; }
+    if (trava || pedindo || document.hidden) return;
+    pedindo = true;
+    try {
+      const nova = await api.request('screen');
+      nova.addEventListener('release', () => { if (trava === nova) trava = null; });
+      trava = nova;
+      if (descansa()) soltar();          // a carta chegou ao fim enquanto o pedido estava no ar
+    } catch { /* negado: a tela apaga como antes */ } finally {
+      pedindo = false;
+    }
+  };
+  diretor.aoMudar(conferir);
+  document.addEventListener('visibilitychange', conferir);
+  conferir();
 }
 
 /** Recarrega a página na cena atual, no modo leve (sem WebGL), mantendo os outros parâmetros. */
