@@ -946,4 +946,129 @@ window.CONTEUDO = {
     },
   },
 
+  /* --------------------------------------------------------------------------
+     O MENU DO FIM
+     Depois da última carta ela toca em "Continuar" e chega aqui: o fio com uma
+     etiqueta para cada parte da carta, o botão da saudade na ponta dele e, no
+     chão, a sua voz, as referências e a folha em que ela escreve de volta.
+     Na primeira vez as referências passam amarradas no fio, como os créditos
+     de um filme (dá para pular com um toque). Das outras vezes o menu abre
+     direto, e o link do site passa a fazer senha, música e menu.
+
+     Tudo o que está entre [colchetes] é exemplo: troque pela sua fala.
+     Texto vazio ('') = aquela coisa não aparece.
+     As músicas e os nomes dos amigos NÃO moram aqui: saem sozinhos de
+     musica.faixas e de cartasChao.itens. Os áudios continuam em voz: { ... }.
+     Para tirar o menu do site, apague este bloco inteiro.
+
+     PARA TESTAR SEM PERCORRER TUDO
+     Abra o site com ?cena=menu no fim do endereço.
+     Com ?menu=0 o aparelho esquece que ela já chegou ao menu (as referências
+     passam de novo e o link volta a começar do começo).
+     ------------------------------------------------------------------------ */
+  menu: {
+    // O nome de cada etiqueta, na ordem da viagem. Apague o texto de uma
+    // (deixe '') para ela não aparecer.
+    partes: {
+      inicio: 'Ver tudo do começo',
+      poppy: 'A carta do jogo',
+      yourname: 'A carta do filme',
+      mao: 'A mão e o fio',
+      cartas: 'As cartas dos amigos',
+      encontro: 'O encontro',
+      final: 'A última carta',
+    },
+
+    // O botão vermelho na ponta do fio. Abre o WhatsApp dela na conversa com
+    // você (o número é o de resposta.whatsapp). Nada é enviado sozinho.
+    saudade: {
+      rotulo: 'Sempre que sentir saudade',
+      // A sua frase embaixo do botão (opcional; '' = sem frase).
+      frase: '[Eu estou na outra ponta do fio.]',
+      // Um texto que já vem escrito na conversa para ela enviar (opcional;
+      // '' = a conversa abre em branco).
+      mensagem: '',
+    },
+
+    // AS REFERÊNCIAS: passam uma vez, na primeira chegada, e depois ficam no
+    // caderninho do chão.
+    // O bilhete que abre e o que fecha a fila ('' = sem bilhete).
+    abertura: '[Esta carta foi feita de coisas nossas. Olha de onde veio cada uma.]',
+    fecho: '[Feito para você, com todo o meu amor.]',
+
+    // Para pôr mais uma, copie um bloco { ... } e troque os textos.
+    //   titulo: o nome da obra (obrigatório).
+    //   de:     de onde vem: autor, ano (opcional).
+    //   sobre:  o que é, em duas ou três linhas.
+    //   dele:   a sua fala sobre ela (opcional).
+    //   icone:  'laco', 'cometa', 'fita', 'disco' ou '' (sem desenho).
+    referencias: [
+      {
+        titulo: 'O fio vermelho do destino',
+        de: 'akai ito · uma lenda do Japão',
+        sobre: 'Um fio vermelho que ninguém vê, amarrado no dedo mindinho, liga duas pessoas que vão se encontrar. Ele estica e embaraça, mas não arrebenta.',
+        dele: '[Foi ele que te trouxe até aqui.]',
+        icone: 'laco',
+      },
+      {
+        titulo: 'Your Name',
+        de: 'Kimi no Na wa · filme de Makoto Shinkai, 2016',
+        sobre: 'Dois desconhecidos trocam de lugar em sonho e se procuram sem lembrar o nome um do outro. O cordão trançado e o cometa vêm de lá.',
+        dele: '[O nosso filme.]',
+        icone: 'cometa',
+      },
+      {
+        titulo: 'Poppy Playtime',
+        de: 'jogo da Mob Entertainment, 2021',
+        sobre: 'Um jogo de susto numa fábrica de brinquedos abandonada. A fita de vídeo e as mãos de brinquedo vêm de lá.',
+        dele: '[Onde a gente se conheceu.]',
+        icone: 'fita',
+      },
+    ],
+
+    // O cartão das músicas entra sozinho depois da lista, com o nome e o
+    // artista de cada uma (titulo '' = sem esse cartão).
+    musicas: {
+      titulo: 'As músicas',
+      dele: '[As que tocaram enquanto você lia.]',   // opcional
+    },
+
+    // O cartão com os nomes dos amigos das cartas do chão ('' = sem ele).
+    amigos: 'Participações especiais',
+
+    // OS BILHETES "ABRA QUANDO..." (opcional): bilhetes seus que ficam no chão
+    // do menu, num montinho amarrado com o fio. Com a lista vazia, como está,
+    // o montinho nem aparece. Para escrever um, tire as duas barras da frente
+    // de uma linha de exemplo e troque os textos (copie a linha para pôr mais).
+    //   titulo: o que vai escrito por fora ("Abra quando...").
+    //   texto:  o que ela lê quando abre.
+    //   abre:   '' = pode abrir quando quiser; 'AAAA-MM-DD' = só abre a partir
+    //           desse dia (antes disso aparece fechado, com a data).
+    bilhetes: [
+      // { titulo: '[Abra quando sentir saudade]', texto: '[Escreva aqui o que ela vai ler.]', abre: '' },
+      // { titulo: '[Abra no nosso aniversário]', texto: '[Escreva aqui o que ela vai ler.]', abre: '2027-12-23' },
+    ],
+
+    // Os botões.
+    rotulos: {
+      // No fim da carta, o botão que leva ao menu (na primeira vez e depois).
+      continuar: 'Continuar',
+      voltar: 'Voltar ao menu',
+      // O caderninho do chão e o título da folha que ele abre.
+      referencias: 'As referências',
+      // Quando ela volta a uma parte, a página recarrega e o som só volta com
+      // um toque dela: é o que aparece embaixo do nome da parte.
+      tocar: 'Toque para começar',
+      // O montinho de bilhetes do chão e o título da folha que ele abre
+      // (só aparecem com algum bilhete na lista acima).
+      bilhetes: 'Abra quando...',
+      // O aviso de um bilhete que ainda não pode abrir ('{dia}' vira a data).
+      bilheteFechado: 'Abre em {dia}',
+      // Nomes lidos em voz alta por leitores de tela (não aparecem escritos).
+      pular: 'Pular as referências',
+      fechar: 'Fechar',
+      nome: 'Voltar a uma parte da carta',
+    },
+  },
+
 };

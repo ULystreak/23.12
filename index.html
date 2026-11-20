@@ -70,7 +70,7 @@
   <script>
     (function () {
       var c = new URLSearchParams(location.search).get('cena');
-      var semEntrada = ['inicio', 'poppy', 'carta2', 'yourname', 'mao', 'cartas', 'segredos', 'encontro', 'final'];
+      var semEntrada = ['inicio', 'poppy', 'carta2', 'yourname', 'mao', 'cartas', 'segredos', 'encontro', 'final', 'menu'];
       if (semEntrada.indexOf(c) >= 0) {
         document.documentElement.className += ' sem-entrada';
         var m = document.querySelector('meta[name="theme-color"]');
@@ -94,6 +94,7 @@
   <link rel="stylesheet" href="css/encontro.css">
   <link rel="stylesheet" href="css/final.css">
   <link rel="stylesheet" href="css/resposta.css">
+  <link rel="stylesheet" href="css/menu.css">
   <link rel="stylesheet" href="css/letra.css">
   <link rel="stylesheet" href="lib/lenis.css">
 
@@ -130,11 +131,12 @@
   <!-- A folha: recebe o papel da carta, mostra as músicas e desenrola os capítulos. -->
   <section id="pergaminho" hidden></section>
 
+  <!-- A bolsa: o botão no canto de baixo, à direita, e a folha com o que ela guardou.
+       (Antes do disco: no Tab ela vem depois do que está no palco e antes da música.) -->
+  <aside id="inventario" hidden></aside>
+
   <!-- O mini seletor de música, fixo no canto depois que ela escolhe. -->
   <aside id="mini" hidden></aside>
-
-  <!-- A bolsa: o botão no canto de baixo, à direita, e a folha com o que ela guardou. -->
-  <aside id="inventario" hidden></aside>
 
   <!-- A animação da carta indo para o bolso (primeira pessoa, por cima do mundo). -->
   <div id="bolso" aria-hidden="true" hidden></div>

@@ -2,7 +2,8 @@
 //
 // Cada cena é `async function (ctx, { frio })` e resolve quando a próxima deve
 // começar. `frio` é true quando se entrou direto por ?cena=: a cena monta
-// sozinha o que a anterior teria deixado pronto. A cena `final` nunca resolve.
+// sozinha o que a anterior teria deixado pronto. A última cena nunca resolve
+// (`menu`; sem o bloco menu no content.js, `final`).
 //
 // O estado fica visível em <html data-cena="..." data-etapa="..."> e em
 //   window.__carta = { ctx, cena, etapa, pronto (Promise), historico, gpu, erro }
@@ -19,14 +20,22 @@
 //   encontro  chegando → planos → maos → carta          (só existe com algum quadro em encontro.quadros)
 //   final     carta-chegando → carta-espera → carta-abrindo → desdobrando → escrevendo → contador → resposta → fim
 //             (contador só com contador.nascimento; resposta só com a seção resposta no content.js)
+//   menu      referencias → menu                        (só existe com o bloco menu no content.js; referencias só
+//                                                        na primeira chegada, enquanto o aparelho não tem a marca)
 //
 // Sem ?cena= (ou com um valor que não existe) a carta começa em "senha". Qualquer
 // atalho de "inicio" em diante pula a senha e a música (a tela preta nem aparece).
+//
+// O menu do fim (js/cenas/menu.js) deixa uma marca no aparelho dela (menuLembrado,
+// js/nucleo/util.js). Com a marca, o link limpo faz senha → música → menu. ?menu=0
+// esquece a marca e ?menu=1 grava (para testar); ?volta=1 (posto pelas etiquetas do
+// menu) pede o portão do som antes de a cena começar.
 
 import { cenaAbertura } from '../cenas/abertura.js';
 import { cenaCarta } from '../cenas/carta.js';
+import { menuLembrado, lembrarMenu } from './util.js';
 
-export const ORDEM = ['senha', 'musica', 'inicio', 'poppy', 'carta2', 'yourname', 'mao', 'cartas', 'encontro', 'final'];
+export const ORDEM = ['senha', 'musica', 'inicio', 'poppy', 'carta2', 'yourname', 'mao', 'cartas', 'encontro', 'final', 'menu'];
 /** Nomes antigos de ?cena= que continuam valendo. */
 const APELIDOS = { segredos: 'cartas' };
 /** Cenas da tela preta (o index.html tem a mesma lista no script que esconde #entrada). */
@@ -37,14 +46,14 @@ const CAPITULOS = ['poppy', 'yourname'];
  * Etapas em que ela pode abrir a bolsa: só as de espera, em que nada está em
  * movimento e a folha está livre para reabrir uma carta.
  */
-const BOLSA_LIVRE = new Set(['carta2:caminhada', 'carta2:carta-chegando', 'carta2:carta-espera', 'mao:mao-espera', 'cartas:escolhendo', 'final:fim']);
+const BOLSA_LIVRE = new Set(['carta2:caminhada', 'carta2:carta-chegando', 'carta2:carta-espera', 'mao:mao-espera', 'cartas:escolhendo', 'final:fim', 'menu:menu']);
 /**
  * Cenas por onde a carta pode recomeçar. No começo de cada uma o endereço passa a
  * dizer ?cena=<ela>&musica=<a faixa>, sem página nova no histórico: recarregar,
  * voltar/avançar ou o iPhone descartar a aba (na volta do WhatsApp) caem no atalho
  * ?cena= (e a música volta no primeiro toque, main.js), não na senha com tudo do zero.
  */
-const RETOMAR = new Set(['inicio', 'poppy', 'carta2', 'yourname', 'mao', 'cartas', 'final']);
+const RETOMAR = new Set(['inicio', 'poppy', 'carta2', 'yourname', 'mao', 'cartas', 'final', 'menu']);
 
 /**
  * Cenas que só existem quando o content.js tem o que mostrar. Pulada, a cena nem
@@ -88,10 +97,16 @@ export function temEncontro(conteudo) {
   const quadros = conteudo && conteudo.encontro && conteudo.encontro.quadros;
   return Array.isArray(quadros) && quadros.some((q) => q && typeof q.imagem === 'string' && q.imagem.trim());
 }
+/** O menu do fim existe? (o bloco menu do content.js; sem ele a carta termina em final:fim, como antes) */
+export function temMenu(conteudo) {
+  const menu = conteudo && conteudo.menu;
+  return !!menu && typeof menu === 'object' && !Array.isArray(menu);
+}
 const PULAR = {
   senha: (ctx) => !temSenha(ctx.conteudo),
   cartas: (ctx) => !temCartas(ctx.conteudo),
   encontro: (ctx) => !temEncontro(ctx.conteudo),
+  menu: (ctx) => !temMenu(ctx.conteudo),
 };
 
 // O que não é da primeira tela só é baixado depois (em segundo plano, durante a abertura).
@@ -102,6 +117,7 @@ const carregar = {
   cartas: () => import('../cenas/cartas.js'),
   encontro: () => import('../cenas/encontro.js'),
   final: () => import('../cenas/final.js'),
+  menu: () => import('../cenas/menu.js'),
 };
 // A tela preta é a primeira coisa que ela vê: só é baixada quando a carta começa por ela.
 const carregarEntrada = () => import('../cenas/senha.js');
@@ -180,7 +196,8 @@ function semearBolsa(ctx, cena) {
   for (const id of CAPITULOS) {
     if (ORDEM.indexOf(id) < i) { ctx.inventario.guardar(itemDoCapitulo(ctx, id)); algum = true; }
   }
-  if (algum && cena !== 'final') ctx.inventario.mostrarBotao();
+  // (no fim e no menu quem devolve o botão é a etapa: final:fim, menu:menu)
+  if (algum && cena !== 'final' && cena !== 'menu') ctx.inventario.mostrarBotao();
   // Depois das cartas do chão (a retomada no encontro ou no fim), as que ela guardou voltam.
   if (i > ORDEM.indexOf('cartas')) carregar.cartas().then((m) => m.semearCartas?.(ctx)).catch(() => {});
 }
@@ -251,6 +268,8 @@ const cenas = {
     await ctx.musica.escolher(document.getElementById('entrada-musica'));
     // A música começou: o preto se desfaz e o mundo branco aparece.
     ctx.diretor.etapa('entrando');
+    // Ela já chegou ao menu neste aparelho: o preto se desfaz direto na noite do menu.
+    if (ctx.estado.direto) ctx.mundo.hora?.('noite', { duracao: 0 });
     ctx.mundo.ligar();
     await sairDaEntrada(ctx);
     ctx.musica.mostrarMini();
@@ -292,6 +311,11 @@ const cenas = {
   async final(ctx, opcoes) {
     const { cenaFinal } = await carregar.final();
     await cenaFinal(ctx, opcoes);
+  },
+
+  async menu(ctx, opcoes) {
+    const { cenaMenu } = await carregar.menu();
+    await cenaMenu(ctx, opcoes);
   },
 };
 
@@ -345,6 +369,20 @@ export function criarDiretor() {
       liberarPronto(ctx);
       if (ctx.som) seguirFaixa(ctx.som);
 
+      // ?menu=0 esquece que ela já chegou ao menu; ?menu=1 grava (só para testar). Vale uma
+      // vez: o parâmetro sai do endereço, para um recarregar não repetir o pedido.
+      const pedidoMenu = ctx.amb?.params?.get('menu');
+      if (pedidoMenu === '0' || pedidoMenu === '1') {
+        lembrarMenu(pedidoMenu === '1');
+        try {
+          const params = new URLSearchParams(location.search);
+          params.delete('menu');
+          const resto = params.toString();
+          history.replaceState(history.state, '', `${location.pathname}${resto ? `?${resto}` : ''}${location.hash}`);
+        } catch { /* sem history: o pedido se repete ao recarregar */ }
+      }
+      const comMenu = temMenu(ctx.conteudo);
+
       const comeco = Math.max(0, ORDEM.indexOf(cenaInicial));
       // Fria = entrou por atalho. (Começar pela senha, ou pela música quando não há
       // senha, é o começo de verdade.)
@@ -360,7 +398,22 @@ export function criarDiretor() {
         if (cena === 'final' && etapa === 'desdobrando') ctx.inventario.esconderBotao();
         // No estado final a bolsa volta: ela pode ficar ali e reabrir o que guardou.
         if (cena === 'final' && etapa === 'fim' && ctx.inventario.itens.length) ctx.inventario.mostrarBotao();
+        // No menu: enquanto as referências passam a bolsa sai; com o menu assentado, volta.
+        if (cena === 'menu' && etapa === 'referencias') ctx.inventario.esconderBotao();
+        if (cena === 'menu' && etapa === 'menu' && ctx.inventario.itens.length) ctx.inventario.mostrarBotao();
       });
+
+      // O link limpo num aparelho que já chegou ao menu: senha, música e menu (nada no meio).
+      const direto = NA_ENTRADA.has(ORDEM[comeco]) && comMenu && menuLembrado();
+      ctx.estado.direto = direto;
+
+      // Ela voltou a uma parte por uma etiqueta do menu (?volta=1): a página recarregou e o
+      // som só volta com um toque. O portão pede esse toque antes de a cena começar.
+      if (frio && ORDEM[comeco] !== 'menu' && comMenu && ctx.amb?.params?.get('volta') === '1') {
+        try {
+          await (await carregar.menu()).portao(ctx, ORDEM[comeco]);
+        } catch (erro) { console.error('[carta] o portão falhou', erro); }   // nunca prende a carta
+      }
 
       for (let i = comeco; i < ORDEM.length; i++) {
         const nome = ORDEM[i];
@@ -368,6 +421,8 @@ export function criarDiretor() {
           // sem senha a pedir, a carta começa pela música: continua sendo o começo de verdade
           continue;
         }
+        if (direto && nome !== 'menu' && !NA_ENTRADA.has(nome)) continue;
+        if (direto && nome === 'menu') { semearBolsa(ctx, 'menu'); frio = true; }
         diretor.cena = nome;
         diretor.etapaAtual = null;
         raiz.dataset.cena = nome;

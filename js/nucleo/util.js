@@ -177,3 +177,39 @@ export function objetoLeve() {
     add() {}, remove() {}, attach() {}, traverse() {},
   };
 }
+
+// ---------------------------------------------------------------------------
+// O menu do fim (js/cenas/menu.js): a marca de que ela já chegou lá e o
+// endereço de cada parte da carta.
+// ---------------------------------------------------------------------------
+
+const CHAVE_MENU = 'carta2312:menu';       // a anotação no aparelho dela
+
+/** Ela já chegou ao menu do fim neste aparelho? */
+export function menuLembrado() {
+  try { return localStorage.getItem(CHAVE_MENU) === '1'; } catch { return false; }
+}
+/** Anota (ou esquece) que ela já chegou ao menu do fim. */
+export function lembrarMenu(sim = true) {
+  try { if (sim) localStorage.setItem(CHAVE_MENU, '1'); else localStorage.removeItem(CHAVE_MENU); } catch { /* aba anônima, armazenamento cheio: segue sem lembrar */ }
+}
+
+/** Parâmetros do endereço que acompanham ela de uma parte para outra (os de teste ficam para trás). */
+const PARAMETROS_QUE_FICAM = ['rapido', 'nivel', 'webgl', 'reduzido', 'mudo'];
+/**
+ * O endereço de uma parte da carta: ?cena=<cena>&musica=<faixa> e o que mais vier em
+ * `extra` (ex.: { volta: 1 }). A faixa é a que está tocando (som.estado.indice) ou,
+ * antes do primeiro toque depois de recarregar, a que já estava no endereço.
+ * Ficam rapido, nivel, webgl, reduzido e mudo; saem voz, menu, frase, hoje e o resto.
+ */
+export function enderecoDaCena(cena, extra = {}, som = null) {
+  const atual = new URLSearchParams(location.search);
+  const params = new URLSearchParams();
+  params.set('cena', cena);
+  const indice = som && som.estado ? som.estado.indice : -1;
+  const faixa = indice >= 0 ? String(indice) : atual.get('musica');
+  if (faixa !== null && faixa !== '') params.set('musica', faixa);
+  for (const chave of PARAMETROS_QUE_FICAM) if (atual.has(chave)) params.set(chave, atual.get(chave));
+  for (const [chave, valor] of Object.entries(extra || {})) params.set(chave, String(valor));
+  return `${location.pathname}?${params}`;
+}
