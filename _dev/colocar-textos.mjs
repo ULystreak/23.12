@@ -40,7 +40,7 @@ function lerTxt(arquivo) {
 
 // Devolve { paragrafos, titulo?, subtitulo? }.
 function lerCapitulo(texto) {
-  const linhas = texto.normalize('NFC').split(/\r?\n/).map((l) => l.trim()).filter((l) => !l.startsWith('#'));
+  const linhas = texto.normalize('NFC').split(/\r\n?|\n/).map((l) => l.trim()).filter((l) => !l.startsWith('#'));
   const lido = {};
   let i = 0;
   for (; i < linhas.length; i++) {
@@ -117,7 +117,7 @@ function trechoDoBloco(mask, a, f) {
 const recuoDe = (mask, i) => /^[ \t]*/.exec(mask.slice(mask.lastIndexOf('\n', i) + 1))[0];
 
 // Um texto dele escrito como texto do JavaScript, entre aspas simples.
-const aspas = (texto) => `'${texto.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, '\\n')}'`;
+const aspas = (texto) => `'${texto.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r\n?|\n/g, '\\n')}'`;
 
 // Devolve o código com o capítulo "chave" trocado pelo que veio do .txt.
 function trocarCapitulo(fonte, chave, lido) {
@@ -341,6 +341,10 @@ function teste() {
     caso('so o titulo no arquivo: os textos do capitulo ficam', { 'poppy.txt': 'Titulo: Outro nome\n' }, ({ c }) => {
       assert.equal(c.poppy.titulo, 'Outro nome');
       assert.deepEqual(c.poppy.blocos, base.poppy.blocos);
+    });
+
+    caso('fim de linha antigo (so CR) tambem separa as linhas', { 'poppy.txt': 'Um.\rDois.\r' }, ({ c }) => {
+      assert.deepEqual(textosDe(c, 'poppy'), ['Um.', 'Dois.']);
     });
 
     assert.equal(readFileSync(real, 'utf8'), original, 'o content.js de verdade foi mexido');
