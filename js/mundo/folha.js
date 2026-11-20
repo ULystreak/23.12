@@ -92,7 +92,7 @@ const DELA = {
   // na folha, a pétala não pousa ali (POUSOS, `dela`).
   topo: 0.69,
   base: 0.93,
-  baseBaixa: 0.858,                   // em tela baixa (deitado, zoom alto) o botão de reabrir cobre o pé da folha
+  baseBaixa: 0.84,                    // em tela baixa (deitado, zoom alto) o botão de reabrir cobre o pé da folha
   limite: 180,                        // caracteres; o resto continua guardado na resposta dela
 };
 
@@ -143,8 +143,9 @@ function misturar(a, b, k) {
 }
 
 // Emoji (com tons de pele, bandeiras, o número na moldura de tecla e as junções): a fonte não tem, e a
-// tinta lida pixel a pixel viraria um borrão.
-const EMOJI = /[0-9#*]\ufe0f?\u20e3|[\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Regional_Indicator}\u200d\ufe0e\ufe0f\u20e3\u{e0020}-\u{e007f}]/gu;
+// tinta lida pixel a pixel viraria um borrão. Com eles saem os caracteres que não se veem (o
+// espaço de largura zero e parecidos): um texto só deles não escreve nada.
+const EMOJI = /[0-9#*]\ufe0f?\u20e3|[\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Regional_Indicator}\u200b-\u200f\u2060\ufeff\ufe0e\ufe0f\u20e3\u{e0020}-\u{e007f}]/gu;
 // O emoji colado entre duas palavras, sem espaço, fazia as vezes do espaço: sai, mas deixa um
 // (senão "obrigada", o emoji e "te amo" viram "obrigadate amo" na folha).
 const EMOJI_ENTRE = new RegExp(`(\\S)(?:${EMOJI.source})+(?=[\\p{L}\\p{N}])`, 'gu');
@@ -154,9 +155,10 @@ const EMOJI_ENTRE = new RegExp(`(\\S)(?:${EMOJI.source})+(?=[\\p{L}\\p{N}])`, 'g
  * no máximo uma quebra de linha seguida, palavra comprida demais partida (senão sai
  * pela borda) e, passando do limite, cortado na palavra, com reticências (três pontos:
  * o … da Klee One é o japonês, no meio da linha; o que ela digitar também vira três pontos).
+ * O acento que vier solto da letra (texto colado) junta-se a ela: a mão desenha glifo a glifo.
  */
 function textoDela(texto) {
-  let t = String(texto ?? '').replace(EMOJI_ENTRE, '$1 ').replace(EMOJI, '').replace(/…/g, '...')
+  let t = String(texto ?? '').normalize('NFC').replace(EMOJI_ENTRE, '$1 ').replace(EMOJI, '').replace(/…/g, '...')
     .replace(/\r\n?/g, '\n')
     .replace(/[^\S\n]+/g, ' ')
     .replace(/ ?\n\s*/g, '\n')
@@ -269,7 +271,8 @@ function criarEscrita({ amb, largura = 1024, tinta: COR_SECA = COR_TINTA, molhad
       if (atual.length && nova > maximo) {
         const novo = [i];
         let somaNovo = larguras[i];
-        while (atual.length > 1 && presa(palavras[atual[atual.length - 1]])) {
+        // (no máximo duas: uma fila de letras soltas não desce inteira, linha após linha)
+        while (atual.length > 1 && novo.length < 3 && presa(palavras[atual[atual.length - 1]])) {
           const j = atual.pop();
           novo.unshift(j);
           somaNovo += larguras[j] + espaco;
