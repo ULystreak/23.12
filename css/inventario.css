@@ -62,7 +62,7 @@
    (BOLSA_LIVRE em js/nucleo/diretor.js; carta2:carta-chegando é uma delas, por isso o
    final vai pelo nome). */
 html[data-cena="encontro"] #inventario .inventario-botao,
-html[data-cena="final"]:is([data-etapa="carta-chegando"], [data-etapa="carta-espera"], [data-etapa="carta-abrindo"]) #inventario .inventario-botao,
+html[data-cena="final"]:is(:not([data-etapa]), [data-etapa="carta-chegando"], [data-etapa="carta-espera"], [data-etapa="carta-abrindo"]) #inventario .inventario-botao,
 html[data-etapa="lendo"] #inventario .inventario-botao { opacity: 0; pointer-events: none; }
 /* Aberta: o botão fica afundado, como a bolsa de boca aberta (no celular a folha o cobre). */
 #inventario[data-aberto] .inventario-botao { transform: scale(0.92); }

@@ -175,169 +175,18 @@ function escrever(gsap, alvo, texto, { calmo, som, intensidade = 0.6 } = {}) {
 // A cena
 // ============================================================================
 
-export async function cenaCartas(ctx, { frio } = {}) {
-  const { conteudo, diretor, mundo, musica, inventario, som, amb, estado } = ctx;
+/**
+ * O visor das cartas do chão (o vídeo, a galeria ou o cartão de exemplo) e a música que
+ * abaixa por baixo dele. Fica fora da cena para a bolsa poder reabrir uma carta depois de
+ * a página recarregar no encontro ou no fim (abrirCartaDoChao, semearCartas).
+ */
+function criarVisor(ctx, { vivo = null } = {}) {
+  const { conteudo, musica, inventario, mundo, som, amb } = ctx;
   const gsap = window.gsap;
   const dados = conteudo.cartasChao || {};
   const rotulos = dados.rotulos || {};
   const calmo = amb.reduzido;
   const palco = document.getElementById('palco');
-  const acoes = document.getElementById('acoes');
-
-  const sorte = semente(31);
-  const itens = cartasDoChao(conteudo).map((carta, i, lista) => ({
-    carta, i,
-    ultima: i === lista.length - 1 && carta.tipo === 'galeria',
-    estado: 'fechada',
-    escrito: false,
-    guinada: (sorte() - 0.5) * 30,           // cada carta caiu virada de um jeito
-    tombo: 17 + sorte() * 8,                 // e não ficou toda deitada: a borda de lá levanta um pouco
-    fase: sorte() * 6.28,
-    anim: { alt: 0, giro: 0, vira: 0, op: 0 },
-    X: 0, d: 2, larg: LARGURA,
-    botao: null, desenho: null, nome: null,
-  }));
-
-  const cancelamentos = [];
-  const ouvir = (alvo, evento, fn, opcoes) => {
-    alvo.addEventListener(evento, fn, opcoes);
-    cancelamentos.push(() => alvo.removeEventListener(evento, fn, opcoes));
-  };
-
-  // ---- o que fica em cena ---------------------------------------------------
-  const raiz = el('div', 'cartas-chao');
-  const campo = el('div', 'cartas-chao-campo');
-  const vivo = el('p', { class: 'so-leitor', 'aria-live': 'polite' });
-  raiz.append(campo, vivo);
-  palco.insertBefore(raiz, acoes);     // antes das ações: no foco e na leitura, as cartas vêm antes de seguir em frente
-
-  // ---- a câmera: ela olha para o chão ----------------------------------------
-  // geo: a lente do mundo neste tamanho de tela e o quanto o olhar desce.
-  const geo = { L: 1, A: 1, f: 800, S: 260, teta: 0.3, dPerto: 2, dLonge: 4 };
-  const olhar = { k: 0 };              // 0 olhando para a frente, 1 olhando para as cartas
-  function medir() {
-    geo.L = mundo.tamanho.largura || palco.clientWidth || innerWidth;
-    geo.A = mundo.tamanho.altura || palco.clientHeight || innerHeight;
-    const aspecto = geo.L / geo.A;
-    const tanM = Math.tan(fovPara(aspecto) * GRAU / 2);
-    geo.f = geo.A / (2 * tanM);
-    // Desce o olhar até onde a cabeça dele ainda cabe no alto da tela.
-    const cabeca = Math.atan((1.78 - ALTURA_OLHOS) / DIST_ELE);
-    geo.teta = clamp(Math.atan(0.84 * tanM) - cabeca, 8 * GRAU, 20 * GRAU);
-    // A carta mais próxima fica a ~3/4 da altura da tela (o botão de seguir vem abaixo).
-    geo.dPerto = clamp(ALTURA_OLHOS / Math.tan(geo.teta + Math.atan(0.58 * tanM)), 1.7, 3.1);
-    geo.dLonge = clamp(Math.max(geo.dPerto + 1.25, 3.95), geo.dPerto + 1.1, DIST_ELE - 1.0);
-    geo.S = geo.f / 3.1;               // px por metro no desenho (perto do tamanho real na tela)
-    const emPe = aspecto < 0.9;
-    const lugares = emPe ? LUGARES_EM_PE : LUGARES_DEITADO;
-    // metade da largura do chão à vista na carta mais próxima
-    const meia = (geo.dPerto * Math.cos(geo.teta) + ALTURA_OLHOS * Math.sin(geo.teta)) * tanM * aspecto;
-    const abre = emPe ? clamp((meia - 0.27) / 0.37, 0.6, 1.25) : clamp((meia - 0.3) / 1.9, 0.45, 1);
-    itens.forEach((item, i) => {
-      // com menos de 7 cartas, espalha pelos lugares; a Surpresinha fica sempre no último
-      // a Surpresinha fica sempre no último lugar (o mais perto dele)
-      const lugar = lugares[item.ultima ? lugares.length - 1 : i % (lugares.length - 1)];
-      const volta = item.ultima ? 0 : Math.floor(i / (lugares.length - 1));   // mais de 6 amigos: outra fileira, mais ao lado
-      item.d = lerp(geo.dPerto, geo.dLonge, lugar.t);
-      item.X = lugar.x * abre + volta * 0.2;
-      item.larg = LARGURA * (item.ultima ? 1.32 : 1);
-      const w = item.larg * geo.S;
-      const h = w * PROPORCAO;
-      const b = item.desenho;
-      if (!b) return;
-      b.style.width = `${w.toFixed(1)}px`;
-      b.style.height = `${h.toFixed(1)}px`;
-      b.style.marginLeft = `${(-w / 2).toFixed(1)}px`;
-      b.style.marginTop = `${(-h / 2).toFixed(1)}px`;
-      b.style.setProperty('--b', `${w.toFixed(1)}px`);
-      b.style.zIndex = String(100 - Math.round(item.d * 10));   // a de perto por cima
-      item.botao.style.zIndex = b.style.zIndex;
-      // o botão: a caixa da carta já pousada, com o olhar no chão (com folga para o dedo)
-      const m = matrizDe(item, REPOUSO, 1);
-      let x0 = Infinity; let y0 = Infinity; let x1 = -Infinity; let y1 = -Infinity;
-      for (const [cx, cy] of [[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]]) {
-        const zc = m[2] * cx + m[6] * cy + m[14];
-        const k = geo.f / Math.max(1, geo.f - zc);
-        const sx = geo.L / 2 + (m[0] * cx + m[4] * cy + m[12]) * k;
-        const sy = geo.A / 2 + (m[1] * cx + m[5] * cy + m[13]) * k;
-        x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); y0 = Math.min(y0, sy); y1 = Math.max(y1, sy);
-      }
-      const folgaY = Math.max(0, (46 - (y1 - y0)) / 2);
-      Object.assign(item.botao.style, {
-        left: `${x0.toFixed(1)}px`, top: `${(y0 - folgaY).toFixed(1)}px`,
-        width: `${(x1 - x0).toFixed(1)}px`, height: `${(y1 - y0 + folgaY * 2).toFixed(1)}px`,
-      });
-    });
-    campo.style.perspective = `${geo.f.toFixed(1)}px`;
-  }
-
-  /** A matriz que deita a carta no chão, vista pela câmera do mundo (a = a pose; k = quanto o olhar desceu). */
-  function matrizDe(item, a, k) {
-    const teta = geo.teta * k;
-    const st = Math.sin(teta); const ct = Math.cos(teta);
-    const psi = (item.guinada + a.giro) * GRAU;
-    const fi = (item.tombo + a.vira) * GRAU;
-    const cp = Math.cos(psi); const sp = Math.sin(psi);
-    const cf = Math.cos(fi); const sf = Math.sin(fi);
-    // eixos da carta no mundo: u para a direita dela, v da borda de lá para a de cá
-    const ux = cp; const uy = 0; const uz = sp;
-    const vx = -sp * cf; const vy = -sf; const vz = cp * cf;
-    const nx = uy * vz - uz * vy; const ny = uz * vx - ux * vz; const nz = ux * vy - uy * vx;
-    const meiaProf = item.larg * PROPORCAO / 2;
-    const px = item.X + Math.sin(a.alt * 3.1 + item.fase) * 0.16 * Math.min(1, a.alt);
-    const py = 0.012 + meiaProf * Math.abs(sf) + a.alt - ALTURA_OLHOS;
-    const pz = -item.d;
-    // câmera: direita (1,0,0), cima (0,ct,−st), frente (0,−st,−ct)
-    const cima = (x, y, z) => y * ct - z * st;
-    const frente = (x, y, z) => -y * st - z * ct;
-    const S = geo.S;
-    return [
-      ux, -cima(ux, uy, uz), -frente(ux, uy, uz), 0,
-      vx, -cima(vx, vy, vz), -frente(vx, vy, vz), 0,
-      nx, -cima(nx, ny, nz), -frente(nx, ny, nz), 0,
-      px * S, -cima(px, py, pz) * S, geo.f - frente(px, py, pz) * S, 1,
-    ];
-  }
-  function posar(item) {
-    const a = item.anim;
-    // (parada, a carta não é reescrita: o vento que mexe nela é do CSS, por dentro do desenho)
-    const texto = `matrix3d(${matrizDe(item, a, olhar.k).map((v) => v.toFixed(5)).join(',')})`;
-    if (texto !== item.matriz) { item.matriz = texto; item.desenho.style.transform = texto; }
-    if (a.op !== item.opaca) { item.opaca = a.op; item.desenho.style.opacity = a.op.toFixed(3); }
-  }
-
-  cancelamentos.push(mundo.aoQuadro(() => {
-    if (mundo.ok && olhar.k > 0.0005) mundo.camera.rotation.x -= geo.teta * olhar.k;
-    for (const item of itens) posar(item);
-  }));
-
-  // ---- as cartas --------------------------------------------------------------
-  for (const item of itens) {
-    const nome = el('span', { class: 'carta-chao-nome', 'aria-hidden': 'true' });
-    const face = el('span', 'carta-chao-face', [svg(ENVELOPE), svg(item.ultima ? LACRE : AMARRA), nome]);
-    const vento = el('span', { class: 'carta-chao-vento', style: { animationDelay: `${(-item.fase).toFixed(2)}s` } }, face);
-    const desenho = el('span', { class: 'carta-chao-desenho', 'aria-hidden': 'true', dataset: { estado: 'fechada' } },
-      [el('span', 'carta-chao-sombra'), vento]);
-    const botao = el('button', {
-      class: 'carta-chao', type: 'button',
-      'aria-label': String(rotulos.carta || 'Carta {n}').replace('{n}', String(item.i + 1)),
-      dataset: { acao: 'carta-chao', id: item.carta.id, estado: 'fechada', tipo: item.carta.tipo },
-    });
-    if (item.ultima) {
-      desenho.classList.add('carta-chao-surpresinha');
-      // A Surpresinha é a última: fica trancada até as outras terem sido abertas.
-      if (itens.length > 1) { desenho.dataset.trancada = '1'; botao.setAttribute('aria-disabled', 'true'); }
-    }
-    item.botao = botao;
-    item.desenho = desenho;
-    item.nome = nome;
-    botao.addEventListener('click', () => abrirCarta(item));
-    campo.append(botao, desenho);              // o desenho logo depois do botão (o CSS usa botão + desenho)
-  }
-  medir();
-  const aoGirar = () => medir();
-  cancelamentos.push(mundo.aoRedimensionar(aoGirar));
-  ouvir(window, 'resize', aoGirar, { passive: true });
 
   // ---- música ---------------------------------------------------------------
   let abafada = false;
@@ -607,7 +456,8 @@ export async function cenaCartas(ctx, { frio } = {}) {
       function aoTeclar(ev) {
         if (fechado) return;
         if (ev.key === 'Escape') { ev.preventDefault(); fecharVisor(); }
-        else if (video && !falhou && (ev.key === ' ' || ev.key === 'k') && document.activeElement !== fechar) {
+        // (Espaço e k tocam e pausam mesmo com o foco no Fechar, o único focável do visor de vídeo)
+        else if (video && !falhou && (ev.key === ' ' || ev.key === 'k')) {
           ev.preventDefault();
           if (video.paused) video.play().catch(() => {}); else video.pause();
         } else if (ev.key === 'Tab') {
@@ -629,7 +479,7 @@ export async function cenaCartas(ctx, { frio } = {}) {
       inventario.esconderBotao();
       musica.esconderMini();
       mundo.petalas.definirDensidade(0.4);
-      vivo.textContent = carta.nome;
+      if (vivo) vivo.textContent = carta.nome;
       gsap.fromTo(veu, { autoAlpha: 0 }, { autoAlpha: 1, duration: calmo ? 0.4 : 0.5, ease: 'none' });
       // (só a opacidade: invisível, o botão continua focável e recebe o foco logo abaixo)
       gsap.fromTo(fechar, { opacity: 0 }, { opacity: 1, duration: 0.3, delay: calmo ? 0 : 0.3, ease: 'none' });
@@ -650,6 +500,211 @@ export async function cenaCartas(ctx, { frio } = {}) {
       try { fechar.focus({ preventScroll: true }); } catch { /* sem foco programático */ }
     });
   }
+
+  return { mostrar, voltarMusica, get aberto() { return visorAberto; } };
+}
+
+// As cartas do chão que ela guardou na bolsa ficam lembradas no aparelho: se a página
+// recarregar no encontro ou no fim (a retomada), a bolsa volta com elas.
+const CHAVE_CHAO = 'carta2312:chao';
+function lembrarNaBolsa(id) {
+  try {
+    const ids = new Set(JSON.parse(localStorage.getItem(CHAVE_CHAO) || '[]'));
+    ids.add(id);
+    localStorage.setItem(CHAVE_CHAO, JSON.stringify([...ids]));
+  } catch { /* sem localStorage: a retomada só não devolve as cartas */ }
+}
+function lembradas() {
+  try { return new Set(JSON.parse(localStorage.getItem(CHAVE_CHAO) || '[]')); } catch { return new Set(); }
+}
+
+let visorFora = null;
+/** A bolsa reabre uma carta do chão fora da cena (depois de recarregar no encontro ou no fim). */
+export function abrirCartaDoChao(ctx, id) {
+  const carta = cartasDoChao(ctx.conteudo).find((c) => c.id === id);
+  if (!carta) return Promise.resolve();
+  visorFora ||= criarVisor(ctx);
+  return visorFora.mostrar(carta);
+}
+
+/** Na retomada (encontro, fim), a bolsa volta com as cartas do chão que ela já tinha guardado. */
+export function semearCartas(ctx) {
+  const ids = lembradas();
+  for (const carta of cartasDoChao(ctx.conteudo)) {
+    if (ids.has(carta.id)) ctx.inventario.guardar({ id: carta.id, tipo: carta.tipo, titulo: carta.nome, abrir: () => abrirCartaDoChao(ctx, carta.id) });
+  }
+}
+
+export async function cenaCartas(ctx, { frio } = {}) {
+  const { conteudo, diretor, mundo, musica, inventario, som, amb, estado } = ctx;
+  const gsap = window.gsap;
+  const dados = conteudo.cartasChao || {};
+  const rotulos = dados.rotulos || {};
+  const calmo = amb.reduzido;
+  const palco = document.getElementById('palco');
+  const acoes = document.getElementById('acoes');
+
+  const sorte = semente(31);
+  const itens = cartasDoChao(conteudo).map((carta, i, lista) => ({
+    carta, i,
+    ultima: i === lista.length - 1 && carta.tipo === 'galeria',
+    estado: 'fechada',
+    escrito: false,
+    guinada: (sorte() - 0.5) * 30,           // cada carta caiu virada de um jeito
+    tombo: 17 + sorte() * 8,                 // e não ficou toda deitada: a borda de lá levanta um pouco
+    fase: sorte() * 6.28,
+    anim: { alt: 0, giro: 0, vira: 0, op: 0 },
+    X: 0, d: 2, larg: LARGURA,
+    botao: null, desenho: null, nome: null,
+  }));
+
+  try { localStorage.removeItem(CHAVE_CHAO); } catch { /* nada */ }   // (esta vez é que vale)
+  const cancelamentos = [];
+  const ouvir = (alvo, evento, fn, opcoes) => {
+    alvo.addEventListener(evento, fn, opcoes);
+    cancelamentos.push(() => alvo.removeEventListener(evento, fn, opcoes));
+  };
+
+  // ---- o que fica em cena ---------------------------------------------------
+  const raiz = el('div', 'cartas-chao');
+  const campo = el('div', 'cartas-chao-campo');
+  const vivo = el('p', { class: 'so-leitor', 'aria-live': 'polite' });
+  raiz.append(campo, vivo);
+  palco.insertBefore(raiz, acoes);     // antes das ações: no foco e na leitura, as cartas vêm antes de seguir em frente
+
+  // ---- a câmera: ela olha para o chão ----------------------------------------
+  // geo: a lente do mundo neste tamanho de tela e o quanto o olhar desce.
+  const geo = { L: 1, A: 1, f: 800, S: 260, teta: 0.3, dPerto: 2, dLonge: 4 };
+  const olhar = { k: 0 };              // 0 olhando para a frente, 1 olhando para as cartas
+  function medir() {
+    geo.L = mundo.tamanho.largura || palco.clientWidth || innerWidth;
+    geo.A = mundo.tamanho.altura || palco.clientHeight || innerHeight;
+    const aspecto = geo.L / geo.A;
+    const tanM = Math.tan(fovPara(aspecto) * GRAU / 2);
+    geo.f = geo.A / (2 * tanM);
+    // Desce o olhar até onde a cabeça dele ainda cabe no alto da tela.
+    const cabeca = Math.atan((1.78 - ALTURA_OLHOS) / DIST_ELE);
+    geo.teta = clamp(Math.atan(0.84 * tanM) - cabeca, 8 * GRAU, 20 * GRAU);
+    // A carta mais próxima fica a ~3/4 da altura da tela (o botão de seguir vem abaixo).
+    geo.dPerto = clamp(ALTURA_OLHOS / Math.tan(geo.teta + Math.atan(0.58 * tanM)), 1.7, 3.1);
+    geo.dLonge = clamp(Math.max(geo.dPerto + 1.25, 3.95), geo.dPerto + 1.1, DIST_ELE - 1.0);
+    geo.S = geo.f / 3.1;               // px por metro no desenho (perto do tamanho real na tela)
+    const emPe = aspecto < 0.9;
+    const lugares = emPe ? LUGARES_EM_PE : LUGARES_DEITADO;
+    // metade da largura do chão à vista na carta mais próxima
+    const meia = (geo.dPerto * Math.cos(geo.teta) + ALTURA_OLHOS * Math.sin(geo.teta)) * tanM * aspecto;
+    const abre = emPe ? clamp((meia - 0.27) / 0.37, 0.6, 1.25) : clamp((meia - 0.3) / 1.9, 0.45, 1);
+    itens.forEach((item, i) => {
+      // com menos de 7 cartas, espalha pelos lugares; a Surpresinha fica sempre no último
+      // a Surpresinha fica sempre no último lugar (o mais perto dele)
+      const lugar = lugares[item.ultima ? lugares.length - 1 : i % (lugares.length - 1)];
+      const volta = item.ultima ? 0 : Math.floor(i / (lugares.length - 1));   // mais de 6 amigos: outra fileira, mais ao lado
+      item.d = lerp(geo.dPerto, geo.dLonge, lugar.t);
+      item.X = lugar.x * abre + volta * 0.2;
+      item.larg = LARGURA * (item.ultima ? 1.32 : 1);
+      const w = item.larg * geo.S;
+      const h = w * PROPORCAO;
+      const b = item.desenho;
+      if (!b) return;
+      b.style.width = `${w.toFixed(1)}px`;
+      b.style.height = `${h.toFixed(1)}px`;
+      b.style.marginLeft = `${(-w / 2).toFixed(1)}px`;
+      b.style.marginTop = `${(-h / 2).toFixed(1)}px`;
+      b.style.setProperty('--b', `${w.toFixed(1)}px`);
+      b.style.zIndex = String(100 - Math.round(item.d * 10));   // a de perto por cima
+      item.botao.style.zIndex = b.style.zIndex;
+      // o botão: a caixa da carta já pousada, com o olhar no chão (com folga para o dedo)
+      const m = matrizDe(item, REPOUSO, 1);
+      let x0 = Infinity; let y0 = Infinity; let x1 = -Infinity; let y1 = -Infinity;
+      for (const [cx, cy] of [[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]]) {
+        const zc = m[2] * cx + m[6] * cy + m[14];
+        const k = geo.f / Math.max(1, geo.f - zc);
+        const sx = geo.L / 2 + (m[0] * cx + m[4] * cy + m[12]) * k;
+        const sy = geo.A / 2 + (m[1] * cx + m[5] * cy + m[13]) * k;
+        x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); y0 = Math.min(y0, sy); y1 = Math.max(y1, sy);
+      }
+      const folgaY = Math.max(0, (46 - (y1 - y0)) / 2);
+      Object.assign(item.botao.style, {
+        left: `${x0.toFixed(1)}px`, top: `${(y0 - folgaY).toFixed(1)}px`,
+        width: `${(x1 - x0).toFixed(1)}px`, height: `${(y1 - y0 + folgaY * 2).toFixed(1)}px`,
+      });
+    });
+    campo.style.perspective = `${geo.f.toFixed(1)}px`;
+  }
+
+  /** A matriz que deita a carta no chão, vista pela câmera do mundo (a = a pose; k = quanto o olhar desceu). */
+  function matrizDe(item, a, k) {
+    const teta = geo.teta * k;
+    const st = Math.sin(teta); const ct = Math.cos(teta);
+    const psi = (item.guinada + a.giro) * GRAU;
+    const fi = (item.tombo + a.vira) * GRAU;
+    const cp = Math.cos(psi); const sp = Math.sin(psi);
+    const cf = Math.cos(fi); const sf = Math.sin(fi);
+    // eixos da carta no mundo: u para a direita dela, v da borda de lá para a de cá
+    const ux = cp; const uy = 0; const uz = sp;
+    const vx = -sp * cf; const vy = -sf; const vz = cp * cf;
+    const nx = uy * vz - uz * vy; const ny = uz * vx - ux * vz; const nz = ux * vy - uy * vx;
+    const meiaProf = item.larg * PROPORCAO / 2;
+    const px = item.X + Math.sin(a.alt * 3.1 + item.fase) * 0.16 * Math.min(1, a.alt);
+    const py = 0.012 + meiaProf * Math.abs(sf) + a.alt - ALTURA_OLHOS;
+    const pz = -item.d;
+    // câmera: direita (1,0,0), cima (0,ct,−st), frente (0,−st,−ct)
+    const cima = (x, y, z) => y * ct - z * st;
+    const frente = (x, y, z) => -y * st - z * ct;
+    const S = geo.S;
+    return [
+      ux, -cima(ux, uy, uz), -frente(ux, uy, uz), 0,
+      vx, -cima(vx, vy, vz), -frente(vx, vy, vz), 0,
+      nx, -cima(nx, ny, nz), -frente(nx, ny, nz), 0,
+      px * S, -cima(px, py, pz) * S, geo.f - frente(px, py, pz) * S, 1,
+    ];
+  }
+  function posar(item) {
+    const a = item.anim;
+    // (parada, a carta não é reescrita: o vento que mexe nela é do CSS, por dentro do desenho)
+    const texto = `matrix3d(${matrizDe(item, a, olhar.k).map((v) => v.toFixed(5)).join(',')})`;
+    if (texto !== item.matriz) { item.matriz = texto; item.desenho.style.transform = texto; }
+    if (a.op !== item.opaca) { item.opaca = a.op; item.desenho.style.opacity = a.op.toFixed(3); }
+  }
+
+  cancelamentos.push(mundo.aoQuadro(() => {
+    // (publicado para o fio que segue o pulso dela, js/cenas/mao.js: ele se arma antes deste quadro)
+    estado.olharChao = mundo.ok && olhar.k > 0.0005 ? geo.teta * olhar.k : 0;
+    if (estado.olharChao) mundo.camera.rotation.x -= estado.olharChao;
+    for (const item of itens) posar(item);
+  }));
+
+  // ---- as cartas --------------------------------------------------------------
+  for (const item of itens) {
+    const nome = el('span', { class: 'carta-chao-nome', 'aria-hidden': 'true' });
+    const face = el('span', 'carta-chao-face', [svg(ENVELOPE), svg(item.ultima ? LACRE : AMARRA), nome]);
+    const vento = el('span', { class: 'carta-chao-vento', style: { animationDelay: `${(-item.fase).toFixed(2)}s` } }, face);
+    const desenho = el('span', { class: 'carta-chao-desenho', 'aria-hidden': 'true', dataset: { estado: 'fechada' } },
+      [el('span', 'carta-chao-sombra'), vento]);
+    const botao = el('button', {
+      class: 'carta-chao', type: 'button',
+      'aria-label': String(rotulos.carta || 'Carta {n}').replace('{n}', String(item.i + 1)),
+      dataset: { acao: 'carta-chao', id: item.carta.id, estado: 'fechada', tipo: item.carta.tipo },
+    });
+    if (item.ultima) {
+      desenho.classList.add('carta-chao-surpresinha');
+      // A Surpresinha é a última: fica trancada até as outras terem sido abertas.
+      if (itens.length > 1) { desenho.dataset.trancada = '1'; botao.setAttribute('aria-disabled', 'true'); }
+    }
+    item.botao = botao;
+    item.desenho = desenho;
+    item.nome = nome;
+    botao.addEventListener('click', () => abrirCarta(item));
+    campo.append(botao, desenho);              // o desenho logo depois do botão (o CSS usa botão + desenho)
+  }
+  medir();
+  const aoGirar = () => medir();
+  cancelamentos.push(mundo.aoRedimensionar(aoGirar));
+  ouvir(window, 'resize', aoGirar, { passive: true });
+
+  // ---- o visor e a música por baixo dele (criarVisor, fora da cena) ----------
+  const visor = criarVisor(ctx, { vivo });
+  const { mostrar, voltarMusica } = visor;
 
   // ---- o nome, escrito na carta depois de aberta -----------------------------
   function escreverNome(item) {
@@ -681,7 +736,7 @@ export async function cenaCartas(ctx, { frio } = {}) {
       seguir.addEventListener('animationend', (ev) => { if (ev.target === seguir) seguir.classList.remove('ui-entra'); });
       if (!dados.seguir) seguir.setAttribute('aria-label', 'Seguir em frente');
       seguir.addEventListener('click', () => {
-        if (diretor.etapa() !== 'escolhendo' || inventario.aberto || visorAberto) return;
+        if (diretor.etapa() !== 'escolhendo' || inventario.aberto || visor.aberto) return;
         seguir.disabled = true;
         resolverFim();
       });
@@ -702,12 +757,14 @@ export async function cenaCartas(ctx, { frio } = {}) {
   const luzFio = { v: fio?.acender?.() || 0 };
   const acesoAntes = luzFio.v;
   let luz = null;                      // o pulso que está correndo: pulso() mata o anterior no meio
+  let saindo = false;                  // em seguindo a luz só volta ao que era (nada mais a acende)
   function correrLuz() {
     if (!fio?.pulso || luz || !/^(escolhendo|assistindo)$/.test(diretor.etapa())) return;
     // (no movimento reduzido o próprio fio troca a luz que corre por um acender e apagar)
     gsap.delayedCall(1.6, () => { const ponta = estado.ele?.ancora?.(); if (ponta) fio.faiscar?.(ponta, 14); });
     luz = fio.pulso({ de: 0.1, ate: 1, duracao: 1.6, forca: 0.9, brasas: 10 }).then(() => {
       luz = null;
+      if (saindo) return;              // (um nível novo aqui mataria o apagar de seguindo)
       // (sem WebGL o pulso apaga o fio inteiro: o nível volta junto)
       gsap.to(luzFio, {
         v: acesoAntes + 0.4 * abertas.size / itens.length, duration: 0.8, ease: 'sine.out', overwrite: true,
@@ -717,7 +774,7 @@ export async function cenaCartas(ctx, { frio } = {}) {
   }
   let toqueLivre = 0;
   ouvir(window, 'pointerup', (ev) => {
-    if (diretor.etapa() !== 'escolhendo' || inventario.aberto || visorAberto) return;
+    if (diretor.etapa() !== 'escolhendo' || inventario.aberto || visor.aberto) return;
     if (ev.target?.closest?.('button, #mini, #inventario')) return;     // as cartas e os botões têm o toque deles
     if (performance.now() - toqueLivre < 2500) return;
     toqueLivre = performance.now();
@@ -727,7 +784,7 @@ export async function cenaCartas(ctx, { frio } = {}) {
   // ---- abrir uma carta ----------------------------------------------------------
   let ocupado = false;
   async function abrirCarta(item) {
-    if (ocupado || visorAberto || inventario.aberto || diretor.etapa() !== 'escolhendo') return;
+    if (ocupado || visor.aberto || inventario.aberto || diretor.etapa() !== 'escolhendo') return;
     if (item.ultima && itens.some((o) => o !== item && !abertas.has(o.carta.id))) {
       // Ainda não: um pulinho e o laço aperta, sem abrir (css).
       item.desenho.removeAttribute('data-negou');
@@ -755,7 +812,10 @@ export async function cenaCartas(ctx, { frio } = {}) {
     item.botao.setAttribute('aria-label', carta.nome);
     abertas.add(carta.id);
     if (comVoz) ctx.voz.liberar();     // a fita com os áudios é o que vai para a bolsa
-    if (!comVoz || carta.midias.length) inventario.guardar({ id: carta.id, tipo: carta.tipo, titulo: carta.nome, abrir: () => mostrar(carta) });
+    if (!comVoz || carta.midias.length) {
+      inventario.guardar({ id: carta.id, tipo: carta.tipo, titulo: carta.nome, abrir: () => mostrar(carta) });
+      lembrarNaBolsa(carta.id);
+    }
     inventario.mostrarBotao();
     atualizarSeguir();
     const ult = itens.find((o) => o.ultima);
@@ -836,6 +896,7 @@ export async function cenaCartas(ctx, { frio } = {}) {
 
     // Seguir em frente: as cartas ficam para trás e ela volta a olhar para ele.
     diretor.etapa('seguindo');
+    saindo = true;
     som.efeito('toque');
     gsap.to(seguir, { autoAlpha: 0, duration: 0.5, ease: 'none' });
     itens.forEach((item, k) => {
@@ -844,13 +905,19 @@ export async function cenaCartas(ctx, { frio } = {}) {
     });
     // A luz que as cartas acenderam volta ao que era, depois de o último pulso chegar
     // (o encontro manda o pulso dele; se pegasse este no meio, a luz pularia).
-    const apagar = fio && Promise.race([luz, espera(3000)]).then(() => new Promise((ok) => gsap.to(luzFio, {
-      v: acesoAntes, duration: calmo ? 0.8 : 1.2, ease: 'sine.inOut', overwrite: true,
-      onUpdate: () => fio.acender?.(luzFio.v), onComplete: ok,
-    })));
+    // (A cena nunca fica esperando só o onComplete: se algo matar o tween, o prazo segue.)
+    const durApagar = calmo ? 0.8 : 1.2;
+    const apagar = fio && Promise.race([luz, espera(3000)]).then(() => Promise.race([
+      new Promise((ok) => {
+        gsap.killTweensOf(luzFio);
+        gsap.to(luzFio, { v: acesoAntes, duration: durApagar, ease: 'sine.inOut', onUpdate: () => fio.acender?.(luzFio.v), onComplete: ok });
+      }),
+      espera(durApagar * 1000 + 600),
+    ]));
     await Promise.all([apagar, new Promise((ok) => gsap.to(olhar, { k: 0, duration: calmo ? 0.8 : 1.6, ease: calmo ? 'none' : 'sine.inOut', onComplete: ok }))]);
   } finally {
     for (const fn of cancelamentos) { try { fn(); } catch { /* nada */ } }
+    estado.olharChao = 0;
     if (frase) frase.remove();
     if (eleFrio) {
       try { eleFrio.sair(0.6); } catch { /* nada */ }

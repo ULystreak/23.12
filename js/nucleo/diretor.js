@@ -117,6 +117,24 @@ function marcarRetomada(cena, som) {
   } catch { /* sem history: recarregar volta ao começo, como antes */ }
 }
 
+/**
+ * Se ela troca de música pelo mini depois de a retomada estar marcada, o endereço acompanha
+ * (só quando a faixa muda: o Safari limita o replaceState).
+ */
+function seguirFaixa(som) {
+  let ultima = som.estado.indice;
+  som.aoMudar?.((e) => {
+    if (e.indice === ultima || e.indice < 0) return;
+    ultima = e.indice;
+    try {
+      const params = new URLSearchParams(location.search);
+      if (!RETOMAR.has(params.get('cena'))) return;
+      params.set('musica', String(e.indice));
+      history.replaceState(history.state, '', `${location.pathname}?${params}${location.hash}`);
+    } catch { /* nada */ }
+  });
+}
+
 /** A tela preta (#entrada) some de uma vez: é o que os atalhos fazem. */
 function tirarEntrada() {
   document.documentElement.classList.add('sem-entrada');
@@ -163,6 +181,8 @@ function semearBolsa(ctx, cena) {
     if (ORDEM.indexOf(id) < i) { ctx.inventario.guardar(itemDoCapitulo(ctx, id)); algum = true; }
   }
   if (algum && cena !== 'final') ctx.inventario.mostrarBotao();
+  // Depois das cartas do chão (a retomada no encontro ou no fim), as que ela guardou voltam.
+  if (i > ORDEM.indexOf('cartas')) carregar.cartas().then((m) => m.semearCartas?.(ctx)).catch(() => {});
 }
 
 /**
@@ -323,6 +343,7 @@ export function criarDiretor() {
       ctx.diretor = diretor;
       window.__carta.ctx = ctx;
       liberarPronto(ctx);
+      if (ctx.som) seguirFaixa(ctx.som);
 
       const comeco = Math.max(0, ORDEM.indexOf(cenaInicial));
       // Fria = entrou por atalho. (Começar pela senha, ou pela música quando não há

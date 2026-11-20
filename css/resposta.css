@@ -277,6 +277,12 @@
   -webkit-tap-highlight-color: transparent;
 }
 .depois-reabrir .ui-icone { width: 20px; height: 20px; }
+/* Tela estreita (o zoom do Safari a partir de 125%): o botão vai para o meio do espaço à
+   esquerda da bolsa, sem montar nela, e o rótulo do contador não quebra fora da etiqueta. */
+@media (max-width: 380px) {
+  .depois-reabrir { left: calc((100% - 88px) / 2); }
+  .contador-rotulo { white-space: nowrap; }
+}
 
 html.reduzido .resposta-nega { animation: none; }
 html.reduzido .resposta-outro { transition-duration: 0.01ms; }

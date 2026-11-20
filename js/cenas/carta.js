@@ -157,7 +157,8 @@ function esperarToque(ctx, env, baixar) {
   const acoes = document.getElementById('acoes');
   const textoDica = conteudo.abertura?.dicaCarta || '';
   // Na última carta o fio sobe do chão até o laço: a dica fica acima, longe dele.
-  const dicaAcima = env.amarracao === 'fio';
+  // (sem WebGL, com a figura dele pintada, a dica fica embaixo: acima, cairia no rosto dele)
+  const dicaAcima = env.amarracao === 'fio' && (mundo.ok || !document.querySelector('.ele-leve'));
 
   return new Promise((resolver) => {
     let terminado = false;

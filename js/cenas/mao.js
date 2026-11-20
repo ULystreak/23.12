@@ -1081,7 +1081,13 @@ function criarSeguidor(ctx, { z0, x0, pulsoPx, cam }) {
       const ndcX = clamp((ponta.x / mundo.tamanho.largura) * 2 - 1, -1.6, 1.6);
       // (a mão saindo de quadro no mergulho leva o pulso muito abaixo da tela: o fio não entra no chão)
       const ndcY = Math.max(-((ponta.y / mundo.tamanho.altura) * 2 - 1), -1.4);
+      // Nas cartas do chão o olhar desce (estado.olharChao, que js/cenas/cartas.js aplica na
+      // câmera depois deste quadro): o pulso vai ao mundo já com essa inclinação, senão a
+      // ponta do fio fica solta, cortada no meio do chão.
+      const desce = estado.olharChao || 0;
+      if (desce) mundo.camera.rotation.x -= desce;
       inicio.copy(mundo.telaParaMundo(ndcX, ndcY, PROF_PULSO));
+      if (desce) mundo.camera.rotation.x += desce;
     } else {
       leve.desprojetar(ponta.x, ponta.y, PROF_PULSO, inicio);
     }

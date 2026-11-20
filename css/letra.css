@@ -28,7 +28,11 @@
 html:has(#frases > *, #pergaminho:not([hidden]), #inventario[data-aberto], .carta-chao-visor, #voz[data-aberto]) #letra { opacity: 0; }
 html:not(.sem-entrada) #letra,
 html:is([data-cena="cartas"], [data-cena="encontro"], [data-etapa="frases"], [data-etapa="guardando"]) #letra,
-html[data-cena="final"]:is([data-etapa="escrevendo"], [data-etapa="contador"], [data-etapa="resposta"], [data-etapa="fim"]) #letra { opacity: 0; }
+html[data-cena="final"]:is([data-etapa="desdobrando"], [data-etapa="escrevendo"], [data-etapa="contador"], [data-etapa="resposta"], [data-etapa="fim"]) #letra { opacity: 0; }
+/* Na janela baixa de notebook, a caixa (até ~123 px) cobriria a dica da última carta. */
+@media (min-width: 900px) and (max-height: 760px) {
+  html[data-cena="final"][data-etapa="carta-espera"]:has(#dica:not([hidden])) #letra { opacity: 0; }
+}
 .letra-linha {
   margin: 0;
   padding: 10px 20px 11px;
