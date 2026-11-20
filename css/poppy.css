@@ -209,6 +209,31 @@ html.reduzido .poppy-leve-chuvisco { animation: none; opacity: 0.04; }
   gap: var(--esp-6);
   min-height: calc(var(--tela) - 210px);
 }
+/* O logo do jogo (poppy.logo), colado no alto como um adesivo. O arquivo tem
+   480 px de largura: no celular fica em até 240 px (2 px do arquivo para cada
+   ponto da tela), no computador em até 320 px. Mais largo que isso, borra.
+   Em tela baixa ele encolhe, para a pilha e o subtítulo continuarem à vista. */
+.poppy-logo {
+  /* colado no vidro: os blocos caem e quicam por trás dele, nunca por cima */
+  position: relative;
+  z-index: 1;
+  justify-self: start;
+  width: min(68%, 320px, calc(var(--tela) * 0.42));
+  /* mais perto da pilha do que a pilha do subtítulo: os dois são o título */
+  margin-bottom: calc(var(--esp-4) - var(--esp-6));
+  opacity: 0;
+  visibility: hidden;
+  /* gira e cresce em volta do canto de baixo, à esquerda: a ponta direita é a que assenta por último */
+  transform-origin: 22% 62%;
+}
+.poppy-logo img { display: block; width: 100%; height: auto; }
+/* Celular deitado: o adesivo e a pilha, um em cima do outro, não cabem na mesma
+   tela. O adesivo vai para o lado da pilha e o subtítulo passa por baixo dos dois. */
+@media (max-height: 480px) and (orientation: landscape) {
+  .poppy-cabeca.com-logo { grid-template-columns: auto minmax(0, 1fr); column-gap: var(--esp-5); align-items: center; }
+  .com-logo .poppy-logo { width: calc(var(--tela) * 0.42); margin-bottom: 0; }
+  .com-logo .poppy-subtitulo { grid-column: 1 / -1; }
+}
 .poppy-titulo { margin: 0; font-size: 1rem; line-height: 1; }
 .poppy-pilha { display: flex; flex-direction: column; gap: 3px; }
 .poppy-fileira { display: flex; align-items: flex-end; gap: 3px; }
@@ -885,6 +910,7 @@ html.reduzido .poppy-tecla { transition: none; }
 /* Os brinquedos são desenho: brincar com eles (cliques seguidos, dedo parado em
    cima) não seleciona a letra nem abre o menu do iPhone. */
 .poppy-pilha,
+.poppy-logo,
 .esteira-palco {
   -webkit-user-select: none;
   user-select: none;

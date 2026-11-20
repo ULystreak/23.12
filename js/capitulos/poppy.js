@@ -15,12 +15,13 @@
 //   um laço só  ← mede a velocidade da rolagem, alimenta o fundo, o contador e
 //                 as cenas que estão na tela (as outras ficam paradas)
 //
-// A abertura (tela azul → PLAY → a imagem entra → o título cai) começa quando a
-// folha termina de desenrolar (api.aberto; sem ele, a etapa "lendo" em <html>).
+// A abertura (tela azul → PLAY → a imagem entra → o logo assenta e o título
+// cai) começa quando a folha termina de desenrolar (api.aberto; sem ele, a
+// etapa "lendo" em <html>).
 //
 // Gancho para os testes (não mudar): [data-acao="fechar-capitulo"].
 
-import { clamp, el, espera, svg } from '../nucleo/util.js';
+import { carregarImagem, clamp, el, espera, svg } from '../nucleo/util.js';
 import { criarFundo, aquecerFundo } from './poppy/fundo.js';
 import { criarOsd } from './poppy/osd.js';
 import { criarTitulo } from './poppy/titulo.js';
@@ -30,6 +31,11 @@ import { criarFita } from './poppy/fita.js';
 import { criarEsteira } from './poppy/esteira.js';
 
 const CENAS = { maos: criarMaos, fita: criarFita, esteira: criarEsteira };
+
+// O logo do alto começa a vir junto com este módulo, que chega em segundo plano
+// durante a abertura: na hora de montar o capítulo ele já está no cache do
+// navegador. (Campo vazio não faz pedido.)
+carregarImagem(window.CONTEUDO?.poppy?.logo);
 
 // Enquanto ela olha a primeira carta parada à sua frente (logo antes deste
 // capítulo), o fundo da fita se prepara em momentos ociosos: contexto WebGL, shader, fábrica
@@ -80,6 +86,8 @@ export const capitulo = {
     const pedidoImagens = Promise.all(blocos.map((bloco) => (
       bloco?.tipo === 'imagem' ? Promise.race([api.recursos.elementoImagem(bloco.arquivo, bloco.alt || ''), prazo]) : null
     )));
+    // o logo do alto (opcional) entra no mesmo prazo: sem ele, só a pilha de blocos
+    const pedidoLogo = Promise.race([api.recursos.elementoImagem(c.logo, String(c.logoAlt || '').trim()), prazo]);
     const imagemFundo = await Promise.race([api.recursos.imagem(c.fundo), prazo]);
     const fundo = criarFundo({ recipiente: api.fundo, amb, imagem: imagemFundo });
 
@@ -119,7 +127,8 @@ export const capitulo = {
     const ctx = { amb, gsap, som, anima, falha, piscarModo };
 
     // ---- título -----------------------------------------------------------------------
-    const titulo = criarTitulo({ texto: c.titulo, subtitulo: c.subtitulo, amb, gsap, anima, som });
+    const logo = await pedidoLogo;
+    const titulo = criarTitulo({ texto: c.titulo, subtitulo: c.subtitulo, logo, amb, gsap, anima, som });
     corpo.append(titulo.el);
 
     // ---- blocos -----------------------------------------------------------------------
@@ -412,7 +421,8 @@ export const capitulo = {
       raiz.classList.remove('aguardando');
 
       const queda = titulo.cair();
-      await Promise.race([queda, espera(1700)]);
+      // (com o logo os blocos saem 0,3 s depois: o subtítulo espera o mesmo tanto)
+      await Promise.race([queda, espera(logo ? 2000 : 1700)]);
       if (!vivo) return;
       await titulo.digitar();
       if (!vivo) return;

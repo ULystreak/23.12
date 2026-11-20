@@ -300,7 +300,8 @@ window.CONTEUDO = {
   /* --------------------------------------------------------------------------
      CAPÍTULO 1: O JOGO
      A folha desenrola e vira uma fita de vídeo antiga, achada numa fábrica de
-     brinquedos. O título cai em blocos de brinquedo, uma letra por bloco.
+     brinquedos. No alto vai o logo do jogo; embaixo dele, o título cai em
+     blocos de brinquedo, uma letra por bloco.
 
      Os "blocos" são as partes do capítulo, na ordem em que ela vai rolando.
      Você pode trocar a ordem, apagar ou repetir blocos à vontade. Tipos:
@@ -322,6 +323,14 @@ window.CONTEUDO = {
              'esteira'  uma esteira de fábrica onde caem caixas com palavras
      ------------------------------------------------------------------------ */
   poppy: {
+    // O logo do jogo, no alto do capítulo, acima do título: entra como um
+    // adesivo colado na tela, logo que a fita começa a tocar. Imagem com fundo
+    // transparente, em assets/images/. Vazio ('') tira o logo e o capítulo
+    // abre só com o título em blocos.
+    logo: 'assets/images/poppy-logo.webp',
+    // O que o leitor de tela diz no lugar do logo.
+    logoAlt: 'Poppy Playtime',
+
     // O título: cada letra vira um bloco de brinquedo. Títulos curtos (até
     // umas 5 palavras) ficam mais bonitos.
     titulo: '[Onde a gente se conheceu]',
