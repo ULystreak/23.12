@@ -1,7 +1,7 @@
 // A carta: caminha, a carta chega, espera o toque, abre e entrega o papel.
 // Usada três vezes (coração, estrela e a última, amarrada só com o fio).
 //
-//   cenaCarta(ctx, { tema, lacre, amarracao, distancia, entregar = true, anunciarCaminhada = true, baixar = 0.12 })
+//   cenaCarta(ctx, { tema, lacre, amarracao, distancia, entregar = true, anunciarCaminhada = true, baixar = 0.12, chacoalhar = '' })
 //     → Promise<{ env, papel, parar }>
 //
 //   tema               'poppy' | 'yourname' | null: a cara da carta (null = a carta branca, a última)
@@ -14,6 +14,13 @@
 //   anunciarCaminhada  false: não publica a etapa `caminhada` (a cena final começa em `carta-chegando`)
 //   baixar             quanto a carta para abaixo da linha dos olhos, em meias-alturas da tela
 //                      (0,12: um nada abaixo; a última, na mão dele, para mais baixo e deixa o rosto dele livre)
+//   chacoalhar         o convite para chacoalhar o celular (só a última carta passa; '' = desligado).
+//                      O toque na carta pede o sensor de movimento (no iPhone, a janela do sistema,
+//                      dentro do gesto); com ele, a dica vira este texto, a carta treme de leve e
+//                      abre quando o aparelho é chacoalhado. Nunca prende: sem sensor, com a
+//                      permissão negada, no mouse, no teclado, no leitor de tela ou com movimento
+//                      reduzido o toque abre na hora; depois do convite um segundo toque também
+//                      abre, e em ~10 s a dica volta a pedir o toque.
 //
 // Etapas: caminhada → carta-chegando → carta-espera → carta-abrindo → papel
 // O envelope fica em ctx.estado.envelope até a cena seguinte mandá-lo embora.
@@ -36,6 +43,12 @@ const ALTURA_CARTA = 0.16;
 const ESPERA_DICA = 4000;          // ms sem toque até a dica aparecer
 const LONGE = 2.6;                 // metros além do ponto de parada de onde a carta vem
 const BAIXAR = 0.12;               // a carta para um nada abaixo da linha dos olhos (em meias-alturas da tela)
+// Chacoalhar (a última carta): o aparelho parado dá ~0 m/s² (sem a gravidade), andar com
+// ele na mão fica em 2 a 5 e um chacoalhão de leve passa de 14. Vale com três picos em 1 s.
+const FORCA_CHACOALHO = 11;        // m/s² para contar um pico
+const PICOS_CHACOALHO = 3;
+const JANELA_CHACOALHO = 1000;     // ms em que os picos têm que caber
+const ESPERA_CHACOALHO = 10000;    // ms sem chacoalhar até a dica voltar a pedir o toque
 
 // Ela já usou o teclado? (só então o foco levado até a carta pede o anel; um toque nunca o vê)
 let usouTeclado = false;
@@ -69,7 +82,7 @@ export function poseParada(mundo, baixar = BAIXAR, zOlhos = mundo.rig.position.z
 }
 
 export async function cenaCarta(ctx, opcoes = {}) {
-  const { tema = null, lacre = 'coracao', amarracao = 'cordao', distancia = 7, entregar = true, anunciarCaminhada = true, baixar = BAIXAR } = opcoes;
+  const { tema = null, lacre = 'coracao', amarracao = 'cordao', distancia = 7, entregar = true, anunciarCaminhada = true, baixar = BAIXAR, chacoalhar = '' } = opcoes;
   const { mundo, diretor, pergaminho, som, estado } = ctx;
   const gsap = window.gsap;
 
@@ -132,7 +145,7 @@ export async function cenaCarta(ctx, opcoes = {}) {
   }
 
   diretor.etapa('carta-espera');
-  await esperarToque(ctx, env, baixar);
+  await esperarToque(ctx, env, baixar, chacoalhar);
 
   diretor.etapa('carta-abrindo');
   const { papel } = await env.abrir();
@@ -149,8 +162,12 @@ export async function cenaCarta(ctx, opcoes = {}) {
   return { env, papel, parar };
 }
 
-/** Espera ela tocar na carta. Depois de alguns segundos sem toque, mostra a dica. */
-function esperarToque(ctx, env, baixar) {
+/**
+ * Espera ela tocar na carta. Depois de alguns segundos sem toque, mostra a dica.
+ * Com `textoChacoalhar` (a última carta) e sensor de movimento, o toque vira o convite
+ * para chacoalhar o celular (ver o cabeçalho).
+ */
+function esperarToque(ctx, env, baixar, textoChacoalhar = '') {
   const { conteudo, som, mundo, amb } = ctx;
   const gsap = window.gsap;
   const dica = document.getElementById('dica');
@@ -226,9 +243,10 @@ function esperarToque(ctx, env, baixar) {
       }
     });
 
+    let textoAgora = textoDica;         // o que a dica diz agora (o convite para chacoalhar troca)
     const mostrarDica = () => {
-      if (terminado || !textoDica || !dica.hidden) return;
-      dica.textContent = textoDica;
+      if (terminado || !textoAgora || !dica.hidden) return;
+      dica.textContent = textoAgora;
       Object.assign(dica.style, { fontFamily: 'var(--fonte-mao)', letterSpacing: '0.03em', fontSize: 'clamp(1rem, 0.94rem + 0.3vw, 1.15rem)' });
       dica.hidden = false;
       posicionar();
@@ -237,11 +255,109 @@ function esperarToque(ctx, env, baixar) {
         { autoAlpha: 1, y: 0, duration: 1.4, ease: curvas.branco.entrar });
     };
     espera(ESPERA_DICA).then(mostrarDica);
+    // A dica passa a dizer outra coisa: a frase de antes sai e a nova entra no mesmo lugar.
+    const trocarDica = (texto) => {
+      if (terminado || texto === textoAgora) return;
+      textoAgora = texto;
+      if (dica.hidden) { mostrarDica(); return; }
+      gsap.to(dica, {
+        autoAlpha: 0, duration: 0.3, ease: 'none', overwrite: true,
+        onComplete: () => {
+          if (terminado) return;
+          dica.hidden = true;
+          mostrarDica();
+        },
+      });
+    };
+
+    // ---- chacoalhar (só a última carta) ---------------------------------------------
+    const Movimento = typeof window !== 'undefined' ? window.DeviceMotionEvent : undefined;
+    const podeChacoalhar = !!textoChacoalhar && !amb.reduzido && typeof Movimento !== 'undefined';
+    let fase = '';                      // '' → 'pedindo' (a janela do sistema) → 'chacoalhar'
+    let sensor = false;                 // já chegou alguma medida de verdade?
+    let picos = [];
+    let tremor = null;
+    let bater = null;                   // o vibrar de mao.js, carregado no convite
+    const aoMexer = (e) => {
+      const a = e.acceleration;
+      const g = e.accelerationIncludingGravity;
+      let forca;
+      if (a && a.x != null) forca = Math.hypot(a.x || 0, a.y || 0, a.z || 0);
+      else if (g && g.x != null) forca = Math.abs(Math.hypot(g.x || 0, g.y || 0, g.z || 0) - 9.81);
+      else return;                      // (o computador às vezes manda um evento vazio)
+      sensor = true;
+      if (fase !== 'chacoalhar' || terminado || forca < FORCA_CHACOALHO || ctx.inventario?.aberto) return;
+      const agora = performance.now();
+      if (picos.length && agora - picos[picos.length - 1] < 90) return;      // o mesmo tranco
+      picos = picos.filter((t) => agora - t < JANELA_CHACOALHO);
+      picos.push(agora);
+      if (picos.length < PICOS_CHACOALHO) return;
+      try { bater?.(amb); } catch { /* sem háptico */ }
+      concluir();
+    };
+    const pararTremor = () => {
+      if (!tremor) return;
+      tremor.kill();
+      tremor = null;
+      if (mundo.ok) gsap.to(env.grupo.rotation, { z: 0, duration: 0.18, ease: 'power2.out', overwrite: true });
+    };
+    const convidar = () => {
+      if (terminado) return;
+      fase = 'chacoalhar';
+      picos = [];
+      // (no iPhone os eventos só chegam a quem se inscreve depois da permissão)
+      window.removeEventListener('devicemotion', aoMexer);
+      window.addEventListener('devicemotion', aoMexer);
+      import('./mao.js').then((m) => { bater = m.vibrar; }).catch(() => {});
+      trocarDica(textoChacoalhar);
+      // a carta treme de leve, de tempos em tempos, pedindo (sem WebGL: afunda duas vezes)
+      tremor = gsap.timeline({ repeat: -1, repeatDelay: 1.5, delay: 0.5 });
+      if (mundo.ok) {
+        const r = env.grupo.rotation;
+        tremor.to(r, { z: 0.045, duration: 0.09, ease: 'sine.out' })
+          .to(r, { z: -0.04, duration: 0.12, ease: 'sine.inOut' })
+          .to(r, { z: 0.03, duration: 0.12, ease: 'sine.inOut' })
+          .to(r, { z: -0.018, duration: 0.12, ease: 'sine.inOut' })
+          .to(r, { z: 0, duration: 0.2, ease: 'sine.out' });
+      } else {
+        tremor.call(() => env.pressionar?.(true), null, 0).call(() => env.pressionar?.(false), null, 0.14)
+          .call(() => env.pressionar?.(true), null, 0.34).call(() => env.pressionar?.(false), null, 0.48)
+          .to({}, { duration: 0.3 });
+      }
+      // ninguém chacoalhou: a dica volta a dizer que pode tocar (chacoalhar ainda vale)
+      espera(ESPERA_CHACOALHO).then(() => {
+        if (terminado) return;
+        pararTremor();
+        trocarDica(textoDica);
+      });
+    };
+    /** Dentro do toque: pede o sensor. Devolve false se não há o que pedir (a carta abre já). */
+    const pedirChacoalho = () => {
+      if (typeof Movimento.requestPermission === 'function') {
+        let pedido;
+        try { pedido = Movimento.requestPermission(); } catch { return false; }
+        fase = 'pedindo';
+        som.destravar();
+        Promise.resolve(pedido).then((r) => r === 'granted', () => false).then((sim) => {
+          if (terminado) return;
+          if (sim) convidar();
+          else concluir();              // negou: abre como sempre
+        });
+        return true;
+      }
+      if (!sensor) return false;        // sem janela de permissão e sem medida nenhuma: não há sensor
+      som.destravar();
+      convidar();
+      return true;
+    };
+    if (podeChacoalhar) window.addEventListener('devicemotion', aoMexer);
 
     const concluir = () => {
       if (terminado) return;
       terminado = true;
       som.destravar();                    // primeiro gesto: libera o áudio
+      window.removeEventListener('devicemotion', aoMexer);
+      pararTremor();
       window.removeEventListener('pointerup', aoSoltar);
       window.removeEventListener('pointerdown', aoApertar);
       window.removeEventListener('pointercancel', aoCancelar);
@@ -252,7 +368,7 @@ function esperarToque(ctx, env, baixar) {
       alvo.remove();
       if (!dica.hidden) {
         gsap.to(dica, {
-          autoAlpha: 0, duration: 0.4, ease: 'none',
+          autoAlpha: 0, duration: 0.4, ease: 'none', overwrite: true,
           onComplete: () => { dica.hidden = true; dica.textContent = ''; dica.removeAttribute('style'); dica.removeAttribute('aria-hidden'); },
         });
       } else {
@@ -284,8 +400,11 @@ function esperarToque(ctx, env, baixar) {
       const arrastou = apertou && Math.hypot(e.clientX - apertou.x, e.clientY - apertou.y) > 14;
       apertou = null;
       if (arrastou) { env.pressionar?.(false); return; }
-      if (acertou(e)) concluir();
-      else { env.pressionar?.(false); mostrarDica(); }      // tocou fora: mostra logo onde é
+      if (acertou(e)) {
+        // a última carta, no toque do dedo: o primeiro toque pede para chacoalhar; o segundo abre
+        if (podeChacoalhar && !fase && e.pointerType === 'touch' && pedirChacoalho()) env.pressionar?.(false);
+        else concluir();
+      } else { env.pressionar?.(false); mostrarDica(); }      // tocou fora: mostra logo onde é
     };
 
     // No mouse a carta diz que é alvo: a seta vira mão sobre ela e a carta vem um nada
