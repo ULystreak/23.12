@@ -65,6 +65,7 @@ Todas ficam em `assets/images/`. Prefira `.webp`, até ~350 KB e no máximo 1600
 | `yourname-ceu.mp4` | em pé, mudo, até 2,5 MB | `yourname.video` | falta (opcional) |
 | `yourname-escadaria.webp` | 16:9 | bloco `imagem` do capítulo 2 | falta |
 | `yourname-cordao.webp` | faixa larga, fundo transparente | bloco `cordao` (campo `arquivo`) | falta |
+| `poppy-logo.webp` | largo, fundo transparente (480×270) | `poppy.logo` | já está |
 | `poppy-fundo.webp` | em pé 9:16 | `poppy.fundo` | falta |
 | `poppy-1.webp` e `poppy-2.webp` | 16:9 | blocos `imagem` do capítulo 1 | faltam |
 | `mao-akai-ito.webp` | em pé, fundo transparente | `mao.imagem` | falta |
@@ -74,6 +75,8 @@ Todas ficam em `assets/images/`. Prefira `.webp`, até ~350 KB e no máximo 1600
 Atenção: a capa, o encontro e o par que estão lá agora são quadros do filme (com os personagens). O ideal é trocar por fotos de vocês ou por céus e lugares parecidos; a `capa` também pode ficar `''` (o capítulo abre só com o título e o céu).
 
 Os textos para gerar as que faltam estão em `_dev/prompts-imagens.md`. Sem elas, o site desenha a sua própria versão de cada cena.
+
+O **logo do jogo** (`poppy.logo`) fica no alto do capítulo 1, acima do título em blocos, e entra como um adesivo colado na tela. `poppy.logoAlt` é o que o leitor de tela diz no lugar dele. Para tirar, deixe `logo: ''`. Se trocar por outra imagem, use fundo transparente e pelo menos 480 px de largura (o site mostra o logo com até 240 px no celular e 320 px no computador).
 
 Dois ajustes quando trocar imagens:
 

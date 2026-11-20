@@ -86,7 +86,7 @@ CONTENT.JS (window.CONTEUDO)
 - senha { codigo, frase, dica, rotulo } (codigo: qualquer texto, sem diferença de maiúsculas; vazio = sem senha; frase e dica podem ficar vazias)
 - abertura { frases: string[], dicaCarta }
 - musica { titulo, continuar, volumeInicial, rotulos { abrir, pausar, tocar, volume, trocar, continuar, anterior, proxima }, faixas: [{ titulo, artista, arquivo, capa }] } (rotulos.continuar é o aria-label quando musica.continuar fica vazio)
-- poppy { titulo, subtitulo, fundo, fechar, blocos: [{ tipo:'texto', texto } | { tipo:'imagem', arquivo, alt, legenda } | { tipo:'cena', cena:'maos'|'fita'|'esteira', etiqueta?, data?, itens? }] }
+- poppy { logo, logoAlt, titulo, subtitulo, fundo, fechar, blocos: [{ tipo:'texto', texto } | { tipo:'imagem', arquivo, alt, legenda } | { tipo:'cena', cena:'maos'|'fita'|'esteira', etiqueta?, data?, itens? }] } (logo: imagem de fundo transparente colada no alto, acima do título em blocos; '' = sem logo. O capítulo pede o logo ao carregar o módulo e, ao montar, espera por ele no prazo de 7 s das outras imagens)
 - yourname { titulo, subtitulo, capa, fundo, video, fechar, blocos: [{ tipo:'texto', texto } | { tipo:'cordao' } | { tipo:'imagem-cheia', arquivo, alt } | { tipo:'imagem', arquivo, alt, legenda } | { tipo:'par', dele, dela, legendaDele, legendaDela }] }
 - inventario { titulo, cartaPoppy, cartaYourname, rotulos { abrir, fechar, guardando } }
 - corrida { segundos } (7; aceita 5 a 10)
