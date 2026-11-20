@@ -22,8 +22,9 @@
 //                                       de baixo, embaixo da frase dele; opcoes.aoTraco como em escrever()
 //   folha.apagarDela()                  tira a letra dela (e para a que estiver no meio)
 // O bloco dela fica à esquerda, em no máximo 70% da largura, com um corpo menor
-// que o dele, sem encostar na frase dele, no fio que repousa (canto de baixo à
-// direita) nem na pétala que pousa no canto de baixo à esquerda. Sem emoji; texto
+// que o dele, sem encostar na frase dele nem no fio que repousa (canto de baixo à
+// direita). Com a letra dela na folha, a pétala não pousa no canto de baixo à
+// esquerda (se já estiver lá, levanta antes da primeira letra). Sem emoji; texto
 // longo primeiro diminui o corpo e só então é cortado na palavra (~180
 // caracteres, com reticências); o texto inteiro continua guardado na resposta.
 //
@@ -86,10 +87,12 @@ const DELA = {
   entrelinha: 1.45,                   // a letra menor, de bilhete, vem mais junta
   largura: 0.7,                       // a linha mais longa, em larguras de folha (da margem dele para a direita)
   // A faixa dela, em alturas de folha a partir do topo: logo abaixo do vinco de baixo
-  // (ou da frase dele, se descer) até antes da pétala que pousa no canto de baixo à
-  // esquerda (POUSOS) e do fio que repousa à direita (FIO_REPOUSO).
+  // (ou da frase dele, se descer) até perto da borda, longe do fio que repousa à
+  // direita (FIO_REPOUSO). Ela passa pelo canto de baixo à esquerda: com a letra dela
+  // na folha, a pétala não pousa ali (POUSOS, `dela`).
   topo: 0.69,
-  base: 0.858,
+  base: 0.93,
+  baseBaixa: 0.858,                   // em tela baixa (deitado, zoom alto) o botão de reabrir cobre o pé da folha
   limite: 180,                        // caracteres; o resto continua guardado na resposta dela
 };
 
@@ -171,7 +174,7 @@ function textoDela(texto) {
 
 /**
  * As opções de compor() para a letra dela: a faixa (px da folha, do topo) vai do vinco
- * de baixo (ou de logo abaixo da frase dele, se ela descer) até antes da pétala do canto;
+ * de baixo (ou de logo abaixo da frase dele, se ela descer) até perto da borda de baixo;
  * o corpo é menor que o dele.
  */
 function faixaDela(U, planoDele) {
@@ -179,7 +182,7 @@ function faixaDela(U, planoDele) {
   for (const t of (planoDele && planoDele.tracos) || []) fimDele = Math.max(fimDele, planoDele.topoFolha + t.base);
   const fsDele = (planoDele && planoDele.fs) || Math.round(U * 0.1);
   const topo = Math.max(2 * U * DELA.topo, fimDele + fsDele * 0.6);
-  const base = 2 * U * DELA.base;
+  const base = 2 * U * (innerHeight < 520 ? DELA.baseBaixa : DELA.base);
   const fsMax = Math.round(fsDele * DELA.corpo);
   return {
     centro: (topo + base) / 2,
@@ -939,19 +942,23 @@ function criarEscrita({ amb, largura = 1024, tinta: COR_SECA = COR_TINTA, molhad
 
 /**
  * A letra dela: uma segunda escrita (o mesmo motor, a mesma resolução, outra tinta) que
- * cada variante mostra do seu jeito: mostrar(plano) põe a tinta no papel, esconder() tira.
- * Cada escrever()/apagar() vence o anterior, e só uma composição anda por vez.
+ * cada variante mostra do seu jeito: mostrar(plano) põe a tinta no papel, esconder() tira,
+ * liberar() → Promise tira a pétala do canto onde ela vai escrever. `tem`: há letra dela
+ * na folha (ou ela está para ser escrita). Cada escrever()/apagar() vence o anterior, e
+ * só uma composição anda por vez.
  */
-function criarLetraDela({ amb, escritaDele, mostrar, esconder }) {
+function criarLetraDela({ amb, escritaDele, mostrar, esconder, liberar }) {
   const escrita = criarEscrita({
     amb, largura: escritaDele.largura, tinta: DELA.tinta, molhada: DELA.molhada, tempo: DELA.tempo, teto: DELA.teto,
   });
   const espelho = espelhoParaLeitor();     // como o da frase dele: vazio até escrever()
   let vez = 0;
+  let tem = false;
   let fila = Promise.resolve();
 
   function apagar() {
     vez++;
+    tem = false;
     escrita.parar();
     esconder();
     espelho.textContent = '';
@@ -962,6 +969,7 @@ function criarLetraDela({ amb, escritaDele, mostrar, esconder }) {
     const minha = vez;
     const limpo = textoDela(texto);
     if (!limpo) return;
+    tem = true;
     const preparo = fila.then(async () => {
       if (minha !== vez) return null;
       await fontePronta(limpo);
@@ -969,15 +977,17 @@ function criarLetraDela({ amb, escritaDele, mostrar, esconder }) {
     });
     fila = preparo.catch(() => null);
     let plano = null;
-    try { plano = await preparo; } catch (erro) { console.error('[carta] não consegui compor a letra dela', erro); }
+    // (enquanto compõe, a pétala que estiver no canto dela levanta)
+    try { [plano] = await Promise.all([preparo, liberar()]); } catch (erro) { console.error('[carta] não consegui compor a letra dela', erro); }
+    if (minha !== vez) return;
     // sem lugar nem no menor corpo (uma frase dele que desce até aqui): a folha fica só com a dele
-    if (!plano || minha !== vez || !plano.cabe || !plano.tracos.length) return;
+    if (!plano || !plano.cabe || !plano.tracos.length) { tem = false; return; }
     mostrar(plano);
     anunciar(espelho, plano.texto);
     await escrita.iniciar(opcoes);
   }
 
-  return { escrita, escrever, apagar, dispose() { espelho.remove(); } };
+  return { escrita, escrever, apagar, get tem() { return tem; }, dispose() { espelho.remove(); } };
 }
 
 // =============================================================================
@@ -986,11 +996,12 @@ function criarLetraDela({ amb, escritaDele, mostrar, esconder }) {
 
 // Cantos onde a pétala pode pousar (o de baixo à direita é do fio). x em larguras
 // de folha a partir do centro, s em alturas a partir do topo; `sai` é para onde
-// ela escorrega.
+// ela escorrega. `dela`: o canto por onde passa a letra dela; com ela na folha a
+// pétala não pousa ali (e, se já estiver, levanta antes da primeira letra).
 const POUSOS = [
   { x: -0.33, s: 0.085, giro: -0.5, sai: { x: -0.24, s: 0.07 } },
   { x: 0.31, s: 0.105, giro: 0.7, sai: { x: 0.26, s: 0.08 } },
-  { x: -0.34, s: 0.9, giro: -1.1, sai: { x: -0.05, s: 0.14 } },
+  { x: -0.34, s: 0.9, giro: -1.1, sai: { x: -0.05, s: 0.14 }, dela: true },
 ];
 
 // O fio que repousa, em milésimos da largura da folha (x 0..1000 da esquerda,
@@ -1408,6 +1419,7 @@ function criarFolha3D(mundo) {
     escritaDele: escrita,
     mostrar: (plano) => ligarTextura(dela, plano),
     esconder: () => { dela.tem.value = 0; },
+    liberar: () => levantarPetala(),
   });
   // Cada letra é um bloco: a escrita, a textura dela e os uniformes do papel que a mostram.
   const u = material.uniforms;
@@ -1561,6 +1573,8 @@ function criarFolha3D(mundo) {
   let petala = null;
   let vivendo = false;
   let descartada = false;
+  let pousando = null;                   // o pouso da pétala que vem, está pousada ou sai (null: nenhuma no papel)
+  let voo = null;                        // a animação dela agora
 
   function criarPetala() {
     const mat = new THREE.ShaderMaterial({
@@ -1598,6 +1612,8 @@ function criarFolha3D(mundo) {
   async function cicloPetala(pouso, descanso) {
     if (!petala) petala = criarPetala();
     const { obj, mat, mancha, matMancha } = petala;
+    pousando = pouso;
+    const levantou = () => descartada || pousando !== pouso;      // ver levantarPetala()
     const alvo = superficie(pouso.x * LARGURA, pouso.s * ALTURA, 0.0085);
     const noPapel = superficie(pouso.x * LARGURA, pouso.s * ALTURA, 0.0015);
     mat.uniforms.uTom.value = Math.random();
@@ -1609,7 +1625,7 @@ function criarFolha3D(mundo) {
     if (amb.reduzido) {
       obj.position.copy(alvo);
       obj.rotation.copy(deitada);
-      await comoPromise(gsap.timeline()
+      await comoPromise(voo = gsap.timeline()
         .to(mat.uniforms.uOpacidade, { value: 1, duration: 1.4, ease: 'none' }, 0)
         .to(matMancha.uniforms.uForca, { value: 0.2, duration: 1.4, ease: 'none' }, 0));
     } else {
@@ -1618,7 +1634,7 @@ function criarFolha3D(mundo) {
       const de = new THREE.Vector3(alvo.x + lado * 0.2, alvo.y + 0.62, alvo.z + 0.3);
       const q = { p: 0 };
       mat.uniforms.uOpacidade.value = 0;
-      await comoPromise(gsap.to(q, {
+      await comoPromise(voo = gsap.to(q, {
         p: 1,
         duration: 4.2,
         ease: 'sine.out',
@@ -1639,14 +1655,15 @@ function criarFolha3D(mundo) {
       }));
     }
 
+    if (levantou()) return;
     await espera(descanso * 1000);
-    if (descartada) return;
+    if (levantou()) return;
 
     // escorrega pelo papel e cai fora dele
     const saida = pouso.sai;
     const borda = superficie((pouso.x + saida.x) * LARGURA, (pouso.s + saida.s) * ALTURA, 0.0085);
     if (amb.reduzido) {
-      await comoPromise(gsap.timeline()
+      await comoPromise(voo = gsap.timeline()
         .to(mat.uniforms.uOpacidade, { value: 0, duration: 1.4, ease: 'none' }, 0)
         .to(matMancha.uniforms.uForca, { value: 0, duration: 1.4, ease: 'none' }, 0));
     } else {
@@ -1659,10 +1676,33 @@ function criarFolha3D(mundo) {
         .to(obj.position, { x: borda.x + saida.x * LARGURA * 0.9, y: borda.y - 0.5, z: borda.z + 0.12, duration: 2.4, ease: 'power1.in' }, 2.6)
         .to(obj.rotation, { x: deitada.x + 3.4, y: deitada.y + 1.6, duration: 2.4, ease: 'none' }, 2.6)
         .to(mat.uniforms.uOpacidade, { value: 0, duration: 0.9, ease: 'none' }, 4.1);
-      await comoPromise(tl);
+      await comoPromise(voo = tl);
     }
+    if (levantou()) return;
+    pousando = null;
     obj.visible = false;
     mancha.visible = false;
+  }
+
+  /**
+   * A letra dela vai entrar no canto de baixo à esquerda: a pétala que vem, está pousada
+   * ou sai dali levanta e some, num movimento curto (só opacidade no movimento reduzido).
+   */
+  function levantarPetala() {
+    if (!petala || !pousando || !pousando.dela) return Promise.resolve();
+    pousando = null;
+    if (voo) voo.kill();
+    const { obj, mat, mancha, matMancha } = petala;
+    const d = amb.reduzido ? 0.4 : 0.7;
+    const tl = gsap.timeline({ onComplete: () => { obj.visible = false; mancha.visible = false; } })
+      .to(mat.uniforms.uOpacidade, { value: 0, duration: d, ease: 'power1.in' }, 0)
+      .to(matMancha.uniforms.uForca, { value: 0, duration: d * 0.35, ease: 'none' }, 0);
+    if (!amb.reduzido) {
+      // como soprada: sobe do papel, para fora e para a frente, virando
+      tl.to(obj.position, { x: '-=0.05', y: '+=0.03', z: '+=0.06', duration: d, ease: 'power2.out' }, 0)
+        .to(obj.rotation, { x: '+=1.1', z: '-=0.6', duration: d, ease: 'power1.out' }, 0);
+    }
+    return comoPromise(voo = tl);
   }
 
   async function vidaDasPetalas() {
@@ -1672,6 +1712,8 @@ function criarFolha3D(mundo) {
     let vez = 0;
     while (!descartada) {
       const pouso = POUSOS[vez % POUSOS.length];
+      // com a letra dela na folha, o canto dela fica livre: a vez passa para o próximo
+      if (pouso.dela && letraDela.tem) { vez++; continue; }
       const descanso = vez < 2 ? 19 : 14 + Math.random() * 16;
       await cicloPetala(pouso, descanso);
       if (descartada) return;
@@ -2020,6 +2062,7 @@ function criarFolhaLeve(mundo) {
       telaDela.hidden = false;
     },
     esconder: () => { telaDela.hidden = true; },
+    liberar: () => levantarPetala(),
   });
   const telaDela = letraDela.escrita.tela;
   telaDela.className = 'fl-tinta';
@@ -2032,6 +2075,8 @@ function criarFolhaLeve(mundo) {
   let vivendo = false;
   let fioEl = null;
   let petalaEl = null;
+  let pousando = null;                   // o pouso da pétala que vem, está pousada ou sai (como no 3D)
+  let voo = null;
   const flutua = { forca: 0, x: 0, y: 0 };
 
   async function preparar(texto) {
@@ -2082,6 +2127,8 @@ function criarFolhaLeve(mundo) {
       petalaEl = el('i', 'fl-petala');
       corpo.append(petalaEl);
     }
+    pousando = pouso;
+    const levantou = () => descartada || pousando !== pouso;      // ver levantarPetala()
     const L = folha.offsetWidth || 300;
     const A = L * 2;
     const x = (0.5 + pouso.x) * L;
@@ -2089,12 +2136,12 @@ function criarFolhaLeve(mundo) {
     const giro = (pouso.giro * 180) / Math.PI;
     if (calmo) {
       gsap.set(petalaEl, { x, y, rotation: giro, rotationX: 0, autoAlpha: 0 });
-      await comoPromise(gsap.to(petalaEl, { autoAlpha: 1, duration: 1.4, ease: 'none' }));
+      await comoPromise(voo = gsap.to(petalaEl, { autoAlpha: 1, duration: 1.4, ease: 'none' }));
     } else {
       const lado = pouso.x < 0 ? -1 : 1;
       const q = { p: 0 };
       gsap.set(petalaEl, { autoAlpha: 1 });
-      await comoPromise(gsap.to(q, {
+      await comoPromise(voo = gsap.to(q, {
         p: 1,
         duration: 4.2,
         ease: 'sine.out',
@@ -2112,10 +2159,11 @@ function criarFolhaLeve(mundo) {
         },
       }));
     }
+    if (levantou()) return;
     await espera(descanso * 1000);
-    if (descartada) return;
+    if (levantou()) return;
     if (calmo) {
-      await comoPromise(gsap.to(petalaEl, { autoAlpha: 0, duration: 1.4, ease: 'none' }));
+      await comoPromise(voo = gsap.to(petalaEl, { autoAlpha: 0, duration: 1.4, ease: 'none' }));
     } else {
       const sx = x + pouso.sai.x * L;
       const sy = y + pouso.sai.s * A;
@@ -2123,14 +2171,28 @@ function criarFolhaLeve(mundo) {
       tl.to(petalaEl, { x: sx, y: sy, rotation: giro + (pouso.sai.x < 0 ? 28 : -28), duration: 2.6, ease: 'power2.in' }, 0)
         .to(petalaEl, { x: sx + pouso.sai.x * L * 0.9, y: sy + A * 0.55, rotation: giro + 160, rotationX: 200, duration: 2.4, ease: 'power1.in' }, 2.6)
         .to(petalaEl, { opacity: 0, duration: 0.9, ease: 'none' }, 4.1);
-      await comoPromise(tl);
+      await comoPromise(voo = tl);
     }
+    if (!levantou()) pousando = null;
+  }
+
+  /** Como no 3D: a pétala do canto da letra dela levanta e some (só transform e opacidade). */
+  function levantarPetala() {
+    if (!petalaEl || !pousando || !pousando.dela) return Promise.resolve();
+    pousando = null;
+    if (voo) voo.kill();
+    const L = folha.offsetWidth || 300;
+    return comoPromise(voo = gsap.to(petalaEl, calmo
+      ? { opacity: 0, duration: 0.4, ease: 'none' }
+      : { x: `-=${(L * 0.12).toFixed(1)}`, y: `-=${(L * 0.07).toFixed(1)}`, rotation: '-=34', rotationX: '+=70', scale: 1.15, opacity: 0, duration: 0.7, ease: 'power1.out' }));
   }
 
   async function vidaDasPetalas() {
     await espera(4500);
     let vez = 0;
     while (!descartada) {
+      // com a letra dela na folha, o canto dela fica livre (como no 3D)
+      if (POUSOS[vez % POUSOS.length].dela && letraDela.tem) { vez++; continue; }
       await cicloPetala(POUSOS[vez % POUSOS.length], vez < 2 ? 19 : 14 + Math.random() * 16);
       if (descartada) return;
       await espera(vez < 1 ? 15000 : 16000 + Math.random() * 22000);
