@@ -15,3 +15,6 @@ graphify-out/
 # os rascunhos da letra que o colocar-letra.bat lê
 letra-1.txt
 letra-2.txt
+
+# os textos dos capítulos que o colocar-textos.bat lê
+textos/
