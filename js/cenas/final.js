@@ -189,6 +189,7 @@ export async function cenaFinal(ctx, { frio } = {}) {
     entregar: false,
     anunciarCaminhada: false,
     baixar: estado.entrega ? NA_MAO : undefined,
+    chacoalhar: conteudo.final?.dicaChacoalhar || '',
   });
 
   pararFaisca();
