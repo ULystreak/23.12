@@ -142,15 +142,19 @@ function misturar(a, b, k) {
 // Emoji (com tons de pele, bandeiras, o número na moldura de tecla e as junções): a fonte não tem, e a
 // tinta lida pixel a pixel viraria um borrão.
 const EMOJI = /[0-9#*]\ufe0f?\u20e3|[\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Regional_Indicator}\u200d\ufe0e\ufe0f\u20e3\u{e0020}-\u{e007f}]/gu;
+// O emoji colado entre duas palavras, sem espaço, fazia as vezes do espaço: sai, mas deixa um
+// (senão "obrigada", o emoji e "te amo" viram "obrigadate amo" na folha).
+const EMOJI_ENTRE = new RegExp(`(\\S)(?:${EMOJI.source})+(?=[\\p{L}\\p{N}])`, 'gu');
 
 /**
  * O texto da folha de resposta como vai para a folha dele: sem emoji, espaços juntos,
  * no máximo uma quebra de linha seguida, palavra comprida demais partida (senão sai
  * pela borda) e, passando do limite, cortado na palavra, com reticências (três pontos:
- * o … da Klee One é o japonês, no meio da linha).
+ * o … da Klee One é o japonês, no meio da linha; o que ela digitar também vira três pontos).
  */
 function textoDela(texto) {
-  let t = String(texto ?? '').replace(EMOJI, '').replace(/\r\n?/g, '\n')
+  let t = String(texto ?? '').replace(EMOJI_ENTRE, '$1 ').replace(EMOJI, '').replace(/…/g, '...')
+    .replace(/\r\n?/g, '\n')
     .replace(/[^\S\n]+/g, ' ')
     .replace(/ ?\n\s*/g, '\n')
     .trim()
