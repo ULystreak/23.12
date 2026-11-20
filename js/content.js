@@ -26,7 +26,7 @@
      ?cena=carta2     a segunda carta
      ?cena=yourname   o capítulo do filme e a carta indo para o bolso
      ?cena=mao        "Olha a sua mão.", o fio e a corrida até você
-     ?cena=cartas     as cartas no chão (os vídeos dos amigos e a Surpresinha)
+     ?cena=cartas     as cartas no chão (os vídeos dos amigos e "Nossos momentos")
      ?cena=encontro   as imagens do encontro
      ?cena=final      a última carta
    ========================================================================== */
@@ -555,8 +555,8 @@ window.CONTEUDO = {
   /* --------------------------------------------------------------------------
      A SUA VOZ
      Três áudios com a sua voz, para ela ouvir sempre que quiser. Eles são o
-     presente da carta Surpresinha (a última do chão): quando ela abre a
-     Surpresinha, abre o cartão com os áudios, e depois a fita fica na bolsa.
+     presente da carta "Nossos momentos" (a última do chão): quando ela abre
+     essa carta, abre o cartão com os áudios, e depois a fita fica na bolsa.
      O aparelho dela lembra disso: da segunda visita em diante a fita já está
      na bolsa desde o começo. Tocar na fita abre um cartão com os áudios; cada
      um tem tocar/pausar, o fio para ir e voltar, o tempo e o botão de baixar.
@@ -670,16 +670,21 @@ window.CONTEUDO = {
   },
 
   /* --------------------------------------------------------------------------
-     AS CARTAS DO CHÃO (os vídeos dos amigos e a Surpresinha)
-     Quando ela chega perto de você, há cartas no chão. No chão elas NÃO têm
+     AS CARTAS DO CHÃO (os vídeos dos amigos e "Nossos momentos")
+     Quando ela chega perto de você, há cartas no chão. As dos amigos NÃO têm
      nome: ela toca numa, o vídeo toca, e só quando ela fecha o NOME de quem
      gravou aparece escrito à mão na carta. Cada carta aberta vai para a bolsa.
      Depois da primeira carta aberta aparece, discreto, o botão de seguir em
      frente; quando ela já abriu todas, ele ganha destaque.
 
-     A ordem das cartas é a ordem desta lista. A última, a Surpresinha, é
-     diferente: só abre depois das outras e guarda os áudios com a sua voz
-     (veja "A SUA VOZ", mais acima).
+     A ordem das cartas é a ordem desta lista. A última, "Nossos momentos", é
+     diferente: é maior, já cai com o nome escrito (e ele fica lá o tempo
+     todo), mas só abre depois que ela viu todas as outras; até lá fica
+     amarrada com um laço do fio. Ela guarda os áudios com a sua voz (veja
+     "A SUA VOZ", mais acima).
+     (Essa carta se chamava Surpresinha. Por dentro o bloco dela continua com
+     o nome antigo, "surpresinha", e o texto de exemplo é "vazioSurpresinha":
+     não troque esses dois nomes. O nome que ela lê é o campo "nome".)
 
      ENQUANTO O VÍDEO NÃO CHEGA
      Carta com video: '' aparece do mesmo jeito e abre um cartão com o texto
@@ -720,14 +725,15 @@ window.CONTEUDO = {
     // Texto do botão de seguir em frente.
     seguir: 'Seguir em frente',
 
-    // O cartão que abre quando a carta ainda não tem vídeo (ou a Surpresinha
-    // ainda não tem nada). {nome} é trocado pelo nome da carta.
+    // O cartão que abre quando a carta ainda não tem vídeo (ou a "Nossos
+    // momentos" ainda não tem nada). {nome} é trocado pelo nome da carta.
     vazio: '[vídeo de {nome} vem aqui]',
     vazioSurpresinha: '[os nossos momentos vêm aqui]',
 
     // Nomes lidos em voz alta por leitores de tela (não aparecem escritos).
     rotulos: {
       // {n} é trocado pelo número da carta (ela ainda não sabe de quem é).
+      // A última, "Nossos momentos", é lida pelo nome desde o começo.
       carta: 'Carta {n}',
       fechar: 'Fechar',
       anterior: 'Anterior',
@@ -747,11 +753,16 @@ window.CONTEUDO = {
       { nome: 'Nup', video: '', capa: '' },
     ],
 
-    // A última carta do chão: abre os seus áudios (a seção "A SUA VOZ", lá em
-    // cima). Se você puser fotos e vídeos em "midias", eles passam antes dos
-    // áudios. Para tirar a Surpresinha, deixe o nome vazio ('').
+    // A última carta do chão, "Nossos momentos" (o bloco continua se chamando
+    // "surpresinha", o nome antigo dela: não troque). Abre os seus áudios (a
+    // seção "A SUA VOZ", lá em cima). Se você puser fotos e vídeos em
+    // "midias", eles passam antes dos áudios.
+    //   nome: aparece escrito à mão na carta desde que ela cai, o tempo todo,
+    //         e também na bolsa. Funciona melhor curto (duas ou três
+    //         palavras); nome comprido fica com a letra menor.
+    //         Para tirar esta carta, deixe o nome vazio ('').
     surpresinha: {
-      nome: 'Surpresinha',
+      nome: 'Nossos momentos',
 
       // As fotos e os vídeos, na ordem em que aparecem. Fotos em
       // assets/images/, vídeos em assets/videos/. Exemplos de linhas prontas:

@@ -1,7 +1,11 @@
 // As cartas do chão: ela parou a alguns passos dele e, entre os dois, há cartas
-// caídas no chão. São os vídeos dos amigos e, por último, a Surpresinha (uma
-// galeria de fotos e vídeos). No chão ficam SEM nome; o nome só é escrito à mão
-// na carta depois que ela abre, e a carta vai para a bolsa.
+// caídas no chão. São os vídeos dos amigos e, por último, a "Nossos momentos" (uma
+// galeria de fotos e vídeos e os áudios dele). As dos amigos ficam SEM nome no chão;
+// o nome só é escrito à mão na carta depois que ela abre, e a carta vai para a bolsa.
+// A "Nossos momentos" é a única que já pousa com o nome escrito, e ele fica lá o tempo
+// todo; mas só abre depois de as outras terem sido vistas.
+// (Ela se chamava Surpresinha: no content.js a chave continua sendo cartasChao.surpresinha,
+// o id é chao-surpresinha e a classe é .carta-chao-surpresinha. São nomes internos.)
 //
 //   cenaCartas(ctx, { frio }) → Promise   resolve quando ela toca em seguir em frente
 //
@@ -41,29 +45,33 @@ const REPOUSO = { alt: 0, giro: 0, vira: 0, op: 1 };   // a carta pousada
 const fovPara = (aspecto) => lerp(58, 42, clamp((aspecto - 0.8) / (1.35 - 0.8)));
 
 // Onde cada carta cai. t: 0 = a mais perto dela, 1 = a mais perto dele; x em
-// metros para o lado. A última da lista (a Surpresinha) usa sempre o último lugar.
-// O fio corre pelo chão um pouco à direita do eixo: as cartas deixam o caminho dele livre.
+// metros para o lado. A última da lista (a "Nossos momentos") usa sempre o último lugar.
+// O fio corre pelo chão um pouco à direita do eixo: as cartas dos amigos deixam o caminho
+// dele livre; a "Nossos momentos", a maior, pousa em cima dele. `fixo`: o x não encolhe em
+// tela estreita (as outras encolhem, e a vizinha montaria no canto do nome).
 const LUGARES_EM_PE = [
   { t: 0.03, x: -0.31 }, { t: 0.1, x: 0.19 },
   { t: 0.4, x: -0.5 }, { t: 0.47, x: 0.04 },
   { t: 0.7, x: -0.74 }, { t: 0.76, x: -0.2 },
-  { t: 1.0, x: 0.36 },
+  { t: 1.0, x: 0.54, fixo: true },
 ];
 const LUGARES_DEITADO = [
   { t: 0.5, x: -1.5 }, { t: 0.04, x: -0.98 }, { t: 0.66, x: -0.5 },
   { t: 0.1, x: -0.04 }, { t: 0.55, x: 1.02 }, { t: 0.12, x: 1.5 },
-  { t: 1.0, x: 0.22 },
+  { t: 1.0, x: 0.3 },
 ];
 
 // ============================================================================
 // Desenhos (SVG à mão, no espaço do envelope: 160 × 110)
 // ============================================================================
 
-const ENVELOPE = `
+// `ponta`: até onde a aba desce. A das cartas dos amigos vai até o meio; a da "Nossos
+// momentos" é curta, para o nome caber escrito embaixo dela.
+const envelope = (ponta = 60) => `
   <svg class="carta-chao-papel" viewBox="0 0 160 110" aria-hidden="true" focusable="false">
     <rect x="1" y="1" width="158" height="108" rx="2.2" class="cc-folha"/>
-    <path d="M2 108 L64 55 M158 108 L96 55" class="cc-dobra"/>
-    <path d="M2 2.5 L74 60 Q80 64.5 86 60 L158 2.5" class="cc-aba"/>
+    <path d="M2 108 L64 ${ponta - 5} M158 108 L96 ${ponta - 5}" class="cc-dobra"/>
+    <path d="M2 2.5 L74 ${ponta} Q80 ${ponta + 4.5} 86 ${ponta} L158 2.5" class="cc-aba"/>
   </svg>`;
 
 // O fio que amarra: duas voltas em cruz e um laço, no canto de cima.
@@ -78,21 +86,23 @@ const AMARRA = `
     <circle class="cc-no" cx="40" cy="38" r="3"/>
   </svg>`;
 
-// A Surpresinha: um coração de lacre na ponta da aba e, enquanto ela espera a vez, o fio
-// dando uma volta em cruz com um lacinho no nó, que se desfaz quando ela pode abrir (css).
+// A "Nossos momentos": um coração de lacre na ponta da aba (PONTA_CURTA) e, enquanto ela
+// espera a vez, o fio dando duas voltas na carta com um lacinho no nó, que se desfaz quando
+// ela pode abrir (css). Tudo fica na metade de cima: a de baixo é do nome, que nada tapa.
+const PONTA_CURTA = 28;
 const LACRE = `
   <svg class="carta-chao-fio" viewBox="0 0 160 110" aria-hidden="true" focusable="false">
     <g class="cc-amarra">
       <g class="cc-volta">
         <g class="cc-fio-sombra" transform="translate(0.5 1.3)">
-          <path d="M0 61 C30 59 52 63 80 61 S132 59 160 61 M80 0 C79 20 81 40 80 61 S79 92 80 110"/>
+          <path d="M0 29 C34 28 56 31.5 80 31 S130 33.5 160 34 M0 34.5 C32 34.5 56 30.5 80 31 S128 28.5 160 28"/>
         </g>
-        <path class="cc-fio" d="M0 61 C30 59 52 63 80 61 S132 59 160 61 M80 0 C79 20 81 40 80 61 S79 92 80 110"/>
+        <path class="cc-fio" d="M0 29 C34 28 56 31.5 80 31 S130 33.5 160 34 M0 34.5 C32 34.5 56 30.5 80 31 S128 28.5 160 28"/>
       </g>
-      <path class="cc-fio cc-alca" data-lado="e" d="M80 62 C66 44 46 46 49 58 C51 67 68 66 80 62 M80 62 C76 74 70 82 62 90"/>
-      <path class="cc-fio cc-alca" data-lado="d" d="M80 62 C94 44 114 46 111 58 C109 67 92 66 80 62 M80 62 C85 75 92 82 101 87"/>
+      <path class="cc-fio cc-alca" data-lado="e" d="M80 31 C66 13 46 15 49 27 C51 36 68 35 80 31 M80 31 C75 37 67 40.5 58 42"/>
+      <path class="cc-fio cc-alca" data-lado="d" d="M80 31 C94 13 114 15 111 27 C109 36 92 35 80 31 M80 31 C86 38 94 40.5 103 41.5"/>
     </g>
-    <path class="cc-lacre" d="M80 71 C72 64 67.5 60 67.5 55.5 C67.5 51.6 70.6 49 74 49 C76.6 49 78.8 50.4 80 52.6 C81.2 50.4 83.4 49 86 49 C89.4 49 92.5 51.6 92.5 55.5 C92.5 60 88 64 80 71 Z"/>
+    <path class="cc-lacre" d="M80 40 C72 33 67.5 29 67.5 24.5 C67.5 20.6 70.6 18 74 18 C76.6 18 78.8 19.4 80 21.6 C81.2 19.4 83.4 18 86 18 C89.4 18 92.5 20.6 92.5 24.5 C92.5 29 88 33 80 40 Z"/>
   </svg>`;
 
 // Ícones da papelaria (_dev/UI.md): grade 24, traço 1.75, pontas redondas.
@@ -116,7 +126,7 @@ const SEGUIR = `
     <path d="M5 12.2 C9.4 11.8 14 12.2 18.6 12 M13.6 6.8 C15.4 8.6 17 10.2 18.8 12 C17 13.8 15.4 15.4 13.6 17.2"/>
   </svg>`;
 
-// O desenho do cartão de exemplo: um quadro de filme (amigos) ou um coração (Surpresinha).
+// O desenho do cartão de exemplo: um quadro de filme (amigos) ou um coração ("Nossos momentos").
 const GLIFO_VIDEO = `
   <svg class="cartao-glifo" viewBox="0 0 64 48" aria-hidden="true" focusable="false">
     <path d="M6 7 C22 5.6 42 6.4 58 7 C59 18 58.6 30 58 41 C40 42.2 22 41.6 6 41 C5.2 30 5.4 18 6 7 Z"/>
@@ -594,14 +604,17 @@ export async function cenaCartas(ctx, { frio } = {}) {
     // metade da largura do chão à vista na carta mais próxima
     const meia = (geo.dPerto * Math.cos(geo.teta) + ALTURA_OLHOS * Math.sin(geo.teta)) * tanM * aspecto;
     const abre = emPe ? clamp((meia - 0.27) / 0.37, 0.6, 1.25) : clamp((meia - 0.3) / 1.9, 0.45, 1);
+    // A "Nossos momentos" é maior que as outras, para o nome dela ser lido de onde ela está
+    // (deitada numa tela estreita, de tablet, não há lugar entre as vizinhas: aí cresce menos).
+    const maior = emPe ? 1.7 : lerp(1.32, 1.7, clamp((abre - 0.76) / 0.1));
     itens.forEach((item, i) => {
-      // com menos de 7 cartas, espalha pelos lugares; a Surpresinha fica sempre no último
-      // a Surpresinha fica sempre no último lugar (o mais perto dele)
+      // com menos de 7 cartas, espalha pelos lugares; a "Nossos momentos" fica sempre no
+      // último lugar (o mais perto dele)
       const lugar = lugares[item.ultima ? lugares.length - 1 : i % (lugares.length - 1)];
       const volta = item.ultima ? 0 : Math.floor(i / (lugares.length - 1));   // mais de 6 amigos: outra fileira, mais ao lado
       item.d = lerp(geo.dPerto, geo.dLonge, lugar.t);
-      item.X = lugar.x * abre + volta * 0.2;
-      item.larg = LARGURA * (item.ultima ? 1.32 : 1);
+      item.X = lugar.x * (lugar.fixo ? 1 : abre) + volta * 0.2;
+      item.larg = LARGURA * (item.ultima ? maior : 1);
       const w = item.larg * geo.S;
       const h = w * PROPORCAO;
       const b = item.desenho;
@@ -677,18 +690,19 @@ export async function cenaCartas(ctx, { frio } = {}) {
   // ---- as cartas --------------------------------------------------------------
   for (const item of itens) {
     const nome = el('span', { class: 'carta-chao-nome', 'aria-hidden': 'true' });
-    const face = el('span', 'carta-chao-face', [svg(ENVELOPE), svg(item.ultima ? LACRE : AMARRA), nome]);
+    const face = el('span', 'carta-chao-face', [svg(envelope(item.ultima ? PONTA_CURTA : undefined)), svg(item.ultima ? LACRE : AMARRA), nome]);
     const vento = el('span', { class: 'carta-chao-vento', style: { animationDelay: `${(-item.fase).toFixed(2)}s` } }, face);
     const desenho = el('span', { class: 'carta-chao-desenho', 'aria-hidden': 'true', dataset: { estado: 'fechada' } },
       [el('span', 'carta-chao-sombra'), vento]);
     const botao = el('button', {
       class: 'carta-chao', type: 'button',
-      'aria-label': String(rotulos.carta || 'Carta {n}').replace('{n}', String(item.i + 1)),
+      // (as dos amigos são "Carta 1", "Carta 2"…: ela ainda não sabe de quem são; a última já diz o nome)
+      'aria-label': item.ultima ? item.carta.nome : String(rotulos.carta || 'Carta {n}').replace('{n}', String(item.i + 1)),
       dataset: { acao: 'carta-chao', id: item.carta.id, estado: 'fechada', tipo: item.carta.tipo },
     });
     if (item.ultima) {
       desenho.classList.add('carta-chao-surpresinha');
-      // A Surpresinha é a última: fica trancada até as outras terem sido abertas.
+      // A "Nossos momentos" é a última: fica trancada até as outras terem sido abertas.
       if (itens.length > 1) { desenho.dataset.trancada = '1'; botao.setAttribute('aria-disabled', 'true'); }
     }
     item.botao = botao;
@@ -698,6 +712,15 @@ export async function cenaCartas(ctx, { frio } = {}) {
     campo.append(botao, desenho);              // o desenho logo depois do botão (o CSS usa botão + desenho)
   }
   medir();
+  // A "Nossos momentos" já pousa com o nome escrito (trancada ou não), e ele fica até o fim.
+  const ultima = itens.find((o) => o.ultima);
+  if (ultima) {
+    ultima.escrito = true;
+    caberNome(ultima);
+    // (se a letra à mão ainda não chegou, mede de novo quando ela chegar)
+    const letra = getComputedStyle(ultima.nome);
+    document.fonts?.load?.(`${letra.fontWeight} 1em ${letra.fontFamily}`, ultima.carta.nome).then(() => caberNome(ultima), () => {});
+  }
   const aoGirar = () => medir();
   cancelamentos.push(mundo.aoRedimensionar(aoGirar));
   ouvir(window, 'resize', aoGirar, { passive: true });
@@ -706,20 +729,24 @@ export async function cenaCartas(ctx, { frio } = {}) {
   const visor = criarVisor(ctx, { vivo });
   const { mostrar, voltarMusica } = visor;
 
-  // ---- o nome, escrito na carta depois de aberta -----------------------------
-  function escreverNome(item) {
-    if (item.escrito) return Promise.resolve();
-    item.escrito = true;
+  // ---- o nome na carta ----------------------------------------------------------
+  /** Põe o nome inteiro na carta: a letra diminui até caber (na última, em duas linhas se for comprido). */
+  function caberNome(item) {
     const alvo = item.nome;
-    // primeiro mede com o texto inteiro (a letra diminui até caber), depois escreve
     alvo.textContent = item.carta.nome;
     let tamanho = 0.19;
     alvo.style.fontSize = `calc(var(--b) * ${tamanho})`;
-    for (let i = 0; i < 8 && alvo.scrollWidth > alvo.clientWidth + 1; i++) {
-      tamanho *= 0.9;
+    for (let i = 0; i < 16 && (alvo.scrollWidth > alvo.clientWidth + 1 || alvo.scrollHeight > alvo.clientHeight + 1); i++) {
+      tamanho *= 0.95;
       alvo.style.fontSize = `calc(var(--b) * ${tamanho.toFixed(4)})`;
     }
-    return escrever(gsap, alvo, item.carta.nome, { calmo, som });
+  }
+  /** O nome de um amigo, escrito à mão na carta depois de aberta. */
+  function escreverNome(item) {
+    if (item.escrito) return Promise.resolve();
+    item.escrito = true;
+    caberNome(item);                   // primeiro mede com o texto inteiro, depois escreve
+    return escrever(gsap, item.nome, item.carta.nome, { calmo, som });
   }
 
   // ---- o botão de seguir em frente -------------------------------------------
@@ -798,7 +825,7 @@ export async function cenaCartas(ctx, { frio } = {}) {
     som.efeito('papel');
     const carta = item.carta;
     let resultado = { falhou: false };
-    // A Surpresinha guarda os áudios com a voz dele (js/voz.js): se houver fotos e vídeos,
+    // A "Nossos momentos" guarda os áudios com a voz dele (js/voz.js): se houver fotos e vídeos,
     // eles vêm antes; depois (ou só) a fita com os áudios. A fita fica na bolsa.
     const comVoz = item.ultima && ctx.voz && (conteudo.voz?.itens || []).length > 0;
     try {
@@ -818,10 +845,9 @@ export async function cenaCartas(ctx, { frio } = {}) {
     }
     inventario.mostrarBotao();
     atualizarSeguir();
-    const ult = itens.find((o) => o.ultima);
-    if (ult && itens.every((o) => o === ult || abertas.has(o.carta.id))) {
-      delete ult.desenho.dataset.trancada;
-      ult.botao.removeAttribute('aria-disabled');
+    if (ultima && itens.every((o) => o === ultima || abertas.has(o.carta.id))) {
+      delete ultima.desenho.dataset.trancada;
+      ultima.botao.removeAttribute('aria-disabled');
     }
     ocupado = false;
     diretor.etapa('escolhendo');

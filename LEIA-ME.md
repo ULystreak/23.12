@@ -102,7 +102,9 @@ As versões menores (`encontro-1-ela-ve.webp` e `encontro-3-ela-mao.webp`) ficar
 
 ## 6. Vídeos dos amigos (as cartas do chão)
 
-Depois de "Olha a sua mão." ela corre pelo fio até você, e perto de você há cartas no chão: Sariel, Ana, Mirai, Alpha, Pocoyoh, Nup e, por último, a Surpresinha. No chão elas não têm nome. Ela toca numa, o vídeo toca (com som; a música para e depois volta), e só quando ela fecha o nome de quem gravou aparece escrito na carta. Cada carta aberta vai para a bolsa, no canto de baixo. Depois da primeira carta aberta aparece o botão "Seguir em frente".
+Depois de "Olha a sua mão." ela corre pelo fio até você, e perto de você há cartas no chão: Sariel, Ana, Mirai, Alpha, Pocoyoh, Nup e, por último, a **"Nossos momentos"**. As dos amigos não têm nome no chão. Ela toca numa, o vídeo toca (com som; a música para e depois volta), e só quando ela fecha o nome de quem gravou aparece escrito na carta. Cada carta aberta vai para a bolsa, no canto de baixo. Depois da primeira carta aberta aparece o botão "Seguir em frente".
+
+A "Nossos momentos" é diferente: é maior e já cai com o nome escrito à mão, que fica na carta o tempo todo (antes e depois de aberta). Mas a regra é a mesma de antes: ela só abre depois que todas as outras foram vistas. Até lá fica amarrada com um laço do fio; se ela tocar antes da hora, a carta dá um pulinho e não abre. Quando a última carta de amigo é fechada, o laço se desfaz.
 
 **Carta que ainda não tem vídeo aparece do mesmo jeito** e abre um cartão escrito "[vídeo de Sariel vem aqui]", para você ver tudo funcionando antes de os vídeos chegarem.
 
@@ -120,7 +122,7 @@ Para pôr um vídeo:
 - `capa`: uma imagem opcional que aparece enquanto o vídeo carrega (pode ficar `''`).
 - Para tirar uma carta, apague a linha dela. Para ter mais uma, copie uma linha inteira, com a vírgula.
 
-A **Surpresinha** fica logo abaixo, em `surpresinha`: é uma sequência de fotos e vídeos de vocês que ela passa para o lado. Cada linha de `midias` é uma foto ou um vídeo:
+A **"Nossos momentos"** fica logo abaixo, no bloco `surpresinha` (ela se chamava Surpresinha; o bloco continua com esse nome por dentro, não troque). O nome que aparece escrito na carta e na bolsa é o campo `nome` desse bloco; funciona melhor curto, com duas ou três palavras. Dentro da carta vai uma sequência de fotos e vídeos de vocês, que ela passa para o lado; depois deles (ou no lugar deles, enquanto a lista estiver vazia) abrem os seus áudios, da parte `voz`. Cada linha de `midias` é uma foto ou um vídeo:
 
 ```js
 midias: [
@@ -147,7 +149,7 @@ ffmpeg -i original.mov -vf "scale=w=1280:h=1280:force_original_aspect_ratio=decr
 
 Se um vídeo não carregar (nome do arquivo errado, por exemplo), a carta mostra só o nome e conta como vista: nada trava. Depois de pôr os vídeos, teste com `?cena=cartas` no endereço, no iPhone, com som.
 
-Os outros textos desta parte também estão em `cartasChao`: `frase` (aparece quando as cartas caem), `seguir` (o botão "Seguir em frente"), `vazio` (o cartão de exemplo; `{nome}` vira o nome da pessoa) e `vazioSurpresinha`.
+Os outros textos desta parte também estão em `cartasChao`: `frase` (aparece quando as cartas caem), `seguir` (o botão "Seguir em frente"), `vazio` (o cartão de exemplo; `{nome}` vira o nome da pessoa) e `vazioSurpresinha` (o cartão de exemplo da "Nossos momentos"; o campo também guarda o nome antigo).
 
 ## 7. O fim: a carta na sua mão, o contador, a resposta dela e a sua voz
 
@@ -212,7 +214,7 @@ Sem nada no endereço, o site abre na tela preta da senha (o número está em `j
 | `?cena=carta2` | a segunda carta |
 | `?cena=yourname` | capítulo 2, o filme, e a carta indo para o bolso |
 | `?cena=mao` | "Olha a sua mão.", o fio e a corrida até você |
-| `?cena=cartas` | as cartas no chão (os vídeos dos amigos e a Surpresinha) |
+| `?cena=cartas` | as cartas no chão (os vídeos dos amigos e a "Nossos momentos") |
 | `?cena=encontro` | as imagens do encontro, o fio entre os dedinhos e o clarão (só se houver imagens em `encontro.quadros`) |
 | `?cena=final` | você entregando a última carta, a frase escrita à mão, o contador, a folha de resposta e o fim |
 | `?cena=final&voz=abrir` | o fim, já com o cartão dos seus áudios aberto |
