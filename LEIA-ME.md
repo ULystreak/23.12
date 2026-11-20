@@ -33,7 +33,9 @@ Como escrever:
 - Para trocar o título e a frase de baixo do capítulo, comece o arquivo com `Título: ...` e, na linha seguinte, `Subtítulo: ...` (as duas são opcionais).
 - Linha que começa com `#` é anotação sua e não entra no site.
 
-Depois dê **dois cliques em `colocar-textos.bat`**. Ele põe os parágrafos, na ordem, nos blocos de texto do capítulo, sem mexer nas cenas, nas imagens nem em mais nada. Se você escreveu mais parágrafos do que há blocos de texto, os que sobram viram blocos novos logo depois do último texto; se escreveu menos, os blocos de texto que sobram saem. Se alguma coisa der errado, ele avisa e deixa o `content.js` como estava. No fim ele pergunta se publica no site.
+Depois dê **dois cliques em `colocar-textos.bat`**. Ele põe os parágrafos, na ordem, nos blocos de texto do capítulo, sem mexer nas cenas, nas imagens nem em mais nada. Se você escreveu mais parágrafos do que há blocos de texto, os que sobram viram blocos novos logo depois do último texto; se escreveu menos, os blocos de texto que sobram saem. Se alguma coisa der errado, ele avisa e deixa o `content.js` como estava. No fim, se o `content.js` estiver diferente do que está no site, ele pergunta se publica.
+
+**Escreva o capítulo inteiro antes de rodar.** Um bloco de texto que saiu não volta para o lugar de antes: se você testar com uma linha só e depois escrever o resto, os parágrafos novos entram todos juntos, logo depois do último texto, e não mais entre as cenas e as imagens. Para pôr um bloco de volta no lugar, mova-o no `content.js` (cada bloco vai de `{` até `},`).
 
 Arquivo vazio = aquele capítulo fica como está. Pode rodar quantas vezes quiser: vale sempre o que está no `.txt`. A pasta `textos/` fica só no seu computador (não vai para o GitHub nem para o site).
 
