@@ -50,7 +50,11 @@
 .inventario-botao:disabled { cursor: default; }
 #inventario .inventario-botao:disabled { opacity: 0.5; pointer-events: auto; transform: none; }
 /* Com uma carta da bolsa reaberta na frente, o botão não fica por cima do que ela lê. */
-#inventario[data-relendo] .inventario-botao { opacity: 0; pointer-events: none; }
+#inventario[data-relendo] .inventario-botao {
+  opacity: 0; pointer-events: none;
+  visibility: hidden;                              /* (e fora do Tab enquanto ela relê) */
+  transition: opacity var(--dur-ui-lenta) var(--curva-ui), visibility 0s var(--dur-ui-lenta);
+}
 /* Onde ele só seria ruído, sai de cena do mesmo jeito: os quadros do encontro, a última
    carta da mão dele até abrir (em desdobrando ele sai de vez; sem a espera e a abertura
    aqui, voltava a 50% por uns segundos só para sumir) e a leitura de um capítulo. Nunca

@@ -617,10 +617,12 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
         continuar.disabled = false;
         // A pílula sobe na mola logo depois do laço; assentada, a setinha fica chamando o próximo
         // toque (o botão em si fica parado: é nele que o dedo, e o teste, vão tocar).
+        // (visível já, só a opacidade anima: um Tab logo depois da escolha cai nele, não no body)
+        gsap.set(caixaContinuar, { visibility: 'inherit' });
         gsap.fromTo(caixaContinuar,
-          { autoAlpha: 0, y: calmo() ? 0 : 14, scale: calmo() ? 1 : 0.94 },
+          { opacity: 0, y: calmo() ? 0 : 14, scale: calmo() ? 1 : 0.94 },
           {
-            autoAlpha: 1, y: 0, scale: 1, duration: calmo() ? 0.4 : 0.6, delay: 0.3,
+            opacity: 1, y: 0, scale: 1, duration: calmo() ? 0.4 : 0.6, delay: 0.3,
             ease: calmo() ? 'none' : 'back.out(1.6)', clearProps: 'transform', overwrite: true,
             onComplete: () => { if (!terminado && !continuar.disabled) continuar.dataset.chama = ''; },
           });

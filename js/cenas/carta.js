@@ -205,8 +205,11 @@ function esperarToque(ctx, env, baixar) {
         dica.style.top = 'auto';
         dica.style.bottom = `${Math.max(16, innerHeight - topo + folga * (naMao ? 2 : 1))}px`;
       } else {
+        // (no mouse a câmera segue o ponteiro e a carta anda ~45 px na tela: a dica, parada,
+        // fica mais longe para a carta não passar por cima dela)
+        const mouse = matchMedia('(hover: hover) and (pointer: fine)').matches ? 56 : 0;
         dica.style.bottom = 'auto';
-        dica.style.top = `${Math.min(innerHeight - 64, caixa.bottom + folga)}px`;
+        dica.style.top = `${Math.min(innerHeight - 64, caixa.bottom + folga + mouse)}px`;
       }
     };
     posicionar();

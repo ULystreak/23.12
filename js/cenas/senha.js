@@ -123,7 +123,7 @@ export async function cenaSenha(ctx) {
     let t = 0;
     const tique = () => {
       const falta = Math.max(0, alvo - agora());
-      const seg = Math.floor(falta / 1000);
+      const seg = Math.ceil(falta / 1000);      // (o 00 só aparece junto com a virada, não 1 s antes)
       c.d.n.textContent = String(Math.floor(seg / 86400));
       c.h.n.textContent = String(Math.floor(seg / 3600) % 24).padStart(2, '0');
       c.m.n.textContent = String(Math.floor(seg / 60) % 60).padStart(2, '0');
@@ -272,6 +272,10 @@ export async function sairDaEntrada(ctx) {
     aquecerAbertura(ctx);
     entrada.style.pointerEvents = 'none';
     // As pétalas da frente começam fora de foco; a abertura completa o foco (js/cenas/abertura.js).
+    // A chuva começa agora, com o preto inteiro: quando os olhos abrem ela já vem entrando,
+    // e a abertura não a recomeça (no reduzido as pétalas já estão no ar e só aparecem).
+    if (!ctx.amb.reduzido) ctx.mundo.petalas?.comecar?.();
+    ctx.mundo.petalas?.definirDensidade?.(0.4);
     ctx.mundo.petalas?.definirFoco?.(0.8);
     await new Promise((ok) => {
       const tl = gsap.timeline({ onComplete: ok });

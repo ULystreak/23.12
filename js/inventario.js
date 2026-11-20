@@ -212,6 +212,8 @@ export function criarInventario({ conteudo, amb, som, raiz }) {
     try { await item.abrir(); } catch (erro) { console.error('[carta] reabrir item da bolsa', erro); }
     reaberto = false;
     if (raiz) raiz.removeAttribute('data-relendo');
+    // O que ela releu sai da página com o foco dentro: ele volta para a bolsa, não para o body.
+    if ((!document.activeElement || document.activeElement === document.body) && !botao.disabled) botao.focus({ preventScroll: true });
   };
 
   const api = {

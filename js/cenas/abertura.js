@@ -110,7 +110,9 @@ export async function cenaAbertura(ctx, { frio = false } = {}) {
   // As pétalas começam, poucas, entrando por cima; o resto do site baixa em segundo plano.
   // No movimento reduzido elas não descem do alto da tela (lentas como estão, a
   // tela ficaria vazia durante as frases): já estão no ar e só aparecem, devagar.
-  if (!amb.reduzido) petalas.comecar?.();
+  // Vindo do preto, a chuva já começou em sairDaEntrada (js/cenas/senha.js), com os olhos
+  // ainda fechados: recomeçar aqui apagaria de uma vez as pétalas que ela acabou de ver.
+  if (frio && !amb.reduzido) petalas.comecar?.();
   petalas.definirDensidade(0.4);
   recursos.iniciar();
   diretor.aquecer();

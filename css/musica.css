@@ -280,7 +280,9 @@
    menos o vão) e um respiro, desfeita a escala de 0,84 dela. (No .car-faixa: o
    .car-item é posicionado pelo JS. Sem transição na desativada, que some pela GSAP.) */
 .carrossel { --afasta: max(0px, (var(--lado) * 0.19 - var(--vao) + 10px) / 0.84); }
-html.reduzido .carrossel { --afasta: 0px; }          /* sem deslocar: só se apagam */
+/* No reduzido a vizinha não encolhe (fica inteira): a conta é sem a escala, e ela pula na hora. */
+html.reduzido .carrossel { --afasta: max(0px, var(--lado) * 0.27 - var(--vao) + 10px); }
+html.reduzido .car-faixa:not(:disabled) { transition-duration: 0.01ms; }
 .car-faixa:not(:disabled) {
   transition: transform 1000ms var(--curva-branco-entrar), opacity 600ms linear;
 }

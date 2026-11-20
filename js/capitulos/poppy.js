@@ -16,7 +16,7 @@
 //                 as cenas que estão na tela (as outras ficam paradas)
 //
 // A abertura (tela azul → PLAY → a imagem entra → o título cai) começa quando a
-// folha termina de desenrolar: o diretor publica a etapa "lendo" em <html>.
+// folha termina de desenrolar (api.aberto; sem ele, a etapa "lendo" em <html>).
 //
 // Gancho para os testes (não mudar): [data-acao="fechar-capitulo"].
 
@@ -386,7 +386,8 @@ export const capitulo = {
     limpezas.push(cancelarRolagem);
 
     async function abertura() {
-      await Promise.race([folhaAberta(), espera(4200)]);
+      // (o sinal do próprio pergaminho vale também na releitura pela bolsa, que não publica "lendo")
+      await Promise.race([api.aberto || folhaAberta(), espera(4200)]);
       if (!vivo) return;
       await espera(280);
       if (!vivo || modoFixo) return;
