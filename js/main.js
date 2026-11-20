@@ -100,11 +100,16 @@ async function iniciar() {
  * na volta (e a cada etapa, caso um pedido tenha falhado). No estado final (final:fim)
  * e no menu a carta descansa: a trava é solta e a tela volta a apagar como sempre.
  * Sem a API (Safari antes do 16.4) ou com o pedido negado (pouca bateria), nada muda.
+ * E se ela largar o celular no meio da carta (10 min sem toque nem tecla, bem mais que
+ * qualquer trecho que anda sozinho), a trava também é solta, para a tela não passar a
+ * noite acesa; o próximo toque pede de novo.
  */
 function manterTelaAcesa(diretor) {
   const api = navigator.wakeLock;
   if (!api || typeof api.request !== 'function') return;
-  const descansa = () => (diretor.cena === 'final' && diretor.etapaAtual === 'fim') || diretor.cena === 'menu';
+  let largou = false;
+  let espera = 0;
+  const descansa = () => largou || (diretor.cena === 'final' && diretor.etapaAtual === 'fim') || diretor.cena === 'menu';
   let trava = null;
   let pedindo = false;
   const soltar = () => {
@@ -125,9 +130,16 @@ function manterTelaAcesa(diretor) {
       pedindo = false;
     }
   };
+  const mexeu = () => {
+    largou = false;
+    clearTimeout(espera);
+    espera = setTimeout(() => { largou = true; soltar(); }, 600000);
+    conferir();
+  };
   diretor.aoMudar(conferir);
   document.addEventListener('visibilitychange', conferir);
-  conferir();
+  for (const tipo of ['pointerdown', 'keydown']) window.addEventListener(tipo, mexeu, { capture: true, passive: true });
+  mexeu();
 }
 
 /** Recarrega a página na cena atual, no modo leve (sem WebGL), mantendo os outros parâmetros. */
