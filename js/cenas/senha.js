@@ -82,7 +82,7 @@ export async function cenaSenha(ctx) {
   const igual = (v) => mesmo(v, mestra) || (mesmo(v, codigo) && !cedo());
   const antesDaHora = (v) => mesmo(v, codigo) && cedo();
   // Os chutes que ele já esperava: comparados sem maiúsculas, acentos nem espaços.
-  const chave = (v) => String(v ?? '').normalize('NFD').replace(/[̀-ͯ\s]/g, '').toLowerCase();
+  const chave = (v) => String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f\s]/g, '').toLowerCase();
   const palpites = (Array.isArray(dados.palpites) ? dados.palpites : [])
     .map((p) => ({ se: chave(p?.se), diz: String(p?.diz || '').trim() })).filter((p) => p.se && p.diz);
   const palpite = (v) => palpites.find((p) => p.se === chave(v))?.diz || '';
