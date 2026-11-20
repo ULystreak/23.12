@@ -10,6 +10,7 @@
      .contador         número + fio costurado + rótulo + frase (depois sobe e fica pequeno no alto)
      .resposta         a folha (.ui-folha): laço, convite, caderno, botões
      .depois-reabrir   no estado final: abre a folha de novo
+   .depois-ir        com o menu do fim: a pílula que leva a ele, no meio (a pena fica à esquerda)
    ========================================================================== */
 
 .depois {
@@ -265,7 +266,8 @@
 .resposta-enviar:focus-visible,
 .resposta-guardar:focus-visible,
 .resposta-outro:focus-visible { outline: 2px solid var(--fio, #d7192d); outline-offset: 3px; }
-.depois-reabrir:focus-visible { outline: 2px solid var(--estrela); outline-offset: 3px; }
+.depois-reabrir:focus-visible,
+.depois-ir:focus-visible { outline: 2px solid var(--estrela); outline-offset: 3px; }
 
 /* ---- o estado final: o botão de reabrir a folha ------------------------------ */
 .depois-reabrir {
@@ -282,6 +284,34 @@
 @media (max-width: 380px) {
   .depois-reabrir { left: calc((100% - 88px) / 2); }
   .contador-rotulo { white-space: nowrap; }
+}
+
+/* ---- com o menu do fim: a pena sozinha à esquerda e, no meio, a pílula que leva a ele ---- */
+.depois-reabrir[data-so="pena"] {
+  left: calc(var(--seguro-esq) + 16px);
+  bottom: calc(var(--seguro-base) + 20px);
+  translate: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.depois-reabrir[data-so="pena"] .ui-icone { width: 22px; height: 22px; }
+.depois-ir {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--seguro-base) + 18px);
+  translate: -50% 0;
+  border: 0;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.depois-ir-seta { width: 20px; height: 20px; color: var(--fio); }
+/* Tela estreita (zoom do Safari): a pílula encolhe e fica no meio do vão entre a pena e a bolsa. */
+@media (max-width: 380px) {
+  .depois-reabrir[data-so="pena"] { left: calc(var(--seguro-esq) + 12px); }
+  .depois-ir { left: calc(50% - 6px); padding: 0 16px; gap: 7px; font-size: 1rem; }
 }
 
 html.reduzido .resposta-nega { animation: none; }

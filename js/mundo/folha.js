@@ -7,6 +7,7 @@
 //   folha.desdobrar() → Promise         vem até a posição de leitura (se ainda não veio) e abre as duas dobras
 //   folha.escrever(texto, opcoes?) → Promise   opcoes.aoTraco(): chamado a cada letra (som da caneta)
 //   folha.atualizar(dt, t)              a cena chama a cada quadro (mundo.aoQuadro)
+//   folha.irEmbora() → Promise          sobe e sai pelo alto da tela (o menu do fim chegou); depois, dispose()
 //   folha.dispose()
 //
 // Além do contrato (usado por js/cenas/final.js):
@@ -1936,6 +1937,27 @@ function criarFolha3D(mundo) {
       });
     },
 
+    /** Sobe e sai pelo alto da tela (o menu do fim chegou). Quem chama descarta depois. */
+    irEmbora() {
+      if (!grupo.visible || descartada) return Promise.resolve();
+      // o bastante para a borda de baixo passar da borda de cima da tela, a esta distância
+      const meiaTela = Math.tan(THREE.MathUtils.degToRad(mundo.camera.fov / 2)) * leitura.distancia;
+      const sobe = ALTURA / 2 + meiaTela + 0.12;
+      const k = { v: 0 };
+      return new Promise((resolver) => {
+        const fim = () => { grupo.visible = false; resolver(); };
+        gsap.to(k, {
+          v: 1,
+          duration: amb.reduzido ? 0.01 : 2.7,
+          ease: 'power2.inOut',
+          // (por cima da altura de leitura de agora: se a tela mudar no meio, ela acompanha)
+          onUpdate: () => { leitura.pos.y = ALTURA_OLHOS + sobe * k.v; aplicarViagem(); },
+          onComplete: fim,
+          onInterrupt: fim,
+        });
+      });
+    },
+
     atualizar(dt, t) {
       if (!grupo.visible) return;
 
@@ -2326,6 +2348,17 @@ function criarFolhaLeve(mundo) {
       // a mesma faixa livre do 3D: a folha encolhe um pouco para caber entre o contador e o botão
       const s = innerHeight < 520 ? 1 : Math.min(1, (innerHeight - 2 * MARGEM_FIM) / Math.max(1, folha.offsetHeight));
       if (s < 1) gsap.to(folha, { scale: s, duration: calmo ? 1.2 : 2.4, ease: curvas.branco.deriva });
+    },
+
+    /** Sobe e sai pelo alto da tela (o menu do fim chegou). Quem chama descarta depois. */
+    irEmbora() {
+      if (descartada || !folha.isConnected) return Promise.resolve();
+      const y0 = Number(gsap.getProperty(folha, 'y')) || 0;
+      return comoPromise(gsap.to(folha, {
+        y: y0 - folha.offsetHeight * 1.2,                  // translateY(-120%): a borda de baixo passa do alto da tela
+        duration: calmo ? 0.01 : 2.7,
+        ease: 'power2.inOut',
+      }));
     },
 
     atualizar(dt, t) {

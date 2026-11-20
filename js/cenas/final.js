@@ -5,7 +5,8 @@
 // em que ela escreve de volta (resposta) e o estado final, calmo: a noite, a
 // música, a bolsa. Sem "fim" escrito.
 //
-//   cenaFinal(ctx, { frio }) → Promise que nunca resolve
+//   cenaFinal(ctx, { frio }) → Promise que nunca resolve; com o menu do fim (o bloco menu do
+//                                  content.js), resolve quando ela toca na pílula que leva a ele
 //   entregaNaMao(ctx) → boolean   põe ele perto, de frente, com a carta na mão
 //                                  (o encontro chama debaixo do clarão)
 //
@@ -29,6 +30,7 @@ import { criarFolha } from '../mundo/folha.js';
 import { criarEle, pintarEleEntrega } from '../mundo/ele.js';
 import { criarEnvelope } from '../mundo/envelope.js';
 import { criarDepois } from './resposta.js';
+import { temMenu } from '../nucleo/diretor.js';
 
 const ALTURA_OLHOS = 1.5;
 const PARADA = 1.25;               // a carta para a esta distância dela
@@ -245,6 +247,7 @@ export async function cenaFinal(ctx, { frio } = {}) {
 
   // O número da senha volta e conta os dias dela; depois, a folha em que ela escreve de volta.
   const depois = criarDepois(ctx);
+  estado.depois = depois;                                // o menu do fim continua com o mesmo contador
   if (depois.temContador) {
     await espera(amb.reduzido ? 300 : 1400);
     diretor.etapa('contador');
@@ -261,7 +264,9 @@ export async function cenaFinal(ctx, { frio } = {}) {
   // O contador fica no alto e o botão de reabrir embaixo: em tela baixa a folha recua um pouco.
   if (depois.temContador || depois.temResposta) folha.recuar();
   musica.mostrarMini();
-  await new Promise(() => {});                           // fica aqui, com as pétalas
+  // Com o menu do fim, a pílula "Continuar" leva a ele (o diretor entra na cena "menu").
+  if (temMenu(conteudo)) await depois.seguir;
+  else await new Promise(() => {});                      // sem menu: fica aqui, com as pétalas
 }
 
 /** Compila os shaders de um objeto (mesmo invisível) antes do primeiro quadro dele; no máximo ~1,2 s. */

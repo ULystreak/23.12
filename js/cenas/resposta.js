@@ -5,6 +5,13 @@
 //     contar()   → Promise   o número da senha volta e conta de 0 até os dias de vida dela hoje
 //     escrever() → Promise   a folha em branco sobe; resolve quando ela toca em "Guardar"
 //     repousar()             o estado final: o contador pequeno no alto e o botão de reabrir a folha
+//     Com o menu do fim (o bloco menu do content.js; js/cenas/menu.js), mais:
+//     seguir     Promise     resolve quando ela toca na pílula "Continuar" / "Voltar ao menu"
+//     reescrever() → Promise abre a folha de resposta de novo; resolve depois do "Guardar", com a noite já saindo
+//     noAlto()               monta a raiz e mostra o contador já pequeno no alto, sem contar (entrada fria no menu)
+//     limparFim() → Promise  a pena e a pílula saem de cena (0,3 s) e são removidas (o menu chegou)
+//     reposicionar()         a tela mudou de tamanho: o contador pequeno volta ao lugar dele
+//     raiz                   a .depois (o menu entra no palco logo antes dela)
 //   }
 //   diasDeVida(nascimento, hoje?) → número de dias (ou null se a data não vale)
 //
@@ -14,7 +21,8 @@
 //     .contador-flor       a flor dos dias (canvas 2D atrás do número) e .contador-hoje, o ponto de hoje
 //     .contador            .contador-numero + .contador-rotulo + .contador-frase
 //     .resposta            a folha: .resposta-convite, textarea, botões
-//     .depois-reabrir      no estado final: abre a folha de novo
+//     .depois-reabrir      no estado final: abre a folha de novo (com o menu do fim: só a pena, à esquerda)
+//     .depois-ir           com o menu do fim: a pílula que leva ao menu, no meio
 //
 // O que ela escreve fica só no aparelho dela (localStorage). Nada é enviado
 // sozinho: o botão de enviar abre o WhatsApp com o texto pronto, e é ela que
@@ -30,10 +38,11 @@
 //
 // Ganchos de teste: [data-acao="resposta-texto"] (o textarea), "resposta-enviar"
 // (um <a> de verdade para wa.me), "resposta-compartilhar", "resposta-guardar",
-// "resposta-abrir"; .contador[data-dias].
+// "resposta-abrir", "menu-ir" (a pílula que leva ao menu); .contador[data-dias].
 // Parâmetro só de teste: ?hoje=AAAA-MM-DD finge a data de hoje.
 
-import { el, svg, suave, espera } from '../nucleo/util.js';
+import { el, svg, suave, espera, menuLembrado } from '../nucleo/util.js';
+import { temMenu } from '../nucleo/diretor.js';
 
 // Ícones da papelaria (_dev/UI.md): grade 24, traço 1.75, pontas redondas.
 const AVIAO = `
@@ -48,8 +57,14 @@ const PENA = `
   <svg class="ui-icone" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
     <path d="M4.6 19.4 C5 17.4 5.6 15.6 6.4 14 C9.6 10.6 12.8 7.4 16 4.4 C17.6 3.6 20.2 6.2 19.6 7.8 C16.4 11 13.2 14.2 10 17.4 C8.2 18.2 6.4 18.8 4.6 19.4 Z M14.2 6.2 C15.4 7.4 16.6 8.6 17.8 9.8"/>
   </svg>`;
+// A seta da pílula que leva ao menu: para cima, de onde o fio desce.
+const SETA = `
+  <svg class="ui-icone depois-ir-seta" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M12 19.2 V5.4 M6.8 10.4 L12 5.2 L17.2 10.4"/>
+  </svg>`;
 
 const CHAVE = 'carta2312:resposta';
+const ESCALA_ALTO = 0.46;            // o contador pequeno, no alto
 
 /** 'AAAA-MM-DD' → { a, m, d } (ou null). */
 function lerData(texto) {
@@ -95,6 +110,11 @@ export function criarDepois(ctx) {
   const temResposta = !!dadosR && dadosR.ativa !== false;
   const r = dadosR || {};
   const rot = r.rotulos || {};
+
+  // O menu do fim existe? Então a fileira de baixo muda: a pena sozinha à esquerda e, no
+  // meio, a pílula que leva ao menu.
+  const comMenu = temMenu(conteudo);
+  const rotMenu = (comMenu && conteudo.menu.rotulos) || {};
 
   const raiz = el('div', { class: 'depois' });
   const veu = el('div', { class: 'depois-veu', 'aria-hidden': 'true' });
@@ -285,7 +305,7 @@ export function criarDepois(ctx) {
     const caixa = contador.getBoundingClientRect();
     const meioNumero = numero.getBoundingClientRect();
     const seguro = parseFloat(getComputedStyle(raiz).getPropertyValue('--depois-topo')) || 0;
-    const escala = 0.46;
+    const escala = ESCALA_ALTO;
     // o número (escalado) fica centrado logo abaixo da área segura do alto
     const alvoY = seguro + 30;
     const origemY = caixa.top;                             // transform-origin: 50% 0
@@ -298,6 +318,29 @@ export function criarDepois(ctx) {
     }));
   }
 
+  /**
+   * A mesma conta de recolherContador, feita pelas medidas de antes da escala (offset*): onde
+   * o contador pequeno mora nesta tela. Serve para nascer já no alto (a entrada fria no menu).
+   */
+  const yNoAlto = () => {
+    const seguro = parseFloat(getComputedStyle(raiz).getPropertyValue('--depois-topo')) || 0;
+    return seguro + 30 - (numero.offsetTop + numero.offsetHeight / 2) * ESCALA_ALTO - contador.offsetTop;
+  };
+
+  /** Monta a raiz e mostra o contador já pequeno no alto, sem contar. */
+  function noAlto() {
+    montar();
+    raiz.dataset.fim = '';
+    if (!temContador || contador.dataset.alto !== undefined) return;
+    contador.dataset.dias = String(dias);
+    contador.setAttribute('aria-label', `${dias} ${rotulo.textContent}`);
+    mostrarDias(dias);
+    if (frase) gsap.set(frase, { autoAlpha: 0 });
+    raiz.append(contador);
+    contador.dataset.alto = '';
+    gsap.set(contador, { y: yNoAlto(), scale: ESCALA_ALTO });
+  }
+
   // ---- a folha de resposta ------------------------------------------------------------
   let folha = null;
   let campo = null;
@@ -305,8 +348,22 @@ export function criarDepois(ctx) {
   let enviar = null;
   let aoGuardar = null;
   let aberta = false;
-  const reabrir = el('button', { class: 'depois-reabrir ui-pilula', type: 'button', dataset: { acao: 'resposta-abrir', tom: 'noite' } },
-    [svg(PENA), el('span', { texto: texto(rot.reabrir) || 'Escrever de volta' })]);
+  const nomeReabrir = texto(rot.reabrir) || 'Escrever de volta';
+  // Com o menu do fim a pena fica sozinha, redonda, à esquerda (o nome vira aria-label).
+  const reabrir = comMenu
+    ? el('button', { class: 'depois-reabrir ui-redondo', type: 'button', 'aria-label': nomeReabrir, dataset: { acao: 'resposta-abrir', tom: 'noite', so: 'pena' } }, svg(PENA))
+    : el('button', { class: 'depois-reabrir ui-pilula', type: 'button', dataset: { acao: 'resposta-abrir', tom: 'noite' } },
+      [svg(PENA), el('span', { texto: nomeReabrir })]);
+  // A pílula que leva ao menu: "Continuar" na primeira vez; depois, "Voltar ao menu".
+  const ir = comMenu
+    ? el('button', { class: 'depois-ir ui-pilula', type: 'button', dataset: { acao: 'menu-ir' } },
+      [svg(SETA), el('span', { texto: (menuLembrado() ? texto(rotMenu.voltar) : texto(rotMenu.continuar)) || texto(rotMenu.continuar) || texto(rotMenu.voltar) || 'Continuar' })])
+    : null;
+  if (ir) ir.addEventListener('touchstart', () => {}, { passive: true });   // (no iPhone, :active só vale com um ouvinte de toque)
+  let resolverSeguir = null;
+  const seguir = new Promise((ok) => { resolverSeguir = ok; });
+  /** O que fica na fileira de baixo no estado final. */
+  const fileira = () => [temResposta ? reabrir : null, ir].filter(Boolean);
 
   const mensagem = () => {
     const escrito = campo ? campo.value.trim() : '';
@@ -414,8 +471,8 @@ export function criarDepois(ctx) {
     if (vv) { vv.addEventListener('resize', aoViewport); vv.addEventListener('scroll', aoViewport); }
     window.addEventListener('resize', aoViewport);
     aoViewport();
-    gsap.killTweensOf([folha, veu, reabrir]);
-    gsap.to(reabrir, { autoAlpha: 0, duration: 0.3, ease: 'none' });
+    gsap.killTweensOf([folha, veu, ...fileira()]);
+    gsap.to(fileira(), { autoAlpha: 0, duration: 0.3, ease: 'none' });
     gsap.to(veu, { opacity: 1, duration: 0.8, ease: 'sine.inOut', onComplete: dormir });
     som.efeito?.('papel');
     await new Promise((ok) => gsap.fromTo(folha,
@@ -449,7 +506,10 @@ export function criarDepois(ctx) {
   /** Sem toque (teclado, leitor de tela), o foco não fica perdido no body quando a folha sai. */
   const focarReabrir = () => {
     if (amb.toque || (document.activeElement && document.activeElement !== document.body)) return;
-    try { reabrir.focus({ preventScroll: true }); } catch { /* sem foco */ }
+    // com o menu do fim, o próximo passo é a pílula que leva a ele
+    const alvo = ir && ir.isConnected ? ir : reabrir;
+    if (!alvo.isConnected) return;
+    try { alvo.focus({ preventScroll: true }); } catch { /* sem foco */ }
   };
 
   // ---- a letra dela na folha dele -------------------------------------------------------
@@ -476,11 +536,22 @@ export function criarDepois(ctx) {
     acordar();
     gsap.to(veu, { opacity: 0, duration: calmo ? 0.8 : 2.2, ease: 'sine.inOut', overwrite: true, onComplete: escreverNaFolha });
     raiz.dataset.fim = '';
-    if (!temResposta) return;
-    raiz.append(reabrir);
-    gsap.fromTo(reabrir, { autoAlpha: 0 }, { autoAlpha: 1, duration: 1.2, delay: calmo ? 0.2 : 1.2, ease: 'none', onComplete: focarReabrir });
-    reabrir.addEventListener('click', async () => {
-      if (aberta || ctx.inventario?.aberto) return;
+    const pecas = fileira();
+    if (!pecas.length) return;
+    raiz.toggleAttribute('data-menu', !!ir);
+    raiz.append(...pecas);
+    gsap.fromTo(pecas, { autoAlpha: 0 }, { autoAlpha: 1, duration: 1.2, delay: calmo ? 0.2 : 1.2, ease: 'none', onComplete: focarReabrir });
+  }
+
+  /**
+   * Abre a folha de resposta de novo (o botão do estado final e, no menu do fim, a folha
+   * com a pena do chão). Resolve depois do "Guardar", com a noite já saindo da frente.
+   */
+  let reescrevendo = false;
+  async function reescrever() {
+    if (!temResposta || reescrevendo || aberta || ctx.inventario?.aberto) return;
+    reescrevendo = true;
+    try {
       await abrirFolha();
       await new Promise((ok) => { aoGuardar = ok; });
       aoGuardar = null;
@@ -488,9 +559,37 @@ export function criarDepois(ctx) {
       await fecharFolha();
       acordar();
       gsap.to(veu, { opacity: 0, duration: 1.2, ease: 'sine.inOut', overwrite: true, onComplete: escreverNaFolha });
-      gsap.to(reabrir, { autoAlpha: 1, duration: 0.8, ease: 'none', onComplete: focarReabrir });
+      gsap.to(fileira(), { autoAlpha: 1, duration: 0.8, ease: 'none', onComplete: focarReabrir });
+    } finally {
+      reescrevendo = false;
+    }
+  }
+  reabrir.addEventListener('click', () => { reescrever(); });
+  if (ir) {
+    ir.addEventListener('click', () => {
+      // com a folha de resposta ou a bolsa na frente, o toque não é para ela
+      if (aberta || reescrevendo || ctx.inventario?.aberto || !raiz.hasAttribute('data-fim')) return;
+      resolverSeguir();
     });
   }
 
-  return { temContador, temResposta, dias, contar, escrever, repousar };
+  /** O menu chegou: a pena e a pílula saem de cena e são removidas. */
+  function limparFim() {
+    const pecas = fileira().filter((no) => no.isConnected);
+    raiz.removeAttribute('data-menu');
+    if (!pecas.length) return Promise.resolve();
+    gsap.killTweensOf(pecas);
+    for (const no of pecas) { no.disabled = true; no.style.pointerEvents = 'none'; }
+    return new Promise((ok) => gsap.to(pecas, {
+      autoAlpha: 0, duration: 0.3, ease: 'none', onComplete: () => { for (const no of pecas) no.remove(); ok(); },
+    }));
+  }
+
+  /** A tela mudou de tamanho com o contador já no alto: ele volta ao lugar dele nesta tela. */
+  function reposicionar() {
+    if (!temContador || contador.dataset.alto === undefined || !contador.isConnected || gsap.isTweening(contador)) return;
+    gsap.set(contador, { y: yNoAlto() });
+  }
+
+  return { temContador, temResposta, dias, contar, escrever, repousar, seguir, reescrever, noAlto, limparFim, reposicionar, raiz };
 }
