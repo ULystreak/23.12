@@ -487,12 +487,10 @@ export async function cenaEncontro(ctx, { frio } = {}) {
     respiro?.kill();
     window.removeEventListener('keydown', aoTeclar);
     // a batidinha na mão dela (no iPhone ela só sai dentro de um toque: se o nó veio no meio
-    // do arrasto, ela vem quando o dedo levanta)
-    if (!sozinho) {
-      if (amb.ios && dedoNaTela !== null) window.addEventListener('pointerup', () => vibrar(amb), { once: true });
-      else vibrar(amb);
-    }
-    arrasto.remove();
+    // do arrasto, ela vem quando o dedo levanta: ver aoSoltar; até lá a área do arrasto
+    // fica, porque tirar da tela o elemento que está sendo tocado perde o levantar do dedo)
+    if (!sozinho && !(amb.ios && dedoNaTela !== null)) vibrar(amb);
+    if (dedoNaTela === null) arrasto.remove();
     if (dica) gsap.to(dica, { opacity: 0, duration: 0.4, ease: 'none', overwrite: true });
     // quanto falta para a ponta chegar: de perto é um estalo; de longe, o fio se estende
     const [a, b] = maos;
@@ -525,7 +523,7 @@ export async function cenaEncontro(ctx, { frio } = {}) {
   const aoApertar = (ev) => {
     if (amarrado || dedoNaTela !== null || ev.button > 0 || ev.target === alvo) return;
     dedoNaTela = ev.pointerId;
-    vez++;
+    contarSozinho();                  // dedo parado na tela (ou um levantar que se perdeu) também não prende a cena
     try { arrasto.setPointerCapture(ev.pointerId); } catch { /* sem captura: segue enquanto estiver por cima */ }
     mexer({ puxa: 1 }, { duration: calmo ? 0.01 : 0.25, ease: 'power2.out' });
     seguirDedo(ev);
@@ -534,7 +532,7 @@ export async function cenaEncontro(ctx, { frio } = {}) {
   const aoSoltar = (ev) => {
     if (ev.pointerId !== dedoNaTela) return;
     dedoNaTela = null;
-    if (amarrado) return;
+    if (amarrado) { if (amb.ios) vibrar(amb); arrasto.remove(); return; }
     // soltou no caminho: a ponta volta para o dedinho dela
     mexer({ puxa: 0 }, { duration: calmo ? 0.01 : 0.5, ease: 'power2.inOut' });
     contarSozinho();
