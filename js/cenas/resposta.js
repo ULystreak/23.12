@@ -20,12 +20,20 @@
 // sozinho: o botão de enviar abre o WhatsApp com o texto pronto, e é ela que
 // manda. Onde existir, "enviar de outro jeito" usa o compartilhar do aparelho.
 //
+// Duas letras na mesma folha: quando ela toca em "Guardar" com texto, a folha dela
+// fecha, a noite sai da frente e, já com a folha da frase dele à vista, as palavras
+// dela são escritas à mão, pela mesma caneta (um pouco mais rápida e mais baixa), em
+// tinta rosa, no terço de baixo da folha dele (folha.escreverDela, js/mundo/folha.js:
+// ela tira os emoji, diminui o corpo antes de cortar e corta na palavra; o texto
+// inteiro continua guardado aqui). "Escrever de volta" → "Guardar" apaga a letra
+// antiga ainda debaixo da noite e escreve a nova; guardar vazio só apaga.
+//
 // Ganchos de teste: [data-acao="resposta-texto"] (o textarea), "resposta-enviar"
 // (um <a> de verdade para wa.me), "resposta-compartilhar", "resposta-guardar",
 // "resposta-abrir"; .contador[data-dias].
 // Parâmetro só de teste: ?hoje=AAAA-MM-DD finge a data de hoje.
 
-import { el, svg, suave } from '../nucleo/util.js';
+import { el, svg, suave, espera } from '../nucleo/util.js';
 
 // Ícones da papelaria (_dev/UI.md): grade 24, traço 1.75, pontas redondas.
 const AVIAO = `
@@ -444,12 +452,29 @@ export function criarDepois(ctx) {
     try { reabrir.focus({ preventScroll: true }); } catch { /* sem foco */ }
   };
 
+  // ---- a letra dela na folha dele -------------------------------------------------------
+  const folhaFinal = () => ctx.estado && ctx.estado.folha;
+  /** Com a noite já fora da frente: o que ela guardou vai para a folha da frase dele. */
+  function escreverNaFolha() {
+    const f = folhaFinal();
+    if (!campo || !f || typeof f.escreverDela !== 'function' || !campo.value.trim()) return;
+    let letras = 0;
+    // a mão pousa antes da primeira letra, como na frase dele
+    espera(calmo ? 200 : 450).then(() => {
+      if (aberta) return;                                  // ela reabriu a folha: a letra vem quando guardar
+      return f.escreverDela(campo.value, {
+        // a caneta raspa o papel, um pouco mais rápida e mais baixa que a dele
+        aoTraco: () => { if (letras++ % 2 === 0) som.efeito?.('caneta', { duracao: 0.7, intensidade: 0.7 }); },
+      });
+    }).catch((erro) => console.error('[carta] a letra dela', erro));
+  }
+
   /** O estado final: a noite, a folha com a frase, o contador pequeno no alto. */
   function repousar() {
     montar();
     recolherContador();
     acordar();
-    gsap.to(veu, { opacity: 0, duration: calmo ? 0.8 : 2.2, ease: 'sine.inOut', overwrite: true });
+    gsap.to(veu, { opacity: 0, duration: calmo ? 0.8 : 2.2, ease: 'sine.inOut', overwrite: true, onComplete: escreverNaFolha });
     raiz.dataset.fim = '';
     if (!temResposta) return;
     raiz.append(reabrir);
@@ -459,9 +484,10 @@ export function criarDepois(ctx) {
       await abrirFolha();
       await new Promise((ok) => { aoGuardar = ok; });
       aoGuardar = null;
+      folhaFinal()?.apagarDela?.();                        // a letra antiga sai ainda debaixo da noite
       await fecharFolha();
       acordar();
-      gsap.to(veu, { opacity: 0, duration: 1.2, ease: 'sine.inOut', overwrite: true });
+      gsap.to(veu, { opacity: 0, duration: 1.2, ease: 'sine.inOut', overwrite: true, onComplete: escreverNaFolha });
       gsap.to(reabrir, { autoAlpha: 1, duration: 0.8, ease: 'none', onComplete: focarReabrir });
     });
   }

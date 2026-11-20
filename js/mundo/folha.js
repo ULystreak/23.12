@@ -16,9 +16,22 @@
 //   folha.viver()                       de tempos em tempos uma pétala pousa num canto, fica e escorrega
 //   folha.recuar()                      no fim, em tela baixa, recua um pouco: o contador e o botão respiram
 //
+// Duas letras na mesma folha (usado por js/cenas/resposta.js):
+//   folha.escreverDela(texto, opcoes?) → Promise   o que ela escreveu na folha de resposta, à mão,
+//                                       com a mesma caneta e em tinta rosa (--sakura-tinta), no terço
+//                                       de baixo, embaixo da frase dele; opcoes.aoTraco como em escrever()
+//   folha.apagarDela()                  tira a letra dela (e para a que estiver no meio)
+// O bloco dela fica à esquerda, em no máximo 70% da largura, com um corpo menor
+// que o dele, sem encostar na frase dele, no fio que repousa (canto de baixo à
+// direita) nem na pétala que pousa no canto de baixo à esquerda. Sem emoji; texto
+// longo primeiro diminui o corpo e só então é cortado na palavra (~180
+// caracteres, com reticências); o texto inteiro continua guardado na resposta.
+//
 // A escrita é um motor só (canvas 2D), usado pelas duas variantes: no 3D o
 // canvas é a textura da tinta (atualizada só enquanto escreve e seca); sem
 // WebGL, o mesmo canvas fica dentro de uma folha em DOM que desdobra em CSS 3D.
+// A letra dela é uma segunda instância do mesmo motor: no 3D, um segundo par de
+// uniformes no papel; sem WebGL, um segundo canvas, na aba de baixo.
 
 import { el, espera, clamp, lerp, suave, amortecer, semente, svg, objetoLeve } from '../nucleo/util.js';
 import { curvas } from '../nucleo/movimento.js';
@@ -59,6 +72,26 @@ const LARGURA_UTIL = 0.79;
 const CADENCIA = 0.122;               // segundos por letra, em média (o ritmo real vem da tinta de cada letra)
 const SECAGEM = 1.5;                  // segundos até a tinta ficar da cor final
 const GORDURA = 0.0065;               // quanto a tinta molhada é mais cheia (em tamanhos de letra, por lado)
+
+// ---- a letra dela ----------------------------------------------------------------
+// A mesma mão e a mesma caneta, em tinta rosa (--sakura-tinta, 7,4:1 no papel: o
+// vermelho cheio é do fio), um pouco mais depressa que a dele.
+const DELA = {
+  tinta: [143, 31, 69],               // --sakura-tinta, depois de seca
+  molhada: [96, 10, 42],              // recém-escrita: mais funda
+  tempo: 0.8,                         // o tempo de cada letra, comparado com o dele: um pouco mais depressa
+  teto: 12,                           // segundos (no ritmo dele): texto longo anda mais depressa, não demora mais
+  corpo: 0.7,                         // o maior corpo dela, em corpos da frase dele
+  menor: 0.04,                        // o menor corpo, em larguras de folha: daí para baixo, corta
+  entrelinha: 1.45,                   // a letra menor, de bilhete, vem mais junta
+  largura: 0.7,                       // a linha mais longa, em larguras de folha (da margem dele para a direita)
+  // A faixa dela, em alturas de folha a partir do topo: logo abaixo do vinco de baixo
+  // (ou da frase dele, se descer) até antes da pétala que pousa no canto de baixo à
+  // esquerda (POUSOS) e do fio que repousa à direita (FIO_REPOUSO).
+  topo: 0.69,
+  base: 0.858,
+  limite: 180,                        // caracteres; o resto continua guardado na resposta dela
+};
 
 export function criarFolha(mundo) {
   return mundo.ok ? criarFolha3D(mundo) : criarFolhaLeve(mundo);
@@ -106,6 +139,56 @@ function misturar(a, b, k) {
   return `rgb(${Math.round(lerp(a[0], b[0], k))},${Math.round(lerp(a[1], b[1], k))},${Math.round(lerp(a[2], b[2], k))})`;
 }
 
+// Emoji (com tons de pele, bandeiras, o número na moldura de tecla e as junções): a fonte não tem, e a
+// tinta lida pixel a pixel viraria um borrão.
+const EMOJI = /[0-9#*]\ufe0f?\u20e3|[\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Regional_Indicator}\u200d\ufe0e\ufe0f\u20e3\u{e0020}-\u{e007f}]/gu;
+
+/**
+ * O texto da folha de resposta como vai para a folha dele: sem emoji, espaços juntos,
+ * no máximo uma quebra de linha seguida, palavra comprida demais partida (senão sai
+ * pela borda) e, passando do limite, cortado na palavra, com reticências (três pontos:
+ * o … da Klee One é o japonês, no meio da linha).
+ */
+function textoDela(texto) {
+  let t = String(texto ?? '').replace(EMOJI, '').replace(/\r\n?/g, '\n')
+    .replace(/[^\S\n]+/g, ' ')
+    .replace(/ ?\n\s*/g, '\n')
+    .trim()
+    .replace(/\S{19,}/gu, (p) => p.match(/.{1,18}/gu).join(' '));
+  const letras = Array.from(t);
+  if (letras.length > DELA.limite) {
+    // um a mais: diz se o corte cai entre duas palavras ou no meio de uma
+    const corte = letras.slice(0, DELA.limite + 1).join('').replace(/\s*\S*$/u, '')
+      || letras.slice(0, DELA.limite).join('');
+    t = `${corte.replace(/[\s,;:.!?…–—-]+$/u, '')}...`;
+  }
+  return t;
+}
+
+/**
+ * As opções de compor() para a letra dela: a faixa (px da folha, do topo) vai do vinco
+ * de baixo (ou de logo abaixo da frase dele, se ela descer) até antes da pétala do canto;
+ * o corpo é menor que o dele.
+ */
+function faixaDela(U, planoDele) {
+  let fimDele = 0;
+  for (const t of (planoDele && planoDele.tracos) || []) fimDele = Math.max(fimDele, planoDele.topoFolha + t.base);
+  const fsDele = (planoDele && planoDele.fs) || Math.round(U * 0.1);
+  const topo = Math.max(2 * U * DELA.topo, fimDele + fsDele * 0.6);
+  const base = 2 * U * DELA.base;
+  const fsMax = Math.round(fsDele * DELA.corpo);
+  return {
+    centro: (topo + base) / 2,
+    alturaMax: base - topo,
+    fsMax,
+    fsMin: Math.min(fsMax, U * DELA.menor),
+    larguraMax: U * DELA.largura,
+    entrelinha: DELA.entrelinha,
+    alinhar: 'topo',
+    cortar: true,
+  };
+}
+
 // =============================================================================
 // ESCRITA: a mão que escreve (canvas 2D, o mesmo motor no 3D e no leve)
 // =============================================================================
@@ -123,7 +206,9 @@ function misturar(a, b, k) {
 //    molhada) e vai secando; o que já secou é gravado numa segunda tela e não
 //    é mais tocado.
 
-function criarEscrita({ amb, largura = 1024 }) {
+// tinta/molhada: as cores (a dele por padrão); tempo: o de cada letra (1 = o dele, menor = mais depressa);
+// teto: segundos (no ritmo dele) que um texto longo pode levar, no máximo.
+function criarEscrita({ amb, largura = 1024, tinta: COR_SECA = COR_TINTA, molhada: COR_FRESCA = COR_MOLHADA, tempo = 1, teto = Infinity }) {
   const U = Math.round(largura);                      // px do canvas por largura de folha
   const tela = document.createElement('canvas');      // o que se vê: tinta seca + cauda molhada
   const seca = document.createElement('canvas');      // só a tinta já seca
@@ -250,7 +335,19 @@ function criarEscrita({ amb, largura = 1024 }) {
     }
   }
 
-  function compor(texto) {
+  /**
+   * Quebra o texto em linhas e palavras. Sem opções é a frase dele: no terço do meio,
+   * centrada um nada acima do meio da folha. Opções (px da folha, a partir do topo):
+   *   centro, alturaMax   a faixa onde o bloco tem de caber (o meio dela e a altura)
+   *   fsMax, fsMin        o maior e o menor corpo
+   *   larguraMax          a linha mais longa (da margem para a direita)
+   *   entrelinha          de uma linha de base à outra, em corpos
+   *   alinhar             'meio': centrado na faixa; 'topo': encostado no alto dela
+   *   cortar              o bloco nunca sai da faixa, nem pelos lados: se nem no menor
+   *                       corpo couber, os parágrafos se juntam numa linha corrida e
+   *                       depois o fim perde palavras, com reticências (a letra dela)
+   */
+  function compor(texto, opcoes = {}) {
     const limpo = String(texto ?? '').replace(/\r/g, '').trim();
     const palavras = [];
     limpo.split('\n').forEach((paragrafo, i) => {
@@ -261,30 +358,51 @@ function criarEscrita({ amb, largura = 1024 }) {
 
     // Tamanho da letra: o maior que deixa o bloco dentro do terço do meio; frase
     // muito longa pode atravessar os vincos e, só então, diminui mais.
-    const maximo = U * LARGURA_UTIL;
     const terco = (2 * U) / 3;
-    // Corpo de clímax: ~28–34 px na tela do celular e do computador (a folha
-    // ocupa ~300 px de largura ali), maior que as frases de abertura.
-    let fs = Math.round(U * 0.1);
+    const {
+      centro = U * 0.985,                 // um nada acima do meio da folha
+      alturaMax = terco * 0.9,
+      // Corpo de clímax: ~28–34 px na tela do celular e do computador (a folha
+      // ocupa ~300 px de largura ali), maior que as frases de abertura.
+      fsMax = U * 0.1,
+      fsMin = U * 0.028,
+      larguraMax: maximo = U * LARGURA_UTIL,
+      entrelinha = ENTRELINHA,
+      alinhar = 'meio',
+      cortar = false,
+    } = opcoes;
+    let fs = Math.round(fsMax);
+    const menor = Math.round(fsMin);        // (o laço para no menor corpo arredondado: senão nunca chega lá)
     let linhas = [];
     let larguras = [];
     let espaco = 0;
+    let alturaBloco = 0;
+    let cabe = false;
+    const larguraDa = (l) => l.reduce((s, i, k) => s + larguras[i] + (k ? espaco : 0), 0);
     for (;;) {
       lapis.font = fonte(fs);
       larguras = palavras.map((p) => (p === '\n' ? 0 : medir(p, fs) * 1.02));
       espaco = lapis.measureText(' ').width * 0.98;
       linhas = quebrarEquilibrado(palavras, larguras, espaco, maximo);
       // altura que se vê: das hastes da primeira linha às pernas da última
-      const alturaBloco = (linhas.length - 1) * fs * ENTRELINHA + fs * 1.15;
-      const cabe = fs > U * 0.039 ? alturaBloco <= terco * 0.9 : alturaBloco <= 2 * U * 0.72;
-      if (cabe || fs <= U * 0.028) break;
-      fs = Math.max(Math.round(fs * 0.94), Math.round(U * 0.028));
+      alturaBloco = (linhas.length - 1) * fs * entrelinha + fs * 1.15;
+      cabe = cortar
+        ? alturaBloco <= alturaMax && linhas.every((l) => larguraDa(l) <= maximo)
+        : fs > U * 0.039 ? alturaBloco <= alturaMax : alturaBloco <= 2 * U * 0.72;
+      if (cabe || fs <= menor) break;
+      fs = Math.max(Math.round(fs * 0.94), menor);
+    }
+    if (!cabe && cortar) {
+      const corrido = limpo.replace(/\n/g, ' ');
+      if (corrido !== limpo) return compor(corrido, opcoes);
+      const menos = limpo.replace(/\s*\S+$/u, '').replace(/[\s,;:.!?…–—-]+$/u, '');
+      if (menos) return compor(`${menos}...`, opcoes);
     }
 
-    const passo = fs * ENTRELINHA;
+    const passo = fs * entrelinha;
     const n = Math.max(1, linhas.length);
-    const centro = U * 0.985;                                    // um nada acima do meio da folha
-    const primeira = centro - ((n - 1) * passo) / 2 + fs * 0.36; // linha de base da primeira linha (px da folha), centro ótico
+    const meio = alinhar === 'topo' ? centro - alturaMax / 2 + alturaBloco / 2 : centro;
+    const primeira = meio - ((n - 1) * passo) / 2 + fs * 0.36;   // linha de base da primeira linha (px da folha), centro ótico
     const topoFolha = Math.max(0, Math.floor(primeira - fs * 1.45));
     const baseFolha = Math.min(2 * U, Math.ceil(primeira + (n - 1) * passo + fs * 0.85));
     const altura = Math.max(8, baseFolha - topoFolha);
@@ -322,7 +440,7 @@ function criarEscrita({ amb, largura = 1024 }) {
       });
     });
 
-    return { texto: limpo, fs, linhas: n, topoFolha, altura, tracos, sorte };
+    return { texto: limpo, fs, linhas: n, topoFolha, altura, tracos, sorte, cabe };
   }
 
   // ---- a tinta de cada palavra ------------------------------------------------------
@@ -450,8 +568,8 @@ function criarEscrita({ amb, largura = 1024 }) {
   }
 
   // Gerador: cede a vez depois de cada palavra lida (ver prepararAosPoucos).
-  function* planejar(texto) {
-    const p = compor(texto);
+  function* planejar(texto, opcoes) {
+    const p = compor(texto, opcoes);
     const { fs, tracos, sorte } = p;
 
     // espessura do traço desta letra, neste tamanho (para medir "quanta tinta")
@@ -466,7 +584,7 @@ function criarEscrita({ amb, largura = 1024 }) {
     const letras = p.texto.replace(/\s+/g, '').length;
     let esforcoTotal = 0;
     for (const t of tracos) for (const e of t.esforco) esforcoTotal += e;
-    const ritmo = calmo ? 0.42 : 1;
+    const ritmo = (calmo ? 0.42 : 1) * tempo;
     const porEsforco = esforcoTotal > 0 ? (letras * CADENCIA * ritmo) / esforcoTotal : 0;
 
     let relogio = 0;
@@ -504,6 +622,15 @@ function criarEscrita({ amb, largura = 1024 }) {
       // marcas de tempo de cada letra, para o som da caneta
       t.letras = Math.max(1, t.texto.length);
     });
+    // texto longo não demora mais que o teto: a mão só anda mais depressa
+    const k = (teto * ritmo) / relogio;
+    if (k < 1) {
+      for (const t of tracos) {
+        t.ts = t.ts.map((v) => v * k);
+        t.dur *= k; t.inicio *= k; t.fim *= k;
+      }
+      relogio *= k;
+    }
     p.duracao = relogio;
 
     // telas
@@ -559,7 +686,7 @@ function criarEscrita({ amb, largura = 1024 }) {
     c.beginPath();
     c.rect(xa, p.topo, xb - xa, p.base - p.topo);
     c.clip();
-    c.fillStyle = rgb(COR_TINTA);
+    c.fillStyle = rgb(COR_SECA);
     desenharPalavra(c, p, p.x, p.y, (g) => c.fillText(g.ch, 0, 0));
     c.restore();
   }
@@ -606,7 +733,7 @@ function criarEscrita({ amb, largura = 1024 }) {
     const paradas = [];
     for (let i = 0; i <= 5; i++) {
       const k = i / 5;
-      paradas.push(misturar(COR_TINTA, COR_MOLHADA, Math.pow(umidade(p, lerp(xa, fimX, k)), 0.8)));
+      paradas.push(misturar(COR_SECA, COR_FRESCA, Math.pow(umidade(p, lerp(xa, fimX, k)), 0.8)));
     }
     const tomDo = (g, s) => {
       const e = p.x + g.dx;
@@ -701,7 +828,7 @@ function criarEscrita({ amb, largura = 1024 }) {
     // a ponta: uma gota de tinta fresca que puxa o traço
     if (ponta && !calmo && ponta.viva > 0.02) {
       pincel.setTransform(1, 0, 0, 1, 0, 0);
-      pincel.fillStyle = rgb(COR_MOLHADA);
+      pincel.fillStyle = rgb(COR_FRESCA);
       pincel.beginPath();
       pincel.arc(ponta.x, ponta.y, fs * 0.058 * ponta.viva, 0, Math.PI * 2);
       pincel.fill();
@@ -740,9 +867,9 @@ function criarEscrita({ amb, largura = 1024 }) {
     /** Devolve as faixas [y0, y1) de linhas que mudaram desde a última chamada (lista, talvez vazia) e zera. */
     tirarFaixas() { const f = juntar(faixas); faixas = []; return f; },
 
-    /** Compõe a frase (a fonte já deve estar carregada). Devolve o plano: { altura, topoFolha, fs, duracao }. */
-    preparar(texto) {
-      const g = planejar(texto);
+    /** Compõe a frase (a fonte já deve estar carregada; opcoes: ver compor). Devolve o plano: { altura, topoFolha, fs, duracao, texto, cabe }. */
+    preparar(texto, opcoes) {
+      const g = planejar(texto, opcoes);
       let r = g.next();
       while (!r.done) r = g.next();
       plano = r.value;
@@ -756,8 +883,8 @@ function criarEscrita({ amb, largura = 1024 }) {
      * (getImageData) custava ~150 ms de uma vez num celular, no quadro em que a
      * carta final começa a chegar. Mesmo plano, mesmo resultado.
      */
-    async prepararAosPoucos(texto) {
-      const g = planejar(texto);
+    async prepararAosPoucos(texto, opcoes) {
+      const g = planejar(texto, opcoes);
       let inicio = performance.now();
       let r = g.next();
       while (!r.done) {
@@ -784,6 +911,14 @@ function criarEscrita({ amb, largura = 1024 }) {
       });
     },
 
+    /** Para no meio (a letra foi apagada): a promessa de iniciar() resolve na hora. */
+    parar() {
+      ativo = false;
+      aoTraco = null;
+      faixas = [];
+      if (aoTerminar) { const fn = aoTerminar; aoTerminar = null; fn(); }
+    },
+
     avancar(dt) {
       try {
         return avancar(dt);
@@ -796,6 +931,49 @@ function criarEscrita({ amb, largura = 1024 }) {
 
     completar,
   };
+}
+
+/**
+ * A letra dela: uma segunda escrita (o mesmo motor, a mesma resolução, outra tinta) que
+ * cada variante mostra do seu jeito: mostrar(plano) põe a tinta no papel, esconder() tira.
+ * Cada escrever()/apagar() vence o anterior, e só uma composição anda por vez.
+ */
+function criarLetraDela({ amb, escritaDele, mostrar, esconder }) {
+  const escrita = criarEscrita({
+    amb, largura: escritaDele.largura, tinta: DELA.tinta, molhada: DELA.molhada, tempo: DELA.tempo, teto: DELA.teto,
+  });
+  const espelho = espelhoParaLeitor();     // como o da frase dele: vazio até escrever()
+  let vez = 0;
+  let fila = Promise.resolve();
+
+  function apagar() {
+    vez++;
+    escrita.parar();
+    esconder();
+    espelho.textContent = '';
+  }
+
+  async function escrever(texto, opcoes = {}) {
+    apagar();
+    const minha = vez;
+    const limpo = textoDela(texto);
+    if (!limpo) return;
+    const preparo = fila.then(async () => {
+      if (minha !== vez) return null;
+      await fontePronta(limpo);
+      return escrita.prepararAosPoucos(limpo, faixaDela(escritaDele.largura, escritaDele.plano));
+    });
+    fila = preparo.catch(() => null);
+    let plano = null;
+    try { plano = await preparo; } catch (erro) { console.error('[carta] não consegui compor a letra dela', erro); }
+    // sem lugar nem no menor corpo (uma frase dele que desce até aqui): a folha fica só com a dele
+    if (!plano || minha !== vez || !plano.cabe || !plano.tracos.length) return;
+    mostrar(plano);
+    anunciar(espelho, plano.texto);
+    await escrita.iniciar(opcoes);
+  }
+
+  return { escrita, escrever, apagar, dispose() { espelho.remove(); } };
 }
 
 // =============================================================================
@@ -843,6 +1021,9 @@ const FRAGMENTO_PAPEL = /* glsl */ `
   uniform sampler2D uTinta;
   uniform vec4 uFaixa;      // onde a tinta fica na folha, em uv: x, y (canto de baixo), largura, altura
   uniform float uTemTinta;
+  uniform sampler2D uTinta2;  // a letra dela, no terço de baixo (o mesmo motor, outra tinta)
+  uniform vec4 uFaixa2;
+  uniform float uTemTinta2;
   uniform vec2 uFechado;    // quanto cada aba está dobrada (0 aberta, 1 fechada): x a de cima, y a de baixo
   uniform vec2 uTamanho;    // largura e altura da folha, em metros
   uniform float uFino;      // 1: fibra do papel; 0: nível baixo
@@ -920,6 +1101,14 @@ const FRAGMENTO_PAPEL = /* glsl */ `
       if (q.x > 0. && q.x < 1. && q.y > 0. && q.y < 1.) {
         vec4 t = texture2D(uTinta, q);                 // alfa já multiplicado
         float pega = 0.94 + 0.12 * (fibra - 0.5);      // a tinta assenta na fibra
+        cor = cor * (1. - t.a * pega) + t.rgb * pega * luz;
+      }
+    }
+    if (frente && uTemTinta2 > 0.5) {
+      vec2 q = (vUv - uFaixa2.xy) / uFaixa2.zw;
+      if (q.x > 0. && q.x < 1. && q.y > 0. && q.y < 1.) {
+        vec4 t = texture2D(uTinta2, q);
+        float pega = 0.94 + 0.12 * (fibra - 0.5);
         cor = cor * (1. - t.a * pega) + t.rgb * pega * luz;
       }
     }
@@ -1081,6 +1270,9 @@ function criarFolha3D(mundo) {
       uTinta: { value: texturaVazia },
       uFaixa: { value: new THREE.Vector4(0, 0.4, 1, 0.2) },
       uTemTinta: { value: 0 },
+      uTinta2: { value: texturaVazia },
+      uFaixa2: { value: new THREE.Vector4(0, 0.1, 1, 0.2) },
+      uTemTinta2: { value: 0 },
       uFechado: { value: new THREE.Vector2(1, 1) },
       uTamanho: { value: new THREE.Vector2(LARGURA, ALTURA) },
       uFino: { value: baixo ? 0 : 1 },
@@ -1205,15 +1397,27 @@ function criarFolha3D(mundo) {
   // abaixo de 1:1. Em tela densa (e nível alto) a escrita vai a 1536 px.
   const densa = !baixo && amb.nivel === 'alto' && (window.devicePixelRatio || 1) > 2;
   const escrita = criarEscrita({ amb, largura: baixo ? 768 : densa ? 1536 : 1024 });
-  let textura = null;
+  let espelho = espelhoParaLeitor();       // vazio até escrever(): ver anunciar()
+  // A letra dela: o segundo par de uniformes do papel (uTinta2, uFaixa2, uTemTinta2).
+  const letraDela = criarLetraDela({
+    amb,
+    escritaDele: escrita,
+    mostrar: (plano) => ligarTextura(dela, plano),
+    esconder: () => { dela.tem.value = 0; },
+  });
+  // Cada letra é um bloco: a escrita, a textura dela e os uniformes do papel que a mostram.
+  const u = material.uniforms;
+  const dele = { escrita, textura: null, tinta: u.uTinta, faixa: u.uFaixa, tem: u.uTemTinta };
+  const dela = { escrita: letraDela.escrita, textura: null, tinta: u.uTinta2, faixa: u.uFaixa2, tem: u.uTemTinta2 };
   let textoPronto = null;
   let preparando = null;
-  let espelho = espelhoParaLeitor();       // vazio até escrever(): ver anunciar()
   let quadro = 0;
 
-  function ligarTextura(plano) {
-    if (textura) textura.dispose();
-    textura = new THREE.CanvasTexture(escrita.tela);
+  function ligarTextura(bloco, plano) {
+    const { escrita } = bloco;
+    if (bloco.textura) bloco.textura.dispose();
+    const textura = new THREE.CanvasTexture(escrita.tela);
+    bloco.textura = textura;
     textura.colorSpace = THREE.NoColorSpace;
     textura.premultiplyAlpha = true;
     textura.wrapS = textura.wrapT = THREE.ClampToEdgeWrapping;
@@ -1225,9 +1429,9 @@ function criarFolha3D(mundo) {
     }
     const total = 2 * escrita.largura;
     const altura = plano.altura / total;
-    material.uniforms.uFaixa.value.set(0, 1 - plano.topoFolha / total - altura, 1, altura);
-    material.uniforms.uTinta.value = textura;
-    material.uniforms.uTemTinta.value = 1;
+    bloco.faixa.value.set(0, 1 - plano.topoFolha / total - altura, 1, altura);
+    bloco.tinta.value = textura;
+    bloco.tem.value = 1;
     escrita.tirarFaixas();                 // a textura nova sobe inteira
   }
 
@@ -1237,7 +1441,7 @@ function criarFolha3D(mundo) {
   // o three usa, e os mipmaps são refeitos. Na placa o resultado é idêntico ao da
   // subida inteira. Qualquer dúvida cai na subida inteira.
   const telasFaixa = new Map();          // altura → { tela, pincel } (altura em degraus de 32)
-  function subirTinta() {
+  function subirTinta({ escrita, textura }) {
     const lista = escrita.tirarFaixas();
     if (!lista.length) return;
     const tela = escrita.tela;
@@ -1295,7 +1499,7 @@ function criarFolha3D(mundo) {
     const promessa = (async () => {
       await fontePronta(frase);
       const plano = await escrita.prepararAosPoucos(frase);
-      ligarTextura(plano);
+      ligarTextura(dele, plano);
       textoPronto = frase;
     })();
     preparando = { frase, promessa };
@@ -1568,6 +1772,9 @@ function criarFolha3D(mundo) {
       await escrita.iniciar(opcoes);
     },
 
+    escreverDela: letraDela.escrever,
+    apagarDela: letraDela.apagar,
+
     /** O fio, solto, vem de baixo e repousa sobre o canto de baixo à direita, com a ponta num laço frouxo. */
     async repousarFio() {
       if (fio) return;
@@ -1712,11 +1919,13 @@ function criarFolha3D(mundo) {
       interno.rotation.y = (flutua.x * 0.075 + Math.sin(t * 0.27) * 0.012) * f;
       interno.rotation.x = (-flutua.y * 0.05 + Math.sin(t * 0.33 + 2.0) * 0.008) * f;
 
-      // escrita: a textura só sobe para a placa enquanto há tinta mudando
-      if (escrita.ativo) {
+      // escrita (a dele e a dela): a textura só sobe para a placa enquanto há tinta mudando
+      for (const bloco of [dele, dela]) {
+        const { escrita, textura } = bloco;
+        if (!escrita.ativo) continue;
         const mudou = escrita.avancar(dt * (amb.rapido || 1));
         quadro++;
-        if (mudou && textura && (!baixo || quadro % 2 === 0 || !escrita.ativo)) subirTinta();
+        if (mudou && textura && (!baixo || quadro % 2 === 0 || !escrita.ativo)) subirTinta(bloco);
         if (!escrita.ativo && textura) {
           // acabou: uma subida inteira (a placa fica igual ao canvas, sem depender das faixas)
           escrita.tirarFaixas();
@@ -1735,7 +1944,7 @@ function criarFolha3D(mundo) {
       sombra.geometry.dispose();
       matSombra.dispose();
       texturaVazia.dispose();
-      if (textura) textura.dispose();
+      for (const { textura } of [dele, dela]) if (textura) textura.dispose();
       if (fio) fio.dispose();
       if (sombraFio) { sombraFio.geometry.dispose(); sombraFio.material.dispose(); }
       if (petala) {
@@ -1745,6 +1954,7 @@ function criarFolha3D(mundo) {
         petala.matMancha.dispose();
       }
       if (espelho) espelho.remove();
+      letraDela.dispose();
     },
   };
 }
@@ -1793,9 +2003,26 @@ function criarFolhaLeve(mundo) {
   const escrita = criarEscrita({ amb, largura: amb.nivel === 'baixo' ? 768 : 1024 });
   escrita.tela.className = 'fl-tinta';
   corpo.append(escrita.tela);
+  let espelho = espelhoParaLeitor();       // vazio até escrever(): ver anunciar()
+
+  // A letra dela: um segundo canvas, dentro da aba de baixo (assim acompanha a
+  // inclinação dela); o alto dele é contado a partir do vinco.
+  const letraDela = criarLetraDela({
+    amb,
+    escritaDele: escrita,
+    mostrar: (plano) => {
+      const terco = (2 * escrita.largura) / 3;
+      telaDela.style.top = `${(((plano.topoFolha - 2 * terco) / terco) * 100).toFixed(3)}%`;
+      telaDela.hidden = false;
+    },
+    esconder: () => { telaDela.hidden = true; },
+  });
+  const telaDela = letraDela.escrita.tela;
+  telaDela.className = 'fl-tinta';
+  telaDela.hidden = true;
+  abaBaixo.append(telaDela);
 
   let textoPronto = null;
-  let espelho = espelhoParaLeitor();       // vazio até escrever(): ver anunciar()
   let assumiu = false;
   let descartada = false;
   let vivendo = false;
@@ -1988,6 +2215,9 @@ function criarFolhaLeve(mundo) {
       await escrita.iniciar(opcoes);
     },
 
+    escreverDela: letraDela.escrever,
+    apagarDela: letraDela.apagar,
+
     async repousarFio() {
       if (fioEl) return;
       // Mesmo desenho do 3D, em milésimos da largura da folha (0..1000 × 0..2000).
@@ -2033,7 +2263,7 @@ function criarFolhaLeve(mundo) {
     },
 
     atualizar(dt, t) {
-      if (escrita.ativo) { escrita.avancar(dt * (amb.rapido || 1)); escrita.tirarFaixas(); }
+      for (const e of [escrita, letraDela.escrita]) if (e.ativo) { e.avancar(dt * (amb.rapido || 1)); e.tirarFaixas(); }
       if (calmo || !assumiu) return;
       const f = flutua.forca;
       flutua.x = amortecer(flutua.x, mundo.ponteiro.x, 2.2, dt);
@@ -2048,6 +2278,7 @@ function criarFolhaLeve(mundo) {
       descartada = true;
       folha.remove();
       if (espelho) espelho.remove();
+      letraDela.dispose();
     },
   };
 }
