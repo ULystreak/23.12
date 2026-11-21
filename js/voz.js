@@ -117,6 +117,7 @@ export function criarVoz(ctx) {
   let resolverFechar = null;
   let focoAntes = null;
   let saida = 0;
+  let abertoEm = 0;
   let atual = null;                    // a faixa que está tocando (ou a última que tocou)
   let arrastando = null;               // a faixa cujo fio ela está arrastando
   let quadroId = 0;
@@ -319,7 +320,8 @@ export function criarVoz(ctx) {
     }, svg(ICONE_FECHAR));
     fechar.addEventListener('click', () => api.fechar());
     const veu = el('div', 'voz-veu');
-    veu.addEventListener('click', () => api.fechar());
+    // (o segundo toque de um toque duplo em quem abriu cai no véu, com o cartão ainda chegando: não fecha)
+    veu.addEventListener('click', () => { if (performance.now() - abertoEm > 450) api.fechar(); });
     const frase = texto(dados.frase);
     // (o cartão não rola: quem rola é o miolo, para o laço, o pesponto e o fechar ficarem parados)
     cartao = el('div', 'ui-folha voz-cartao', [
@@ -362,6 +364,7 @@ export function criarVoz(ctx) {
     if (aberto) return new Promise((ok) => { const antes = resolverFechar; resolverFechar = () => { antes?.(); ok(); }; });
     montar();
     aberto = true;
+    abertoEm = performance.now();
     clearTimeout(saida);
     focoAntes = document.activeElement;
     for (const f of faixas) { prepararAudio(f); pintarFaixa(f); }

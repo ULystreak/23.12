@@ -647,9 +647,9 @@ html[data-portao] #inventario { visibility: hidden; }
   .menu-chao[data-muitos] { gap: 3px; }
   .menu-chao[data-muitos] .menu-coisa { min-width: 70px; width: 70px; }
 }
-/* Celular deitado (menos de 560 px de altura): o menu vira uma coluna que rola, com as
-   etiquetas empilhadas e o chão no fim dela. */
-@media (max-height: 559px) {
+/* Celular deitado (menos de 560 px de altura) ou tela muito estreita (menos de 300 px, o
+   zoom alto): o menu vira uma coluna que rola, com as etiquetas empilhadas e o chão no fim dela. */
+@media (max-height: 559px), (max-width: 299px) {
   .menu { --menu-topo: 104px; }
   .menu[data-sem-contador] { --menu-topo: 64px; }
   .menu[data-etapa="menu"] {
@@ -669,6 +669,17 @@ html[data-portao] #inventario { visibility: hidden; }
   }
   .menu[data-etapa="menu"] .menu-sombra,
   .menu[data-etapa="menu"] .menu-veu { position: fixed; }
+}
+
+/* Tela muito estreita: os nomes quebram em duas linhas em vez de sair pela borda. */
+@media (max-width: 299px) {
+  .menu { --menu-cruza: 22px; --menu-letra: 0.875rem; }
+  .menu-etiqueta { white-space: normal; }
+  .menu-saudade { max-width: 100%; padding-top: 8px; padding-bottom: 8px; white-space: normal; }
+  .menu[data-etapa="menu"] .menu-chao { flex-wrap: wrap; padding: 0 8px; margin-bottom: calc(var(--seguro-base) + 88px); }
+  .menu-portao { --menu-letra: 1.25rem; }
+  .menu-portao-meio { top: 24%; gap: 18px; }
+  .menu-portao .menu-portao-etiqueta { min-height: 64px; padding: 8px 22px 10px 50px; }
 }
 
 /* ---- versão calma: nada balança nem desliza; só dissolve --------------------- */
