@@ -296,6 +296,18 @@ window.CONTEUDO = {
 [03:08.88]
 `,
       },
+      {
+        titulo: 'The First Time',
+        artista: 'Damiano David',
+        arquivo: 'assets/music/the-first-time.mp3',
+        capa: '',
+      },
+      {
+        titulo: 'Hotel Room Service (FNZ Remix)',
+        artista: 'Pitbull',
+        arquivo: 'assets/music/hotel-room-service.mp3',
+        capa: '',
+      },
 
       // PARA ADICIONAR OUTRA MÚSICA: copie o bloco abaixo, tire as duas barras
       // do começo de cada linha e troque os nomes. Coloque o .mp3 e a capa em
