@@ -6,7 +6,7 @@
 // para uma cena deixar algo para a seguinte, como o envelope e o fio).
 
 import { detectarAmbiente } from './nucleo/ambiente.js';
-import { configurarTempo, espera } from './nucleo/util.js';
+import { configurarTempo, espera, el } from './nucleo/util.js';
 import { iniciarMovimento } from './nucleo/movimento.js';
 import { criarDiretor } from './nucleo/diretor.js';
 import { criarRecursos } from './nucleo/recursos.js';
@@ -29,6 +29,11 @@ async function iniciar() {
   if (conteudo.pagina?.titulo) document.title = conteudo.pagina.titulo;
 
   const amb = detectarAmbiente();
+  // O Lenis só liga com mouse (pergaminho.js); no toque nem é baixado. Chega durante a
+  // senha e a música, bem antes do primeiro capítulo (sem ele, a rolagem é a nativa).
+  if (!amb.toque && !amb.reduzido) {
+    document.head.append(el('link', { rel: 'stylesheet', href: 'lib/lenis.css' }), el('script', { src: 'lib/lenis.min.js' }));
+  }
   configurarTempo(amb.rapido);
   iniciarMovimento(amb);
 
