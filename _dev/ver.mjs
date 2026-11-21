@@ -35,7 +35,8 @@
 // mao:mao-espera) e uma carta do chão e um capítulo (em cartas:escolhendo), e falha se a
 // etapa mudar, se faltar item na bolsa ou se o botão de seguir não ganhar destaque.
 // A cena "encontro" só existe com algum quadro em encontro.quadros; ela anda sozinha
-// (chegando → planos → maos → carta), sem toque nenhum.
+// (chegando → planos → maos → carta) até as mãos, onde é ela quem amarra o fio: aqui, um
+// toque no dedinho dele ([data-acao="amarrar-fio"]; sem toque, o fio se liga sozinho).
 // O menu do fim (a cena "menu", só com o bloco menu no content.js): em final:fim o --fluxo
 // toca na pílula "Continuar" ([data-acao="menu-ir"]); as referências passam sozinhas
 // (menu:referencias) e o menu assenta (menu:menu). "--cena menu" entra por ?cena=menu num
@@ -228,6 +229,8 @@ async function agir(s, cena, etapa, extra = {}) {
     await s.acionar('[data-acao="seguir-fio"]');
   } else if (cena === 'cartas' && etapa === 'escolhendo') {
     await verCartas(s, extra);
+  } else if (cena === 'encontro' && etapa === 'maos') {
+    await s.acionar('[data-acao="amarrar-fio"]');
   } else if (etapa === 'resposta') {
     await escreverDeVolta(s, extra);
   } else if (cena === 'final' && etapa === 'fim') {

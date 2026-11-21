@@ -2065,7 +2065,7 @@ function criarPulso(gsap, { pose, desenho, amb, inventario }) {
 // ou mais novo): o toque de um interruptor (<input switch>) escondido, clicado dentro
 // do gesto dela; criado uma vez. Onde não houver nenhum dos dois, fica só a luz.
 let interruptor = null;
-function vibrar(amb) {
+export function vibrar(amb) {
   try {
     if (!amb.ios) { navigator.vibrate?.([14, 120, 22]); return; }
     if (!interruptor) {

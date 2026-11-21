@@ -96,6 +96,7 @@ async function agir(s, etapa, { curto = 6000 } = {}) {
     await pausa(250);
     await tentar('[data-acao="fechar-capitulo"]');
   } else if (etapa === 'mao-espera') await tentar('[data-acao="seguir-fio"]');
+  else if (etapa === 'maos') await tentar('[data-acao="amarrar-fio"]');
   else if (etapa === 'resposta') await tentar('[data-acao="resposta-guardar"]');
   // o fim já não é o fim: a pílula leva ao menu, e as referências se pulam com o botão
   else if (etapa === 'fim') await tentar('[data-acao="menu-ir"]');
