@@ -95,10 +95,8 @@ export function detectarAmbiente() {
     params,
   };
 
-  // O CSS enxerga o ambiente por classes e data-atributos no <html>.
+  // O CSS enxerga o ambiente por classes (reduzido, sem-webgl) e pelo data-nivel no <html>.
   const raiz = document.documentElement;
-  raiz.classList.toggle('toque', toque);
-  raiz.classList.toggle('ios', ios);
   raiz.classList.toggle('reduzido', reduzido);
   raiz.classList.toggle('sem-webgl', !webgl);
   raiz.dataset.nivel = nivel;
