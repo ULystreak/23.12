@@ -473,6 +473,9 @@ export function criarDiretor() {
 async function recuperar(ctx) {
   limparPalco();
   tirarEntrada();
+  // Pelo link limpo, se a senha ou a música quebrou antes de o mundo chegar (o senha.js que
+  // não baixou), a cena fria seguinte precisa dele: espera a montagem (js/main.js).
+  if (!ctx.mundo && ctx.mundoPronto) await ctx.mundoPronto();
   const { pergaminho, mundo, estado } = ctx;
   try {
     if (estado.envelope) estado.envelope.dispose();
