@@ -36,7 +36,7 @@
 // uniformes no papel; sem WebGL, um segundo canvas, na aba de baixo.
 
 import { el, espera, clamp, lerp, suave, amortecer, semente, svg, objetoLeve } from '../nucleo/util.js';
-import { curvas } from '../nucleo/movimento.js';
+import { curvas, comoPromise } from '../nucleo/movimento.js';
 import { criarFio } from './fio.js';
 
 // ---- a folha -------------------------------------------------------------------
@@ -99,13 +99,6 @@ const DELA = {
 
 export function criarFolha(mundo) {
   return mundo.ok ? criarFolha3D(mundo) : criarFolhaLeve(mundo);
-}
-
-function comoPromise(animacao) {
-  return new Promise((resolver) => {
-    animacao.eventCallback('onComplete', resolver);
-    animacao.eventCallback('onInterrupt', resolver);
-  });
 }
 
 function espelhoParaLeitor() {

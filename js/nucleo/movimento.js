@@ -126,7 +126,8 @@ function montarPedacos(elemento, texto) {
   return elemento._pedacos;
 }
 
-function comoPromise(animacao) {
+/** Promise que resolve quando a animação termina (ou é morta), sem perder o onComplete/onInterrupt que ela já tinha. */
+export function comoPromise(animacao) {
   return new Promise((resolver) => {
     // eventCallback substitui o que já estava em vars: guarda e chama o anterior.
     for (const evento of ['onComplete', 'onInterrupt']) {

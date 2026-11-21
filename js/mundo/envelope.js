@@ -36,7 +36,7 @@
 // da cena.
 
 import { amortecer, clamp, el, svg, objetoLeve, vetorLeve, semente } from '../nucleo/util.js';
-import { curvas } from '../nucleo/movimento.js';
+import { curvas, comoPromise } from '../nucleo/movimento.js';
 
 // ---- medidas (metros) ---------------------------------------------------------------
 const W = 0.23;              // largura do envelope
@@ -93,14 +93,6 @@ export function aquecerEnvelope(mundo, opcoes = {}) {
     console.error('[carta] aquecer envelope', erro);
     return Promise.resolve();
   }
-}
-
-/** Promise que resolve quando a animação termina (ou é morta). */
-function comoPromise(animacao) {
-  return new Promise((resolver) => {
-    animacao.eventCallback('onComplete', resolver);
-    animacao.eventCallback('onInterrupt', resolver);
-  });
 }
 
 /** Cor da folha DOM (variável CSS --papel), para a troca ser invisível. */
