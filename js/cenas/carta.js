@@ -278,6 +278,7 @@ function esperarToque(ctx, env, baixar, textoChacoalhar = '') {
     let picos = [];
     let tremor = null;
     let bater = null;                   // o vibrar de mao.js, carregado no convite
+    let convidouEm = 0;                 // quando o convite entrou (o resto de um toque duplo não o pula)
     const aoMexer = (e) => {
       const a = e.acceleration;
       const g = e.accelerationIncludingGravity;
@@ -304,6 +305,7 @@ function esperarToque(ctx, env, baixar, textoChacoalhar = '') {
     const convidar = () => {
       if (terminado) return;
       fase = 'chacoalhar';
+      convidouEm = performance.now();
       picos = [];
       // (no iPhone os eventos só chegam a quem se inscreve depois da permissão)
       window.removeEventListener('devicemotion', aoMexer);
@@ -403,6 +405,8 @@ function esperarToque(ctx, env, baixar, textoChacoalhar = '') {
       if (acertou(e)) {
         // a última carta, no toque do dedo: o primeiro toque pede para chacoalhar; o segundo abre
         if (podeChacoalhar && !fase && e.pointerType === 'touch' && pedirChacoalho()) env.pressionar?.(false);
+        // (com a permissão já dada o convite entra na hora: o segundo toque de um toque duplo não o pula)
+        else if (fase === 'chacoalhar' && performance.now() - convidouEm < 600) env.pressionar?.(false);
         else concluir();
       } else { env.pressionar?.(false); mostrarDica(); }      // tocou fora: mostra logo onde é
     };
