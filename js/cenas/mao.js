@@ -744,7 +744,7 @@ async function fonteDoEscrito(texto) {
 
 /**
  * Monta as letras na camada (todas escondidas). Devolve a lista, na ordem da
- * escrita: { revelar(p 0..1), secar(k 0..1), esforco, pausa }.
+ * escrita: { revelar(p 0..1), esforco, pausa }.
  */
 function criarEscrito(camada, texto) {
   const lapis = document.createElement('canvas').getContext('2d');
