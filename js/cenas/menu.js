@@ -454,6 +454,9 @@ export async function cenaMenu(ctx, { frio } = {}) {
   corda.append(fioTras, nav, ponta, fioFrente);
   secao.append(sombra, corda, chao, pular, veu);
   gsap.set(veu, { autoAlpha: 0 });
+  // tudo nasce invisível: cada entrada (as referências, o menu direto) mostra o que é dela
+  gsap.set([corda, ...chao.children], { autoAlpha: 0 });
+  if (frase) gsap.set(frase, { autoAlpha: 0 });
   // antes da .depois: o véu da noite e a folha de resposta cobrem o menu
   if (depois.raiz && depois.raiz.parentNode === palco) palco.insertBefore(secao, depois.raiz);
   else palco.append(secao);
@@ -564,9 +567,6 @@ export async function cenaMenu(ctx, { frio } = {}) {
     const cartoes = montarCreditos(m, ctx.recursos);
     creditos = el('div', 'menu-creditos', cartoes);
     for (const no of [nav, ponta, chao]) no.inert = true;
-    gsap.set(chao.children, { autoAlpha: 0 });
-    if (frase) gsap.set(frase, { autoAlpha: 0 });
-    gsap.set(corda, { autoAlpha: 0 });
     (calmo ? secao : corda).insertBefore(creditos, calmo ? corda : nav);
     secao.toggleAttribute('data-calmo', calmo);
     await fontesProntas();
@@ -636,17 +636,21 @@ export async function cenaMenu(ctx, { frio } = {}) {
     corda.dataset.viaja = '';
     // as etiquetas vêm com a ponta livre um pouco para trás, como quem é puxado
     for (const e of etiquetas) gsap.set(e.li, { rotation: e.lado * 2.6 });
-    gsap.to(corda, { autoAlpha: 1, duration: 0.5, delay: 0.15, ease: 'none' });
+    // Vindo do fim, a folha da frase sai primeiro: o fio do menu só desce quando ela já vai
+    // alto (senão ele cruzaria por cima da letra dela).
+    const dianteira = doFim ? 1.15 : 0;
+    gsap.to(corda, { autoAlpha: 1, duration: 0.5, delay: dianteira + 0.15, ease: 'none' });
     await new Promise((ok) => {
       const cruzeiro = Math.max(0, S - v * meio);
-      const tl = gsap.timeline({ onComplete: ok });
+      const tl = gsap.timeline({ onComplete: ok, delay: dianteira });
       tl.to(p, { s: (v * ARRANQUE) / 2, duration: ARRANQUE, ease: 'power1.in', onUpdate: aplicar })
         .to(p, { s: (v * ARRANQUE) / 2 + cruzeiro, duration: Math.max(0.01, cruzeiro / v), ease: 'none', onUpdate: aplicar })
         .to(p, { s: S, duration: FREADA, ease: 'power1.out', onUpdate: aplicar });
       // pular: a corda acelera até o fim, sem corte
       pularAgora = () => {
-        if (!tl.isActive()) return;
+        if (tl.progress() >= 1) return;
         tl.kill();
+        gsap.to(corda, { autoAlpha: 1, duration: 0.3, ease: 'none', overwrite: true });
         pularAgora = null;
         avancar = null;
         gsap.to(p, { s: S, duration: 0.9, ease: 'power2.out', onUpdate: aplicar, onComplete: ok });
@@ -704,17 +708,15 @@ export async function cenaMenu(ctx, { frio } = {}) {
     if (calmo) gsap.fromTo(corda, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5, ease: 'none' });
     assentar({ balanco: true });
   } else {
-    gsap.set(chao.children, { autoAlpha: 0 });
-    if (frase) gsap.set(frase, { autoAlpha: 0 });
-    gsap.set(corda, { autoAlpha: 0 });
     await fontesProntas();
     desenharFio();
     if (doFim) {
-      // as etiquetas entram enquanto a folha sobe
+      // as etiquetas entram enquanto a folha sobe (ela sai na frente: as etiquetas não
+      // chegam por cima da letra dela)
       if (calmo) await sairDoFim(); else sairDoFim();
       await tween(corda, calmo
         ? { autoAlpha: 1, duration: 0.5, ease: 'none' }
-        : { autoAlpha: 1, duration: 0.9, ease: 'power2.out', startAt: { y: 34 }, y: 0 });
+        : { autoAlpha: 1, duration: 0.9, delay: 1.2, ease: 'power2.out', startAt: { y: 34 }, y: 0 });
     } else {
       await tween(corda, { autoAlpha: 1, duration: 0.5, ease: 'none' });
     }

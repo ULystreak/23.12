@@ -1944,6 +1944,21 @@ function criarFolha3D(mundo) {
       const meiaTela = Math.tan(THREE.MathUtils.degToRad(mundo.camera.fov / 2)) * leitura.distancia;
       const sobe = ALTURA / 2 + meiaTela + 0.12;
       const k = { v: 0 };
+      // o fio que repousava nela se solta: escorre de volta para baixo enquanto ela sobe
+      // (a ponta de baixo dele é comprida: subindo junto, ficaria à vista até o último quadro)
+      if (fio && !amb.reduzido) {
+        const solta = { p: fio.progresso() || 1 };
+        gsap.to(solta, {
+          p: 0,
+          duration: 1.5,
+          ease: 'power2.in',
+          onUpdate: () => {
+            if (descartada) return;
+            fio.progresso(solta.p);
+            if (sombraFio) sombraFio.material.uniforms.uProgresso.value = solta.p;
+          },
+        });
+      }
       return new Promise((resolver) => {
         const fim = () => { grupo.visible = false; resolver(); };
         gsap.to(k, {
@@ -2354,6 +2369,8 @@ function criarFolhaLeve(mundo) {
     irEmbora() {
       if (descartada || !folha.isConnected) return Promise.resolve();
       const y0 = Number(gsap.getProperty(folha, 'y')) || 0;
+      // o fio que repousava nela se solta (some antes de ela sair: a ponta dele passa da borda de baixo)
+      if (fioEl) gsap.to(fioEl, { opacity: 0, duration: calmo ? 0.01 : 0.9, ease: 'none' });
       return comoPromise(gsap.to(folha, {
         y: y0 - folha.offsetHeight * 1.2,                  // translateY(-120%): a borda de baixo passa do alto da tela
         duration: calmo ? 0.01 : 2.7,
