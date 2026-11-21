@@ -263,12 +263,14 @@ export function criarDepois(ctx) {
     };
     raiz.insertBefore(tela, contador);
     raiz.insertBefore(ponto, contador);
-    // cada dia que importa é um pontinho do fio em cima do pontinho dele na espiral (o de hoje já tem o seu)
+    // cada dia que importa é um pontinho do fio em cima do pontinho dele na espiral (o de hoje já tem
+    // o seu; um dia da infância que cairia atrás do número fica sem pontinho, como na flor)
     const marcas = lembrados.map(({ n }) => {
       if (n >= N) return null;
       const i = Math.max(0, n - 1);
       const r = R * Math.sqrt((i + i0) / (N - 1 + i0));
       const a = (i - N + 1) * ouro;
+      if (((r * Math.sin(a)) / (ax + 4)) ** 2 + ((r * Math.cos(a)) / (ay + 4)) ** 2 < 1) return null;
       const marca = el('span', { class: 'contador-dia', 'aria-hidden': 'true', style: { marginLeft: `${-r * Math.sin(a) - 2}px`, marginTop: `${meioY + r * Math.cos(a) - 2}px` } });
       raiz.insertBefore(marca, contador);
       return marca;
@@ -312,7 +314,7 @@ export function criarDepois(ctx) {
     if (lembra) {
       contador.append(lembra);
       lembra.style.top = `${fio.offsetTop}px`;
-      gsap.set(lembra, { autoAlpha: 0 });
+      gsap.set(lembra, { opacity: 0 });                    // só opacidade: escondida de verdade, o leitor de tela não leria a linha
     }
     await new Promise((ok) => {
       const tl = gsap.timeline({ onComplete: ok });
@@ -347,8 +349,8 @@ export function criarDepois(ctx) {
         const t = chegou + k * PASSO_DIA;
         const marca = flor && flor.marcas[k];
         tl.call(() => { lembraDia.textContent = `no seu dia ${comPonto(n)}:`; lembraFala.textContent = fala; }, null, t);
-        tl.fromTo(lembra, { autoAlpha: 0, y: calmo ? 0 : 8 }, { autoAlpha: 1, y: 0, duration: 0.5, ease: calmo ? 'none' : 'power2.out' }, t);
-        tl.to(lembra, { autoAlpha: 0, duration: 0.4, ease: 'none' }, t + 2.7);
+        tl.fromTo(lembra, { opacity: 0, y: calmo ? 0 : 8 }, { opacity: 1, y: 0, duration: 0.5, ease: calmo ? 'none' : 'power2.out' }, t);
+        tl.to(lembra, { opacity: 0, duration: 0.4, ease: 'none' }, t + 2.7);
         if (!marca) return;
         if (calmo) tl.to(marca, { autoAlpha: 1, duration: 0.5, ease: 'none' }, t);
         else {
