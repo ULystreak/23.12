@@ -50,6 +50,7 @@ codigo: '8035',
 - Para **trocar**, mude os algarismos entre as aspas (só números; a quantidade de casas na tela acompanha).
 - Para **tirar** a senha, deixe `codigo: ''`: a carta começa direto na escolha da música.
 - `frase` é um texto opcional acima das casas e `dica` um texto que só aparece depois de três erros. Vazios (`''`), não aparecem.
+- `palpites` são os chutes que você já espera dela antes de acertar (a data, a idade, "te amo"). Cada linha tem o chute (`se`) e a sua resposta (`diz`), que aparece no lugar do aviso de senha errada, sem tremer e sem contar como erro: `{ se: '2312', diz: '[esse é o dia, não a senha]' },`. Maiúsculas, acentos e espaços não fazem diferença no chute. As respostas de hoje são exemplos entre colchetes: troque pelas suas, acrescente ou apague linhas. `palpites: []` desliga (todo chute errado mostra só o aviso).
 
 Não é segurança de verdade (quem abrir o arquivo vê o número): é só o primeiro gesto dela.
 

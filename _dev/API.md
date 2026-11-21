@@ -85,7 +85,7 @@ GLOBAIS: gsap, CustomEase, DrawSVGPlugin, Lenis, CONTEUDO.
 
 CONTENT.JS (window.CONTEUDO)
 - pagina { titulo, fundo } (fundo: a imagem da alameda, usada só sem WebGL; com WebGL a alameda é 3D. '' volta ao mundo branco nos dois modos. Refazer a imagem: node _dev/alameda-imagem.mjs)
-- senha { codigo, frase, dica, rotulo } (codigo: qualquer texto, sem diferença de maiúsculas; vazio = sem senha; frase e dica podem ficar vazias)
+- senha { codigo, frase, dica, palpites, rotulo } (codigo: qualquer texto, sem diferença de maiúsculas; vazio = sem senha; frase e dica podem ficar vazias; palpites: [{ se, diz }], o chute esperado e a resposta que entra no lugar do aviso de erro, comparado sem maiúsculas, acentos nem espaços, sem contar como erro; [] = desligado)
 - abertura { frases: string[], dicaCarta }
 - musica { titulo, continuar, volumeInicial, rotulos { abrir, pausar, tocar, volume, trocar, continuar, anterior, proxima }, faixas: [{ titulo, artista, arquivo, capa }] } (rotulos.continuar é o aria-label quando musica.continuar fica vazio)
 - poppy { logo, logoAlt, titulo, subtitulo, fundo, fechar, blocos: [{ tipo:'texto', texto } | { tipo:'imagem', arquivo, alt, legenda } | { tipo:'cena', cena:'maos'|'fita'|'esteira', etiqueta?, data?, itens? }] } (logo: imagem de fundo transparente colada no alto, acima do título em blocos; '' = sem logo. O capítulo pede o logo ao carregar o módulo e, ao montar, espera por ele no prazo de 7 s das outras imagens)

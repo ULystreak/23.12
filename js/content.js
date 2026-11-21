@@ -102,6 +102,19 @@ window.CONTEUDO = {
       'o numero de dias da sua idade',
     ],
 
+    // Os chutes que você já espera dela antes de acertar (opcional). Quando o
+    // que ela digitou e confirmou é igual a um "se", no lugar do aviso de
+    // senha errada aparece o "diz" daquela linha, sem tremer e sem contar como
+    // erro. Maiúsculas, acentos e espaços não fazem diferença ('Te Amo' =
+    // 'teamo'). Pode pôr mais ou menos linhas; [] = nenhuma resposta, todo
+    // chute errado mostra só o aviso de cima.
+    palpites: [
+      { se: '2312', diz: '[esse é o dia, não a senha]' },
+      { se: '23122004', diz: '[a data inteira também não]' },
+      { se: '22', diz: '[22 é a idade, não a senha]' },
+      { se: 'te amo', diz: '[eu também. mas não é isso]' },
+    ],
+
     // Nome do campo, lido em voz alta por leitores de tela (não aparece escrito).
     rotulo: 'Senha',
   },

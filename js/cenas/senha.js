@@ -11,7 +11,9 @@
 // coisa (números, letras, sinais) e não mostra quantos caracteres a senha tem. Ela
 // confirma com Enter/"ir" do teclado ou com a setinha; a senha certa também é aceita
 // assim que termina de ser digitada. Errou: o campo treme e esvazia, aparece o aviso
-// de erro e, a cada erro, a dica seguinte de content.js (senha.dicas).
+// de erro e, a cada erro, a dica seguinte de content.js (senha.dicas). Um chute esperado
+// (senha.palpites: a data, a idade...) não é erro: o campo esvazia sem tremer e, no lugar
+// do aviso, vem a resposta dele.
 //
 // Desenho (_dev/UI.md, "Papelaria da alameda"): um cadeado pequeno com um coração na
 // fechadura, o traço em pesponto, a setinha num botão redondo da noite, o aviso e a dica
@@ -79,6 +81,11 @@ export async function cenaSenha(ctx) {
   const cedo = () => !!liberaEm && dia(agora()) < liberaEm;
   const igual = (v) => mesmo(v, mestra) || (mesmo(v, codigo) && !cedo());
   const antesDaHora = (v) => mesmo(v, codigo) && cedo();
+  // Os chutes que ele já esperava: comparados sem maiúsculas, acentos nem espaços.
+  const chave = (v) => String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f\s]/g, '').toLowerCase();
+  const palpites = (Array.isArray(dados.palpites) ? dados.palpites : [])
+    .map((p) => ({ se: chave(p?.se), diz: String(p?.diz || '').trim() })).filter((p) => p.se && p.diz);
+  const palpite = (v) => palpites.find((p) => p.se === chave(v))?.diz || '';
 
   const frase = dados.frase ? el('p', 'senha-frase', dados.frase) : null;
   const cadeado = svg(ICONE_CADEADO);
@@ -171,15 +178,17 @@ export async function cenaSenha(ctx) {
   await new Promise((resolver) => {
     let conferindo = false;
     const acertou = () => { campo.disabled = true; ir.disabled = true; resolver(); };
-    const errar = async (motivo) => {
+    const errar = async (motivo, resposta = '') => {
       const aindaNao = motivo === 'cedo';
       conferindo = true;
-      if (!aindaNao) erros += 1;
-      forma.dataset.erro = '1';
-      campo.dataset.erro = '1';
-      const novaDica = aindaNao ? '' : (dicas.length && erros ? dicas[Math.min(erros, dicas.length) - 1] : '');
+      // Um palpite esperado não é erro: não treme, não conta e não puxa a dica seguinte;
+      // o cadeado só dá o pulinho de quem ouviu, e a resposta dele vem no lugar do aviso.
+      if (!aindaNao && !resposta) erros += 1;
+      if (resposta) pulinho();
+      else { forma.dataset.erro = '1'; campo.dataset.erro = '1'; }
+      const novaDica = aindaNao || resposta ? '' : (dicas.length && erros ? dicas[Math.min(erros, dicas.length) - 1] : '');
       aviso.textContent = '';
-      await espera(440);
+      await espera(resposta ? 260 : 440);
       delete forma.dataset.erro;
       delete campo.dataset.erro;
       // A meia-noite chegou durante o tremor: a senha era a certa e agora já é o dia.
@@ -188,7 +197,7 @@ export async function cenaSenha(ctx) {
       tamanho = 0;
       forma.removeAttribute('data-tem');
       ir.tabIndex = -1;
-      aviso.textContent = aindaNao ? (dados.cedo || 'Ainda não. Volta no dia certo.') : (dados.erro || 'Senha errada.');
+      aviso.textContent = resposta || (aindaNao ? (dados.cedo || 'Ainda não. Volta no dia certo.') : (dados.erro || 'Senha errada.'));
       // O aviso chega depressa; a dica vem logo atrás, como um bilhete posto na mesa.
       gsap.fromTo(aviso, { opacity: 0, y: calmo ? 0 : 6 }, { opacity: 1, y: 0, duration: 0.32, ease: 'power2.out', clearProps: 'transform' });
       if (novaDica && dica.textContent !== novaDica) {
@@ -203,7 +212,9 @@ export async function cenaSenha(ctx) {
     };
     const confirmar = () => {
       if (conferindo || campo.disabled || !campo.value.trim()) return;
-      if (igual(campo.value)) acertou(); else errar(antesDaHora(campo.value) ? 'cedo' : '');
+      if (igual(campo.value)) acertou();
+      else if (antesDaHora(campo.value)) errar('cedo');
+      else errar('', palpite(campo.value));
     };
     campo.addEventListener('input', () => {
       // A nota sai pela posição do caractere (apagar não toca; mudo ou sem Web Audio, nada).
