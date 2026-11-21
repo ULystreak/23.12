@@ -363,9 +363,7 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
     const caixaContinuar = el('div', 'musica-continuar-caixa', continuar);
     // Sem texto visível, a seta sozinha precisa de um nome para o leitor de tela.
     if (!dados.continuar && rotulos.continuar) continuar.setAttribute('aria-label', rotulos.continuar);
-    const painel = el('div', {
-      class: 'musica carrossel', dataset: { quantas: String(faixas.length) },
-    }, [titulo, palco, pontos, caixaContinuar]);
+    const painel = el('div', 'musica carrossel', [titulo, palco, pontos, caixaContinuar]);
     if (faixas.length < 2) painel.dataset.unica = '';
 
     continuar.disabled = true;

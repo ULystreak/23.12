@@ -641,7 +641,6 @@ export function criarDepois(ctx) {
     raiz.dataset.fim = '';
     const pecas = fileira();
     if (!pecas.length) return;
-    raiz.toggleAttribute('data-menu', !!ir);
     raiz.append(...pecas);
     gsap.fromTo(pecas, { autoAlpha: 0 }, { autoAlpha: 1, duration: 1.2, delay: calmo ? 0.2 : 1.2, ease: 'none', onComplete: focarReabrir });
   }
@@ -679,7 +678,6 @@ export function criarDepois(ctx) {
   /** O menu chegou: a pena e a pílula saem de cena e são removidas. */
   function limparFim() {
     const pecas = fileira().filter((no) => no.isConnected);
-    raiz.removeAttribute('data-menu');
     if (!pecas.length) return Promise.resolve();
     gsap.killTweensOf(pecas);
     for (const no of pecas) { no.disabled = true; no.style.pointerEvents = 'none'; }
