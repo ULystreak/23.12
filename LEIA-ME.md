@@ -178,7 +178,7 @@ Os outros textos desta parte também estão em `cartasChao`: `frase` (aparece qu
 
 ## 7. O fim: a carta na sua mão, o contador, a resposta dela e a sua voz
 
-Depois das imagens do encontro e do clarão, já é noite na alameda, com estrelas e o cometa. Você está na frente dela, de mão estendida, com a última carta: a carta sai da sua mão e vai até ela. Ela toca, a folha abre e a frase de `final.frase` é escrita à mão.
+Depois das imagens do encontro e do clarão, já é noite na alameda, com estrelas e o cometa. Você está na frente dela, de mão estendida, com a última carta: a carta sai da sua mão e vai até ela. Ela toca, a folha abre e a frase de `final.frase` é escrita à mão. No celular, esse toque pede licença para sentir o movimento e a dica vira `final.dicaChacoalhar`: a carta abre quando ela chacoalha o aparelho (se ela negar, ou no computador, o toque abre na hora; um segundo toque também abre; vazio, `''`, desliga).
 
 **O céu** muda sozinho ao longo do site, sem nada para configurar: manhã no começo, dia na segunda carta, entardecer na mão, crepúsculo na corrida e nas cartas do chão, noite no fim.
 
