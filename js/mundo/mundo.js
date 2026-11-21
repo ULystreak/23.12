@@ -288,7 +288,6 @@ export async function criarMundo(opcoes) {
 
   const ouvintes = new Set();
   const ouvintesNivel = new Set();
-  let idQuadro = 0;
   let ultimo = 0;
   let tempo = 0;
   let ligado = true;
@@ -354,8 +353,11 @@ export async function criarMundo(opcoes) {
     medidor.desde = agora + 600;
   }
 
-  function laco(agora) {
-    idQuadro = requestAnimationFrame(laco);
+  // O laço é um ouvinte do ticker do GSAP (um rAF só por quadro): roda sempre
+  // depois dos tweens, então o que o GSAP mexe no 3D sai no mesmo quadro. O tempo
+  // é o performance.now(), em ms reais (sem o lagSmoothing do GSAP).
+  function laco() {
+    const agora = performance.now();
     const brutoMs = agora - ultimo;
     ultimo = agora;
     const dt = Math.min(Math.max(brutoMs, 0) / 1000, 0.05);   // dt limitado: aba que volta não dá salto
@@ -375,16 +377,14 @@ export async function criarMundo(opcoes) {
     const deve = ligado && !document.hidden && !contextoPerdido;
     if (deve === rodando) return;
     rodando = deve;
-    cancelAnimationFrame(idQuadro);
-    if (rodando) {
-      ultimo = performance.now();
-      passo.zAnterior = rig.position.z;
-      medidor.soma = 0;
-      medidor.n = 0;
-      medidor.desde = ultimo + CARENCIA_MS;
-      medidor.carenciaAte = ultimo + CARENCIA_MS;
-      idQuadro = requestAnimationFrame(laco);
-    }
+    if (!rodando) { gsap.ticker.remove(laco); return; }
+    ultimo = performance.now();
+    passo.zAnterior = rig.position.z;
+    medidor.soma = 0;
+    medidor.n = 0;
+    medidor.desde = ultimo + CARENCIA_MS;
+    medidor.carenciaAte = ultimo + CARENCIA_MS;
+    gsap.ticker.add(laco);
   }
 
   document.addEventListener('visibilitychange', atualizarLaco);

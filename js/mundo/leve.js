@@ -408,12 +408,12 @@ export function criarMundoLeve({ amb, canvas, recipienteLeve, fundo = null }) {
   // ---- laço simples (só para quem registrou aoQuadro) ---------------------------------
   const ouvintes = new Set();
   const ponteiro = criarPonteiro(amb);
-  let idQuadro = 0;
   let ultimo = 0;
   let tempo = 0;
 
-  function laco(agora) {
-    idQuadro = requestAnimationFrame(laco);
+  // Ouvinte do ticker do GSAP, como o laço do mundo.js: depois dos tweens, em ms reais.
+  function laco() {
+    const agora = performance.now();
     const dt = Math.min(Math.max(agora - ultimo, 0) / 1000, 0.05);
     ultimo = agora;
     tempo += dt;
@@ -434,10 +434,10 @@ export function criarMundoLeve({ amb, canvas, recipienteLeve, fundo = null }) {
     }
   }
   function atualizarLaco() {
-    cancelAnimationFrame(idQuadro);
+    gsap.ticker.remove(laco);
     if (ligado && !document.hidden) {
       ultimo = performance.now();
-      idQuadro = requestAnimationFrame(laco);
+      gsap.ticker.add(laco);
     }
     pausar();
   }
