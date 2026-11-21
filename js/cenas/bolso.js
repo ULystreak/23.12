@@ -229,7 +229,7 @@ export function criarBolso({ conteudo, amb, som, raiz }) {
     const ate = { x: alvo.x - (esquerda + largura / 2), y: alvo.y - (topo + altura / 2), escala: Math.max(0.08, 48 / largura) };
 
     descartar(envelope);                       // a carta do mundo já não aparece: a daqui assume
-    const efeito = (nome) => { try { som?.efeito?.(nome); } catch { /* sem som */ } };
+    const efeito = (nome) => som?.efeito?.(nome);
     const mundo = olhar();
 
     await new Promise((ok) => {
