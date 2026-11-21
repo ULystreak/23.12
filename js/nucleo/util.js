@@ -131,6 +131,20 @@ export function vibrar(amb) {
   } catch { /* sem háptico: fica a luz */ }
 }
 
+/**
+ * Compila os programas de shader destes objetos antes de eles aparecerem (three compila
+ * na primeira vez que desenha, de forma síncrona: era o engasgo do toque). Compila mesmo
+ * invisíveis. Aceita também promessas (ex.: o preparar() do envelope). No máximo `ms` de
+ * espera; sem mundo 3D (modo leve), resolve na hora.
+ */
+export function compilarComPrazo(mundo, objs, ms = 1200) {
+  const r = mundo.renderer;
+  if (!mundo.ok || !r) return Promise.resolve();
+  const lista = [objs].flat().filter(Boolean).map((o) => (typeof o.then === 'function' ? o
+    : Promise.resolve().then(() => r.compileAsync(o, mundo.camera, mundo.cena))).catch(() => {}));
+  return Promise.race([Promise.all(lista), espera(ms)]);
+}
+
 /** Cria um elemento SVG a partir de uma string (para ícones e desenhos pequenos). */
 export function svg(marcacao) {
   const molde = document.createElement('template');

@@ -18,7 +18,7 @@
 //
 // Gancho para os testes (não mudar): [data-acao="seguir-fio"].
 
-import { el, espera, svg, clamp, lerp, amortecer, semente, suave, vibrar } from '../nucleo/util.js';
+import { el, espera, svg, clamp, lerp, amortecer, semente, suave, vibrar, compilarComPrazo } from '../nucleo/util.js';
 import { curvas, revelarPalavras, ocultarPalavras } from '../nucleo/movimento.js';
 import { voltarAoMundo, temEncontro } from '../nucleo/diretor.js';
 import { criarFio } from '../mundo/fio.js';
@@ -1625,7 +1625,7 @@ export async function cenaMao(ctx, { frio } = {}) {
       fio.objeto.add(petalasChao);
     }
     // a carta pelo preparar() dela: compila também a variante translúcida (na névoa) e sobe as texturas
-    if (mundo.ok) await aquecer(mundo, [fio.objeto, ele && ele.grupo], env && env.preparar ? [env.preparar()] : [env && env.grupo]);
+    if (mundo.ok) await compilarComPrazo(mundo, [fio.objeto, ele?.grupo, env?.preparar ? env.preparar() : env?.grupo]);
 
     const botao = el('button', { class: 'botao botao-fio', type: 'button', dataset: { acao: 'seguir-fio' } }, [
       el('span', { class: 'botao-fio-texto', texto: dados.botao || '' }),
@@ -2061,21 +2061,6 @@ function criarPulso(gsap, { pose, desenho, amb, inventario }) {
       alvo.remove();
     },
   };
-}
-
-/**
- * Compila os programas de shader destes objetos antes de eles aparecerem
- * (three compila na primeira vez que desenha, de forma síncrona: era o engasgo
- * do toque). Compila mesmo invisíveis. No máximo ~1,2 s de espera.
- */
-function aquecer(mundo, objetos, extras = []) {
-  const r = mundo.renderer;
-  if (!r || typeof r.compileAsync !== 'function') return Promise.resolve();
-  const lista = objetos.filter(Boolean).map((o) => {
-    try { return r.compileAsync(o, mundo.camera, mundo.cena).catch(() => {}); } catch { return Promise.resolve(); }
-  });
-  for (const e of extras) if (e) lista.push(typeof e.then === 'function' ? e : Promise.resolve().then(() => r.compileAsync(e, mundo.camera, mundo.cena)).catch(() => {}));
-  return Promise.race([Promise.all(lista), espera(1200)]);
 }
 
 /**
