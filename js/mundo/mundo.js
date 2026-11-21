@@ -593,15 +593,13 @@ export async function criarMundo(opcoes) {
   // quadro, que antes esperava ~40 ms por programa). Até lá elas não são
   // desenhadas, mas nesse instante a abertura está com densidade zero: nada muda
   // na tela. A guarda de 1,5 s devolve as pétalas mesmo se a promessa não vier.
-  if (typeof renderer.compileAsync === 'function') {
-    const pet = mundo.petalas.objeto;
-    pet.visible = false;
-    const mostrar = () => { pet.visible = true; };
-    try {
-      Promise.race([renderer.compileAsync(pet, camera, cena), new Promise((ok) => setTimeout(ok, 1500))])
-        .then(mostrar, mostrar);
-    } catch { mostrar(); }
-  }
+  const pet = mundo.petalas.objeto;
+  pet.visible = false;
+  const mostrar = () => { pet.visible = true; };
+  try {
+    Promise.race([renderer.compileAsync(pet, camera, cena), new Promise((ok) => setTimeout(ok, 1500))])
+      .then(mostrar, mostrar);
+  } catch { mostrar(); }
 
   // A alameda: gerada agora, compilada em paralelo e mostrada só quando pronta,
   // nascendo do branco (até lá o mundo é o branco de sempre).
