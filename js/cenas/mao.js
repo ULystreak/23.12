@@ -1314,7 +1314,9 @@ function petalasNoChao(mundo, { z0, x0 }) {
   const geometria = new THREE.ShapeGeometry(forma, 6);
   geometria.rotateX(-Math.PI / 2);
   // (sem névoa: no entardecer a névoa escura as deixava cinzentas, como riscos sobre o fio)
-  const material = new THREE.MeshBasicMaterial({ color: '#b3123a', side: THREE.DoubleSide, transparent: true, opacity: 0.9, fog: false });
+  // (um passo só: são planas e não se cruzam na tela; em dois passos o desenho é o mesmo,
+  // com o dobro de chamadas e o three refazendo o programa a cada quadro)
+  const material = new THREE.MeshBasicMaterial({ color: '#b3123a', side: THREE.DoubleSide, transparent: true, opacity: 0.9, fog: false, forceSinglePass: true });
   const aleat = semente(23);
   const quantas = 22;
   const malha = new THREE.InstancedMesh(geometria, material, quantas);
