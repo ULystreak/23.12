@@ -20,7 +20,7 @@
 // nada. O arquivo vem chegando desde o primeiro toque dela; se não chegou, se o som ainda
 // não foi liberado (atalho sem toque) ou com ?mudo=1, a frase aparece em silêncio, como hoje.
 
-import { el, espera } from '../nucleo/util.js';
+import { el, espera, quadro } from '../nucleo/util.js';
 import { curvas, revelarPalavras } from '../nucleo/movimento.js';
 import { aquecerEnvelope } from '../mundo/envelope.js';
 
@@ -42,7 +42,7 @@ export function aquecerAbertura(ctx) {
   if (!aquecimento) {
     const { mundo } = ctx;
     // Um quadro antes, para o que está na tela (o preto, o branco) já ter sido pintado.
-    aquecimento = new Promise((r) => requestAnimationFrame(r))
+    aquecimento = quadro()
       .then(() => Promise.all([
         aquecerEnvelope(mundo, { tema: 'poppy', lacre: 'coracao', amarracao: 'cordao' }),
         mundo.petalas?.preparar?.(),         // as protagonistas, logo adiante, usam o programa das soltas
