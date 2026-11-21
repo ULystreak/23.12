@@ -39,11 +39,10 @@
 // de antes (a luz corre pelo fio e a carta aparece). Movimento reduzido:
 // dissolvências simples, sem panorâmica nem aproximação (cada quadro parado no `ate`).
 
-import { clamp, el, espera, lerp } from '../nucleo/util.js';
+import { clamp, el, espera, lerp, vibrar } from '../nucleo/util.js';
 import { curvas } from '../nucleo/movimento.js';
 import { temEncontro } from '../nucleo/diretor.js';
 import { entregaNaMao } from './final.js';
-import { vibrar } from './mao.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const COR_FIO = '#d7192d';

@@ -33,7 +33,7 @@
 //
 // Gancho para os testes: tocar no centro da tela na etapa `carta-espera`.
 
-import { clamp, el, espera, lerp, pxParaNdc } from '../nucleo/util.js';
+import { clamp, el, espera, lerp, pxParaNdc, vibrar } from '../nucleo/util.js';
 import { curvas } from '../nucleo/movimento.js';
 import { criarEnvelope } from '../mundo/envelope.js';
 
@@ -277,7 +277,6 @@ function esperarToque(ctx, env, baixar, textoChacoalhar = '') {
     let sensor = false;                 // já chegou alguma medida de verdade?
     let picos = [];
     let tremor = null;
-    let bater = null;                   // o vibrar de mao.js, carregado no convite
     let convidouEm = 0;                 // quando o convite entrou (o resto de um toque duplo não o pula)
     const aoMexer = (e) => {
       const a = e.acceleration;
@@ -293,7 +292,7 @@ function esperarToque(ctx, env, baixar, textoChacoalhar = '') {
       picos = picos.filter((t) => agora - t < JANELA_CHACOALHO);
       picos.push(agora);
       if (picos.length < PICOS_CHACOALHO) return;
-      try { bater?.(amb); } catch { /* sem háptico */ }
+      vibrar(amb);
       concluir();
     };
     const pararTremor = () => {
@@ -310,7 +309,6 @@ function esperarToque(ctx, env, baixar, textoChacoalhar = '') {
       // (no iPhone os eventos só chegam a quem se inscreve depois da permissão)
       window.removeEventListener('devicemotion', aoMexer);
       window.addEventListener('devicemotion', aoMexer);
-      import('./mao.js').then((m) => { bater = m.vibrar; }).catch(() => {});
       trocarDica(textoChacoalhar);
       // a carta treme de leve, de tempos em tempos, pedindo (sem WebGL: afunda duas vezes)
       tremor = gsap.timeline({ repeat: -1, repeatDelay: 1.5, delay: 0.5 });

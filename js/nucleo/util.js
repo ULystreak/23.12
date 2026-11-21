@@ -115,6 +115,22 @@ export function el(tag, attrs, filhos) {
   return no;
 }
 
+// O pulso no aparelho: duas batidinhas (tum-tum). Android: vibrate. iPhone (Safari 18
+// ou mais novo): o toque de um interruptor (<input switch>) escondido, clicado dentro
+// do gesto dela; criado uma vez. Onde não houver nenhum dos dois, fica só a luz.
+let interruptor = null;
+export function vibrar(amb) {
+  try {
+    if (!amb.ios) { navigator.vibrate?.([14, 120, 22]); return; }
+    if (!interruptor) {
+      interruptor = el('label', { hidden: true, 'aria-hidden': 'true' }, el('input', { type: 'checkbox', switch: true }));
+      document.body.append(interruptor);
+    }
+    interruptor.click();
+    setTimeout(() => interruptor.click(), 130);
+  } catch { /* sem háptico: fica a luz */ }
+}
+
 /** Cria um elemento SVG a partir de uma string (para ícones e desenhos pequenos). */
 export function svg(marcacao) {
   const molde = document.createElement('template');

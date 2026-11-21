@@ -18,7 +18,7 @@
 //
 // Gancho para os testes (não mudar): [data-acao="seguir-fio"].
 
-import { el, espera, svg, clamp, lerp, amortecer, semente, suave } from '../nucleo/util.js';
+import { el, espera, svg, clamp, lerp, amortecer, semente, suave, vibrar } from '../nucleo/util.js';
 import { curvas, revelarPalavras, ocultarPalavras } from '../nucleo/movimento.js';
 import { voltarAoMundo, temEncontro } from '../nucleo/diretor.js';
 import { criarFio } from '../mundo/fio.js';
@@ -2061,22 +2061,6 @@ function criarPulso(gsap, { pose, desenho, amb, inventario }) {
       alvo.remove();
     },
   };
-}
-
-// O pulso no aparelho: duas batidinhas (tum-tum). Android: vibrate. iPhone (Safari 18
-// ou mais novo): o toque de um interruptor (<input switch>) escondido, clicado dentro
-// do gesto dela; criado uma vez. Onde não houver nenhum dos dois, fica só a luz.
-let interruptor = null;
-export function vibrar(amb) {
-  try {
-    if (!amb.ios) { navigator.vibrate?.([14, 120, 22]); return; }
-    if (!interruptor) {
-      interruptor = el('label', { hidden: true, 'aria-hidden': 'true' }, el('input', { type: 'checkbox', switch: true }));
-      document.body.append(interruptor);
-    }
-    interruptor.click();
-    setTimeout(() => interruptor.click(), 130);
-  } catch { /* sem háptico: fica a luz */ }
 }
 
 /**
