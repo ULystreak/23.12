@@ -252,7 +252,7 @@ li[data-lado="esq"] > .menu-etiqueta > .menu-ilho { left: auto; right: 12px; }
 /* ---- o chão: as coisas dela -------------------------------------------------- */
 .menu-chao {
   position: absolute;
-  left: calc(var(--seguro-esq) + 6px);
+  left: calc(var(--seguro-esq) + 12px);
   bottom: calc(var(--seguro-base) + 16px);
   display: flex;
   align-items: flex-start;

@@ -155,9 +155,16 @@ function tela(chave, gerar) {
 }
 
 /** Desenha algo nas 9 posições vizinhas, para a textura repetir sem costura. */
-function emVolta(tam, desenhar) {
+function emVolta(tam, desenhar, x, y, alcance) {
+  // (com x, y e alcance, as cópias que cairiam inteiras fora da tela são puladas:
+  // desenhar fora não muda nenhum pixel, e a fibra fica ~5x mais barata de gerar)
+  const corta = alcance !== undefined;
   for (let ox = -tam; ox <= tam; ox += tam) {
-    for (let oy = -tam; oy <= tam; oy += tam) desenhar(ox, oy);
+    if (corta && (x + ox + alcance < 0 || x + ox - alcance > tam)) continue;
+    for (let oy = -tam; oy <= tam; oy += tam) {
+      if (corta && (y + oy + alcance < 0 || y + oy - alcance > tam)) continue;
+      desenhar(ox, oy);
+    }
   }
 }
 
@@ -200,7 +207,7 @@ function telaFibra(tam) {
         g.moveTo(x + ox, y + oy);
         g.quadraticCurveTo(x + ox + dx / 2 - dy * curva / comp, y + oy + dy / 2 + dx * curva / comp, x + ox + dx, y + oy + dy);
         g.stroke();
-      });
+      }, x, y, comp * 1.6 + 2);
     }
     // grão
     const img = g.getImageData(0, 0, tam, tam);
