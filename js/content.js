@@ -131,6 +131,12 @@ window.CONTEUDO = {
       'Tem uma coisa esperando por você.',
     ],
 
+    // A sua voz na primeira frase (opcional). Um áudio seu de 2 a 4 segundos dizendo a
+    // primeira frase; ele toca uma vez, baixinho por cima da música, quando a frase
+    // começa a aparecer. Use .mp3 ou .m4a, em assets/audio/ (ex.: 'assets/audio/feliz.mp3').
+    // Áudio do WhatsApp (.ogg/.opus) não toca no iPhone. Vazio = sem a voz, tudo como hoje.
+    vozArquivo: '',
+
     // Aparece baixinho se ela demorar alguns segundos para tocar na carta.
     dicaCarta: 'Toque na carta.',
   },

@@ -223,6 +223,7 @@ Para pôr os três áudios:
 - `arquivo` vazio (`''`): a linha aparece como "[áudio 1 vem aqui]" e não toca.
 - Pode ter mais ou menos de três: copie ou apague uma linha inteira, com a vírgula.
 - `frase`: uma linha opcional embaixo do título do cartão.
+- **A sua voz na primeira frase** (opcional): grave de 2 a 4 segundos dizendo "Feliz aniversário.", salve como `.mp3` ou `.m4a` em `assets/audio/` e ponha o caminho em `abertura.vozArquivo` (ex.: `'assets/audio/feliz.mp3'`). Ele toca uma vez, por cima da música, quando a primeira frase aparece; vazio (`''`) = sem a voz. Teste com `?cena=inicio`, tocando na tela logo que abrir.
 
 No iPhone, o botão de baixar faz o Safari perguntar "Deseja baixar?" e o áudio vai para o app Arquivos, pasta Downloads. Teste com `?cena=final&voz=abrir`, no iPhone, com som.
 

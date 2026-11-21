@@ -13,6 +13,9 @@
 //                          'lacre' | 'papel' | 'desenrolar' | 'toque' | 'caneta' | 'fita' | 'mola' | 'brilho' | 'caixinha'
 //                          opções: a caneta usa { duracao (s), intensidade (0..1,5) }; a caixinha, { nota (Hz) }
 //   som.abafar(fator, ms)  abaixa a música para `fator` (0..1) por `ms` milissegundos e volta
+//   som.falar(arquivo)     uma fala curta por cima da música (a voz dele na primeira frase da
+//                          abertura): a música abaixa enquanto ela dura e volta. Só toca se o
+//                          arquivo já chegou e o som está liberado; devolve true se tocou
 //   som.progresso()        0..1: em que ponto da faixa a música está
 //   som.segundos()         o segundo da faixa agora, lido na hora
 //   som.aoTempo(fn)        fn(progresso, segundos, duracao) enquanto a faixa anda; devolve quem cancela
@@ -53,6 +56,8 @@ export function criarSom(conteudo, amb) {
   let pedindoPlay = false;   // um tocar() trabalhando: o play() sem resposta ou entre tentativas
   let pedidos = 0;           // conta os tocar(): só o último continua tentando
   let recusar = () => {};    // recusa o play() sem resposta (ver o ouvinte de 'error')
+  const falas = new Map();   // arquivo → AudioBuffer pronto para falar() (null enquanto chega ou se falhou)
+  let faladas = 0;
 
   // Índices das faixas que têm arquivo (as que dá para tocar), na ordem do content.js.
   function tocaveis() {
@@ -89,6 +94,25 @@ export function criarSom(conteudo, amb) {
    */
   function nivelEfeitos() {
     return volumeInicial > 0 ? clamp(estado.volume / volumeInicial, 0, 2) : 1;
+  }
+
+  /**
+   * Adianta uma fala: baixa e decodifica o arquivo, para falar() tocar na hora certa, sem
+   * esperar. Passa pelo Web Audio (e não por outro <audio>) porque o iPhone só deixa um
+   * <audio> começar dentro de um toque. Arquivo que falta ou não abre: fica sem a fala.
+   */
+  function adiantarFala(arquivo) {
+    if (mudo || !ctx || typeof arquivo !== 'string' || !arquivo.trim() || falas.has(arquivo)) return;
+    falas.set(arquivo, null);
+    fetch(arquivo)
+      .then((resposta) => (resposta.ok ? resposta.arrayBuffer() : null))
+      .then((bytes) => bytes && new Promise((ok) => {
+        // (com as duas funções: o Safari antigo não devolve promessa aqui)
+        const p = ctx.decodeAudioData(bytes, ok, () => ok(null));
+        if (p && p.catch) p.catch(() => ok(null));
+      }))
+      .then((buffer) => { if (buffer) falas.set(arquivo, buffer); })
+      .catch(() => { /* sem rede, formato que o aparelho não lê: segue em silêncio */ });
   }
 
   // ---- montagem (só dentro de um gesto) -----------------------------------
@@ -159,6 +183,10 @@ export function criarSom(conteudo, amb) {
       ctx = null;
       ganhoMusica = ganhoAbafar = ganhoEfeitos = null;
     }
+
+    // A voz dele na primeira frase (abertura.vozArquivo) começa a chegar já: quando ela
+    // sai da tela da música, o arquivo está pronto.
+    adiantarFala(conteudo?.abertura?.vozArquivo);
 
     // Ao voltar de outro aplicativo o iPhone pode deixar o contexto suspenso e
     // recusar o play() sem gesto: o próximo toque dela, onde for, devolve o som.
@@ -342,6 +370,26 @@ export function criarSom(conteudo, amb) {
       }, Math.max(0, ms));
     },
 
+    falar(arquivo, { fundo = 0.45 } = {}) {
+      const buffer = falas.get(arquivo);
+      if (mudo || !buffer || !ctx || ctx.state !== 'running') return false;
+      try {
+        const fonte = ctx.createBufferSource();
+        const ganho = ctx.createGain();
+        // Acompanha o volume que ela escolheu, como os efeitos: clara por cima da música
+        // (que abaixa para `fundo`), sem passar do pico do arquivo.
+        ganho.gain.value = clamp(estado.volume * 2.6, 0, 1);
+        fonte.buffer = buffer;
+        fonte.connect(ganho).connect(ctx.destination);
+        fonte.start();
+        som.abafar(fundo, buffer.duration * 1000);
+        faladas++;
+        return true;
+      } catch {
+        return false;      // a fala nunca derruba a cena
+      }
+    },
+
     /** Só para testes e depuração: o que o motor está fazendo agora. */
     diagnostico() {
       return {
@@ -355,6 +403,8 @@ export function criarSom(conteudo, amb) {
         duracao: audio && Number.isFinite(audio.duration) ? audio.duration : 0,
         pausado: audio ? audio.paused : true,
         fonte: audio ? audio.getAttribute('src') || '' : '',
+        falas: [...falas.values()].filter(Boolean).length,     // falas prontas para falar()
+        faladas,                                               // quantas vezes falar() tocou
       };
     },
 
