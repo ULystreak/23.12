@@ -14,6 +14,11 @@
 // uma frase começa enquanto a anterior ainda vai embora; e a última fica na tela
 // durante o começo da caminhada, saindo sozinha pouco antes de a carta nascer da névoa.
 // Pelo atalho ?cena=inicio (frio) o segundo de branco continua, para o aquecimento caber.
+//
+// A VOZ DELE (opcional, abertura.vozArquivo no content.js): quando a primeira frase começa
+// a aparecer, o áudio toca uma vez por cima da música (som.falar, js/som.js), sem atrasar
+// nada. O arquivo vem chegando desde o primeiro toque dela; se não chegou, se o som ainda
+// não foi liberado (atalho sem toque) ou com ?mudo=1, a frase aparece em silêncio, como hoje.
 
 import { el, espera } from '../nucleo/util.js';
 import { curvas, revelarPalavras } from '../nucleo/movimento.js';
@@ -85,8 +90,9 @@ function levarPeloVento(frase, amb) {
   });
 }
 
+let falou = false;               // a voz dele na primeira frase: uma vez só por visita
 export async function cenaAbertura(ctx, { frio = false } = {}) {
-  const { conteudo, diretor, mundo, recursos, amb } = ctx;
+  const { conteudo, diretor, mundo, recursos, amb, som } = ctx;
   const palco = document.getElementById('frases');
   const petalas = mundo.petalas;
   const frases = (conteudo.abertura?.frases || []).filter((f) => typeof f === 'string' && f.trim());
@@ -128,6 +134,7 @@ export async function cenaAbertura(ctx, { frio = false } = {}) {
     const texto = frases[i];
     const frase = el('p', 'frase frase-abertura');
     palco.append(frase);
+    if (i === 0 && !falou) { falou = true; som?.falar?.(conteudo.abertura?.vozArquivo); }
     await revelarPalavras(frase, texto, { intervalo: 0.15, duracao: 1.2 });
     const ir = () => {
       // Sai do fluxo no lugar em que está: a frase seguinte nasce na mesma altura, sem pulo.
