@@ -27,9 +27,8 @@
 // Se a cena anterior já deixou em estado.envelope uma carta igual e ainda fechada
 // (a cena da mão cria a última carta para o fio terminar nela), ela é reaproveitada.
 //
-// Extras exportados: distanciaDaCarta(mundo) → metros entre os olhos e a carta parada
-// (~72% da largura da tela em pé, ~28% no computador); poseParada(mundo, baixar?, zOlhos?)
-// → { x, y, z }, onde a carta para.
+// Extra exportado: poseParada(mundo, baixar?, zOlhos?) → { x, y, z }, onde a carta para
+// (a ~72% da largura da tela em pé, ~28% no computador).
 //
 // Gancho para os testes: tocar no centro da tela na etapa `carta-espera`.
 
@@ -52,18 +51,16 @@ const ESPERA_CHACOALHO = 10000;    // ms sem chacoalhar até a dica voltar a ped
 
 // Ela já usou o teclado? (só então o foco levado até a carta pede o anel; um toque nunca o vê)
 let usouTeclado = false;
-if (typeof window !== 'undefined') {
-  // (digitar a senha na tela preta não conta: no iPhone o teclado numérico também dispara keydown)
-  const aoTeclar = (e) => {
-    if (e.target && e.target.closest && e.target.closest('#entrada')) return;
-    usouTeclado = true;
-    window.removeEventListener('keydown', aoTeclar, true);
-  };
-  window.addEventListener('keydown', aoTeclar, true);
-}
+// (digitar a senha na tela preta não conta: no iPhone o teclado numérico também dispara keydown)
+const aoTeclar = (e) => {
+  if (e.target && e.target.closest && e.target.closest('#entrada')) return;
+  usouTeclado = true;
+  window.removeEventListener('keydown', aoTeclar, true);
+};
+window.addEventListener('keydown', aoTeclar, true);
 
 /** Distância (m) em que a carta para: ~72% da largura no celular em pé, ~28% no computador. */
-export function distanciaDaCarta(mundo) {
+function distanciaDaCarta(mundo) {
   const camera = mundo.camera;
   if (!camera) return 0.62;
   const aspecto = camera.aspect || 1;
@@ -271,7 +268,7 @@ function esperarToque(ctx, env, baixar, textoChacoalhar = '') {
     };
 
     // ---- chacoalhar (só a última carta) ---------------------------------------------
-    const Movimento = typeof window !== 'undefined' ? window.DeviceMotionEvent : undefined;
+    const Movimento = window.DeviceMotionEvent;
     const podeChacoalhar = !!textoChacoalhar && !amb.reduzido && typeof Movimento !== 'undefined';
     let fase = '';                      // '' → 'pedindo' (a janela do sistema) → 'chacoalhar'
     let sensor = false;                 // já chegou alguma medida de verdade?
