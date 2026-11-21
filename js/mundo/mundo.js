@@ -202,12 +202,8 @@ export async function criarMundo(opcoes) {
   camera.position.set(0, ALTURA_OLHOS, 0);
   rig.add(camera);
   cena.add(rig);
-
-  // Luz simples e barata (sem sombras): céu claro + um sol de frente, do alto.
-  const luzCeu = new THREE.HemisphereLight(0xffffff, 0xf1e6ea, 2.6);
-  const luzSol = new THREE.DirectionalLight(0xffffff, 1.1);
-  luzSol.position.set(-1.2, 2.4, 2.2);
-  cena.add(luzCeu, luzSol);
+  // Sem luzes na cena: todo material é ShaderMaterial (a luz vem da hora) ou
+  // MeshBasicMaterial. Um material iluminado embutido (Lambert, Standard) sairia preto.
 
   // ---- tamanho ----------------------------------------------------------------
 
@@ -639,15 +635,10 @@ export async function criarMundo(opcoes) {
   }
 
   // A hora do dia (js/mundo/hora.js): um ponto de controle só. A alameda recebe
-  // a luz, a névoa, o céu e o cometa; as pétalas da frente, a luz; as duas luzes
-  // da cena acompanham, para o que usar material comum.
-  const corLuz = new THREE.Color();
+  // a luz, a névoa, o céu e o cometa; as pétalas da frente, a luz.
   criarHora(mundo, amb, (e) => {
     if (alameda) alameda.aplicarHora(e);
     mundo.petalas.luzDaHora?.(e.petalas);
-    corLuz.setRGB(Math.min(1, e.luz[0]), Math.min(1, e.luz[1]), Math.min(1, e.luz[2]), THREE.SRGBColorSpace);
-    luzCeu.color.copy(corLuz);
-    luzSol.color.copy(corLuz);
   });
 
   atualizarLaco();
