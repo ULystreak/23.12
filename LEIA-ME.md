@@ -92,6 +92,7 @@ Todas ficam em `assets/images/`. Prefira `.webp`, até ~350 KB e no máximo 1600
 | `mao-akai-ito.webp` | em pé, fundo transparente | `mao.imagem` | falta |
 | `encontro-mitsuha-costas.webp`, `encontro-2-ele-ve.webp`, `encontro-mitsuha-mao.webp`, `encontro-4-ele-mao.webp` | deitadas (largas) | `encontro.quadros` | já estão |
 | `og-capa.jpg` | 1200×630, JPG | (a prévia do link no WhatsApp) | já está |
+| `icone-180.png` | 180×180, PNG | (o ícone se ela guardar o site na Tela de Início do iPhone: a cartinha com o fio, nome "Para você"; refaz com `node _dev/icone.mjs`) | já está |
 
 Atenção: a capa, o encontro e o par que estão lá agora são quadros do filme (com os personagens). O ideal é trocar por fotos de vocês ou por céus e lugares parecidos; a `capa` também pode ficar `''` (o capítulo abre só com o título e o céu).
 
