@@ -32,7 +32,8 @@ A régua é a de um site premiado no Awwwards: direção de arte própria, movim
 ## Capabilities and Constraints
 
 - Todo texto, música, imagem e vídeo editável em um único arquivo: `js/content.js` (a senha, as músicas do carrossel, os vídeos dos amigos e as mídias da Surpresinha também). O que está entre [colchetes] é exemplo.
-- Atalhos `?cena=senha`, `musica`, `inicio`, `poppy`, `carta2`, `yourname`, `mao`, `cartas`, `encontro`, `final`. Sem atalho, começa na senha; os atalhos de `inicio` em diante pulam a tela preta.
+- Atalhos `?cena=senha`, `musica`, `inicio`, `poppy`, `carta2`, `yourname`, `mao`, `cartas`, `encontro`, `final`, `menu`. Sem atalho, começa na senha; os atalhos de `inicio` em diante pulam a tela preta.
+- Depois da última carta, o menu do fim (o bloco `menu` do `content.js`): o fio com uma etiqueta para cada parte, o botão "Sempre que sentir saudade" (abre o WhatsApp dela; nada é enviado sozinho), as referências, a voz dele para ouvir e baixar e a folha em que ela escreve de volta. O aparelho dela lembra que ela já chegou ali: daí em diante o link faz senha, música e menu.
 - Carta do chão sem vídeo aparece do mesmo jeito e abre um cartão de exemplo ("[vídeo de Sariel vem aqui]"); vídeo que falha mostra só o nome e nada trava.
 - A bolsa (canto inferior direito) mostra só o que ela já guardou; tocar num item reabre aquele conteúdo.
 - Site estático, sem build, sem login, sem analytics, sem cookies. `noindex`. Título e prévia do link neutros ("Para você").

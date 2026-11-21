@@ -132,9 +132,10 @@ const casos = {
         }
       })();
       let erro = null;
-      // Com o menu do fim a carta segue até ele. As referências se pulam com os próprios toques;
-      // quando o menu assenta os toques param (uma etiqueta é um link: recarregaria a página).
-      const pararNoMenu = async (passo) => { if (passo === 'menu:menu') { parar = true; await martelar; } };
+      // Com o menu do fim a carta segue até ele, debaixo dos toques. Quando as referências
+      // começam os toques param (assentado o menu, um toque numa etiqueta recarregaria a
+      // página); se nenhum deles pulou as referências, o botão de pular pula.
+      const pararNoMenu = async (passo) => { if (passo === 'menu:referencias') { parar = true; await martelar; } };
       try { await percorrer(s, COM_MENU ? 'menu:menu' : 'final:fim', pararNoMenu, 60000); } catch (e) { erro = e; }
       await pausa(1500);
       parar = true;

@@ -426,6 +426,7 @@ export async function cenaMenu(ctx, { frio } = {}) {
         gsap.to(secao, { autoAlpha: 0, duration: 0.4, ease: 'none', overwrite: true });
         try { await depois.reescrever(); } catch (erro) { console.error(erro); }
         secao.inert = false;
+        gsap.set(secao, { visibility: 'inherit' });        // (já visível, para o foco poder voltar ao objeto)
         gsap.to(secao, { autoAlpha: 1, duration: 0.6, ease: 'none', overwrite: true });
         escrevendo = false;
         try { botao.focus({ preventScroll: true }); } catch { /* sem foco */ }
