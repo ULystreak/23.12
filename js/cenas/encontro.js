@@ -464,7 +464,15 @@ export async function cenaEncontro(ctx, { frio } = {}) {
   desenhar();
   const pararTamanho = mundo.aoRedimensionar(aoGirar);
   window.addEventListener('resize', aoGirar, { passive: true });
-  const tl = gsap.timeline({ onUpdate: desenhar });
+  // Os tweens pedem o desenho e ele sai uma vez só, no fim do tique da GSAP (o respiro, o
+  // puxão e a linha do tempo se cruzam no mesmo quadro). O dedo desenha na hora.
+  let pedido = false;
+  const pedir = () => {
+    if (pedido) return;
+    pedido = true;
+    gsap.ticker.add(() => { pedido = false; desenhar(); }, true);
+  };
+  const tl = gsap.timeline({ onUpdate: pedir });
 
   // ---- ela amarra o fio ---------------------------------------------------------------
   // A linha do tempo para em `maos` e só segue com o nó. O fio acompanha o dedo dela (a
@@ -474,7 +482,7 @@ export async function cenaEncontro(ctx, { frio } = {}) {
   let dedoNaTela = null;              // o ponteiro que está puxando o fio
   let vez = 0;                        // cada gesto recomeça a contagem do "sozinho"
   let respiro = null;
-  const mexer = (alvos, opcoes) => gsap.to(estadoFio, { ...alvos, onUpdate: desenhar, overwrite: 'auto', ...opcoes });
+  const mexer = (alvos, opcoes) => gsap.to(estadoFio, { ...alvos, onUpdate: pedir, overwrite: 'auto', ...opcoes });
 
   function amarrar(sozinho = false) {
     if (amarrado) return;
@@ -551,7 +559,7 @@ export async function cenaEncontro(ctx, { frio } = {}) {
     alvo.addEventListener('click', () => amarrar());
     raiz.append(arrasto);
     window.addEventListener('keydown', aoTeclar);
-    if (!calmo) respiro = gsap.fromTo(estadoFio, { brilho: 0.58 }, { brilho: 0.8, duration: 1.1, ease: 'sine.inOut', yoyo: true, repeat: -1, onUpdate: desenhar });
+    if (!calmo) respiro = gsap.fromTo(estadoFio, { brilho: 0.58 }, { brilho: 0.8, duration: 1.1, ease: 'sine.inOut', yoyo: true, repeat: -1, onUpdate: pedir });
     contarSozinho();
     espera(ESPERA_DICA).then(() => {
       if (amarrado || dedoNaTela !== null || !dica) return;
