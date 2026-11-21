@@ -84,6 +84,14 @@ async function agir(s, etapa, { curto = 6000 } = {}) {
     // primeira vez: abre uma carta; depois de uma aberta, segue em frente
     const abertas = await s.page.locator('[data-acao="carta-chao"]:not([data-estado="fechada"])').count();
     await tentar(abertas ? '[data-acao="seguir-cartas"]' : '[data-acao="carta-chao"][data-estado="fechada"]');
+    // (caso spam: um toque repetido pode abrir outra carta antes do "seguir"; fecha e tenta de novo)
+    for (let i = 0; abertas && i < 6; i++) {
+      await pausa(400);
+      const agora = await s.page.evaluate(() => window.__carta.etapa).catch(() => '');
+      if (agora !== 'assistindo' && agora !== 'escolhendo') break;
+      if (agora === 'assistindo') await agir(s, 'assistindo', { curto: 2500 });
+      await s.acionar('[data-acao="seguir-cartas"]', 2500).catch(() => {});
+    }
   } else if (etapa === 'assistindo') {
     await tentar('[data-acao="fechar-carta"]');
     await tentar('#voz[data-aberto] [data-acao="voz-fechar"]');   // a Surpresinha abre os áudios
@@ -812,6 +820,54 @@ const casos = {
       ok(b.objetos === 4 && b.itens === 2 && b.aberto === 'Texto do bilhete.' && /01\/01\/2027/.test(b.fechado) && !/Segredo/.test(b.fechado), `bilhetes ligados: o que já pode abre, o que tem data espera fechado (${JSON.stringify(b)})`);
       await foto(s, 'menu-bilhetes');
       ok(s.erros.length === 0, `bilhetes: sem erros (${JSON.stringify(s.erros).slice(0, 300)})`);
+      await s.fechar();
+    }
+
+    // sem nada para listar (sem referências, sem o cartão das músicas, sem o dos amigos): o caderninho não existe
+    {
+      const s = await abrir({ cena: 'menu', vp: 'iphone-safari', params: { rapido: 6, menu: 1 }, preparar: comConteudo("C.menu.referencias = []; C.menu.musicas = { titulo: '' }; C.menu.amigos = '';") });
+      await s.esperarEtapa('menu:menu', 20000);
+      await pausa(800);
+      const d = await s.page.evaluate(() => ({ caderno: document.querySelectorAll('[data-acao="menu-referencias"]').length, partes: document.querySelectorAll('[data-acao="menu-parte"]').length }));
+      ok(d.caderno === 0 && d.partes > 0, `menu sem nada para listar: o caderninho não aparece (${JSON.stringify(d)})`);
+      ok(s.erros.length === 0, `menu sem nada para listar: sem erros (${JSON.stringify(s.erros).slice(0, 300)})`);
+      await s.fechar();
+    }
+    // toque duplo no caderninho: a folha abre e fica aberta (o segundo toque cai no fundo, com ela ainda subindo);
+    // e em 214×373 (zoom alto) nada sai pela lateral
+    {
+      const s = await abrir({ cena: 'menu', vp: 'iphone-safari', params: { rapido: 6, menu: 1 } });
+      await s.esperarEtapa('menu:menu', 20000);
+      await pausa(800);
+      const caderno = s.page.locator('[data-acao="menu-referencias"]').first();
+      await caderno.tap({ force: true });
+      await caderno.tap({ force: true }).catch(() => {});
+      await pausa(700);
+      const g = await s.page.evaluate(() => ({ abertas: document.querySelectorAll('.menu-gaveta[data-aberto]').length, inerte: document.querySelector('.menu').inert }));
+      ok(g.abertas === 1 && g.inerte, `menu: o toque duplo no caderninho deixa a folha aberta (${JSON.stringify(g)})`);
+      await s.page.locator('.menu-gaveta-fundo').tap({ position: { x: 20, y: 20 }, force: true });
+      await pausa(500);
+      ok(await s.page.evaluate(() => !document.querySelector('.menu-gaveta[data-aberto]')), 'menu: depois disso, um toque no fundo fecha a folha');
+      // o mesmo na fita: o segundo toque cai no véu do cartão da voz, que ainda está chegando
+      const fita = s.page.locator('[data-acao="menu-voz"]').first();
+      if (await fita.count()) {
+        await fita.tap({ force: true });
+        await fita.tap({ force: true }).catch(() => {});
+        await pausa(700);
+        ok(await s.page.evaluate(() => !!document.querySelector('#voz[data-aberto]')), 'menu: o toque duplo na fita deixa o cartão da voz aberto');
+        await s.page.keyboard.press('Escape');
+        await pausa(600);
+        ok(await s.page.evaluate(() => !document.querySelector('#voz[data-aberto]') && !window.__carta.ctx.inventario.aberto), 'menu: Esc fecha o cartão da voz e a bolsa fica livre');
+      }
+      await s.page.setViewportSize({ width: 214, height: 373 });
+      await pausa(900);
+      const e = await s.page.evaluate(() => ({
+        rola: document.documentElement.scrollWidth > innerWidth || document.querySelector('.menu').scrollWidth > document.querySelector('.menu').clientWidth + 1,
+        fora: [...document.querySelectorAll('.menu [data-acao]')].filter((n) => { const q = n.getBoundingClientRect(); return q.left < -1 || q.right > innerWidth + 1; }).map((n) => n.dataset.cena || n.dataset.acao),
+      }));
+      ok(!e.rola && !e.fora.length, `menu em 214×373: nada sai pela lateral (${JSON.stringify(e)})`);
+      await foto(s, 'menu-214x373');
+      ok(s.erros.length === 0, `menu, toque duplo e 214×373: sem erros (${JSON.stringify(s.erros).slice(0, 300)})`);
       await s.fechar();
     }
 

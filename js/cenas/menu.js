@@ -162,6 +162,8 @@ function lerMenu(ctx) {
     saudade: { existe: temSaudade, rotulo: texto(saudade.rotulo), frase: texto(saudade.frase), endereco },
     bilhetes,
     voz: temVoz ? (texto(voz.titulo) || 'A minha voz') : '',
+    // o caderninho do chão só existe com alguma coisa para mostrar
+    temLista: referencias.length > 0 || !!musicas.titulo || !!amigos.titulo,
     escrever: resposta && resposta.ativa !== false ? (texto(resposta.rotulos && resposta.rotulos.reabrir) || 'Escrever de volta') : '',
     rot: {
       referencias: texto(rot.referencias) || 'As referências',
@@ -408,14 +410,14 @@ export async function cenaMenu(ctx, { frio } = {}) {
   const ponta = el('div', 'menu-ponta', [saudade, frase, lacoPonta]);
 
   // ---- o chão: montado a partir de uma lista (um objeto novo é só mais uma linha aqui) ----
-  const gavetaRefs = criarGaveta(ctx, { titulo: m.rot.referencias, fechar: m.rot.fechar, miolo: () => montarListaDeReferencias(m, ctx.recursos), secao });
+  const gavetaRefs = m.temLista && criarGaveta(ctx, { titulo: m.rot.referencias, fechar: m.rot.fechar, miolo: () => montarListaDeReferencias(m, ctx.recursos), secao });
   const gavetaBilhetes = m.bilhetes.length
     ? criarGaveta(ctx, { titulo: m.rot.bilhetes, fechar: m.rot.fechar, miolo: () => montarListaDeBilhetes(m), secao })
     : null;
   let escrevendo = false;
   const objetos = [
     m.voz && ctx.voz ? { acao: 'menu-voz', rotulo: m.voz, desenho: FITA_PEQUENA, aoTocar: () => ctx.voz.abrir() } : null,
-    { acao: 'menu-referencias', rotulo: m.rot.referencias, desenho: CADERNO, aoTocar: (botao) => gavetaRefs.abrir(botao) },
+    gavetaRefs ? { acao: 'menu-referencias', rotulo: m.rot.referencias, desenho: CADERNO, aoTocar: (botao) => gavetaRefs.abrir(botao) } : null,
     m.escrever ? {
       acao: 'menu-escrever', rotulo: m.escrever, desenho: FOLHA_PENA,
       aoTocar: async (botao) => {
@@ -447,6 +449,11 @@ export async function cenaMenu(ctx, { frio } = {}) {
   });
   const chao = el('ul', { class: 'menu-chao' }, coisas);
   if (objetos.length > 3) chao.dataset.muitos = '';
+
+  // O menu acabou de parar debaixo do dedo dela (ela pulou as referências com um toque): por
+  // um instante o toque seguinte não vale, para não cair numa etiqueta e recarregar a página.
+  let quieto = false;
+  secao.addEventListener('click', (e) => { if (quieto) { e.preventDefault(); e.stopPropagation(); } }, true);
 
   const pular = el('button', {
     class: 'menu-pular ui-redondo', type: 'button', 'aria-label': m.rot.pular, hidden: true, dataset: { tom: 'noite', acao: 'menu-pular' },
@@ -675,6 +682,7 @@ export async function cenaMenu(ctx, { frio } = {}) {
     for (const no of [nav, ponta, chao]) no.inert = false;
     desenharFio();
     secao.dataset.etapa = 'menu';
+    if (balanco) { quieto = true; gsap.delayedCall(0.7, () => { quieto = false; }); }
     if (balanco && !calmo) {
       // param de ser puxadas: balançam uma vez, amortecidas, e ficam
       etiquetas.forEach((e, i) => gsap.fromTo(e.li, { rotation: e.lado * 2.6 }, {
@@ -738,6 +746,7 @@ function criarGaveta(ctx, { titulo, fechar: nomeFechar, miolo, secao }) {
   let aberta = false;
   let gatilho = null;
   let saida = 0;
+  let abertaEm = 0;
 
   function montar() {
     if (raiz) return;
@@ -752,7 +761,8 @@ function criarGaveta(ctx, { titulo, fechar: nomeFechar, miolo, secao }) {
     raiz = el('div', { class: 'menu-gaveta', hidden: true }, [fundo, folha]);
     document.body.append(raiz);
     botaoFechar.addEventListener('click', fechar);
-    fundo.addEventListener('click', fechar);
+    // (o segundo toque de um toque duplo no objeto cai no fundo, com a folha ainda subindo: não fecha)
+    fundo.addEventListener('click', () => { if (performance.now() - abertaEm > 450) fechar(); });
     // um toque na folha aberta nunca chega ao mundo
     for (const tipo of ['pointerdown', 'pointerup']) raiz.addEventListener(tipo, (e) => e.stopPropagation());
   }
@@ -774,6 +784,7 @@ function criarGaveta(ctx, { titulo, fechar: nomeFechar, miolo, secao }) {
     if (aberta) return;
     montar();
     aberta = true;
+    abertaEm = performance.now();
     gatilho = quem || document.activeElement;
     clearTimeout(saida);
     secao.inert = true;
@@ -850,7 +861,7 @@ export function portao(ctx, cena) {
   desenhar();
   fontesProntas().then(() => { if (caixa.isConnected) desenhar(); });
   window.addEventListener('resize', desenhar, { passive: true });
-  gsap.fromTo(caixa, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4, ease: 'none' });
+  gsap.fromTo(caixa, { opacity: 0 }, { opacity: 1, duration: 0.4, ease: 'none' });   // (só opacidade: escondido, o botão não receberia o foco)
   if (!amb.toque) { try { botao.focus({ preventScroll: true }); } catch { /* sem foco */ } }
 
   return new Promise((resolver) => {
