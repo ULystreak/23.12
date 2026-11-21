@@ -163,7 +163,7 @@ cenaCarta(ctx, { tema, lacre, amarracao, distancia, entregar, anunciarCaminhada 
 
 **`js/cenas/cartas.js` + `css/cartas.css`**: `export async function cenaCartas(ctx, { frio })`, etapas `pousando → escolhendo ⇄ assistindo → seguindo`.
 
-- Lista: `cartasDoChao(conteudo)` (do diretor). Hoje são 7: Sariel, Ana, Mirai, Alpha, Pocoyoh, Nup e a Surpresinha (`tipo: 'galeria'`).
+- Lista: `cartasDoChao(conteudo)` (do diretor).
 - No chão, entre ela e ele, **sem nome**. Tocar abre: `tipo 'video'` com `video` toca o vídeo (a música pausa e volta); sem `video`, abre um cartão com `cartasChao.vazio` (`{nome}` trocado pelo nome: "[vídeo de Sariel vem aqui]"). A Surpresinha abre uma galeria deslizante de `midias` (`foto` ou `video`, `legenda` opcional); vazia, o cartão `cartasChao.vazioSurpresinha`.
 - Ao fechar: o nome é escrito à mão na carta (como em segredos.js), `data-estado="aberta"`, e `inventario.guardar({ id: carta.id, tipo: carta.tipo, titulo: carta.nome, abrir })` + `inventario.mostrarBotao()`. O `abrir` reabre o mesmo visor e resolve ao fechar.
 - Vídeo que não carrega: a carta mostra só o nome, `data-estado="falhou"`, conta como aberta e vai para a bolsa. Nada trava.

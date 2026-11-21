@@ -36,7 +36,7 @@ DIRETOR (js/nucleo/diretor.js)
 
 MUNDO (ctx.mundo; export async criarMundo({ amb, canvas, recipienteLeve }))
 - ok:boolean; THREE, renderer, cena, camera (PerspectiveCamera, 1,5 m, FOV 58° em pé a 42° deitado), rig (Group; a caminhada move rig.position.z); canvas; amb; gpu; tamanho { largura, altura, dpr }; ligado (getter); recipienteLeve.
-- aoQuadro(fn(dt, t)) → cancelar. ligar() / desligar().
+- aoQuadro(fn(dt, t)) → cancelar (o laço é um ouvinte do gsap.ticker: roda depois dos tweens do quadro, com dt em segundos reais (performance.now(), sem o lagSmoothing do GSAP), limitado a 0,05; sai do ticker com a aba escondida, o contexto WebGL perdido ou desligar()). ligar() / desligar().
 - deriva (getter): metros de chão que já passaram por baixo dela. O PASSO DE BASE: a alameda anda sempre (~0,42 m/s; 0,09 no reduzido), o rig e tudo o que está em mundo.cena andam junto com ela (as cenas não compensam nada); caminhar() acelera por cima e, enquanto é mais rápida, toma o lugar do passo de base (total = √(base² + caminhada²)).
 - caminhar({ distancia=6, duracao=5, curva? }) → Promise (em fila; no reduzido vira dissolvência).
 - ponteiro { x, y, ativo } em −1..1.
