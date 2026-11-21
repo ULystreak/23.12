@@ -370,19 +370,19 @@ export function criarSom(conteudo, amb) {
       }, Math.max(0, ms));
     },
 
-    falar(arquivo, { fundo = 0.45 } = {}) {
+    falar(arquivo) {
       const buffer = falas.get(arquivo);
       if (mudo || !buffer || !ctx || ctx.state !== 'running') return false;
       try {
         const fonte = ctx.createBufferSource();
         const ganho = ctx.createGain();
         // Acompanha o volume que ela escolheu, como os efeitos: clara por cima da música
-        // (que abaixa para `fundo`), sem passar do pico do arquivo.
+        // (que abaixa para 0,45), sem passar do pico do arquivo.
         ganho.gain.value = clamp(estado.volume * 2.6, 0, 1);
         fonte.buffer = buffer;
         fonte.connect(ganho).connect(ctx.destination);
         fonte.start();
-        som.abafar(fundo, buffer.duration * 1000);
+        som.abafar(0.45, buffer.duration * 1000);
         faladas++;
         return true;
       } catch {
