@@ -1597,15 +1597,13 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao', tema:
           // programa diferente para o three. Compila os dois agora; senão o que
           // faltar compila no quadro em que a carta muda de estado (~40 ms).
           const comMistura = [matCorpo, matForro, matAba, matCarta];
-          const compilar = () => (renderer.compileAsync
-            ? renderer.compileAsync(grupo, camera, mundo.cena)
-            : (renderer.compile?.(grupo, camera, mundo.cena), null));
+          const compilar = () => renderer.compileAsync(grupo, camera, mundo.cena);
           const primeiro = compilar();
           const antes = comMistura.map((m) => m.transparent);
           let outro = null;
           try {
             comMistura.forEach((m, i) => { m.transparent = !antes[i]; });
-            outro = compilar();              // compile() lê os materiais agora, de forma síncrona
+            outro = compilar();              // compileAsync() lê os materiais agora, de forma síncrona
           } finally {
             comMistura.forEach((m, i) => { m.transparent = antes[i]; });
           }

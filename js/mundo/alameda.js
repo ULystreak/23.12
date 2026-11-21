@@ -1746,9 +1746,7 @@ export function criarAlameda(mundo) {
   colocar(0);
   const pronta = (async () => {
     try {                               // (compile percorre também o que está invisível)
-      if (renderer.compileAsync) {
-        await Promise.race([renderer.compileAsync(grupo, camera, cena), new Promise((ok) => setTimeout(ok, 2500))]);
-      } else renderer.compile(grupo, camera, cena);
+      await Promise.race([renderer.compileAsync(grupo, camera, cena), new Promise((ok) => setTimeout(ok, 2500))]);
     } catch { /* compila no primeiro desenho */ }
   })();
 
