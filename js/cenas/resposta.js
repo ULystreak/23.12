@@ -552,7 +552,7 @@ export function criarDepois(ctx) {
 
   // O teclado do iPhone cobre a metade de baixo: a folha vive na parte de cima e
   // encolhe para caber no que sobra (visualViewport), com o texto sempre à vista.
-  const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+  const vv = window.visualViewport;
   const aoViewport = () => {
     if (!aberta) return;
     const altura = vv ? vv.height : innerHeight;

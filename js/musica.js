@@ -47,10 +47,8 @@ const FIM_SEM_BOTAO = new Set(['desdobrando', 'escrevendo']);   // etapas da cen
 // Quem abriu a carta pelo teclado ganha o foco na primeira faixa; quem tocou, não
 // (senão o anel de foco aparece no iPhone como se a faixa já estivesse escolhida).
 let viaTeclado = false;
-if (typeof window !== 'undefined') {
-  window.addEventListener('keydown', () => { viaTeclado = true; }, true);
-  window.addEventListener('pointerdown', () => { viaTeclado = false; }, true);
-}
+window.addEventListener('keydown', () => { viaTeclado = true; }, true);
+window.addEventListener('pointerdown', () => { viaTeclado = false; }, true);
 
 /** Curva suave (Catmull-Rom → Bézier) passando por todos os pontos. */
 function caminhoSuave(p) {
