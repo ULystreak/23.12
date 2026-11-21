@@ -861,6 +861,30 @@ html.reduzido #mini { transition: none; }
   padding: 0 14px 0 12px;
   border-top: 1px dashed var(--mini-linha);
 }
+/* ---- o atalho para o menu do fim: um elo de texto no pé do painel ----
+   (js/musica.js: só existe depois que ela já chegou ao menu; na própria cena "menu" não aparece) */
+.mini-menu {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  margin-top: 2px;
+  border-top: 1px dashed var(--mini-linha);
+  color: currentColor;
+  font-family: var(--fonte-mao);
+  font-weight: 600;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--dur-mola) var(--mola);
+}
+.mini-menu > span { padding: 2px 2px 3px; border-bottom: 1.5px dashed var(--mini-ponto, var(--ponto)); }
+.mini-menu:active { transform: scale(0.96); transition-duration: var(--dur-toque); transition-timing-function: var(--curva-ui); }
+.mini-menu:focus-visible { outline: 2px solid var(--mini-fio, var(--fio)); outline-offset: -4px; border-radius: var(--raio-p); }
+html[data-cena="menu"] .mini-menu { display: none; }
+html.reduzido .mini-menu { transition-duration: 0.01ms; }
+
 .mini-volume-icone {
   width: 22px;
   height: 22px;
