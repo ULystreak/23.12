@@ -309,7 +309,8 @@ export async function abrir({ cena, vp = 'celular', motor = 'chromium', params =
 
   if (preparar) await preparar(page);
   await page.goto(endereco, { waitUntil: 'load' });
-  await page.waitForFunction(() => !!(window.__carta && (window.__carta.ctx || window.__carta.erro)), null, { timeout: 30000 });
+  // (Pelo link limpo o mundo chega depois do ctx, atrás da tela preta: espera os dois.)
+  await page.waitForFunction(() => !!(window.__carta && ((window.__carta.ctx && window.__carta.ctx.mundo) || window.__carta.erro)), null, { timeout: 30000 });
   const falhaBoot = await page.evaluate(() => window.__carta.erro);
   if (falhaBoot) {
     await contexto.close().catch(() => {});

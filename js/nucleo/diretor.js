@@ -33,7 +33,7 @@
 
 import { cenaAbertura } from '../cenas/abertura.js';
 import { cenaCarta } from '../cenas/carta.js';
-import { menuLembrado, lembrarMenu } from './util.js';
+import { menuLembrado, lembrarMenu, espera } from './util.js';
 
 export const ORDEM = ['senha', 'musica', 'inicio', 'poppy', 'carta2', 'yourname', 'mao', 'cartas', 'encontro', 'final', 'menu'];
 /** Nomes antigos de ?cena= que continuam valendo. */
@@ -255,17 +255,25 @@ export async function voltarAoMundo(ctx) {
 const cenas = {
   async senha(ctx, opcoes) {
     // Atrás do preto ninguém vê o mundo: ele só é ligado quando o preto se desfaz.
-    ctx.mundo.desligar();
+    // (Pelo link limpo ele ainda nem chegou: o main.js o monta já desligado, atrás do preto.)
+    ctx.mundo?.desligar();
     const { cenaSenha } = await carregarEntrada();
     await cenaSenha(ctx, opcoes);
   },
 
   async musica(ctx) {
     const { sairDaEntrada } = await carregarEntrada();
-    ctx.mundo.desligar();
+    ctx.mundo?.desligar();
     ctx.diretor.etapa('musica');
     ctx.som.destravar();
     await ctx.musica.escolher(document.getElementById('entrada-musica'));
+    // O mundo baixou e se montou atrás do preto enquanto ela digitava e escolhia: quase
+    // sempre já está pronto aqui. Se não estiver (rede muito lenta), o preto, com a música
+    // tocando, espera por ele e pela alameda compilada (no máximo 2,5 s a mais por ela).
+    if (!ctx.mundo) {
+      const mundo = await ctx.mundoPronto();
+      if (mundo.alameda?.pronta) await Promise.race([mundo.alameda.pronta, espera(2500)]);
+    }
     // A música começou: o preto se desfaz e o mundo branco aparece.
     ctx.diretor.etapa('entrando');
     // Ela já chegou ao menu neste aparelho: o preto se desfaz direto na noite do menu.

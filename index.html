@@ -107,9 +107,8 @@
   <link rel="stylesheet" href="css/letra.css">
   <link rel="stylesheet" href="lib/lenis.css">
 
-  <!-- O mundo 3D começa a baixar junto com a página, sem atrasar a primeira frase. -->
-  <link rel="modulepreload" href="lib/three.module.min.js">
-  <link rel="modulepreload" href="lib/three.core.min.js">
+  <!-- O mundo 3D (lib/three.*, js/mundo/mundo.js) não vem aqui: a senha não precisa dele, e o
+       main.js só o pede depois de a primeira tela ser pintada (ele aparece depois da música). -->
   <!-- A voz, a letra e a senha eram pedidas uma atrás da outra, depois do mundo: vêm junto. -->
   <link rel="modulepreload" href="js/voz.js">
   <link rel="modulepreload" href="js/letra.js">

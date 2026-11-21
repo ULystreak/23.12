@@ -610,6 +610,9 @@ export async function criarMundo(opcoes) {
   // A alameda: gerada agora, compilada em paralelo e mostrada só quando pronta,
   // nascendo do branco (até lá o mundo é o branco de sempre).
   if (comAlameda) {
+    // Uma folga antes de gerá-la: a montagem do mundo vira duas tarefas em vez de uma
+    // só (uns 0,1 + 0,2 s em CPU lenta), e o navegador pinta um quadro no meio.
+    await new Promise((ok) => setTimeout(ok, 0));
     // ?cena=menu (Voltar ao menu, recarregar no menu) e ?volta=1 (o portão de uma parte, logo
     // depois de o menu dissolver na noite): em vez de nascer do branco (um clarão no meio do
     // escuro), o canvas inteiro dissolve sobre a página escura (html.entra-noite, no index.html).

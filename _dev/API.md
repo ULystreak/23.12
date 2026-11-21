@@ -20,7 +20,7 @@ MOVIMENTO (js/nucleo/movimento.js)
 
 AMBIENTE: amb = { webgl, nivel:'alto'|'medio'|'baixo', reduzido, toque, ios, dprMax (2|1.5|1), rapido, android, mudo, forcado, params:URLSearchParams }. <html> recebe classes toque, ios, reduzido, sem-webgl e data-nivel.
 
-CONTEXTO: ctx = { conteudo, amb, mundo, som, musica, pergaminho, inventario, bolso, voz, diretor, gsap, recursos, estado }. estado é livre (estado.envelope, estado.fio, estado.distanciaFinal, estado.folha, estado.pararFolha, estado.ele, estado.seguidorFio, estado.cartaEscondida, estado.encontroQuadros, estado.depois (o criarDepois do fim, que o menu continua usando), estado.direto (link limpo com a marca do menu)).
+CONTEXTO: ctx = { conteudo, amb, mundo, som, musica, pergaminho, inventario, bolso, voz, diretor, gsap, recursos, estado, mundoPronto }. Pelo link limpo (senha e música, na tela preta) mundo, pergaminho e bolso ainda são null: o main.js baixa o mundo depois de a senha ser pintada e o monta atrás do preto; ctx.mundoPronto() → Promise<mundo> (cenas.musica espera por ela antes de o preto se desfazer). Pelos atalhos ?cena= de "inicio" em diante eles já existem quando a cena começa. estado é livre (estado.envelope, estado.fio, estado.distanciaFinal, estado.folha, estado.pararFolha, estado.ele, estado.seguidorFio, estado.cartaEscondida, estado.encontroQuadros, estado.depois (o criarDepois do fim, que o menu continua usando), estado.direto (link limpo com a marca do menu)).
 - recursos.imagem(url) → Promise<HTMLImageElement|null>; recursos.elementoImagem(url, alt='') → Promise<img novo|null>; recursos.precarregar(lista) → Promise; recursos.iniciar().
 
 DIRETOR (js/nucleo/diretor.js)
