@@ -85,7 +85,8 @@ async function agir(s, etapa, { curto = 6000 } = {}) {
     const abertas = await s.page.locator('[data-acao="carta-chao"]:not([data-estado="fechada"])').count();
     await tentar(abertas ? '[data-acao="seguir-cartas"]' : '[data-acao="carta-chao"][data-estado="fechada"]');
     // (caso spam: um toque repetido pode abrir outra carta antes do "seguir"; fecha e tenta de novo)
-    for (let i = 0; abertas && i < 6; i++) {
+    // (o martelar do spam reabre cartas sem parar: insiste até a cena seguir, sem largar um visor aberto)
+    for (let i = 0; abertas && i < 20; i++) {
       await pausa(400);
       const agora = await s.page.evaluate(() => window.__carta.etapa).catch(() => '');
       if (agora !== 'assistindo' && agora !== 'escolhendo') break;

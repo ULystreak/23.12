@@ -434,7 +434,10 @@ function criarVisor(ctx, { vivo = null } = {}) {
         mundo.petalas.definirDensidade(1);
         fechar.disabled = true;
         gsap.killTweensOf([quadro, veu, fechar]);
+        let saiu = false;
         const fim = () => {
+          if (saiu) return;
+          saiu = true;
           for (const v of visor.querySelectorAll('video')) { try { v.removeAttribute('src'); v.load(); } catch { /* segue */ } }
           visor.remove();
           if (visorAberto === visor) visorAberto = null;
@@ -444,6 +447,8 @@ function criarVisor(ctx, { vivo = null } = {}) {
         // Sair é mais rápido que entrar e sem mola: a folha volta para a carta no chão.
         gsap.to(fechar, { autoAlpha: 0, duration: 0.14, ease: 'none' });
         gsap.to(veu, { autoAlpha: 0, duration: 0.32, ease: 'none' });
+        // (se outro tween matar a saída no meio, ela termina mesmo assim: a cena nunca fica presa em "assistindo")
+        gsap.delayedCall(0.8, fim);
         const alvo = de && de.isConnected ? saidaPara(de) : null;
         if (calmo || !alvo) gsap.to(quadro, { autoAlpha: 0, scale: calmo ? 1 : 0.97, duration: calmo ? 0.3 : 0.2, ease: 'power2.out', onComplete: fim });
         else {
