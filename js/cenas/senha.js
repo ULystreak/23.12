@@ -168,7 +168,7 @@ export async function cenaSenha(ctx) {
 
   // No computador o campo já espera o teclado; no celular o teclado só sobe com o toque dela
   // (um toque em qualquer lugar do preto vale: o foco vai para o campo).
-  const focar = () => { try { campo.focus({ preventScroll: true }); } catch { /* sem foco programático */ } };
+  const focar = () => campo?.focus({ preventScroll: true });
   if (!amb.toque) focar();
   const aoTocar = (e) => { if (e.target !== campo && e.target !== ir && !campo.disabled) focar(); };
   caixa.addEventListener('click', aoTocar);

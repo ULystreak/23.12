@@ -269,7 +269,7 @@ export function criarInventario({ conteudo, amb, som, raiz }) {
       try { som?.efeito?.('papel'); } catch { /* sem som */ }
       // quem usa o teclado continua de onde a folha abriu
       if (document.activeElement === botao) {
-        try { folha.querySelector('[data-acao="inventario-item"]')?.focus({ preventScroll: true }); } catch { /* sem foco programático */ }
+        folha.querySelector('[data-acao="inventario-item"]')?.focus({ preventScroll: true });
       }
       return true;
     },
@@ -288,7 +288,7 @@ export function criarInventario({ conteudo, amb, som, raiz }) {
         if (novos.size) { novos.clear(); for (const p of folha.querySelectorAll('.inventario-nova')) p.remove(); }
       };
       if (imediato || amb?.reduzido) sumir(); else saida = setTimeout(sumir, SAIDA_MS);
-      if (tinhaFoco && !botao.disabled) { try { botao.focus({ preventScroll: true }); } catch { /* sem foco programático */ } }
+      if (tinhaFoco && !botao.disabled) botao?.focus({ preventScroll: true });
     },
     get aberto() { return reaberto || folhaAberta; },
 
