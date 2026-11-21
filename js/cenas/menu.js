@@ -639,7 +639,8 @@ export async function cenaMenu(ctx, { frio } = {}) {
     const meio = (ARRANQUE + FREADA) / 2;
     if (S / v + meio > 45) v = Math.min(140, S / (45 - meio));                    // nunca mais de 45 s
     const p = { s: 0 };
-    const aplicar = () => gsap.set(corda, { y: S - p.s });
+    const porY = gsap.quickSetter(corda, 'y', 'px');                             // sem um Tween novo por quadro
+    const aplicar = () => porY(S - p.s);
     aplicar();
     corda.dataset.viaja = '';
     // as etiquetas vêm com a ponta livre um pouco para trás, como quem é puxado
