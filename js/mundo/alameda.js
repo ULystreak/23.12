@@ -52,7 +52,7 @@ const CEU = [0.972, 0.962, 0.968];        // branco-perolado no alto
 // (as cores das outras horas do dia estão em js/mundo/hora.js)
 
 /** O meio do caminho em x, na profundidade z: uma curva longa e leve. */
-export function centroCaminho(z) {
+function centroCaminho(z) {
   const u = -z;
   return 0.45 * Math.sin(0.12 * u) + 0.18 * Math.sin(0.047 * u);
 }

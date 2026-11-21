@@ -25,7 +25,7 @@
 
 import { clamp, lerp } from '../nucleo/util.js';
 
-export const HORAS = ['manha', 'dia', 'entardecer', 'crepusculo', 'noite'];
+const HORAS = ['manha', 'dia', 'entardecer', 'crepusculo', 'noite'];
 
 // O que cada hora é. Cores em sRGB 0..1 (os shaders da alameda trabalham nesse espaço).
 //   nevoa: a cor do fundo do túnel      ceu: a cor do alto
