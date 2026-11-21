@@ -39,8 +39,7 @@
 // O menu do fim (a cena "menu", só com o bloco menu no content.js): em final:fim o --fluxo
 // toca na pílula "Continuar" ([data-acao="menu-ir"]); as referências passam sozinhas
 // (menu:referencias) e o menu assenta (menu:menu). "--cena menu" entra por ?cena=menu num
-// aparelho sem a marca: as referências passam também. Com --params "menu=1" a marca já
-// existe e o menu abre direto (aí use --ate menu... não há etapa referencias: use --cena menu --params "menu=1" só para fotos).
+// aparelho sem a marca: as referências passam também (cada execução nasce sem a marca).
 
 import { abrir, lerConteudo, senhaDoConteudo, temCartas, temEncontro, temMenu, etapasDoFinal, videosDeTeste, injetarVideos, ERRO_ESPERADO } from './lib.mjs';
 

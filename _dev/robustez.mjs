@@ -17,12 +17,16 @@
 //   vazio      content.js vazio (só informa onde parou)
 //   bolsa      a bolsa sob toques repetidos, Esc e giro do aparelho: reler não muda a etapa, nada abre por baixo
 //   qualidade  travado em 30 fps desde o início não baixa a qualidade; ficar lento no meio baixa
+//   menu       o menu do fim: a marca no aparelho, pular as referências, recarregar, o link limpo,
+//              ?menu=0, a saudade, as etiquetas, reler pelo menu, o portão do som, os quatro tamanhos
+//              de tela, a carta sem o bloco menu e a letra das músicas fora de tudo
 //
 // Capturas em output/robustez/. Código de saída ≠ 0 se algo falhar.
 
 import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
-import { abrir, RAIZ, lerConteudo, temEncontro, temCartas, senhaDoConteudo, etapasDoFinal } from './lib.mjs';
+import { readFileSync } from 'node:fs';
+import { abrir, RAIZ, lerConteudo, temEncontro, temCartas, temMenu, senhaDoConteudo, etapasDoFinal } from './lib.mjs';
 
 const FOTOS = path.join(RAIZ, 'output', 'robustez');
 await mkdir(FOTOS, { recursive: true });
@@ -43,7 +47,12 @@ const ESPERADO = [
   ...(temEncontro(CONTEUDO) ? ['encontro:chegando', 'encontro:planos', 'encontro:maos', 'encontro:carta'] : []),
   // (contador e resposta só existem com as seções contador e resposta do content.js)
   ...etapasDoFinal(CONTEUDO).map((etapa) => `final:${etapa}`),
+  // o menu do fim só existe com o bloco menu do content.js; num aparelho sem a marca as referências passam
+  ...(temMenu(CONTEUDO) ? ['menu:referencias', 'menu:menu'] : []),
 ];
+const COM_MENU = temMenu(CONTEUDO);
+/** O roteiro até o fim da última carta (os percursos que param em final:fim comparam com este). */
+const ATE_FIM = ESPERADO.slice(0, ESPERADO.indexOf('final:fim') + 1);
 
 const falhas = [];
 const ok = (cond, msg) => { if (!cond) falhas.push(msg); console.log(`${cond ? 'ok   ' : 'FALHA'} ${msg}`); };
@@ -88,6 +97,9 @@ async function agir(s, etapa, { curto = 6000 } = {}) {
     await tentar('[data-acao="fechar-capitulo"]');
   } else if (etapa === 'mao-espera') await tentar('[data-acao="seguir-fio"]');
   else if (etapa === 'resposta') await tentar('[data-acao="resposta-guardar"]');
+  // o fim já não é o fim: a pílula leva ao menu, e as referências se pulam com o botão
+  else if (etapa === 'fim') await tentar('[data-acao="menu-ir"]');
+  else if (etapa === 'referencias') await tentar('[data-acao="menu-pular"]');
 }
 
 /** Percorre o roteiro de `de` até `ate` (inclusive na espera, exclusive na ação). */
@@ -120,7 +132,10 @@ const casos = {
         }
       })();
       let erro = null;
-      try { await percorrer(s, 'final:fim', null, 60000); } catch (e) { erro = e; }
+      // Com o menu do fim a carta segue até ele. As referências se pulam com os próprios toques;
+      // quando o menu assenta os toques param (uma etiqueta é um link: recarregaria a página).
+      const pararNoMenu = async (passo) => { if (passo === 'menu:menu') { parar = true; await martelar; } };
+      try { await percorrer(s, COM_MENU ? 'menu:menu' : 'final:fim', pararNoMenu, 60000); } catch (e) { erro = e; }
       await pausa(1500);
       parar = true;
       await martelar;
@@ -169,7 +184,7 @@ const casos = {
     await pausa(600);
     await foto(s, 'resize-99-fim-em-pe');
     const h = await historico(s);
-    ok(JSON.stringify(h) === JSON.stringify(ESPERADO), `resize: fluxo inteiro na ordem (${h.length}/${ESPERADO.length})`);
+    ok(JSON.stringify(h) === JSON.stringify(ATE_FIM), `resize: fluxo inteiro na ordem (${h.length}/${ATE_FIM.length})`);
     ok(s.erros.length === 0, `resize: sem erros (${JSON.stringify(s.erros).slice(0, 400)})`);
     await s.fechar();
 
@@ -282,7 +297,7 @@ const casos = {
       }
     });
     const h = await historico(s);
-    ok(JSON.stringify(h) === JSON.stringify(ESPERADO), `contexto: fluxo inteiro (${h.length}/${ESPERADO.length})`);
+    ok(JSON.stringify(h) === JSON.stringify(ATE_FIM), `contexto: fluxo inteiro (${h.length}/${ATE_FIM.length})`);
     ok(s.erros.length === 0, `contexto: sem erros (${JSON.stringify(s.erros).slice(0, 400)})`);
     await s.fechar();
 
@@ -592,6 +607,259 @@ const casos = {
     await s.esperarEtapa('carta2:papel', 30000).then(() => ok(true, 'depois da bolsa, a carta do caminho ainda abre'), () => ok(false, 'depois da bolsa, a carta do caminho não abriu'));
     ok(s.erros.length === 0, `bolsa: sem erros (${JSON.stringify(s.erros).slice(0, 300)})`);
     await s.fechar();
+  },
+
+  /** O menu do fim (js/cenas/menu.js): só existe com o bloco menu do content.js. */
+  async menu() {
+    if (!COM_MENU) { console.log('info  sem o bloco menu no content.js: a carta termina em final:fim (nada a testar aqui)'); return; }
+    const M = CONTEUDO.menu;
+    const marca = (s) => s.page.evaluate(() => { try { return localStorage.getItem('carta2312:menu'); } catch { return null; } });
+    const hist = (s) => s.page.evaluate(() => window.__carta.historico.map((x) => `${x.cena}:${x.etapa}`));
+    // (as etiquetas balançam o tempo todo: o Playwright esperaria para sempre elas pararem; force pula essa espera)
+    const tocarEtiqueta = async (s, cena) => {
+      const alvo = s.page.locator(`[data-acao="menu-parte"][data-cena="${cena}"]`).first();
+      await alvo.waitFor({ state: 'visible', timeout: 20000 });
+      if (s.perfil.toque) await alvo.tap({ force: true, timeout: 20000 }); else await alvo.click({ force: true, timeout: 20000 });
+    };
+    const pronta = (s) => s.page.waitForFunction(() => !!(window.__carta && (window.__carta.ctx || window.__carta.erro)), null, { timeout: 30000 });
+    /** O content.js servido à página com um remendo no fim (o arquivo não muda). */
+    const comConteudo = (remendo) => async (page) => {
+      const corpo = `${readFileSync(path.join(RAIZ, 'js', 'content.js'), 'utf8')}\n;(function (C) { ${remendo} })(window.CONTEUDO);\n`;
+      await page.route(/\/js\/content\.js(\?.*)?$/, (rota) => rota.fulfill({ status: 200, contentType: 'text/javascript; charset=utf-8', body: corpo, headers: { 'Cache-Control': 'no-store' } }));
+    };
+    // os versos das músicas (sem as marcas de tempo): nenhum pode aparecer no menu
+    const versos = (CONTEUDO.musica?.faixas || []).flatMap((f) => String(f.letra || '').split(/\r?\n/))
+      .map((l) => l.replace(/\[[^\]]*\]|<[^>]*>/g, '').replace(/\s+/g, ' ').trim().toLowerCase()).filter((l) => l.length >= 14);
+    const semLetra = async (s, onde) => {
+      const t = await s.page.evaluate(() => [...document.querySelectorAll('.menu, .menu-gaveta, .menu-portao')].map((n) => n.textContent).join(' ').replace(/\s+/g, ' ').toLowerCase());
+      const achou = versos.find((v) => t.includes(v));
+      ok(!achou, `menu ${onde}: nenhum verso das músicas no texto (${versos.length} versos conferidos${achou ? `; achou "${achou}"` : ''})`);
+    };
+
+    // (1)(2)(5)(6)(7)(8)(9)(12): com WebGL, sem WebGL e com movimento reduzido
+    for (const extra of [{}, { webgl: 0 }, { reduzido: 1 }]) {
+      const r = Object.keys(extra).length ? JSON.stringify(extra) : 'padrão';
+      const s = await abrir({ cena: 'menu', vp: 'iphone-safari', params: { rapido: 3, musica: 0, ...extra } });
+      await s.esperarEtapa('menu:referencias');
+      await pausa(900);
+      const durante = await s.page.evaluate(() => ({
+        bolsa: document.getElementById('inventario').hidden, mini: document.getElementById('mini').hidden,
+        contador: getComputedStyle(document.querySelector('.depois')).opacity,
+        cartoes: document.querySelectorAll('.menu-creditos .menu-cred').length,
+        inerte: document.querySelector('.menu nav').inert,
+      }));
+      ok(await marca(s) !== '1', `menu ${r}: com as referências passando a marca ainda não existe`);
+      ok(durante.bolsa && durante.mini && Number(durante.contador) < 0.05 && durante.cartoes >= 2 && durante.inerte,
+        `menu ${r}: nas referências a bolsa, o disco e o contador saem, e as etiquetas ainda não recebem foco (${JSON.stringify(durante)})`);
+      await semLetra(s, `${r}, referências`);
+      await foto(s, `menu-referencias${extra.webgl === 0 ? '-leve' : ''}${extra.reduzido ? '-calmo' : ''}`);
+      await s.acionar('[data-acao="menu-pular"]', 15000);
+      await s.esperarEtapa('menu:menu', 20000).then(() => ok(true, `menu ${r}: pular as referências chega ao menu`), () => ok(false, `menu ${r}: pular as referências não chegou ao menu`));
+      await pausa(1800);
+      ok(await marca(s) === '1', `menu ${r}: a marca fica no aparelho quando o menu assenta`);
+      const assentado = await s.page.evaluate(() => ({
+        bolsa: !document.getElementById('inventario').hidden, mini: !document.getElementById('mini').hidden,
+        contador: getComputedStyle(document.querySelector('.depois')).opacity,
+        creditos: document.querySelectorAll('.menu-creditos').length, pular: document.querySelectorAll('[data-acao="menu-pular"]').length,
+        ordem: [...document.querySelectorAll('#palco .menu, #palco .depois')].map((n) => n.className.split(' ')[0]).join(','),
+        partes: [...document.querySelectorAll('[data-acao="menu-parte"]')].map((n) => n.dataset.cena),
+        bilhetes: document.querySelectorAll('[data-acao="menu-bilhetes"]').length,
+        itens: window.__carta.ctx.inventario.itens.map((i) => i.id),
+        url: location.search,
+      }));
+      ok(assentado.bolsa && assentado.mini && Number(assentado.contador) > 0.95 && !assentado.creditos && !assentado.pular && assentado.ordem === 'menu,depois',
+        `menu ${r}: assentado, a bolsa, o disco e o contador voltam e as referências saem do DOM (${JSON.stringify(assentado)})`);
+      const esperadas = ['inicio', 'poppy', 'yourname', 'mao', 'cartas', 'encontro', 'final']
+        .filter((c) => String(M.partes?.[c] || '').trim() && (c !== 'cartas' || temCartas(CONTEUDO)) && (c !== 'encontro' || temEncontro(CONTEUDO)));
+      ok(assentado.partes.join() === esperadas.join(), `menu ${r}: uma etiqueta por parte que existe, na ordem (${assentado.partes.join(' ')})`);
+      ok(assentado.bilhetes === (Array.isArray(M.bilhetes) && M.bilhetes.length ? 1 : 0), `menu ${r}: o montinho de bilhetes só existe com bilhetes na lista (${assentado.bilhetes})`);
+      ok(/cena=menu/.test(assentado.url) && /musica=0/.test(assentado.url), `menu ${r}: o endereço passa a retomar no menu (${assentado.url})`);
+      await semLetra(s, `${r}, assentado`);
+      await foto(s, `menu-assentado${extra.webgl === 0 ? '-leve' : ''}${extra.reduzido ? '-calmo' : ''}`);
+
+      // (5) a saudade: um link de verdade para o WhatsApp, nada enviado sozinho
+      const numero = String(CONTEUDO.resposta?.whatsapp || '').replace(/\D/g, '');
+      const mensagem = String(M.saudade?.mensagem || '').trim();
+      const saudade = await s.page.evaluate(() => { const a = document.querySelector('[data-acao="menu-saudade"]'); return a ? { href: a.getAttribute('href'), alvo: a.target, rel: a.rel, tag: a.tagName } : null; });
+      if (numero || mensagem) {
+        ok(!!saudade && saudade.tag === 'A' && saudade.href === `https://wa.me/${numero}${mensagem ? `?text=${encodeURIComponent(mensagem)}` : ''}` && saudade.alvo === '_blank' && /noopener/.test(saudade.rel),
+          `menu ${r}: a pílula da saudade é um link para o WhatsApp (${JSON.stringify(saudade)})`);
+      } else ok(!saudade, `menu ${r}: sem número e sem mensagem a pílula da saudade não existe`);
+
+      // (6) cada etiqueta-link aponta para a cena certa, com volta=1 e a música
+      const elos = await s.page.evaluate(() => [...document.querySelectorAll('a[data-acao="menu-parte"]')].map((a) => ({ cena: a.dataset.cena, href: a.getAttribute('href') })));
+      const elosCertos = elos.length > 0 && elos.every((e) => {
+        const p = new URLSearchParams(e.href.split('?')[1] || '');
+        return p.get('cena') === e.cena && p.get('volta') === '1' && p.get('musica') === '0' && p.get('rapido') === '3' && !p.has('menu')
+          && (extra.webgl === 0 ? p.get('webgl') === '0' : !p.has('webgl')) && (extra.reduzido ? p.get('reduzido') === '1' : !p.has('reduzido'));
+      });
+      ok(elosCertos, `menu ${r}: as etiquetas são links para ?cena=…&musica=…&volta=1, mantendo os parâmetros (${JSON.stringify(elos).slice(0, 300)})`);
+
+      // a folha das referências: abre, o menu fica inerte, Esc fecha e o foco volta ao caderninho
+      await s.acionar('[data-acao="menu-referencias"]');
+      await pausa(700);
+      const gaveta = await s.page.evaluate(() => ({
+        aberta: !!document.querySelector('.menu-gaveta[data-aberto] [role="dialog"][aria-modal="true"]'), inerte: document.querySelector('.menu').inert,
+        linhas: document.querySelectorAll('.menu-gaveta .menu-ref').length, foco: document.activeElement?.dataset?.acao || '',
+      }));
+      ok(gaveta.aberta && gaveta.inerte && gaveta.linhas >= 1 && gaveta.foco === 'menu-fechar', `menu ${r}: a folha das referências abre como diálogo e o resto fica inerte (${JSON.stringify(gaveta)})`);
+      await semLetra(s, `${r}, folha das referências`);
+      if (!Object.keys(extra).length) await foto(s, 'menu-folha-referencias');
+      await s.page.keyboard.press('Escape');
+      await pausa(500);
+      const fechada = await s.page.evaluate(() => ({ aberta: !!document.querySelector('.menu-gaveta[data-aberto]'), inerte: document.querySelector('.menu').inert, foco: document.activeElement?.dataset?.acao || '' }));
+      ok(!fechada.aberta && !fechada.inerte && fechada.foco === 'menu-referencias', `menu ${r}: Esc fecha a folha e o foco volta ao caderninho (${JSON.stringify(fechada)})`);
+
+      // (7) reler um capítulo pelo menu: a etapa não muda e o foco volta à etiqueta
+      await tocarEtiqueta(s, 'poppy');
+      await s.page.waitForFunction(() => document.getElementById('pergaminho').dataset.estado === 'aberto', null, { timeout: 30000 });
+      const relendo = await s.page.evaluate(() => ({ etapa: `${window.__carta.cena}:${window.__carta.etapa}`, palco: getComputedStyle(document.getElementById('palco')).visibility }));
+      await s.fecharDaBolsa();
+      await pausa(600);
+      const releu = await s.page.evaluate(() => ({ etapa: `${window.__carta.cena}:${window.__carta.etapa}`, foco: document.activeElement?.dataset?.cena || '', palco: getComputedStyle(document.getElementById('palco')).visibility }));
+      ok(relendo.etapa === 'menu:menu' && relendo.palco === 'hidden' && releu.etapa === 'menu:menu' && releu.foco === 'poppy' && releu.palco === 'visible',
+        `menu ${r}: reler a carta do jogo pelo menu não muda a etapa e devolve o foco à etiqueta (${JSON.stringify({ relendo, releu })})`);
+
+      // (2) recarregar no menu, já com a marca: sem referências
+      await s.page.reload({ waitUntil: 'load' });
+      await pronta(s);
+      await s.esperarEtapa('menu:menu', 20000);
+      const h2 = await hist(s);
+      ok(h2.join() === 'menu:menu', `menu ${r}: recarregar com a marca volta ao menu assentado, sem referências (${h2.join(' ')})`);
+      await pausa(1500);
+
+      // (8) o portão: a etiqueta recarrega naquela parte; um toque devolve o som e inicia a cena
+      const alvo = esperadas.includes('mao') ? 'mao' : esperadas.find((c) => c !== 'poppy' && c !== 'yourname');
+      await Promise.all([
+        s.page.waitForURL(new RegExp(`cena=${alvo}.*volta=1|volta=1.*cena=${alvo}`), { timeout: 20000 }),
+        tocarEtiqueta(s, alvo),
+      ]);
+      await pronta(s);
+      await s.page.waitForSelector('[data-acao="portao"]', { state: 'visible', timeout: 15000 });
+      await pausa(700);
+      const noPortao = await s.page.evaluate(() => ({
+        portao: document.documentElement.hasAttribute('data-portao'), cena: window.__carta.cena, rotulo: document.querySelector('[data-acao="portao"]').getAttribute('aria-label'),
+        voltar: document.querySelector('[data-acao="portao-voltar"]')?.getAttribute('href') || '', tocando: window.__carta.ctx.som.estado.tocando,
+      }));
+      ok(noPortao.portao && noPortao.cena === null && noPortao.rotulo.startsWith(String(M.partes[alvo]).trim()) && /cena=menu/.test(noPortao.voltar) && !/volta=/.test(noPortao.voltar) && !noPortao.tocando,
+        `menu ${r}: o portão espera o toque antes de a cena começar (${JSON.stringify(noPortao)})`);
+      await semLetra(s, `${r}, portão`);
+      if (!Object.keys(extra).length) await foto(s, 'menu-portao');
+      await s.acionar('[data-acao="portao"]');
+      await s.page.waitForFunction((c) => window.__carta.cena === c && !document.documentElement.hasAttribute('data-portao'), alvo, { timeout: 20000 })
+        .then(() => ok(true, `menu ${r}: o toque no portão inicia a cena "${alvo}"`), () => ok(false, `menu ${r}: o toque no portão não iniciou a cena "${alvo}"`));
+      await pausa(1500);
+      const depoisPortao = await s.page.evaluate(() => ({ url: location.search, som: { ...window.__carta.ctx.som.estado }, resto: document.querySelectorAll('.menu-portao').length }));
+      ok(!/volta=/.test(depoisPortao.url) && new RegExp(`cena=${alvo}`).test(depoisPortao.url) && depoisPortao.som.indice === 0 && depoisPortao.som.tocando && !depoisPortao.resto,
+        `menu ${r}: depois do toque o endereço perde o volta e a música volta (${JSON.stringify(depoisPortao)})`);
+      // o atalho no painel do disco: de dentro de uma parte, "Voltar ao menu"
+      const elo = await s.page.evaluate(() => { const a = document.querySelector('[data-acao="mini-menu"]'); return a ? { href: a.getAttribute('href'), oculto: a.hidden } : null; });
+      ok(!!elo && !elo.oculto && /cena=menu/.test(elo.href) && /musica=0/.test(elo.href), `menu ${r}: o painel do disco tem o elo de volta ao menu (${JSON.stringify(elo)})`);
+      ok(s.erros.length === 0, `menu ${r}: sem erros (${JSON.stringify(s.erros).slice(0, 400)})`);
+      await s.fechar();
+    }
+
+    // (3) o link limpo num aparelho com a marca: senha, música e menu, com a bolsa semeada. (4) ?menu=0 apaga a marca.
+    {
+      const s = await abrir({ vp: 'iphone-safari', params: { rapido: 6, menu: 1 } });
+      await s.passarEntrada();
+      await s.esperarEtapa('menu:menu', 40000);
+      await pausa(1500);
+      const h = await hist(s);
+      const e = await s.page.evaluate(() => ({ itens: window.__carta.ctx.inventario.itens.map((i) => i.id), bolsa: !document.getElementById('inventario').hidden, hora: document.documentElement.dataset.hora, url: location.search, entrada: !!document.getElementById('entrada') }));
+      ok(!h.some((p) => !/^(senha|musica|menu):/.test(p)) && h[h.length - 1] === 'menu:menu' && !h.includes('menu:referencias'), `link limpo com a marca: da música direto ao menu (${h.join(' ')})`);
+      ok(e.itens.includes('carta-poppy') && e.itens.includes('carta-yourname') && e.bolsa && e.hora === 'noite' && !e.entrada && !/menu=1/.test(e.url), `link limpo com a marca: a bolsa vem semeada e a noite já está pronta (${JSON.stringify(e)})`);
+      await foto(s, 'menu-link-limpo');
+      await s.page.goto(`${s.endereco.split('?')[0]}?cena=menu&menu=0&rapido=6`, { waitUntil: 'load' });
+      await pronta(s);
+      await s.esperarEtapa('menu:referencias', 20000).then(() => ok(true, '?menu=0: as referências passam de novo'), () => ok(false, '?menu=0: as referências não passaram'));
+      const z = await s.page.evaluate(() => ({ marca: (() => { try { return localStorage.getItem('carta2312:menu'); } catch { return 'erro'; } })(), url: location.search }));
+      ok(z.marca === null && !/menu=0/.test(z.url), `?menu=0 apaga a marca e sai do endereço (${JSON.stringify(z)})`);
+      ok(s.erros.length === 0, `link limpo e ?menu=0: sem erros (${JSON.stringify(s.erros).slice(0, 300)})`);
+      await s.fechar();
+    }
+
+    // (5) a saudade com mensagem, sem número, e sem os dois; os bilhetes ligados
+    for (const [rotulo, remendo, conferir] of [
+      ['com mensagem', "C.menu.saudade.mensagem = 'Oi & saudade';", (d) => /^https:\/\/wa\.me\/\d*\?text=Oi%20%26%20saudade$/.test(d.href || '')],
+      ['sem número, com mensagem', "C.resposta.whatsapp = ''; C.menu.saudade.mensagem = 'Oi';", (d) => d.href === 'https://wa.me/?text=Oi'],
+      ['sem número e sem mensagem', "C.resposta.whatsapp = ''; C.menu.saudade.mensagem = '';", (d) => d.href === null && d.laco === 1],
+    ]) {
+      const s = await abrir({ cena: 'menu', vp: 'iphone-safari', params: { rapido: 6, menu: 1 }, preparar: comConteudo(remendo) });
+      await s.esperarEtapa('menu:menu', 20000);
+      await pausa(1200);
+      const d = await s.page.evaluate(() => ({ href: document.querySelector('[data-acao="menu-saudade"]')?.getAttribute('href') ?? null, laco: document.querySelectorAll('.menu-ponta-laco').length }));
+      ok(conferir(d), `saudade ${rotulo}: ${JSON.stringify(d)}`);
+      if (d.href === null) await foto(s, 'menu-sem-saudade');
+      ok(s.erros.length === 0, `saudade ${rotulo}: sem erros (${JSON.stringify(s.erros).slice(0, 300)})`);
+      await s.fechar();
+    }
+    {
+      const s = await abrir({ cena: 'menu', vp: 'iphone-safari', params: { rapido: 6, menu: 1, hoje: '2026-12-23' }, preparar: comConteudo("C.menu.bilhetes = [{ titulo: 'Abra hoje', texto: 'Texto do bilhete.', abre: '' }, { titulo: 'Abra depois', texto: 'Segredo.', abre: '2027-01-01' }, { titulo: '', texto: 'sem título não entra' }];") });
+      await s.esperarEtapa('menu:menu', 20000);
+      await pausa(1500);
+      await s.acionar('[data-acao="menu-bilhetes"]');
+      await pausa(700);
+      await s.acionar('[data-acao="menu-bilhete"]');
+      await pausa(300);
+      const b = await s.page.evaluate(() => ({
+        objetos: document.querySelectorAll('.menu-chao .menu-coisa').length, itens: document.querySelectorAll('.menu-bilhete-item').length,
+        aberto: document.querySelector('.menu-bilhete-item[data-aberto] .menu-bilhete-texto')?.textContent || '',
+        fechado: document.querySelector('.menu-bilhete-item[data-fechado]')?.textContent || '',
+      }));
+      ok(b.objetos === 4 && b.itens === 2 && b.aberto === 'Texto do bilhete.' && /01\/01\/2027/.test(b.fechado) && !/Segredo/.test(b.fechado), `bilhetes ligados: o que já pode abre, o que tem data espera fechado (${JSON.stringify(b)})`);
+      await foto(s, 'menu-bilhetes');
+      ok(s.erros.length === 0, `bilhetes: sem erros (${JSON.stringify(s.erros).slice(0, 300)})`);
+      await s.fechar();
+    }
+
+    // (10) os quatro tamanhos: sem rolagem lateral, alvos de 44 px ou mais, nada fora da tela nem montado
+    {
+      const s = await abrir({ cena: 'menu', vp: 'iphone-safari', params: { rapido: 6, menu: 1 } });
+      await s.esperarEtapa('menu:menu', 20000);
+      for (const [w, h] of [[428, 746], [428, 926], [375, 667], [1440, 900]]) {
+        await s.page.setViewportSize({ width: w, height: h });
+        await pausa(900);
+        const m = await s.page.evaluate(() => {
+          const caixa = (n) => { const q = n.getBoundingClientRect(); return { x: Math.round(q.left), y: Math.round(q.top), w: Math.round(q.width), h: Math.round(q.height), d: Math.round(q.right), b: Math.round(q.bottom) }; };
+          const alvos = [...document.querySelectorAll('.menu [data-acao], [data-acao="inventario"], [data-acao="mini"]')].filter((n) => n.offsetParent !== null || n.getClientRects().length);
+          const etiquetas = [...document.querySelectorAll('[data-acao="menu-parte"]')].map(caixa);
+          const chao = [...document.querySelectorAll('.menu-coisa')].map(caixa);
+          const ponta = caixa(document.querySelector('.menu-ponta'));
+          const bolsa = caixa(document.querySelector('[data-acao="inventario"]'));
+          const contador = caixa(document.querySelector('.contador-rotulo'));   // (a frase do contador, invisível, ainda ocupa lugar na caixa inteira)
+          return {
+            rola: document.documentElement.scrollWidth > innerWidth || document.querySelector('.menu').scrollWidth > innerWidth,
+            pequenos: alvos.map((n) => ({ a: n.dataset.acao, ...caixa(n) })).filter((c) => c.w < 44 || c.h < 44),
+            fora: [...etiquetas, ...chao, ponta].filter((c) => c.x < 0 || c.y < 0 || c.d > innerWidth || c.b > innerHeight),
+            chaoPequeno: chao.filter((c) => c.w < 88 || c.h < 84),
+            montado: ponta.b > Math.min(...chao.map((c) => c.y)) || Math.max(...chao.map((c) => c.d)) > bolsa.x || etiquetas[0].y < contador.b,
+            frase: !!document.querySelector('.menu-saudade-frase') && getComputedStyle(document.querySelector('.menu-saudade-frase')).display !== 'none',
+            alturaEtiqueta: etiquetas[0].h,
+          };
+        });
+        ok(!m.rola && !m.pequenos.length && !m.fora.length && !m.chaoPequeno.length && !m.montado,
+          `menu em ${w}×${h}: sem rolagem lateral, alvos ≥ 44 px, nada fora da tela nem montado (${JSON.stringify(m).slice(0, 500)})`);
+        if (h < 700) ok(!m.frase, `menu em ${w}×${h}: a frase da saudade sai`);
+        await foto(s, `menu-${w}x${h}`);
+      }
+      ok(s.erros.length === 0, `menu nos quatro tamanhos: sem erros (${JSON.stringify(s.erros).slice(0, 300)})`);
+      await s.fechar();
+    }
+
+    // (11) sem o bloco menu, final:fim continua sendo o fim
+    {
+      const s = await abrir({ cena: 'final', vp: 'iphone-safari', params: { rapido: 8 }, preparar: comConteudo('delete C.menu;') });
+      await percorrer(s, 'final:fim', null, 60000, ATE_FIM.filter((p) => p.startsWith('final:')));
+      await pausa(3500);
+      const f = await s.page.evaluate(() => ({
+        etapa: `${window.__carta.cena}:${window.__carta.etapa}`, pilula: document.querySelectorAll('[data-acao="menu-ir"]').length,
+        reabrir: document.querySelector('[data-acao="resposta-abrir"]')?.textContent.trim() || '', elo: document.querySelectorAll('[data-acao="mini-menu"]').length,
+      }));
+      ok(f.etapa === 'final:fim' && f.pilula === 0 && f.elo === 0 && (!CONTEUDO.resposta || f.reabrir.length > 0), `sem o bloco menu: final:fim continua sendo o fim, com o botão de sempre (${JSON.stringify(f)})`);
+      ok(s.erros.length === 0, `sem o bloco menu: sem erros (${JSON.stringify(s.erros).slice(0, 300)})`);
+      await s.fechar();
+    }
   },
 };
 
