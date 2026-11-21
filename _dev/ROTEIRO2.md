@@ -15,11 +15,12 @@ mao       olha → mao-espera → correndo
 cartas    pousando → escolhendo ⇄ assistindo → seguindo
 encontro  chegando → planos → maos → carta
 final     carta-chegando → carta-espera → carta-abrindo → desdobrando → escrevendo → contador → resposta → fim
+menu      referencias → menu
 ```
 
-(`contador` só existe com `contador.nascimento`; `resposta` só com a seção `resposta` no content.js. Ver a seção 8.)
+(`contador` só existe com `contador.nascimento`; `resposta` só com a seção `resposta` no content.js. Ver a seção 8. A cena `menu` só existe com o bloco `menu` do content.js, e `referencias` só enquanto o aparelho não tem a marca do menu. Ver a seção 9.)
 
-`ORDEM = ['senha', 'musica', 'inicio', 'poppy', 'carta2', 'yourname', 'mao', 'cartas', 'encontro', 'final']` (js/nucleo/diretor.js).
+`ORDEM = ['senha', 'musica', 'inicio', 'poppy', 'carta2', 'yourname', 'mao', 'cartas', 'encontro', 'final', 'menu']` (js/nucleo/diretor.js).
 
 O que mudou em relação à ordem antiga:
 
@@ -213,10 +214,10 @@ Vídeos em `assets/videos/` (a pasta ainda não existe; o autor cria ao pôr o p
 ## 6. Como testar
 
 ```
-node _dev/ver.mjs --fluxo --vp iphone --rapido 6            a carta inteira, da senha a final:fim (digita a senha)
+node _dev/ver.mjs --fluxo --vp iphone --rapido 6            a carta inteira, da senha a menu:menu (digita a senha)
 node _dev/ver.mjs --fluxo --vp iphone,desktop --rapido 6 --fotos
 node _dev/ver.mjs --fluxo --vp iphone --rapido 6 --params "webgl=0"     (e "reduzido=1", e --motor webkit)
-node _dev/ver.mjs --cena senha|musica|inicio|poppy|carta2|yourname|mao|cartas|encontro|final --vp iphone --rapido 6 --fotos
+node _dev/ver.mjs --cena senha|musica|inicio|poppy|carta2|yourname|mao|cartas|encontro|final|menu --vp iphone --rapido 6 --fotos
 node _dev/ver.mjs --cena cartas --vp iphone --videos output/segredos-teste [--videos-falho]
 node _dev/robustez.mjs [caso…]
 ```
@@ -300,3 +301,47 @@ ctx.voz = criarVoz(ctx) → { liberar(), abrir() → Promise, fechar(), aberto, 
 
 - `_dev/ver.mjs --fluxo` passa por `final:contador` e `final:resposta` (escreve, confere letra ≥ 16 px, o localStorage e o link do WhatsApp, toca em Guardar). lib.mjs: `temContador`, `temResposta`, `etapasDoFinal`.
 - Apoio em `output/fim/` (ignorado pelo git): `confere.mjs [vp] [motor]` (contador em 23 e 24/12/2026, teclado simulado, recarga, WhatsApp, estado final, voz com três áudios de teste, baixar), `anda.mjs [vp] [mao|tudo]` (um quadro por segundo em velocidade real, com a hora), `voz-ver.mjs`, `voz-fim.mjs`, `ceu-foto.mjs`, `ceu-passagem.mjs`, `quadros.mjs` + `folha.jpg` (folha de contato).
+
+## 9. O menu do fim: `js/cenas/menu.js`, `css/menu.css` (+ diretor, util, resposta, final, folha, musica)
+
+O pedido do autor: depois do fim ela vai para um menu de onde volta a cada parte, vê as referências, tem o botão "sempre que sentir saudade" e baixa os áudios. A proposta escolhida foi "o varal do fio". O resumo da API está em `_dev/API.md` (bloco MENU DO FIM); aqui fica o contrato.
+
+### A cena e as etapas
+
+- `menu` vem depois de `final` e nunca resolve. Etapas: `referencias → menu`. Só existe com o bloco `menu` do content.js (`temMenu`); sem ele nada muda no site.
+- `menu:referencias` (só na primeira chegada): os cartões passam amarrados no fio; o disco, a bolsa e o contador saem de cena. `menu:menu`: o menu assentado; a bolsa abre (`BOLSA_LIVRE`).
+- A marca: `localStorage['carta2312:menu']` (`menuLembrado` / `lembrarMenu`, js/nucleo/util.js), gravada quando o menu assenta. Com a marca: o menu abre sem referências, a pílula de `final:fim` diz "Voltar ao menu", o painel do disco ganha o elo de volta e o link limpo faz senha → música → menu.
+
+### Parâmetros
+
+| Parâmetro | O que faz |
+|---|---|
+| `?cena=menu` | entra direto no menu (sem a marca, as referências passam) |
+| `?menu=0` | esquece a marca neste aparelho (para o autor testar); vale uma vez e sai do endereço |
+| `?menu=1` | grava a marca (para os testes); idem |
+| `?volta=1` | interno: as etiquetas do menu põem no endereço; pede o portão do som antes de a cena começar |
+
+### Do fim ao menu
+
+- `final:fim` com `temMenu`: a pena sozinha à esquerda (`[data-acao="resposta-abrir"]`, `.ui-redondo`), a pílula `[data-acao="menu-ir"]` no meio e a bolsa à direita. `cenaFinal` resolve no toque da pílula (`depois.seguir`) e o diretor entra em `menu`.
+- A folha da frase vai embora pelo alto (`folha.irEmbora()`), ele sai, e as referências (ou as etiquetas) chegam. No movimento reduzido nada sobe: a noite do menu cobre e abre.
+
+### De volta a uma parte, e de volta ao menu
+
+- As etiquetas de `inicio`, `mao`, `cartas`, `encontro` e `final` são links de verdade: `?cena=<cena>&musica=<faixa>&volta=1` (`enderecoDaCena`). A página recarrega; o portão (`html[data-portao]`, `[data-acao="portao"]`) pede o toque que devolve o som; a cena começa fria.
+- As de `poppy` e `yourname` reabrem a carta ali mesmo (`inventario.reabrir`), sem mudar cena nem etapa.
+- De volta ao menu: a viagem termina em `final:fim` ("Voltar ao menu"); o elo `[data-acao="mini-menu"]` no painel do disco; a pílula `[data-acao="portao-voltar"]`; recarregar no menu (`RETOMAR`).
+
+### Ganchos `data-acao`
+
+`menu-ir`, `menu-pular`, `menu-parte` (+ `data-cena`), `menu-saudade`, `menu-voz`, `menu-referencias`, `menu-escrever`, `menu-bilhetes`, `menu-bilhete`, `menu-fechar`, `portao`, `portao-voltar`, `mini-menu`.
+
+### Os bilhetes "abra quando..."
+
+`menu.bilhetes: [{ titulo, texto, abre }]` (`abre`: `''` ou `'AAAA-MM-DD'`). Lista vazia (como está): o quarto objeto do chão não existe. Com bilhetes: `[data-acao="menu-bilhetes"]` abre uma folha no molde da das referências; o que tem data no futuro aparece fechado, só com o título e o dia.
+
+### Testes
+
+- `_dev/ver.mjs`: a cena `menu` (`referencias`, `menu`); no `--fluxo`, em `final:fim` o teste toca em `[data-acao="menu-ir"]` e as referências passam sozinhas. Fotos de `menu:referencias` e `menu:menu`.
+- `_dev/robustez.mjs`: `ESPERADO` termina em `menu:referencias`, `menu:menu` (o caso `spam` vai até lá; os que param em `final:fim` comparam com `ATE_FIM`). Caso novo `menu` (lista em `_dev/API.md`).
+- As etiquetas balançam o tempo todo: num teste, toque nelas com `{ force: true }` (o Playwright esperaria para sempre elas pararem).
