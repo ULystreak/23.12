@@ -1644,7 +1644,7 @@ export async function cenaMao(ctx, { frio } = {}) {
     // Quem navega pelo teclado não fica perdido no body: o foco vai para a ação da etapa.
     // (Só sem toque: no celular o anel de foco apareceria sobre o botão sem ninguém ter usado teclado.)
     if (!amb.toque && (!document.activeElement || document.activeElement === document.body)) {
-      try { botao.focus({ preventScroll: true }); } catch { /* sem foco programático */ }
+      botao.focus({ preventScroll: true });
     }
     await new Promise((ok) => botao.addEventListener('click', ok, { once: true }));
 
