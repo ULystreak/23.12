@@ -7,7 +7,8 @@
 //   musica.mostrarMini() / musica.esconderMini()
 //
 // Ganchos para os testes (não mudar): [data-acao="faixa"] (o primeiro do DOM é a capa
-// do centro ao abrir), [data-acao="continuar"], [data-acao="mini"], [data-acao="mini-alternar"].
+// do centro ao abrir), [data-acao="continuar"], [data-acao="mini"], [data-acao="mini-alternar"],
+// [data-acao="mini-menu"] (o elo "Voltar ao menu" no pé do painel, só depois que ela já chegou ao menu do fim).
 //
 // NA TELA PRETA. Uma capa grande por vez, com o disco espiando de dentro dela. Ela
 // passa para o lado com o dedo: o trilho segue o dedo e, ao soltar, encaixa na capa
@@ -24,7 +25,8 @@
 // volume (uma conta num fio). Muda de pele com a cena e se recolhe enquanto ela
 // rola um capítulo, para nunca ficar em cima do que ela está lendo.
 
-import { el, svg, espera, quadro, semente, clamp, debounce } from './nucleo/util.js';
+import { el, svg, espera, quadro, semente, clamp, debounce, menuLembrado, enderecoDaCena } from './nucleo/util.js';
+import { temMenu } from './nucleo/diretor.js';
 import { curvas, revelarPalavras } from './nucleo/movimento.js';
 
 // ---- desenhos (SVG; nada de glifo fazendo papel de ícone) -------------------------------
@@ -933,7 +935,20 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
       som.volume(p * p);
     });
 
-    const painel = el('div', { class: 'mini-painel', id: 'mini-painel', role: 'group', 'aria-label': rotulos.abrir || '' }, [agora, lista, volume]);
+    // O atalho para o menu do fim: um elo de texto no pé do painel, só depois que ela já
+    // chegou lá uma vez (a marca no aparelho). Um link de verdade: a página recarrega no menu.
+    const nomeMenu = temMenu(conteudo) ? String((conteudo.menu.rotulos && conteudo.menu.rotulos.voltar) || 'Voltar ao menu').trim() : '';
+    const eloMenu = nomeMenu
+      ? el('a', { class: 'mini-menu', href: enderecoDaCena('menu', {}, som), hidden: !menuLembrado(), dataset: { acao: 'mini-menu' } }, el('span', { texto: nomeMenu }))
+      : null;
+    const acertarElo = () => {
+      if (!eloMenu) return;
+      eloMenu.hidden = !menuLembrado();
+      eloMenu.href = enderecoDaCena('menu', {}, som);        // com a faixa de agora
+    };
+    if (eloMenu) eloMenu.addEventListener('click', acertarElo);
+
+    const painel = el('div', { class: 'mini-painel', id: 'mini-painel', role: 'group', 'aria-label': rotulos.abrir || '' }, [agora, lista, volume, eloMenu]);
     mini.append(botao, painel);
     mini.dataset.pele = 'papel';
 
@@ -946,6 +961,7 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
       aberto = sim;
       mini.toggleAttribute('data-aberto', sim);
       botao.setAttribute('aria-expanded', String(sim));
+      if (sim) acertarElo();
       if (sim) recolher(false);
       else assentar();
     };

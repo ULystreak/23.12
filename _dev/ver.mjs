@@ -4,7 +4,7 @@
 // console, pedido que falhou ou etapa que não chegou.
 //
 //   node _dev/ver.mjs --cena poppy --vp celular,desktop --motor chromium,webkit --rapido 6 --ate lendo --fotos
-//   node _dev/ver.mjs --fluxo --rapido 6 --fotos            (da senha até a frase final)
+//   node _dev/ver.mjs --fluxo --rapido 6 --fotos            (da senha até o menu do fim)
 //   node _dev/ver.mjs --cena inicio --video                 (grava em output/video/)
 //   node _dev/ver.mjs --cena final --params "webgl=0"       (parâmetros extras do endereço)
 //   node _dev/ver.mjs --cena inicio --quadros               (mede os quadros na última etapa)
@@ -17,7 +17,8 @@
 //   --ate etapa     para nesta etapa (padrão: a última da cena)
 //   --fotos         salva output/ver/<cena>-<vp>-<motor>-<etapa>.png a cada etapa
 //                   (no --fluxo: fluxo-<cena>-...; com --params: ...-<etapa>-<chave><valor>.png)
-//   --fluxo         roda a carta inteira, de senha:senha até final:fim
+//   --fluxo         roda a carta inteira, de senha:senha até menu:menu (sem o bloco menu no
+//                   content.js, até final:fim)
 //   --video         grava output/video/<cena>-<vp>-<motor>.webm
 //   --params "a=1&b=2"   parâmetros extras (webgl=0, reduzido=1, nivel=baixo, mudo=1)
 //   --quadros       mede os quadros por 2 s na última etapa
@@ -35,8 +36,12 @@
 // etapa mudar, se faltar item na bolsa ou se o botão de seguir não ganhar destaque.
 // A cena "encontro" só existe com algum quadro em encontro.quadros; ela anda sozinha
 // (chegando → planos → maos → carta), sem toque nenhum.
+// O menu do fim (a cena "menu", só com o bloco menu no content.js): em final:fim o --fluxo
+// toca na pílula "Continuar" ([data-acao="menu-ir"]); as referências passam sozinhas
+// (menu:referencias) e o menu assenta (menu:menu). "--cena menu" entra por ?cena=menu num
+// aparelho sem a marca: as referências passam também (cada execução nasce sem a marca).
 
-import { abrir, lerConteudo, senhaDoConteudo, temCartas, temEncontro, etapasDoFinal, videosDeTeste, injetarVideos, ERRO_ESPERADO } from './lib.mjs';
+import { abrir, lerConteudo, senhaDoConteudo, temCartas, temEncontro, temMenu, etapasDoFinal, videosDeTeste, injetarVideos, ERRO_ESPERADO } from './lib.mjs';
 
 const ROTEIRO = {
   senha: ['senha', 'senha-certa'],
@@ -50,6 +55,8 @@ const ROTEIRO = {
   encontro: ['chegando', 'planos', 'maos', 'carta'],
   // (contador e resposta só existem com as seções contador e resposta do content.js)
   final: etapasDoFinal(),
+  // (só existe com o bloco menu do content.js; referencias só sem a marca no aparelho)
+  menu: ['referencias', 'menu'],
 };
 const TODAS = Object.keys(ROTEIRO);
 
@@ -62,9 +69,10 @@ const ASSENTAR = {
   contador: 7000, resposta: 1800,
   escolhendo: 1500, chegando: 900, planos: 2600, maos: 2600, carta: 1500,
   senha: 900, 'senha-certa': 500, entrando: 900, guardando: 900, correndo: 2600, pousando: 900, seguindo: 500,
+  referencias: 9000, menu: 3200,
 };
 // Etapas em que a carta fica parada esperando: aqui o tempo de assentar é real (não acelera).
-const PARADAS = new Set(['senha', 'carta-espera', 'musica', 'lendo', 'mao-espera', 'fim', 'escolhendo', 'resposta']);
+const PARADAS = new Set(['senha', 'carta-espera', 'musica', 'lendo', 'mao-espera', 'fim', 'escolhendo', 'resposta', 'menu']);
 
 function lerArgumentos(argv) {
   const opcoes = {
@@ -222,6 +230,9 @@ async function agir(s, cena, etapa, extra = {}) {
     await verCartas(s, extra);
   } else if (etapa === 'resposta') {
     await escreverDeVolta(s, extra);
+  } else if (cena === 'final' && etapa === 'fim') {
+    // O fim já não é o fim: a pílula "Continuar" leva ao menu.
+    await s.acionar('[data-acao="menu-ir"]');
   }
 }
 
@@ -299,7 +310,7 @@ async function principal() {
 
   const conteudo = lerConteudo(opcoes.videos ? videosDeTeste(opcoes.videos, { falho: opcoes.videosFalho }) : null);
   const ORDEM = TODAS.filter((c) => (c !== 'senha' || senhaDoConteudo(conteudo)) && (c !== 'cartas' || temCartas(conteudo))
-    && (c !== 'encontro' || temEncontro(conteudo)));
+    && (c !== 'encontro' || temEncontro(conteudo)) && (c !== 'menu' || temMenu(conteudo)));
   const execucoes = [];
   if (opcoes.fluxo) {
     execucoes.push({ cenas: ORDEM, rotulo: 'fluxo' });
@@ -307,6 +318,7 @@ async function principal() {
     for (const cena of opcoes.cena || ORDEM) {
       if (cena === 'cartas' && !temCartas(conteudo)) throw new Error('a cena cartas não existe sem cartas em cartasChao (js/content.js)');
       if (cena === 'encontro' && !temEncontro(conteudo)) throw new Error('a cena encontro não existe sem quadros em encontro.quadros (js/content.js)');
+      if (cena === 'menu' && !temMenu(conteudo)) throw new Error('a cena menu não existe sem o bloco menu (js/content.js)');
       if (!ROTEIRO[cena]) throw new Error(`cena desconhecida: ${cena}`);
       execucoes.push({ cenas: [cena], rotulo: cena });
     }

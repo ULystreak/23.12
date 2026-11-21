@@ -60,6 +60,7 @@ const ROTEIRO = {
   'encontro:maos': { hora: 'noite', s: 6 },
   'encontro:carta': { hora: 'noite', s: 3 },
   final: { hora: 'noite', s: 3 },
+  menu: { hora: 'noite', s: 3 },                   // o menu do fim mora na mesma noite
 };
 
 const posicaoDe = (alvo) => {

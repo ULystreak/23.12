@@ -4,7 +4,7 @@ Este arquivo é só para você (não aparece no site). Tudo o que ela lê, ouve 
 
 ## 1. Editar os textos (`js/content.js`)
 
-Abra o arquivo num editor de texto simples (Bloco de Notas, VS Code, o próprio editor do GitHub). Ele é dividido em partes, na ordem em que ela vê: página, senha, abertura, música, capítulo 1 (o jogo), capítulo 2 (o filme), o bolso e a bolsa, a sua voz (os áudios), a mão, a corrida, as cartas do chão (os vídeos), o encontro, o final, o contador e a folha em que ela escreve de volta. Cada parte tem um comentário em cima explicando o que é.
+Abra o arquivo num editor de texto simples (Bloco de Notas, VS Code, o próprio editor do GitHub). Ele é dividido em partes, na ordem em que ela vê: página, senha, abertura, música, capítulo 1 (o jogo), capítulo 2 (o filme), o bolso e a bolsa, a sua voz (os áudios), a mão, a corrida, as cartas do chão (os vídeos), o encontro, o final, o contador, a folha em que ela escreve de volta e o menu do fim. Cada parte tem um comentário em cima explicando o que é.
 
 Regras para não quebrar nada:
 
@@ -18,6 +18,26 @@ Regras para não quebrar nada:
 Se depois de salvar a página ficar toda branca e parada, quase sempre é uma vírgula ou aspa faltando perto do que você mexeu por último.
 
 Nos capítulos, os textos ficam numa lista chamada `blocos`. Você pode trocar a ordem, apagar ou repetir blocos (cada bloco vai de `{` até `},`). Os tipos possíveis estão explicados no comentário de cada capítulo.
+
+### Os textos dos capítulos sem abrir o `content.js` (`colocar-textos.bat`)
+
+Os parágrafos do capítulo do jogo e do capítulo do filme podem ser escritos em arquivos de texto simples, na pasta `textos/` do projeto:
+
+- `textos/poppy.txt`: o capítulo do jogo.
+- `textos/your name.txt`: o capítulo do filme.
+
+Como escrever:
+
+- **Um parágrafo por linha.** Se preferir quebrar a linha no meio do parágrafo, separe os parágrafos com uma **linha em branco** (aí as quebras simples viram espaço).
+- Escreva normalmente, com acento, aspas e apóstrofo; não precisa de `\'` nem de colchetes.
+- Para trocar o título e a frase de baixo do capítulo, comece o arquivo com `Título: ...` e, na linha seguinte, `Subtítulo: ...` (as duas são opcionais).
+- Linha que começa com `#` é anotação sua e não entra no site.
+
+Depois dê **dois cliques em `colocar-textos.bat`**. Ele põe os parágrafos, na ordem, nos blocos de texto do capítulo, sem mexer nas cenas, nas imagens nem em mais nada. Se você escreveu mais parágrafos do que há blocos de texto, os que sobram viram blocos novos logo depois do último texto; se escreveu menos, os blocos de texto que sobram saem. Se alguma coisa der errado, ele avisa e deixa o `content.js` como estava. No fim, se o `content.js` estiver diferente do que está no site, ele pergunta se publica.
+
+**Escreva o capítulo inteiro antes de rodar.** Um bloco de texto que saiu não volta para o lugar de antes: se você testar com uma linha só e depois escrever o resto, os parágrafos novos entram todos juntos, logo depois do último texto, e não mais entre as cenas e as imagens. Para pôr um bloco de volta no lugar, mova-o no `content.js` (cada bloco vai de `{` até `},`).
+
+Arquivo vazio = aquele capítulo fica como está. Pode rodar quantas vezes quiser: vale sempre o que está no `.txt`. A pasta `textos/` fica só no seu computador (não vai para o GitHub nem para o site).
 
 ## 2. A senha
 
@@ -65,6 +85,7 @@ Todas ficam em `assets/images/`. Prefira `.webp`, até ~350 KB e no máximo 1600
 | `yourname-ceu.mp4` | em pé, mudo, até 2,5 MB | `yourname.video` | falta (opcional) |
 | `yourname-escadaria.webp` | 16:9 | bloco `imagem` do capítulo 2 | falta |
 | `yourname-cordao.webp` | faixa larga, fundo transparente | bloco `cordao` (campo `arquivo`) | falta |
+| `poppy-logo.webp` | largo, fundo transparente (480×270) | `poppy.logo` | já está |
 | `poppy-fundo.webp` | em pé 9:16 | `poppy.fundo` | falta |
 | `poppy-1.webp` e `poppy-2.webp` | 16:9 | blocos `imagem` do capítulo 1 | faltam |
 | `mao-akai-ito.webp` | em pé, fundo transparente | `mao.imagem` | falta |
@@ -74,6 +95,8 @@ Todas ficam em `assets/images/`. Prefira `.webp`, até ~350 KB e no máximo 1600
 Atenção: a capa, o encontro e o par que estão lá agora são quadros do filme (com os personagens). O ideal é trocar por fotos de vocês ou por céus e lugares parecidos; a `capa` também pode ficar `''` (o capítulo abre só com o título e o céu).
 
 Os textos para gerar as que faltam estão em `_dev/prompts-imagens.md`. Sem elas, o site desenha a sua própria versão de cada cena.
+
+O **logo do jogo** (`poppy.logo`) fica no alto do capítulo 1, acima do título em blocos, e entra como um adesivo colado na tela. `poppy.logoAlt` é o que o leitor de tela diz no lugar dele. Para tirar, deixe `logo: ''`. Se trocar por outra imagem, use fundo transparente e pelo menos 480 px de largura (o site mostra o logo com até 240 px no celular e 320 px no computador).
 
 Dois ajustes quando trocar imagens:
 
@@ -102,7 +125,9 @@ As versões menores (`encontro-1-ela-ve.webp` e `encontro-3-ela-mao.webp`) ficar
 
 ## 6. Vídeos dos amigos (as cartas do chão)
 
-Depois de "Olha a sua mão." ela corre pelo fio até você, e perto de você há cartas no chão: Sariel, Ana, Mirai, Alpha, Pocoyoh, Nup e, por último, a Surpresinha. No chão elas não têm nome. Ela toca numa, o vídeo toca (com som; a música para e depois volta), e só quando ela fecha o nome de quem gravou aparece escrito na carta. Cada carta aberta vai para a bolsa, no canto de baixo. Depois da primeira carta aberta aparece o botão "Seguir em frente".
+Depois de "Olha a sua mão." ela corre pelo fio até você, e perto de você há cartas no chão: Sariel, Ana, Mirai, Alpha, Pocoyoh, Nup e, por último, a **"Nossos momentos"**. As dos amigos não têm nome no chão. Ela toca numa, o vídeo toca (com som; a música para e depois volta), e só quando ela fecha o nome de quem gravou aparece escrito na carta. Cada carta aberta vai para a bolsa, no canto de baixo. Depois da primeira carta aberta aparece o botão "Seguir em frente".
+
+A "Nossos momentos" é diferente: é maior e já cai com o nome escrito à mão, que fica na carta o tempo todo (antes e depois de aberta). Mas a regra é a mesma de antes: ela só abre depois que todas as outras foram vistas. Até lá fica amarrada com um laço do fio; se ela tocar antes da hora, a carta dá um pulinho e não abre. Quando a última carta de amigo é fechada, o laço se desfaz.
 
 **Carta que ainda não tem vídeo aparece do mesmo jeito** e abre um cartão escrito "[vídeo de Sariel vem aqui]", para você ver tudo funcionando antes de os vídeos chegarem.
 
@@ -120,7 +145,7 @@ Para pôr um vídeo:
 - `capa`: uma imagem opcional que aparece enquanto o vídeo carrega (pode ficar `''`).
 - Para tirar uma carta, apague a linha dela. Para ter mais uma, copie uma linha inteira, com a vírgula.
 
-A **Surpresinha** fica logo abaixo, em `surpresinha`: é uma sequência de fotos e vídeos de vocês que ela passa para o lado. Cada linha de `midias` é uma foto ou um vídeo:
+A **"Nossos momentos"** fica logo abaixo, no bloco `surpresinha` (ela se chamava Surpresinha; o bloco continua com esse nome por dentro, não troque). O nome que aparece escrito na carta e na bolsa é o campo `nome` desse bloco; funciona melhor curto, com duas ou três palavras. Dentro da carta vai uma sequência de fotos e vídeos de vocês, que ela passa para o lado; depois deles (ou no lugar deles, enquanto a lista estiver vazia) abrem os seus áudios, da parte `voz`. Cada linha de `midias` é uma foto ou um vídeo:
 
 ```js
 midias: [
@@ -147,7 +172,7 @@ ffmpeg -i original.mov -vf "scale=w=1280:h=1280:force_original_aspect_ratio=decr
 
 Se um vídeo não carregar (nome do arquivo errado, por exemplo), a carta mostra só o nome e conta como vista: nada trava. Depois de pôr os vídeos, teste com `?cena=cartas` no endereço, no iPhone, com som.
 
-Os outros textos desta parte também estão em `cartasChao`: `frase` (aparece quando as cartas caem), `seguir` (o botão "Seguir em frente"), `vazio` (o cartão de exemplo; `{nome}` vira o nome da pessoa) e `vazioSurpresinha`.
+Os outros textos desta parte também estão em `cartasChao`: `frase` (aparece quando as cartas caem), `seguir` (o botão "Seguir em frente"), `vazio` (o cartão de exemplo; `{nome}` vira o nome da pessoa) e `vazioSurpresinha` (o cartão de exemplo da "Nossos momentos"; o campo também guarda o nome antigo).
 
 ## 7. O fim: a carta na sua mão, o contador, a resposta dela e a sua voz
 
@@ -176,7 +201,7 @@ Depois do contador sobe uma folha em branco e ela escreve o que quiser. O texto 
 - Os botões e avisos estão em `rotulos`, `guardado`, `vazio` e `enviando`.
 - Para tirar a folha, apague o bloco `resposta` inteiro.
 
-No fim de tudo fica a noite, a folha com a frase, o contador pequeno no alto, a música, a bolsa e o botão "Escrever de volta", que abre a folha dela de novo.
+No fim da carta fica a noite, a folha com a frase, o contador pequeno no alto, a música, a bolsa, a pena (que abre a folha dela de novo) e, no meio, o botão **"Continuar"**, que leva ao menu do fim (seção 8). Sem o bloco `menu` no `content.js`, o botão não existe e o fim é este mesmo, com o botão "Escrever de volta".
 
 ### A sua voz (parte `voz`)
 
@@ -199,7 +224,54 @@ Para pôr os três áudios:
 
 No iPhone, o botão de baixar faz o Safari perguntar "Deseja baixar?" e o áudio vai para o app Arquivos, pasta Downloads. Teste com `?cena=final&voz=abrir`, no iPhone, com som.
 
-## 8. Ver uma parte só
+## 8. O menu do fim (parte `menu`)
+
+Depois da última carta ela toca em **"Continuar"** e chega ao menu: é o lugar para onde ela volta. O fio vermelho desce do alto e cada parte da carta é uma etiqueta de papel amarrada nele. Na ponta do fio fica o botão vermelho **"Sempre que sentir saudade"**. No chão ficam a fita com a sua voz, o caderninho das referências, a folha com a pena (ela escreve de volta) e a bolsa.
+
+**Na primeira vez**, antes de o menu aparecer, as referências passam amarradas no fio, como os créditos de um filme: o seu bilhete de abertura, um cartão por referência, as músicas, os amigos das cartas do chão e o seu bilhete de fecho. Dá para pular com um toque em qualquer lugar. Das outras vezes o menu abre direto, e as referências ficam guardadas no caderninho do chão.
+
+**O celular dela lembra** que ela já chegou ao menu. Daí em diante o link do site (o endereço limpo) faz só senha, música e menu; e o painel da música (o disco no canto) ganha a linha "Voltar ao menu", para ela voltar de qualquer parte.
+
+O que cada etiqueta faz:
+
+- **"A carta do jogo"** e **"A carta do filme"** abrem a carta ali mesmo, por cima do menu (a música não para).
+- As outras recarregam a página naquela parte. Como a página recarregou, o celular só deixa o som voltar com um toque: por isso aparece o nome da parte, grande, com "Toque para começar". Ela toca e a parte começa com a mesma música. Dali ela segue a viagem até o fim de novo, onde o botão passa a dizer "Voltar ao menu".
+
+O que você edita no bloco `menu` do `js/content.js`:
+
+- `partes`: o nome de cada etiqueta. Deixe `''` numa delas para ela não aparecer.
+- `saudade`: `rotulo` é o texto do botão vermelho; `frase` é a **sua** frase embaixo dele (hoje é um exemplo entre colchetes; `''` = sem frase); `mensagem` é um texto que já vem escrito na conversa (opcional). O botão abre o WhatsApp dela na conversa com você, pelo número de `resposta.whatsapp`. **Nada é enviado sozinho**: é ela que escreve e envia. Sem número e sem mensagem, o botão não aparece (o fio termina num lacinho).
+- `abertura` e `fecho`: os seus dois bilhetes, o que abre e o que fecha a fila das referências (hoje são exemplos entre colchetes; `''` = sem aquele bilhete).
+- `referencias`: a lista. Cada uma tem `titulo`, `de` (de onde vem), `sobre` (o que é), `dele` (a **sua** fala sobre ela, hoje entre colchetes) e `icone` (`'laco'`, `'cometa'`, `'fita'`, `'disco'` ou `''`). **Para pôr mais uma** (as que você ainda vai mandar), copie um bloco inteiro, de `{` até `},`, cole embaixo do último e troque os textos.
+- `musicas`: o título do cartão das músicas e a sua fala (`dele`). Os nomes e os artistas saem sozinhos da parte `musica` (a letra nunca aparece).
+- `amigos`: o título do cartão com os nomes dos amigos; os nomes saem sozinhos das cartas do chão.
+- `rotulos`: os textos dos botões ("Continuar", "Voltar ao menu", "As referências", "Toque para começar"…).
+- Os áudios para ela ouvir e **baixar** continuam na parte `voz` (seção 7): no menu, a fita do chão abre o mesmo cartão.
+
+### Os bilhetes "abra quando..." (desligados por enquanto)
+
+No mesmo bloco há a lista `bilhetes`, vazia. Enquanto estiver vazia, nada aparece. Quando você escrever o primeiro, aparece no chão do menu um montinho de bilhetes amarrado com o fio; ela toca e escolhe qual abrir.
+
+```js
+bilhetes: [
+  { titulo: 'Abra quando sentir saudade', texto: 'O que ela vai ler.', abre: '' },
+  { titulo: 'Abra no nosso aniversário', texto: 'O que ela vai ler.', abre: '2027-12-23' },
+],
+```
+
+- `titulo`: o que vai escrito por fora. `texto`: o que ela lê ao abrir (use `\n` para pular linha).
+- `abre`: `''` = pode abrir quando quiser. Uma data `'ano-mês-dia'` = só abre a partir desse dia; antes disso o bilhete aparece fechado, com "Abre em 23/12/2027", e o texto não é mostrado.
+- No arquivo já há duas linhas de exemplo com `//` na frente: tire as duas barras e troque os textos.
+- **Atenção:** o site é público. Quem abrir o arquivo `content.js` consegue ler o texto de um bilhete mesmo antes da data. A data só segura a surpresa dentro do site.
+
+### Para testar o menu
+
+- `?cena=menu` abre direto nele. Num aparelho que nunca chegou ao menu, as referências passam primeiro.
+- **Para esquecer a marca** (ver as referências passarem de novo, e o link limpo voltar a começar do começo): abra uma vez com `?menu=0` no fim do endereço, por exemplo `?cena=menu&menu=0`. A marca fica só no aparelho de quem abriu: os seus testes não mudam nada no celular dela.
+- `?cena=final` mostra o fim da carta com o botão "Continuar".
+- Para tirar o menu do site, apague o bloco `menu` inteiro: a carta volta a terminar na última folha.
+
+## 9. Ver uma parte só
 
 Sem nada no endereço, o site abre na tela preta da senha (o número está em `js/content.js`, na parte `senha`). Coloque um destes finais no endereço para pular direto para uma parte, sem senha:
 
@@ -212,19 +284,21 @@ Sem nada no endereço, o site abre na tela preta da senha (o número está em `j
 | `?cena=carta2` | a segunda carta |
 | `?cena=yourname` | capítulo 2, o filme, e a carta indo para o bolso |
 | `?cena=mao` | "Olha a sua mão.", o fio e a corrida até você |
-| `?cena=cartas` | as cartas no chão (os vídeos dos amigos e a Surpresinha) |
+| `?cena=cartas` | as cartas no chão (os vídeos dos amigos e a "Nossos momentos") |
 | `?cena=encontro` | as imagens do encontro, o fio entre os dedinhos e o clarão (só se houver imagens em `encontro.quadros`) |
 | `?cena=final` | você entregando a última carta, a frase escrita à mão, o contador, a folha de resposta e o fim |
 | `?cena=final&voz=abrir` | o fim, já com o cartão dos seus áudios aberto |
 | `?cena=final&hoje=2026-12-23` | o fim como ela vai ver no dia 23/12 (o contador finge essa data) |
+| `?cena=menu` | o menu do fim (na primeira vez, com as referências passando) |
+| `?cena=menu&menu=0` | o menu, esquecendo que este aparelho já chegou a ele (as referências passam de novo) |
 
 Para testar mais rápido, junte `&rapido=4` (tudo anda 4 vezes mais rápido). Para ver a versão leve (celular fraco), junte `&webgl=0`. Para ver a versão calma (movimento reduzido), `&reduzido=1`.
 
 O link que você manda para ela é o endereço **sem** nada no final.
 
-Conforme ela avança, o endereço ganha sozinho um `?cena=…` (da primeira carta em diante). É de propósito: se a página recarregar no meio (o iPhone às vezes recarrega quando ela volta do WhatsApp), ela continua do começo da parte em que estava, com a mesma música, e não da senha. Para você ver do zero no seu celular, abra de novo o link limpo.
+Conforme ela avança, o endereço ganha sozinho um `?cena=…` (da primeira carta em diante). É de propósito: se a página recarregar no meio (o iPhone às vezes recarrega quando ela volta do WhatsApp), ela continua do começo da parte em que estava, com a mesma música, e não da senha. Para você ver do zero no seu celular, abra de novo o link limpo. (Se o seu celular já chegou ao menu do fim, o link limpo vai da música direto para o menu: para voltar a ver tudo do começo, abra uma vez com `?menu=0` no fim do endereço, ou toque na etiqueta "Ver tudo do começo".)
 
-## 9. Testar no seu computador
+## 10. Testar no seu computador
 
 A carta precisa de um servidor (abrir o `index.html` com dois cliques não funciona). Qualquer servidor estático serve. O mais simples, com o Node instalado, na pasta do projeto:
 
@@ -234,7 +308,7 @@ npx serve
 
 Depois abra o endereço que ele mostrar (algo como `http://localhost:3000`). Para ver no celular, abra no navegador do celular o endereço de rede que o `serve` também mostra (os dois aparelhos no mesmo Wi-Fi).
 
-## 10. Publicar
+## 11. Publicar
 
 O site publica sozinho pelo **GitHub Pages**: tudo o que você enviar para o ramo **`main`** do repositório `ULystreak/23.12` vai ao ar em um ou dois minutos em:
 

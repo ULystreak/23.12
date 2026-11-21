@@ -26,7 +26,7 @@
      ?cena=carta2     a segunda carta
      ?cena=yourname   o capítulo do filme e a carta indo para o bolso
      ?cena=mao        "Olha a sua mão.", o fio e a corrida até você
-     ?cena=cartas     as cartas no chão (os vídeos dos amigos e a Surpresinha)
+     ?cena=cartas     as cartas no chão (os vídeos dos amigos e "Nossos momentos")
      ?cena=encontro   as imagens do encontro
      ?cena=final      a última carta
    ========================================================================== */
@@ -300,7 +300,8 @@ window.CONTEUDO = {
   /* --------------------------------------------------------------------------
      CAPÍTULO 1: O JOGO
      A folha desenrola e vira uma fita de vídeo antiga, achada numa fábrica de
-     brinquedos. O título cai em blocos de brinquedo, uma letra por bloco.
+     brinquedos. No alto vai o logo do jogo; embaixo dele, o título cai em
+     blocos de brinquedo, uma letra por bloco.
 
      Os "blocos" são as partes do capítulo, na ordem em que ela vai rolando.
      Você pode trocar a ordem, apagar ou repetir blocos à vontade. Tipos:
@@ -322,6 +323,14 @@ window.CONTEUDO = {
              'esteira'  uma esteira de fábrica onde caem caixas com palavras
      ------------------------------------------------------------------------ */
   poppy: {
+    // O logo do jogo, no alto do capítulo, acima do título: entra como um
+    // adesivo colado na tela, logo que a fita começa a tocar. Imagem com fundo
+    // transparente, em assets/images/. Vazio ('') tira o logo e o capítulo
+    // abre só com o título em blocos.
+    logo: 'assets/images/poppy-logo.webp',
+    // O que o leitor de tela diz no lugar do logo.
+    logoAlt: 'Poppy Playtime',
+
     // O título: cada letra vira um bloco de brinquedo. Títulos curtos (até
     // umas 5 palavras) ficam mais bonitos.
     titulo: '[Onde a gente se conheceu]',
@@ -555,8 +564,8 @@ window.CONTEUDO = {
   /* --------------------------------------------------------------------------
      A SUA VOZ
      Três áudios com a sua voz, para ela ouvir sempre que quiser. Eles são o
-     presente da carta Surpresinha (a última do chão): quando ela abre a
-     Surpresinha, abre o cartão com os áudios, e depois a fita fica na bolsa.
+     presente da carta "Nossos momentos" (a última do chão): quando ela abre
+     essa carta, abre o cartão com os áudios, e depois a fita fica na bolsa.
      O aparelho dela lembra disso: da segunda visita em diante a fita já está
      na bolsa desde o começo. Tocar na fita abre um cartão com os áudios; cada
      um tem tocar/pausar, o fio para ir e voltar, o tempo e o botão de baixar.
@@ -670,16 +679,21 @@ window.CONTEUDO = {
   },
 
   /* --------------------------------------------------------------------------
-     AS CARTAS DO CHÃO (os vídeos dos amigos e a Surpresinha)
-     Quando ela chega perto de você, há cartas no chão. No chão elas NÃO têm
+     AS CARTAS DO CHÃO (os vídeos dos amigos e "Nossos momentos")
+     Quando ela chega perto de você, há cartas no chão. As dos amigos NÃO têm
      nome: ela toca numa, o vídeo toca, e só quando ela fecha o NOME de quem
      gravou aparece escrito à mão na carta. Cada carta aberta vai para a bolsa.
      Depois da primeira carta aberta aparece, discreto, o botão de seguir em
      frente; quando ela já abriu todas, ele ganha destaque.
 
-     A ordem das cartas é a ordem desta lista. A última, a Surpresinha, é
-     diferente: só abre depois das outras e guarda os áudios com a sua voz
-     (veja "A SUA VOZ", mais acima).
+     A ordem das cartas é a ordem desta lista. A última, "Nossos momentos", é
+     diferente: é maior, já cai com o nome escrito (e ele fica lá o tempo
+     todo), mas só abre depois que ela viu todas as outras; até lá fica
+     amarrada com um laço do fio. Ela guarda os áudios com a sua voz (veja
+     "A SUA VOZ", mais acima).
+     (Essa carta se chamava Surpresinha. Por dentro o bloco dela continua com
+     o nome antigo, "surpresinha", e o texto de exemplo é "vazioSurpresinha":
+     não troque esses dois nomes. O nome que ela lê é o campo "nome".)
 
      ENQUANTO O VÍDEO NÃO CHEGA
      Carta com video: '' aparece do mesmo jeito e abre um cartão com o texto
@@ -720,14 +734,15 @@ window.CONTEUDO = {
     // Texto do botão de seguir em frente.
     seguir: 'Seguir em frente',
 
-    // O cartão que abre quando a carta ainda não tem vídeo (ou a Surpresinha
-    // ainda não tem nada). {nome} é trocado pelo nome da carta.
+    // O cartão que abre quando a carta ainda não tem vídeo (ou a "Nossos
+    // momentos" ainda não tem nada). {nome} é trocado pelo nome da carta.
     vazio: '[vídeo de {nome} vem aqui]',
     vazioSurpresinha: '[os nossos momentos vêm aqui]',
 
     // Nomes lidos em voz alta por leitores de tela (não aparecem escritos).
     rotulos: {
       // {n} é trocado pelo número da carta (ela ainda não sabe de quem é).
+      // A última, "Nossos momentos", é lida pelo nome desde o começo.
       carta: 'Carta {n}',
       fechar: 'Fechar',
       anterior: 'Anterior',
@@ -747,11 +762,16 @@ window.CONTEUDO = {
       { nome: 'Nup', video: '', capa: '' },
     ],
 
-    // A última carta do chão: abre os seus áudios (a seção "A SUA VOZ", lá em
-    // cima). Se você puser fotos e vídeos em "midias", eles passam antes dos
-    // áudios. Para tirar a Surpresinha, deixe o nome vazio ('').
+    // A última carta do chão, "Nossos momentos" (o bloco continua se chamando
+    // "surpresinha", o nome antigo dela: não troque). Abre os seus áudios (a
+    // seção "A SUA VOZ", lá em cima). Se você puser fotos e vídeos em
+    // "midias", eles passam antes dos áudios.
+    //   nome: aparece escrito à mão na carta desde que ela cai, o tempo todo,
+    //         e também na bolsa. Funciona melhor curto (duas ou três
+    //         palavras); nome comprido fica com a letra menor.
+    //         Para tirar esta carta, deixe o nome vazio ('').
     surpresinha: {
-      nome: 'Surpresinha',
+      nome: 'Nossos momentos',
 
       // As fotos e os vídeos, na ordem em que aparecem. Fotos em
       // assets/images/, vídeos em assets/videos/. Exemplos de linhas prontas:
@@ -923,6 +943,131 @@ window.CONTEUDO = {
       // Nomes lidos em voz alta por leitores de tela (não aparecem escritos).
       folha: 'Folha em branco para você escrever de volta',
       campo: 'O que você quer me dizer',
+    },
+  },
+
+  /* --------------------------------------------------------------------------
+     O MENU DO FIM
+     Depois da última carta ela toca em "Continuar" e chega aqui: o fio com uma
+     etiqueta para cada parte da carta, o botão da saudade na ponta dele e, no
+     chão, a sua voz, as referências e a folha em que ela escreve de volta.
+     Na primeira vez as referências passam amarradas no fio, como os créditos
+     de um filme (dá para pular com um toque). Das outras vezes o menu abre
+     direto, e o link do site passa a fazer senha, música e menu.
+
+     Tudo o que está entre [colchetes] é exemplo: troque pela sua fala.
+     Texto vazio ('') = aquela coisa não aparece.
+     As músicas e os nomes dos amigos NÃO moram aqui: saem sozinhos de
+     musica.faixas e de cartasChao.itens. Os áudios continuam em voz: { ... }.
+     Para tirar o menu do site, apague este bloco inteiro.
+
+     PARA TESTAR SEM PERCORRER TUDO
+     Abra o site com ?cena=menu no fim do endereço.
+     Com ?menu=0 o aparelho esquece que ela já chegou ao menu (as referências
+     passam de novo e o link volta a começar do começo).
+     ------------------------------------------------------------------------ */
+  menu: {
+    // O nome de cada etiqueta, na ordem da viagem. Apague o texto de uma
+    // (deixe '') para ela não aparecer.
+    partes: {
+      inicio: 'Ver tudo do começo',
+      poppy: 'A carta do jogo',
+      yourname: 'A carta do filme',
+      mao: 'A mão e o fio',
+      cartas: 'As cartas dos amigos',
+      encontro: 'O encontro',
+      final: 'A última carta',
+    },
+
+    // O botão vermelho na ponta do fio. Abre o WhatsApp dela na conversa com
+    // você (o número é o de resposta.whatsapp). Nada é enviado sozinho.
+    saudade: {
+      rotulo: 'Sempre que sentir saudade',
+      // A sua frase embaixo do botão (opcional; '' = sem frase).
+      frase: '[Eu estou na outra ponta do fio.]',
+      // Um texto que já vem escrito na conversa para ela enviar (opcional;
+      // '' = a conversa abre em branco).
+      mensagem: '',
+    },
+
+    // AS REFERÊNCIAS: passam uma vez, na primeira chegada, e depois ficam no
+    // caderninho do chão.
+    // O bilhete que abre e o que fecha a fila ('' = sem bilhete).
+    abertura: '[Esta carta foi feita de coisas nossas. Olha de onde veio cada uma.]',
+    fecho: '[Feito para você, com todo o meu amor.]',
+
+    // Para pôr mais uma, copie um bloco { ... } e troque os textos.
+    //   titulo: o nome da obra (obrigatório).
+    //   de:     de onde vem: autor, ano (opcional).
+    //   sobre:  o que é, em duas ou três linhas.
+    //   dele:   a sua fala sobre ela (opcional).
+    //   icone:  'laco', 'cometa', 'fita', 'disco' ou '' (sem desenho).
+    referencias: [
+      {
+        titulo: 'O fio vermelho do destino',
+        de: 'akai ito · uma lenda do Japão',
+        sobre: 'Um fio vermelho que ninguém vê, amarrado no dedo mindinho, liga duas pessoas que vão se encontrar. Ele estica e embaraça, mas não arrebenta.',
+        dele: '[Foi ele que te trouxe até aqui.]',
+        icone: 'laco',
+      },
+      {
+        titulo: 'Your Name',
+        de: 'Kimi no Na wa · filme de Makoto Shinkai, 2016',
+        sobre: 'Dois desconhecidos trocam de lugar em sonho e se procuram sem lembrar o nome um do outro. O cordão trançado e o cometa vêm de lá.',
+        dele: '[O nosso filme.]',
+        icone: 'cometa',
+      },
+      {
+        titulo: 'Poppy Playtime',
+        de: 'jogo da Mob Entertainment, 2021',
+        sobre: 'Um jogo de susto numa fábrica de brinquedos abandonada. A fita de vídeo e as mãos de brinquedo vêm de lá.',
+        dele: '[Onde a gente se conheceu.]',
+        icone: 'fita',
+      },
+    ],
+
+    // O cartão das músicas entra sozinho depois da lista, com o nome e o
+    // artista de cada uma (titulo '' = sem esse cartão).
+    musicas: {
+      titulo: 'As músicas',
+      dele: '[As que tocaram enquanto você lia.]',   // opcional
+    },
+
+    // O cartão com os nomes dos amigos das cartas do chão ('' = sem ele).
+    amigos: 'Participações especiais',
+
+    // OS BILHETES "ABRA QUANDO..." (opcional): bilhetes seus que ficam no chão
+    // do menu, num montinho amarrado com o fio. Com a lista vazia, como está,
+    // o montinho nem aparece. Para escrever um, tire as duas barras da frente
+    // de uma linha de exemplo e troque os textos (copie a linha para pôr mais).
+    //   titulo: o que vai escrito por fora ("Abra quando...").
+    //   texto:  o que ela lê quando abre.
+    //   abre:   '' = pode abrir quando quiser; 'AAAA-MM-DD' = só abre a partir
+    //           desse dia (antes disso aparece fechado, com a data).
+    bilhetes: [
+      // { titulo: '[Abra quando sentir saudade]', texto: '[Escreva aqui o que ela vai ler.]', abre: '' },
+      // { titulo: '[Abra no nosso aniversário]', texto: '[Escreva aqui o que ela vai ler.]', abre: '2027-12-23' },
+    ],
+
+    // Os botões.
+    rotulos: {
+      // No fim da carta, o botão que leva ao menu (na primeira vez e depois).
+      continuar: 'Continuar',
+      voltar: 'Voltar ao menu',
+      // O caderninho do chão e o título da folha que ele abre.
+      referencias: 'As referências',
+      // Quando ela volta a uma parte, a página recarrega e o som só volta com
+      // um toque dela: é o que aparece embaixo do nome da parte.
+      tocar: 'Toque para começar',
+      // O montinho de bilhetes do chão e o título da folha que ele abre
+      // (só aparecem com algum bilhete na lista acima).
+      bilhetes: 'Abra quando...',
+      // O aviso de um bilhete que ainda não pode abrir ('{dia}' vira a data).
+      bilheteFechado: 'Abre em {dia}',
+      // Nomes lidos em voz alta por leitores de tela (não aparecem escritos).
+      pular: 'Pular as referências',
+      fechar: 'Fechar',
+      nome: 'Voltar a uma parte da carta',
     },
   },
 

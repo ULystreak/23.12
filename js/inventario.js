@@ -74,7 +74,8 @@ const envelopeBranco = (tipo) => `
   </svg>`;
 
 // A fita com a voz dele: uma fita cassete pequena, a tinta, com o coração no rótulo.
-const FITA_PEQUENA = `
+// (O chão do menu do fim usa o mesmo desenho: js/cenas/menu.js.)
+export const FITA_PEQUENA = `
   <svg viewBox="0 0 92 60" aria-hidden="true" focusable="false">
     <rect x="1.5" y="1.5" width="89" height="57" rx="6" fill="#fffdf9" stroke="${TINTA}" stroke-width="1.8"/>
     <rect x="9" y="8" width="74" height="31" rx="3" fill="#fbf7f0" stroke="${TINTA}" stroke-width="1.2"/>

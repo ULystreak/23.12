@@ -1,14 +1,17 @@
 // O título do capítulo como uma pilha de blocos de brinquedo (uma letra por
-// bloco) e o subtítulo digitado com letra de videocassete.
+// bloco), o subtítulo digitado com letra de videocassete e, no alto, o logo do
+// jogo colado como um adesivo.
 //
-//   const titulo = criarTitulo({ texto, subtitulo, amb, gsap, anima, som });
+//   const titulo = criarTitulo({ texto, subtitulo, logo, amb, gsap, anima, som });
+//   (logo: a <img> já carregada, ou null: o capítulo abre só com a pilha)
 //   titulo.el            <header>
-//   titulo.cair()        → Promise: os blocos caem, fileira de baixo primeiro
+//   titulo.cair()        → Promise: o adesivo assenta e os blocos caem, fileira de baixo primeiro
 //   titulo.digitar()     → Promise: o subtítulo aparece letra por letra
-//   titulo.tocar(alvo)   um toque de verdade num bloco: ele pula e balança na mola
+//   titulo.tocar(alvo)   um toque de verdade: o bloco pula e balança na mola, o adesivo descola uma ponta
 //   titulo.destruir()
 //
-// O texto inteiro vai no aria-label do <h2>; os blocos são só desenho.
+// O texto inteiro vai no aria-label do <h2>; os blocos são só desenho. O logo é
+// uma imagem com o seu texto alternativo.
 
 import { el, semente } from '../../nucleo/util.js';
 import { curvas } from '../../nucleo/movimento.js';
@@ -17,6 +20,8 @@ const CORES = ['vermelho', 'amarelo', 'azul', 'verde', 'creme'];
 const VAO = 0.42;         // largura do espaço entre palavras, em blocos
 const ESTREITO = 0.5;     // pontuação ocupa meio bloco
 const FOLGA = 3;          // px entre um bloco e outro
+const GIRO_LOGO = -3;     // graus: o adesivo foi colado um pouco torto
+const VEZ_DO_LOGO = 0.3;  // s que os blocos esperam o adesivo assentar
 
 const segmentador = typeof Intl !== 'undefined' && Intl.Segmenter
   ? new Intl.Segmenter('pt-BR', { granularity: 'grapheme' })
@@ -24,7 +29,7 @@ const segmentador = typeof Intl !== 'undefined' && Intl.Segmenter
 const grafemas = (texto) => (segmentador ? Array.from(segmentador.segment(texto), (s) => s.segment) : Array.from(texto));
 const ehLetra = (g) => /[\p{L}\p{N}]/u.test(g);
 
-export function criarTitulo({ texto = '', subtitulo = '', amb, gsap, anima, som }) {
+export function criarTitulo({ texto = '', subtitulo = '', logo = null, amb, gsap, anima, som }) {
   const inteiro = String(texto || '').replace(/\s+/g, ' ').trim();
   const palavras = inteiro ? inteiro.split(' ').map((p) => grafemas(p)) : [];
   const larguraDe = (palavra) => palavra.reduce((soma, g) => soma + (ehLetra(g) ? 1 : ESTREITO), 0);
@@ -42,7 +47,10 @@ export function criarTitulo({ texto = '', subtitulo = '', amb, gsap, anima, som 
       el('span', { 'aria-hidden': 'true' }, [digitado, cursor, resto]))
     : null;
 
-  const raiz = el('header', 'poppy-cabeca', [h2, sub]);
+  const adesivo = logo ? el('div', 'poppy-logo', logo) : null;
+  if (adesivo) gsap.set(adesivo, { rotation: GIRO_LOGO });
+
+  const raiz = el('header', adesivo ? 'poppy-cabeca com-logo' : 'poppy-cabeca', [adesivo, h2, sub]);
 
   // O cursor pisca por relógio (530 ms aceso, 530 apagado), e não por animação de
   // CSS: a animação infinita refazia o estilo a cada quadro com ela parada lendo.
@@ -174,26 +182,35 @@ export function criarTitulo({ texto = '', subtitulo = '', amb, gsap, anima, som 
     },
 
     cair() {
-      if (!h2 || caiu) return Promise.resolve();
+      if (caiu) return Promise.resolve();
       caiu = true;
-      montar(h2.clientWidth);
+      if (h2) montar(h2.clientWidth);
       raiz.classList.add('caindo');
       const todos = fileiras.flat();
-      if (!todos.length) return Promise.resolve();
+      const pecas = adesivo ? [adesivo, ...todos] : todos;
+      if (!pecas.length) return Promise.resolve();
 
       if (amb.reduzido) {
         assentar();
         return new Promise((ok) => {
-          anima(gsap.fromTo(todos, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5, stagger: 0.025, ease: 'none', onComplete: ok }));
+          anima(gsap.fromTo(pecas, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5, stagger: 0.025, ease: 'none', onComplete: ok }));
         });
       }
 
       const tl = anima(gsap.timeline());
-      const alturaQueda = h2.getBoundingClientRect().bottom + 80;
+      if (adesivo) {
+        // O adesivo vem de perto do vidro e é apertado no lugar: passa um pouco
+        // do tamanho, assenta, e a ponta ainda balança um instante.
+        gsap.set(adesivo, { scale: 1.3, rotation: GIRO_LOGO - 8 });
+        tl.to(adesivo, { autoAlpha: 1, duration: 0.08, ease: 'none' }, 0);
+        tl.to(adesivo, { scale: 1, duration: 0.4, ease: curvas.poppy.pulo }, 0);
+        tl.to(adesivo, { rotation: GIRO_LOGO, duration: 0.9, ease: curvas.poppy.mola }, 0.04);
+      }
+      const alturaQueda = h2 ? h2.getBoundingClientRect().bottom + 80 : 0;
       const total = fileiras.length;
       fileiras.forEach((blocos, indice) => {
         // A fileira de baixo chega primeiro: as de cima caem em cima dela.
-        const base = (total - 1 - indice) * 0.34;
+        const base = (adesivo ? VEZ_DO_LOGO : 0) + (total - 1 - indice) * 0.34;
         blocos.forEach((b, i) => {
           const quando = base + i * 0.05 + Math.abs(b._desvio) * 0.03;
           const dur = 0.95 + Math.abs(b._giro) * 0.012;
@@ -246,6 +263,17 @@ export function criarTitulo({ texto = '', subtitulo = '', amb, gsap, anima, som 
 
     /** O bloco tocado pula e balança a partir da pose de descanso (no reduzido, só pisca). */
     tocar(alvo) {
+      if (adesivo?.contains(alvo)) {
+        // o adesivo descola uma ponta e assenta de novo (no reduzido fica quieto)
+        if (amb.reduzido) return;
+        som.efeito('mola');
+        // (o overwrite também mata a entrada, se o dedo chegou no meio dela: por isso o autoAlpha)
+        anima(gsap.timeline())
+          .to(adesivo, { autoAlpha: 1, scale: 1.07, rotation: GIRO_LOGO - 6, duration: 0.14, ease: 'power2.out', overwrite: true })
+          .to(adesivo, { scale: 1, duration: 0.4, ease: curvas.poppy.pulo })
+          .to(adesivo, { rotation: GIRO_LOGO, duration: 0.9, ease: curvas.poppy.mola }, '<');
+        return;
+      }
       const b = alvo.closest('.poppy-bloco');
       if (!b) return;
       som.efeito('mola');

@@ -8,7 +8,7 @@
   position: fixed;
   right: calc(var(--seguro-dir) + 16px);
   bottom: calc(var(--seguro-base) + 16px);
-  z-index: var(--z-mini);
+  z-index: calc(var(--z-mini) + 1);        /* por cima do disco, como sempre (no HTML ela vem antes dele, pelo Tab) */
   font-family: var(--fonte-mao);
   color: var(--tinta);
   -webkit-user-select: none;
