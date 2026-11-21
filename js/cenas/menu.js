@@ -380,7 +380,6 @@ export async function cenaMenu(ctx, { frio } = {}) {
     }
     no.addEventListener('touchstart', () => {}, { passive: true });   // (no iPhone, :active só vale com um ouvinte de toque)
     const li = el('li', { dataset: { lado: i % 2 ? 'dir' : 'esq' } }, no);
-    li.style.setProperty('--n', String(i));
     return { cena, no, li, lado: i % 2 ? 1 : -1 };
   });
   // voltou pelo botão de voltar do navegador (a página vem guardada): o véu sai da frente

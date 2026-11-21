@@ -167,7 +167,7 @@ export function criarInventario({ conteudo, amb, som, raiz }) {
       if (item.fixo) {
         const linha = el('div', 'ui-entra inventario-fixo-linha', el('button', {
           class: 'ui-toque inventario-fixo', type: 'button',
-          dataset: { acao: 'inventario-item', id: item.id, tipo: item.tipo },
+          dataset: { acao: 'inventario-item', id: item.id },
         }, [
           el('span', { class: 'inventario-fita', 'aria-hidden': 'true' }, [svg(FITA_PEQUENA), petalaNova(item)]),
           el('span', 'inventario-fixo-nome', item.titulo || ''),
@@ -179,7 +179,7 @@ export function criarInventario({ conteudo, amb, som, raiz }) {
       }
       const li = el('li', 'ui-entra', el('button', {
         class: 'ui-toque inventario-item', type: 'button',
-        dataset: { acao: 'inventario-item', id: item.id, tipo: item.tipo, tema: item.tema || '' },
+        dataset: { acao: 'inventario-item', id: item.id, tema: item.tema || '' },
       }, [
         el('span', 'inventario-miniatura', [desenhoDoItem(item), petalaNova(item)]),
         el('span', 'inventario-nome', item.titulo || ''),
