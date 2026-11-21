@@ -20,7 +20,7 @@ const segundos = (m, s) => Number(m) * 60 + Number(String(s).replace(',', '.'));
 const POR_PALAVRA = 0.42;   // s: sem tempo das palavras, quanto cada uma dura no máximo
 
 /** "[mm:ss.cc] texto" → [{ t, texto, palavras: [{ t, texto }] | null }] em ordem de tempo. */
-export function lerLrc(texto) {
+function lerLrc(texto) {
   if (Array.isArray(texto)) return texto.filter((l) => l && Number.isFinite(l.t)).sort((a, b) => a.t - b.t);
   const linhas = [];
   for (const bruta of String(texto || '').split(/\r?\n/)) {

@@ -16,7 +16,7 @@ const ociosa = window.requestIdleCallback
   : (fn) => setTimeout(fn, 200);
 
 /** Junta todos os endereços de imagem citados no content.js, na ordem em que ela vai ver. */
-export function listarImagens(conteudo) {
+function listarImagens(conteudo) {
   const lista = [];
   const por = (endereco) => {
     if (typeof endereco === 'string' && endereco.trim() && !lista.includes(endereco)) lista.push(endereco);

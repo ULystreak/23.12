@@ -14,7 +14,7 @@
 const NIVEIS = ['baixo', 'medio', 'alto'];
 
 /** DPR máximo de cada nível (regra 9 do contrato). */
-export const DPR_POR_NIVEL = { alto: 2, medio: 1.5, baixo: 1 };
+const DPR_POR_NIVEL = { alto: 2, medio: 1.5, baixo: 1 };
 
 function temWebGL() {
   try {

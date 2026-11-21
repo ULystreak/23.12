@@ -172,5 +172,3 @@ export function css(c, alfa) {
   const b = Math.round(clamp(c[2]) * 255);
   return alfa === undefined ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${alfa})`;
 }
-
-export { QUADROS };
