@@ -266,7 +266,7 @@ export function criarInventario({ conteudo, amb, som, raiz }) {
       void folha.offsetWidth;                     // a entrada parte do estado fechado
       raiz.setAttribute('data-aberto', '');
       botao.setAttribute('aria-expanded', 'true');
-      try { som?.efeito?.('papel'); } catch { /* sem som */ }
+      som?.efeito?.('papel');
       // quem usa o teclado continua de onde a folha abriu
       if (document.activeElement === botao) {
         folha.querySelector('[data-acao="inventario-item"]')?.focus({ preventScroll: true });

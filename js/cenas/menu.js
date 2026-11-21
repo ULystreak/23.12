@@ -793,7 +793,7 @@ function criarGaveta(ctx, { titulo, fechar: nomeFechar, miolo, secao }) {
     void raiz.offsetWidth;                                 // a entrada parte do estado fechado
     raiz.setAttribute('data-aberto', '');
     document.addEventListener('keydown', aoTeclar, true);
-    try { som?.efeito?.('papel'); } catch { /* sem som */ }
+    som?.efeito?.('papel');
     folha.querySelector('.menu-folha-fechar')?.focus({ preventScroll: true });
   }
 
