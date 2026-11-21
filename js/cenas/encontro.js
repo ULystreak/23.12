@@ -39,13 +39,12 @@
 // de antes (a luz corre pelo fio e a carta aparece). Movimento reduzido:
 // dissolvências simples, sem panorâmica nem aproximação (cada quadro parado no `ate`).
 
-import { clamp, el, espera, lerp, vibrar } from '../nucleo/util.js';
+import { clamp, el, espera, lerp, suave, vibrar } from '../nucleo/util.js';
 import { curvas } from '../nucleo/movimento.js';
 import { temEncontro } from '../nucleo/diretor.js';
 import { entregaNaMao } from './final.js';
 
 const NS = 'http://www.w3.org/2000/svg';
-const COR_FIO = '#d7192d';
 const SOBRA = 1.04;                 // o quadro cobre a faixa com esta folga (a panorâmica tem para onde ir)
 const ESPERA_QUADROS = 5000;        // ms no máximo esperando os quadros (rede lenta: o que não veio é pulado)
 const ESPERA_DICA = 4000;           // ms sem ela puxar o fio até a dica aparecer
@@ -349,8 +348,6 @@ export async function cenaEncontro(ctx, { frio } = {}) {
     return { s, tx, ty, W, H };
   }
 
-  const suave = (t) => t * t * (3 - 2 * t);
-
   function centrarClarao() {
     const c = geo.centro || { x: geo.L / 2, y: geo.A * 0.46 };
     clarao.style.left = `${c.x.toFixed(1)}px`;
@@ -366,7 +363,7 @@ export async function cenaEncontro(ctx, { frio } = {}) {
       p.no.style.visibility = visivel ? 'visible' : 'hidden';
       if (!visivel) continue;
       p.no.style.opacity = p.opacidade.toFixed(3);
-      const k = calmo ? 1 : suave(clamp(p.k));      // no movimento reduzido, parado onde a panorâmica chegaria
+      const k = calmo ? 1 : suave(p.k);             // no movimento reduzido, parado onde a panorâmica chegaria
       const e = enquadrar(p.q, f, lerp(p.q.foco.x, p.q.ate.x, k), lerp(p.q.foco.y, p.q.ate.y, k), calmo ? 1 : lerp(1, 1.07, clamp(p.k)));
       p.img.style.transform = `translate3d(${e.tx.toFixed(2)}px, ${e.ty.toFixed(2)}px, 0) scale(${e.s.toFixed(5)})`;
       if (p === ultimo) p.centro = { x: f.x + e.tx + p.q.ate.x * e.W, y: f.y + e.ty + p.q.ate.y * e.H };
