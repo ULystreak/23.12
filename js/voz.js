@@ -374,8 +374,8 @@ export function criarVoz(ctx) {
     raiz.setAttribute('data-aberto', '');
     // (no documento, e não no cartão: no Safari um botão tocado não fica com o foco)
     document.addEventListener('keydown', aoTeclar, true);
-    try { som?.efeito?.('papel'); } catch { /* sem som */ }
-    try { (cartao.querySelector('.voz-tocar:not(:disabled):not(.voz-tocar-vazio)') || cartao.querySelector('.voz-fechar'))?.focus({ preventScroll: true }); } catch { /* sem foco programático */ }
+    som?.efeito?.('papel');
+    (cartao.querySelector('.voz-tocar:not(:disabled):not(.voz-tocar-vazio)') || cartao.querySelector('.voz-fechar'))?.focus({ preventScroll: true });
     return new Promise((ok) => { resolverFechar = ok; });
   }
 
@@ -411,7 +411,7 @@ export function criarVoz(ctx) {
       const voltar = focoAntes && focoAntes.isConnected && !focoAntes.disabled && focoAntes.offsetParent !== null
         ? focoAntes : document.querySelector('[data-acao="inventario"]:not(:disabled)');
       focoAntes = null;
-      try { voltar?.focus({ preventScroll: true }); } catch { /* sem foco programático */ }
+      voltar?.focus({ preventScroll: true });
       const ok = resolverFechar;
       resolverFechar = null;
       ok?.();

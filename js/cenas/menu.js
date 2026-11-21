@@ -363,7 +363,7 @@ export async function cenaMenu(ctx, { frio } = {}) {
         const id = `carta-${cena}`;
         if (saindo || inventario.aberto || !inventario.tem(id)) return;
         await inventario.reabrir(id);                      // a releitura que a bolsa já usa (a música não para)
-        try { no.focus({ preventScroll: true }); } catch { /* sem foco */ }
+        no?.focus({ preventScroll: true });
       });
     } else {
       no = el('a', { class: 'menu-etiqueta', href: enderecoDaCena(cena, { volta: 1 }, som), dataset: { acao: 'menu-parte', cena } }, [ilho(), el('span', { texto: nome })]);
@@ -380,7 +380,6 @@ export async function cenaMenu(ctx, { frio } = {}) {
     }
     no.addEventListener('touchstart', () => {}, { passive: true });   // (no iPhone, :active só vale com um ouvinte de toque)
     const li = el('li', { dataset: { lado: i % 2 ? 'dir' : 'esq' } }, no);
-    li.style.setProperty('--n', String(i));
     return { cena, no, li, lado: i % 2 ? 1 : -1 };
   });
   // voltou pelo botão de voltar do navegador (a página vem guardada): o véu sai da frente
@@ -431,7 +430,7 @@ export async function cenaMenu(ctx, { frio } = {}) {
         gsap.set(secao, { visibility: 'inherit' });        // (já visível, para o foco poder voltar ao objeto)
         gsap.to(secao, { autoAlpha: 1, duration: 0.6, ease: 'none', overwrite: true });
         escrevendo = false;
-        try { botao.focus({ preventScroll: true }); } catch { /* sem foco */ }
+        botao?.focus({ preventScroll: true });
       },
     } : null,
     gavetaBilhetes ? { acao: 'menu-bilhetes', rotulo: m.rot.bilhetes, desenho: BILHETES, aoTocar: (botao) => gavetaBilhetes.abrir(botao) } : null,
@@ -583,7 +582,7 @@ export async function cenaMenu(ctx, { frio } = {}) {
     const mostrarPular = gsap.delayedCall(3.4, () => {
       pular.hidden = false;
       gsap.fromTo(pular, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.6, ease: 'none' });
-      if (!amb.toque && nadaFocado()) { try { pular.focus({ preventScroll: true }); } catch { /* sem foco */ } }
+      if (!amb.toque && nadaFocado()) pular?.focus({ preventScroll: true });
     });
     const armar = gsap.delayedCall(0.6, () => {
       document.addEventListener('pointerdown', aoTocar, true);
@@ -639,7 +638,8 @@ export async function cenaMenu(ctx, { frio } = {}) {
     const meio = (ARRANQUE + FREADA) / 2;
     if (S / v + meio > 45) v = Math.min(140, S / (45 - meio));                    // nunca mais de 45 s
     const p = { s: 0 };
-    const aplicar = () => gsap.set(corda, { y: S - p.s });
+    const porY = gsap.quickSetter(corda, 'y', 'px');                             // sem um Tween novo por quadro
+    const aplicar = () => porY(S - p.s);
     aplicar();
     corda.dataset.viaja = '';
     // as etiquetas vêm com a ponta livre um pouco para trás, como quem é puxado
@@ -707,7 +707,7 @@ export async function cenaMenu(ctx, { frio } = {}) {
     lembrarMenu(true);
     diretor.etapa('menu');
     if (!amb.toque && nadaFocado() && etiquetas[0]) {
-      try { etiquetas[0].no.focus({ preventScroll: true }); } catch { /* sem foco */ }
+      etiquetas[0]?.no.focus({ preventScroll: true });
     }
   }
 
@@ -792,8 +792,8 @@ function criarGaveta(ctx, { titulo, fechar: nomeFechar, miolo, secao }) {
     void raiz.offsetWidth;                                 // a entrada parte do estado fechado
     raiz.setAttribute('data-aberto', '');
     document.addEventListener('keydown', aoTeclar, true);
-    try { som?.efeito?.('papel'); } catch { /* sem som */ }
-    try { folha.querySelector('.menu-folha-fechar').focus({ preventScroll: true }); } catch { /* sem foco */ }
+    som?.efeito?.('papel');
+    folha.querySelector('.menu-folha-fechar')?.focus({ preventScroll: true });
   }
 
   function fechar() {
@@ -807,7 +807,7 @@ function criarGaveta(ctx, { titulo, fechar: nomeFechar, miolo, secao }) {
     if (amb?.reduzido) sumir(); else saida = setTimeout(sumir, 200);
     const voltar = gatilho && gatilho.isConnected ? gatilho : null;
     gatilho = null;
-    try { voltar?.focus({ preventScroll: true }); } catch { /* sem foco */ }
+    voltar?.focus({ preventScroll: true });
   }
 
   return { abrir, fechar, get aberta() { return aberta; } };
@@ -862,7 +862,7 @@ export function portao(ctx, cena) {
   fontesProntas().then(() => { if (caixa.isConnected) desenhar(); });
   window.addEventListener('resize', desenhar, { passive: true });
   gsap.fromTo(caixa, { opacity: 0 }, { opacity: 1, duration: 0.4, ease: 'none' });   // (só opacidade: escondido, o botão não receberia o foco)
-  if (!amb.toque) { try { botao.focus({ preventScroll: true }); } catch { /* sem foco */ } }
+  if (!amb.toque) botao?.focus({ preventScroll: true });
 
   return new Promise((resolver) => {
     let feito = false;

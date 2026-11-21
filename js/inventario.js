@@ -167,7 +167,7 @@ export function criarInventario({ conteudo, amb, som, raiz }) {
       if (item.fixo) {
         const linha = el('div', 'ui-entra inventario-fixo-linha', el('button', {
           class: 'ui-toque inventario-fixo', type: 'button',
-          dataset: { acao: 'inventario-item', id: item.id, tipo: item.tipo },
+          dataset: { acao: 'inventario-item', id: item.id },
         }, [
           el('span', { class: 'inventario-fita', 'aria-hidden': 'true' }, [svg(FITA_PEQUENA), petalaNova(item)]),
           el('span', 'inventario-fixo-nome', item.titulo || ''),
@@ -179,7 +179,7 @@ export function criarInventario({ conteudo, amb, som, raiz }) {
       }
       const li = el('li', 'ui-entra', el('button', {
         class: 'ui-toque inventario-item', type: 'button',
-        dataset: { acao: 'inventario-item', id: item.id, tipo: item.tipo, tema: item.tema || '' },
+        dataset: { acao: 'inventario-item', id: item.id, tema: item.tema || '' },
       }, [
         el('span', 'inventario-miniatura', [desenhoDoItem(item), petalaNova(item)]),
         el('span', 'inventario-nome', item.titulo || ''),
@@ -266,10 +266,10 @@ export function criarInventario({ conteudo, amb, som, raiz }) {
       void folha.offsetWidth;                     // a entrada parte do estado fechado
       raiz.setAttribute('data-aberto', '');
       botao.setAttribute('aria-expanded', 'true');
-      try { som?.efeito?.('papel'); } catch { /* sem som */ }
+      som?.efeito?.('papel');
       // quem usa o teclado continua de onde a folha abriu
       if (document.activeElement === botao) {
-        try { folha.querySelector('[data-acao="inventario-item"]')?.focus({ preventScroll: true }); } catch { /* sem foco programático */ }
+        folha.querySelector('[data-acao="inventario-item"]')?.focus({ preventScroll: true });
       }
       return true;
     },
@@ -288,7 +288,7 @@ export function criarInventario({ conteudo, amb, som, raiz }) {
         if (novos.size) { novos.clear(); for (const p of folha.querySelectorAll('.inventario-nova')) p.remove(); }
       };
       if (imediato || amb?.reduzido) sumir(); else saida = setTimeout(sumir, SAIDA_MS);
-      if (tinhaFoco && !botao.disabled) { try { botao.focus({ preventScroll: true }); } catch { /* sem foco programático */ } }
+      if (tinhaFoco && !botao.disabled) botao?.focus({ preventScroll: true });
     },
     get aberto() { return reaberto || folhaAberta; },
 

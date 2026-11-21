@@ -507,7 +507,7 @@ function criarVisor(ctx, { vivo = null } = {}) {
       }
       // o nome de quem mandou, escrito à mão no rodapé da folha
       gsap.delayedCall(calmo ? 0.3 : 0.55, () => { if (!fechado) escrever(gsap, legenda, carta.nome, { calmo, som, intensidade: 0.4 }); });
-      try { fechar.focus({ preventScroll: true }); } catch { /* sem foco programático */ }
+      fechar?.focus({ preventScroll: true });
     });
   }
 
@@ -852,7 +852,7 @@ export async function cenaCartas(ctx, { frio } = {}) {
     ocupado = false;
     diretor.etapa('escolhendo');
     escreverNome(item).then(correrLuz);   // depois do nome, a luz corre pelo fio até ele
-    if (!amb.toque) { try { item.botao.focus({ preventScroll: true }); } catch { /* sem foco */ } }
+    if (!amb.toque) item.botao?.focus({ preventScroll: true });
   }
 
   // ==========================================================================
@@ -914,7 +914,7 @@ export async function cenaCartas(ctx, { frio } = {}) {
       gsap.delayedCall(calmo ? 1.6 : 2.4, () => ocultarPalavras(f).then(() => f.remove()));
     }
     if (!amb.toque && (!document.activeElement || document.activeElement === document.body)) {
-      try { itens[0].botao.focus({ preventScroll: true }); } catch { /* sem foco */ }
+      itens[0]?.botao.focus({ preventScroll: true });
     }
     diretor.etapa('escolhendo');
 
