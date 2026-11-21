@@ -762,9 +762,7 @@ export function criarPetalas(mundo, amb) {
     preparar() {
       if (!preparo) {
         const r = mundo.renderer;
-        preparo = Promise.resolve().then(() => (r && r.compileAsync
-          ? r.compileAsync(malhaSoltas, camera, cena)
-          : r?.compile?.(malhaSoltas, camera, cena))).catch(() => {});
+        preparo = Promise.resolve().then(() => r?.compileAsync(malhaSoltas, camera, cena)).catch(() => {});
       }
       return preparo;
     },

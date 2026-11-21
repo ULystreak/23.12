@@ -36,7 +36,7 @@
 // da cena.
 
 import { amortecer, clamp, el, svg, objetoLeve, vetorLeve, semente } from '../nucleo/util.js';
-import { curvas } from '../nucleo/movimento.js';
+import { curvas, comoPromise } from '../nucleo/movimento.js';
 
 // ---- medidas (metros) ---------------------------------------------------------------
 const W = 0.23;              // largura do envelope
@@ -93,14 +93,6 @@ export function aquecerEnvelope(mundo, opcoes = {}) {
     console.error('[carta] aquecer envelope', erro);
     return Promise.resolve();
   }
-}
-
-/** Promise que resolve quando a animação termina (ou é morta). */
-function comoPromise(animacao) {
-  return new Promise((resolver) => {
-    animacao.eventCallback('onComplete', resolver);
-    animacao.eventCallback('onInterrupt', resolver);
-  });
 }
 
 /** Cor da folha DOM (variável CSS --papel), para a troca ser invisível. */
@@ -282,7 +274,7 @@ function telaTema(tema, larg) {
 
 export function imagemDoTema(tema, largura = 512) {
   const t = temaValido(tema);
-  if (!t || typeof document === 'undefined') return null;
+  if (!t) return null;
   try { return telaTema(t, largura); } catch { return null; }
 }
 
@@ -1605,15 +1597,13 @@ function criarEnvelope3D(mundo, { lacre = 'coracao', amarracao = 'cordao', tema:
           // programa diferente para o three. Compila os dois agora; senão o que
           // faltar compila no quadro em que a carta muda de estado (~40 ms).
           const comMistura = [matCorpo, matForro, matAba, matCarta];
-          const compilar = () => (renderer.compileAsync
-            ? renderer.compileAsync(grupo, camera, mundo.cena)
-            : (renderer.compile?.(grupo, camera, mundo.cena), null));
+          const compilar = () => renderer.compileAsync(grupo, camera, mundo.cena);
           const primeiro = compilar();
           const antes = comMistura.map((m) => m.transparent);
           let outro = null;
           try {
             comMistura.forEach((m, i) => { m.transparent = !antes[i]; });
-            outro = compilar();              // compile() lê os materiais agora, de forma síncrona
+            outro = compilar();              // compileAsync() lê os materiais agora, de forma síncrona
           } finally {
             comMistura.forEach((m, i) => { m.transparent = antes[i]; });
           }

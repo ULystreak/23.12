@@ -36,7 +36,7 @@
 // uniformes no papel; sem WebGL, um segundo canvas, na aba de baixo.
 
 import { el, espera, clamp, lerp, suave, amortecer, semente, svg, objetoLeve } from '../nucleo/util.js';
-import { curvas } from '../nucleo/movimento.js';
+import { curvas, comoPromise } from '../nucleo/movimento.js';
 import { criarFio } from './fio.js';
 
 // ---- a folha -------------------------------------------------------------------
@@ -99,13 +99,6 @@ const DELA = {
 
 export function criarFolha(mundo) {
   return mundo.ok ? criarFolha3D(mundo) : criarFolhaLeve(mundo);
-}
-
-function comoPromise(animacao) {
-  return new Promise((resolver) => {
-    animacao.eventCallback('onComplete', resolver);
-    animacao.eventCallback('onInterrupt', resolver);
-  });
 }
 
 function espelhoParaLeitor() {
@@ -1008,6 +1001,25 @@ const POUSOS = [
   { x: -0.34, s: 0.9, giro: -1.1, sai: { x: -0.05, s: 0.14 }, dela: true },
 ];
 
+/**
+ * O ritmo das pétalas, igual nas duas folhas: as duas primeiras têm tempo marcado (um
+ * minuto depois do fim, há uma pétala pousada); depois, de vez em quando.
+ * ciclo(pouso, descanso) → Promise; acabou() → a folha foi descartada; temDela() → há letra dela.
+ */
+async function vidaDasPetalas({ acabou, temDela, ciclo }) {
+  await espera(4500);
+  let vez = 0;
+  while (!acabou()) {
+    const pouso = POUSOS[vez % POUSOS.length];
+    // com a letra dela na folha, o canto dela fica livre: a vez passa para o próximo
+    if (pouso.dela && temDela()) { vez++; continue; }
+    await ciclo(pouso, vez < 2 ? 19 : 14 + Math.random() * 16);
+    if (acabou()) return;
+    await espera(vez < 1 ? 15000 : 16000 + Math.random() * 22000);
+    vez++;
+  }
+}
+
 // O fio que repousa, em milésimos da largura da folha (x 0..1000 da esquerda,
 // y 0..2000 do topo; y > 2000 é abaixo dela). Sobe na diagonal pela borda de
 // baixo e se deita no canto num S largo, como um fio solto que caiu ali: sem
@@ -1709,23 +1721,6 @@ function criarFolha3D(mundo) {
     return comoPromise(voo = tl);
   }
 
-  async function vidaDasPetalas() {
-    // As duas primeiras têm tempo marcado (um minuto depois do fim, há uma pétala
-    // pousada); depois, de vez em quando.
-    await espera(4500);
-    let vez = 0;
-    while (!descartada) {
-      const pouso = POUSOS[vez % POUSOS.length];
-      // com a letra dela na folha, o canto dela fica livre: a vez passa para o próximo
-      if (pouso.dela && letraDela.tem) { vez++; continue; }
-      const descanso = vez < 2 ? 19 : 14 + Math.random() * 16;
-      await cicloPetala(pouso, descanso);
-      if (descartada) return;
-      await espera(vez < 1 ? 15000 : 16000 + Math.random() * 22000);
-      vez++;
-    }
-  }
-
   // ---- API -------------------------------------------------------------------------------------
 
   const flutua = { x: 0, y: 0, forca: 0 };
@@ -1922,7 +1917,7 @@ function criarFolha3D(mundo) {
     viver() {
       if (vivendo) return;
       vivendo = true;
-      vidaDasPetalas().catch((erro) => console.error('[carta] pétala', erro));
+      vidaDasPetalas({ acabou: () => descartada, temDela: () => letraDela.tem, ciclo: cicloPetala }).catch((erro) => console.error('[carta] pétala', erro));
     },
 
     recuar() {
@@ -2227,19 +2222,6 @@ function criarFolhaLeve(mundo) {
       : { x: `-=${(L * 0.12).toFixed(1)}`, y: `-=${(L * 0.07).toFixed(1)}`, rotation: '-=34', rotationX: '+=70', scale: 1.15, opacity: 0, duration: 0.7, ease: 'power1.out' }));
   }
 
-  async function vidaDasPetalas() {
-    await espera(4500);
-    let vez = 0;
-    while (!descartada) {
-      // com a letra dela na folha, o canto dela fica livre (como no 3D)
-      if (POUSOS[vez % POUSOS.length].dela && letraDela.tem) { vez++; continue; }
-      await cicloPetala(POUSOS[vez % POUSOS.length], vez < 2 ? 19 : 14 + Math.random() * 16);
-      if (descartada) return;
-      await espera(vez < 1 ? 15000 : 16000 + Math.random() * 22000);
-      vez++;
-    }
-  }
-
   return {
     grupo: objetoLeve(),
 
@@ -2359,7 +2341,7 @@ function criarFolhaLeve(mundo) {
     viver() {
       if (vivendo) return;
       vivendo = true;
-      vidaDasPetalas().catch((erro) => console.error('[carta] pétala', erro));
+      vidaDasPetalas({ acabou: () => descartada, temDela: () => letraDela.tem, ciclo: cicloPetala }).catch((erro) => console.error('[carta] pétala', erro));
     },
 
     recuar() {

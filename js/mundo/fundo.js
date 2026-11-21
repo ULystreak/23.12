@@ -28,7 +28,7 @@
 //   fundo.atualizar({ z, yaw, pitch, roll, dx, dy, foco })  a cada quadro
 //   fundo.ligar() / fundo.desligar()
 
-import { clamp } from '../nucleo/util.js';
+import { clamp, suave } from '../nucleo/util.js';
 import { pintarCometa } from './hora.js';
 
 // Ponto de fuga do caminho na imagem (fração). A imagem da alameda é renderizada
@@ -46,8 +46,6 @@ const SALTO_SOZINHA = 1.45;                       // no laço, a cópia nova par
 const SALTO = 1.2;                                // ... nem mais de 1,2× atrás da que sai (menos fantasma)
 // Cena fria: onde a aproximação estaria se ela tivesse vindo andando desde o começo.
 const INICIAL = { inicio: 1, poppy: 1.15, carta2: 1.15, yourname: 1.32, mao: 1.32, final: 1.4 };
-
-const suave = (t) => { const x = clamp(t); return x * x * (3 - 2 * x); };
 
 /**
  * A clareira atrás do texto: um oval claro de borda macia, pintado uma vez num

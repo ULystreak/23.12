@@ -52,7 +52,7 @@ const CEU = [0.972, 0.962, 0.968];        // branco-perolado no alto
 // (as cores das outras horas do dia estão em js/mundo/hora.js)
 
 /** O meio do caminho em x, na profundidade z: uma curva longa e leve. */
-export function centroCaminho(z) {
+function centroCaminho(z) {
   const u = -z;
   return 0.45 * Math.sin(0.12 * u) + 0.18 * Math.sin(0.047 * u);
 }
@@ -1746,9 +1746,7 @@ export function criarAlameda(mundo) {
   colocar(0);
   const pronta = (async () => {
     try {                               // (compile percorre também o que está invisível)
-      if (renderer.compileAsync) {
-        await Promise.race([renderer.compileAsync(grupo, camera, cena), new Promise((ok) => setTimeout(ok, 2500))]);
-      } else renderer.compile(grupo, camera, cena);
+      await Promise.race([renderer.compileAsync(grupo, camera, cena), new Promise((ok) => setTimeout(ok, 2500))]);
     } catch { /* compila no primeiro desenho */ }
   })();
 
