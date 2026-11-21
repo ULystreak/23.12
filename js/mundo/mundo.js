@@ -202,12 +202,8 @@ export async function criarMundo(opcoes) {
   camera.position.set(0, ALTURA_OLHOS, 0);
   rig.add(camera);
   cena.add(rig);
-
-  // Luz simples e barata (sem sombras): céu claro + um sol de frente, do alto.
-  const luzCeu = new THREE.HemisphereLight(0xffffff, 0xf1e6ea, 2.6);
-  const luzSol = new THREE.DirectionalLight(0xffffff, 1.1);
-  luzSol.position.set(-1.2, 2.4, 2.2);
-  cena.add(luzCeu, luzSol);
+  // Sem luzes na cena: todo material é ShaderMaterial (a luz vem da hora) ou
+  // MeshBasicMaterial. Um material iluminado embutido (Lambert, Standard) sairia preto.
 
   // ---- tamanho ----------------------------------------------------------------
 
@@ -292,7 +288,6 @@ export async function criarMundo(opcoes) {
 
   const ouvintes = new Set();
   const ouvintesNivel = new Set();
-  let idQuadro = 0;
   let ultimo = 0;
   let tempo = 0;
   let ligado = true;
@@ -358,8 +353,11 @@ export async function criarMundo(opcoes) {
     medidor.desde = agora + 600;
   }
 
-  function laco(agora) {
-    idQuadro = requestAnimationFrame(laco);
+  // O laço é um ouvinte do ticker do GSAP (um rAF só por quadro): roda sempre
+  // depois dos tweens, então o que o GSAP mexe no 3D sai no mesmo quadro. O tempo
+  // é o performance.now(), em ms reais (sem o lagSmoothing do GSAP).
+  function laco() {
+    const agora = performance.now();
     const brutoMs = agora - ultimo;
     ultimo = agora;
     const dt = Math.min(Math.max(brutoMs, 0) / 1000, 0.05);   // dt limitado: aba que volta não dá salto
@@ -379,16 +377,14 @@ export async function criarMundo(opcoes) {
     const deve = ligado && !document.hidden && !contextoPerdido;
     if (deve === rodando) return;
     rodando = deve;
-    cancelAnimationFrame(idQuadro);
-    if (rodando) {
-      ultimo = performance.now();
-      passo.zAnterior = rig.position.z;
-      medidor.soma = 0;
-      medidor.n = 0;
-      medidor.desde = ultimo + CARENCIA_MS;
-      medidor.carenciaAte = ultimo + CARENCIA_MS;
-      idQuadro = requestAnimationFrame(laco);
-    }
+    if (!rodando) { gsap.ticker.remove(laco); return; }
+    ultimo = performance.now();
+    passo.zAnterior = rig.position.z;
+    medidor.soma = 0;
+    medidor.n = 0;
+    medidor.desde = ultimo + CARENCIA_MS;
+    medidor.carenciaAte = ultimo + CARENCIA_MS;
+    gsap.ticker.add(laco);
   }
 
   document.addEventListener('visibilitychange', atualizarLaco);
@@ -597,15 +593,13 @@ export async function criarMundo(opcoes) {
   // quadro, que antes esperava ~40 ms por programa). Até lá elas não são
   // desenhadas, mas nesse instante a abertura está com densidade zero: nada muda
   // na tela. A guarda de 1,5 s devolve as pétalas mesmo se a promessa não vier.
-  if (typeof renderer.compileAsync === 'function') {
-    const pet = mundo.petalas.objeto;
-    pet.visible = false;
-    const mostrar = () => { pet.visible = true; };
-    try {
-      Promise.race([renderer.compileAsync(pet, camera, cena), new Promise((ok) => setTimeout(ok, 1500))])
-        .then(mostrar, mostrar);
-    } catch { mostrar(); }
-  }
+  const pet = mundo.petalas.objeto;
+  pet.visible = false;
+  const mostrar = () => { pet.visible = true; };
+  try {
+    Promise.race([renderer.compileAsync(pet, camera, cena), new Promise((ok) => setTimeout(ok, 1500))])
+      .then(mostrar, mostrar);
+  } catch { mostrar(); }
 
   // A alameda: gerada agora, compilada em paralelo e mostrada só quando pronta,
   // nascendo do branco (até lá o mundo é o branco de sempre).
@@ -639,15 +633,10 @@ export async function criarMundo(opcoes) {
   }
 
   // A hora do dia (js/mundo/hora.js): um ponto de controle só. A alameda recebe
-  // a luz, a névoa, o céu e o cometa; as pétalas da frente, a luz; as duas luzes
-  // da cena acompanham, para o que usar material comum.
-  const corLuz = new THREE.Color();
+  // a luz, a névoa, o céu e o cometa; as pétalas da frente, a luz.
   criarHora(mundo, amb, (e) => {
     if (alameda) alameda.aplicarHora(e);
     mundo.petalas.luzDaHora?.(e.petalas);
-    corLuz.setRGB(Math.min(1, e.luz[0]), Math.min(1, e.luz[1]), Math.min(1, e.luz[2]), THREE.SRGBColorSpace);
-    luzCeu.color.copy(corLuz);
-    luzSol.color.copy(corLuz);
   });
 
   atualizarLaco();
