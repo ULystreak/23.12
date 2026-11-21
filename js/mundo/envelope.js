@@ -274,7 +274,7 @@ function telaTema(tema, larg) {
 
 export function imagemDoTema(tema, largura = 512) {
   const t = temaValido(tema);
-  if (!t || typeof document === 'undefined') return null;
+  if (!t) return null;
   try { return telaTema(t, largura); } catch { return null; }
 }
 
