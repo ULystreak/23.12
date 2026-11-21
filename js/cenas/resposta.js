@@ -534,7 +534,7 @@ export function criarDepois(ctx) {
       if (!campo.value.trim()) {
         e.preventDefault();
         avisar(texto(r.vazio), true);
-        try { campo.focus({ preventScroll: true }); } catch { /* sem foco */ }
+        campo.focus({ preventScroll: true });
         return;
       }
       enviar.href = enderecoWhats();                         // o toque dela é que abre o WhatsApp
@@ -552,7 +552,7 @@ export function criarDepois(ctx) {
 
   // O teclado do iPhone cobre a metade de baixo: a folha vive na parte de cima e
   // encolhe para caber no que sobra (visualViewport), com o texto sempre à vista.
-  const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+  const vv = window.visualViewport;
   const aoViewport = () => {
     if (!aberta) return;
     const altura = vv ? vv.height : innerHeight;
@@ -581,7 +581,7 @@ export function criarDepois(ctx) {
       { autoAlpha: 0, y: calmo ? 0 : 34, scale: calmo ? 1 : 0.94, rotation: calmo ? 0 : 1.6 },
       { autoAlpha: 1, y: 0, scale: 1, rotation: 0, duration: calmo ? 0.5 : 0.62, ease: calmo ? 'none' : 'back.out(1.3)', onComplete: ok }));
     // No computador o cursor já fica na folha; no celular o teclado só sobe com o toque dela.
-    if (!amb.toque) { try { campo.focus({ preventScroll: true }); } catch { /* sem foco */ } }
+    if (!amb.toque) campo.focus({ preventScroll: true });
   }
 
   async function fecharFolha() {
@@ -611,7 +611,7 @@ export function criarDepois(ctx) {
     // com o menu do fim, o próximo passo é a pílula que leva a ele
     const alvo = ir && ir.isConnected ? ir : reabrir;
     if (!alvo.isConnected) return;
-    try { alvo.focus({ preventScroll: true }); } catch { /* sem foco */ }
+    alvo.focus({ preventScroll: true });
   };
 
   // ---- a letra dela na folha dele -------------------------------------------------------
@@ -641,7 +641,6 @@ export function criarDepois(ctx) {
     raiz.dataset.fim = '';
     const pecas = fileira();
     if (!pecas.length) return;
-    raiz.toggleAttribute('data-menu', !!ir);
     raiz.append(...pecas);
     gsap.fromTo(pecas, { autoAlpha: 0 }, { autoAlpha: 1, duration: 1.2, delay: calmo ? 0.2 : 1.2, ease: 'none', onComplete: focarReabrir });
   }
@@ -679,7 +678,6 @@ export function criarDepois(ctx) {
   /** O menu chegou: a pena e a pílula saem de cena e são removidas. */
   function limparFim() {
     const pecas = fileira().filter((no) => no.isConnected);
-    raiz.removeAttribute('data-menu');
     if (!pecas.length) return Promise.resolve();
     gsap.killTweensOf(pecas);
     for (const no of pecas) { no.disabled = true; no.style.pointerEvents = 'none'; }

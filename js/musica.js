@@ -47,10 +47,8 @@ const FIM_SEM_BOTAO = new Set(['desdobrando', 'escrevendo']);   // etapas da cen
 // Quem abriu a carta pelo teclado ganha o foco na primeira faixa; quem tocou, não
 // (senão o anel de foco aparece no iPhone como se a faixa já estivesse escolhida).
 let viaTeclado = false;
-if (typeof window !== 'undefined') {
-  window.addEventListener('keydown', () => { viaTeclado = true; }, true);
-  window.addEventListener('pointerdown', () => { viaTeclado = false; }, true);
-}
+window.addEventListener('keydown', () => { viaTeclado = true; }, true);
+window.addEventListener('pointerdown', () => { viaTeclado = false; }, true);
 
 /** Curva suave (Catmull-Rom → Bézier) passando por todos os pontos. */
 function caminhoSuave(p) {
@@ -363,9 +361,7 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
     const caixaContinuar = el('div', 'musica-continuar-caixa', continuar);
     // Sem texto visível, a seta sozinha precisa de um nome para o leitor de tela.
     if (!dados.continuar && rotulos.continuar) continuar.setAttribute('aria-label', rotulos.continuar);
-    const painel = el('div', {
-      class: 'musica carrossel', dataset: { quantas: String(faixas.length) },
-    }, [titulo, palco, pontos, caixaContinuar]);
+    const painel = el('div', 'musica carrossel', [titulo, palco, pontos, caixaContinuar]);
     if (faixas.length < 2) painel.dataset.unica = '';
 
     continuar.disabled = true;
@@ -583,7 +579,7 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
       if (ativo && ativo !== document.body && !painel.contains(ativo)) return;
       const naFaixa = !!ativo?.closest?.('.car-faixa');
       if (passar(e.key === 'ArrowRight' ? 1 : -1) && naFaixa) {
-        try { vivas()[atual].botao.focus({ preventScroll: true }); } catch { /* segue */ }
+        vivas()[atual]?.botao.focus({ preventScroll: true });
       }
       e.preventDefault();
     };
@@ -769,7 +765,7 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
       const focarPrimeira = () => {
         const ativo = document.activeElement;
         if (!viaTeclado || amb?.toque || terminado || !painel.isConnected || (ativo && ativo !== document.body)) return;
-        try { vivas()[atual].botao.focus({ preventScroll: true }); } catch { /* segue */ }
+        vivas()[atual]?.botao.focus({ preventScroll: true });
       };
       focarPrimeira();
       espera(700).then(focarPrimeira);
