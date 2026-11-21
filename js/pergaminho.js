@@ -657,7 +657,7 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
       titulo.dataset.pergFoco = '';
     }
     const focar = (no) => {
-      try { no.focus({ preventScroll: true }); } catch { /* sem foco, segue */ }
+      no?.focus({ preventScroll: true });
       return document.activeElement === no;
     };
     // Um título que ainda não pode receber foco (os blocos do Poppy só caem depois)

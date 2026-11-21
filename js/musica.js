@@ -583,7 +583,7 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
       if (ativo && ativo !== document.body && !painel.contains(ativo)) return;
       const naFaixa = !!ativo?.closest?.('.car-faixa');
       if (passar(e.key === 'ArrowRight' ? 1 : -1) && naFaixa) {
-        try { vivas()[atual].botao.focus({ preventScroll: true }); } catch { /* segue */ }
+        vivas()[atual]?.botao.focus({ preventScroll: true });
       }
       e.preventDefault();
     };
@@ -769,7 +769,7 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
       const focarPrimeira = () => {
         const ativo = document.activeElement;
         if (!viaTeclado || amb?.toque || terminado || !painel.isConnected || (ativo && ativo !== document.body)) return;
-        try { vivas()[atual].botao.focus({ preventScroll: true }); } catch { /* segue */ }
+        vivas()[atual]?.botao.focus({ preventScroll: true });
       };
       focarPrimeira();
       espera(700).then(focarPrimeira);
