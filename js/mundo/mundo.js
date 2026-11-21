@@ -610,18 +610,28 @@ export async function criarMundo(opcoes) {
   // A alameda: gerada agora, compilada em paralelo e mostrada só quando pronta,
   // nascendo do branco (até lá o mundo é o branco de sempre).
   if (comAlameda) {
+    // ?cena=menu (Voltar ao menu, recarregar no menu) e ?volta=1 (o portão de uma parte, logo
+    // depois de o menu dissolver na noite): em vez de nascer do branco (um clarão no meio do
+    // escuro), o canvas inteiro dissolve sobre a página escura (html.entra-noite, no index.html).
+    const daNoite = document.documentElement.classList.contains('entra-noite');
+    if (daNoite) canvas.style.opacity = '0';
     try {
       alameda = criarAlameda(mundo);
       mundo.alameda = alameda;
       mundo.aoMudarNivel((nivel) => alameda.nivel(nivel));
       alameda.pronta.then(() => {
-        alameda.surgir(amb.params?.has?.('cena') ? 0.6 : 1.8);
+        alameda.surgir(daNoite ? 0 : amb.params?.has?.('cena') ? 0.6 : 1.8);
+        if (daNoite) {
+          if (gsap) gsap.to(canvas, { opacity: 1, duration: 0.6, ease: 'none', clearProps: 'opacity' });
+          else canvas.style.opacity = '';
+        }
         fundo.ligar();
       });
     } catch (erro) {
       console.error('[carta] alameda', erro);
       alameda = null;
       cena.background = new THREE.Color(0xffffff);
+      canvas.style.opacity = '';
     }
   }
 

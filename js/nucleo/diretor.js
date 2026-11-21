@@ -414,6 +414,9 @@ export function criarDiretor() {
           await (await carregar.menu()).portao(ctx, ORDEM[comeco]);
         } catch (erro) { console.error('[carta] o portão falhou', erro); }   // nunca prende a carta
       }
+      // A página nasceu escura por baixo do portão (html.entra-noite, no index.html); daqui em
+      // diante a parte é a de sempre, sobre o branco. No menu a noite fica.
+      if (ORDEM[comeco] !== 'menu') document.documentElement.classList.remove('entra-noite');
 
       for (let i = comeco; i < ORDEM.length; i++) {
         const nome = ORDEM[i];
