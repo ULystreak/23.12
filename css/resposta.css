@@ -48,6 +48,19 @@
   border-radius: 50%;
   background: var(--fio);
 }
+/* um dia que importa (contador.dias): o pontinho dele, vermelho do fio, com um aro de noite
+   para se soltar dos vizinhos (e da franja vermelha de contador.conhecemos) */
+.contador-dia {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--fio);
+  box-shadow: 0 0 0 1.5px rgb(5, 8, 24);
+  pointer-events: none;
+}
 
 /* ---- o contador: a letra à mão da senha, sobre a noite ------------------------ */
 .contador {
@@ -100,6 +113,39 @@
   line-height: 1.6;
   color: var(--luar);
   text-wrap: balance;
+}
+/* a linha de um dia que importa: mora onde o fio e o rótulo vêm depois (o JS acerta o top),
+   fora do fluxo para nada se mexer quando ela entra e sai */
+.contador-lembra {
+  position: absolute;
+  left: max(24px, var(--seguro-esq));
+  right: max(24px, var(--seguro-dir));
+  margin: 0;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  font-family: var(--fonte-mao);
+  font-weight: 600;
+  font-size: 1.1875rem;
+  line-height: 1.45;
+  color: var(--luar);
+  text-wrap: balance;
+}
+.contador-lembra-dia { font-size: 1rem; letter-spacing: 0.06em; color: var(--luar-suave); }
+.contador-lembra-fala { max-width: 17em; }
+/* a virada do dia: uma luz curta atrás do número pequeno (só opacidade e escala) */
+.contador-brilho {
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  top: -14px;
+  width: 300px;
+  height: calc(clamp(3.75rem, 2.6rem + 6vw, 5.75rem) * 1.1 + 28px);
+  margin-left: -150px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 209, 161, 0.5), rgba(255, 209, 161, 0.16) 55%, rgba(255, 209, 161, 0));
+  opacity: 0;
+  pointer-events: none;
 }
 /* pequeno, no alto: o rótulo cresce um pouco para continuar legível */
 .contador[data-alto] .contador-rotulo { font-size: 2rem; color: var(--luar); }

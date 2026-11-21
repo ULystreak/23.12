@@ -190,6 +190,9 @@ Quando a frase termina, o número volta com a mesma letra da tela da senha e con
 - `rotulo`: o que vem embaixo do número (`'dias até aqui'`).
 - `frase`: a **sua** frase embaixo do contador. Hoje é um exemplo entre colchetes: troque pelo seu texto, ou deixe `''` para não ter frase.
 - `conhecemos`: o dia em que vocês se conheceram, `'ano-mês-dia'`. Enquanto o número sobe, cada dia da vida dela vira um pontinho de luz numa flor; com esta data, os dias desde que vocês se conheceram acendem em vermelho, na borda da flor. Vazio (`''`) = só o dia de hoje fica vermelho.
+- `dias`: os dias que importam (opcional). Cada linha tem a `data` (`'ano-mês-dia'`) e o `texto`, a **sua** fala sobre aquele dia. Quando o número chega, cada um acende na flor, um de cada vez (o pontinho daquele dia fica vermelho), e embaixo aparece, por uns 2 segundos, `no seu dia 7.411:` e o seu texto; o número do dia sai sozinho da data. Entram no máximo 3 (os 3 primeiros da lista), em ordem de data; data antes de ela nascer ou depois de hoje é ignorada. Texto curto, de uma linha. No `content.js` há dois exemplos desligados (com `//` na frente): tire as barras e troque a data e o texto. Lista vazia (`[]`) = nada aparece e o contador segue como sempre. Cada dia aceso segura o contador uns 3 segundos a mais.
+
+Se ela ainda estiver com a carta aberta no fim (ou no menu) quando der meia-noite, o número pequeno do alto passa para o dia novo na frente dela, com um pulinho e um brilho curto. Não há nada para configurar.
 
 Se você abrir antes do dia 23, o número é menor que 8035 (é a conta de verdade até aquele dia). Para ver como vai ficar no dia, use `?cena=final&hoje=2026-12-23`.
 

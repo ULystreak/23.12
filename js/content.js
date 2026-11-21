@@ -929,6 +929,19 @@ window.CONTEUDO = {
     // Deixe vazio ('') para não marcar nenhum (só o dia de hoje fica vermelho).
     conhecemos: '',
 
+    // Os dias que importam (opcional). Quando o número chega, cada dia desta
+    // lista acende na flor, um de cada vez: o pontinho daquele dia fica
+    // vermelho e embaixo aparece "no seu dia 7.411: " e o seu texto (o número
+    // do dia é calculado sozinho, a partir da data). Entram no máximo 3 (os 3
+    // primeiros da lista), mostrados em ordem de data; texto curto, de uma
+    // linha. Data no formato 'ano-mês-dia'; data antes de ela nascer ou depois
+    // de hoje é ignorada. Para ligar, tire as duas barras da frente da linha e
+    // troque a data e o texto. Lista vazia ([]) = desligado, tudo como hoje.
+    dias: [
+      // { data: '2025-04-08', texto: '[a nossa primeira partida]' },
+      // { data: '2026-02-14', texto: '[o nosso primeiro encontro]' },
+    ],
+
     // O que vem escrito embaixo do número.
     rotulo: 'dias até aqui',
 

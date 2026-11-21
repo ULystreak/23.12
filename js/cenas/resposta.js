@@ -18,8 +18,10 @@
 // Tudo é DOM dentro de #palco (some sozinho enquanto ela relê uma carta pela bolsa):
 //   .depois
 //     .depois-veu          a noite por cima da folha final, para o número se ler
-//     .contador-flor       a flor dos dias (canvas 2D atrás do número) e .contador-hoje, o ponto de hoje
-//     .contador            .contador-numero + .contador-rotulo + .contador-frase
+//     .contador-flor       a flor dos dias (canvas 2D atrás do número) e .contador-hoje, o ponto de hoje;
+//                          .contador-dia, um pontinho para cada dia de contador.dias
+//     .contador            .contador-numero + .contador-rotulo + .contador-frase (+ .contador-lembra, a
+//                          linha de cada dia de contador.dias, e .contador-brilho, a luz da virada do dia)
 //     .resposta            a folha: .resposta-convite, textarea, botões
 //     .depois-reabrir      no estado final: abre a folha de novo (com o menu do fim: só a pena, à esquerda)
 //     .depois-ir           com o menu do fim: a pílula que leva ao menu, no meio
@@ -39,7 +41,15 @@
 // Ganchos de teste: [data-acao="resposta-texto"] (o textarea), "resposta-enviar"
 // (um <a> de verdade para wa.me), "resposta-compartilhar", "resposta-guardar",
 // "resposta-abrir", "menu-ir" (a pílula que leva ao menu); .contador[data-dias].
-// Parâmetro só de teste: ?hoje=AAAA-MM-DD finge a data de hoje.
+// Parâmetro só de teste: ?hoje=AAAA-MM-DD finge a data de hoje (o dia fingido também vira à
+// meia-noite do aparelho, um a mais).
+//
+// Os dias que importam (contador.dias, opcional): quando o número chega, até 3 dias da lista
+// acendem na flor, um de cada vez, com a linha "no seu dia 7.412: ..." no lugar em que o fio e
+// o rótulo vêm depois. Lista vazia = nada muda, nem o tempo.
+// A virada do dia: com o contador pequeno no alto (o fim e o menu), um temporizador espera a
+// próxima meia-noite do aparelho (refeito quando a página volta a ficar visível) e o número
+// passa para o dia novo na frente dela.
 
 import { el, svg, suave, espera, menuLembrado } from '../nucleo/util.js';
 import { temMenu } from '../nucleo/diretor.js';
@@ -90,6 +100,9 @@ export function diasDeVida(nascimento, hoje = new Date()) {
   return dias >= 0 ? dias : null;
 }
 
+/** 7412 → '7.412'. */
+const comPonto = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
 const guardado = {
   ler() { try { return localStorage.getItem(CHAVE) || ''; } catch { return ''; } },
   gravar(texto) { try { if (texto) localStorage.setItem(CHAVE, texto); else localStorage.removeItem(CHAVE); return true; } catch { return false; } },
@@ -102,8 +115,14 @@ export function criarDepois(ctx) {
   const texto = (v) => (typeof v === 'string' ? v.trim() : '');
 
   const dadosC = conteudo.contador || {};
-  const hoje = (amb.params && amb.params.get('hoje')) || new Date();
-  const dias = diasDeVida(dadosC.nascimento, hoje);
+  // O dia de hoje pelo calendário do aparelho. ?hoje= (só de teste) vira um desvio em dias, e
+  // não uma data parada: o dia fingido também vira à meia-noite.
+  const diaReal = () => { const a = new Date(); return Date.UTC(a.getFullYear(), a.getMonth(), a.getDate()) / 86400000; };
+  const pedido = lerData(amb.params && amb.params.get('hoje'));
+  const desvio = pedido ? Date.UTC(pedido.a, pedido.m - 1, pedido.d) / 86400000 - diaReal() : 0;
+  const hojeAgora = () => new Date((diaReal() + desvio) * 86400000).toISOString().slice(0, 10);
+  const hoje = hojeAgora();
+  let dias = diasDeVida(dadosC.nascimento, hoje);
   const temContador = dias !== null;
 
   const dadosR = conteudo.resposta || null;
@@ -152,6 +171,10 @@ export function criarDepois(ctx) {
   const rotulo = el('span', { class: 'contador-rotulo', 'aria-hidden': 'true', texto: texto(dadosC.rotulo) || 'dias até aqui' });
   const frase = texto(dadosC.frase) ? el('p', { class: 'contador-frase', texto: texto(dadosC.frase) }) : null;
   const contador = el('div', { class: 'contador', role: 'group' }, [numero, fio, rotulo, frase]);
+  const rotular = () => {
+    contador.dataset.dias = String(dias);
+    contador.setAttribute('aria-label', `${dias} ${rotulo.textContent}`);
+  };
   // cada algarismo numa casa de largura fixa: o número não treme enquanto conta
   let mostrado = '';
   const mostrarDias = (n) => {
@@ -174,6 +197,18 @@ export function criarDepois(ctx) {
   // fio, e pulsa quando o número chega. Antes do rótulo e da frase a flor baixa para 35%;
   // ao recolher o contador ela se dissolve ali mesmo (não sobe junto).
   const juntos = Math.min(dias || 0, diasDeVida(dadosC.conhecemos, hoje) || 0);
+  // Os dias que importam (contador.dias): os 3 primeiros da lista que caem dentro da vida dela,
+  // em ordem de data. n é o número daquele dia, na mesma conta do contador.
+  const lembrados = (Array.isArray(dadosC.dias) ? dadosC.dias : [])
+    .map((d) => ({ n: diasDeVida(dadosC.nascimento, d && d.data), fala: texto(d && d.texto) }))
+    .filter((d) => temContador && d.n !== null && d.n <= dias && d.fala)
+    .slice(0, 3)
+    .sort((a, b) => a.n - b.n);
+  // a linha de cada um, no lugar em que o fio e o rótulo vêm depois (role="status": o leitor de tela lê cada uma)
+  const lembraDia = el('span', 'contador-lembra-dia');
+  const lembraFala = el('span', 'contador-lembra-fala');
+  const lembra = lembrados.length ? el('p', { class: 'contador-lembra', role: 'status' }, [lembraDia, lembraFala]) : null;
+  const PASSO_DIA = 3.1;                                   // entra (0,5 s), fica (2,2 s), sai (0,4 s)
   let flor = null;
   function criarFlor() {
     const fs = parseFloat(getComputedStyle(numero).fontSize) || 60;
@@ -228,18 +263,30 @@ export function criarDepois(ctx) {
     };
     raiz.insertBefore(tela, contador);
     raiz.insertBefore(ponto, contador);
-    return { tela, ponto, d, desenhar };
+    // cada dia que importa é um pontinho do fio em cima do pontinho dele na espiral (o de hoje já tem o seu)
+    const marcas = lembrados.map(({ n }) => {
+      if (n >= N) return null;
+      const i = Math.max(0, n - 1);
+      const r = R * Math.sqrt((i + i0) / (N - 1 + i0));
+      const a = (i - N + 1) * ouro;
+      const marca = el('span', { class: 'contador-dia', 'aria-hidden': 'true', style: { marginLeft: `${-r * Math.sin(a) - 2}px`, marginTop: `${meioY + r * Math.cos(a) - 2}px` } });
+      raiz.insertBefore(marca, contador);
+      return marca;
+    });
+    return { tela, ponto, d, desenhar, marcas };
   }
 
   /** A flor se dissolve onde está (não sobe com o contador) e o texto volta para baixo do número. */
   function soltarFlor() {
     if (!flor) return;
     const { tela, ponto, d } = flor;
+    const pecas = [tela, ponto, ...flor.marcas.filter(Boolean)];
     flor = null;
     removeEventListener('resize', aoGirar);
-    gsap.to([tela, ponto], { autoAlpha: 0, duration: calmo ? 0.4 : 0.9, ease: 'none', overwrite: true, onComplete: () => { tela.remove(); ponto.remove(); } });
+    gsap.to(pecas, { autoAlpha: 0, duration: calmo ? 0.4 : 0.9, ease: 'none', overwrite: true, onComplete: () => { for (const no of pecas) no.remove(); } });
     // sai da margem e, na mesma hora, desliza de onde estava (nada pula)
     fio.style.marginTop = '';
+    if (lembra) lembra.style.top = `${fio.offsetTop}px`;
     gsap.fromTo(frase ? [fio, rotulo, frase] : [fio, rotulo], { y: d }, { y: 0, duration: calmo ? 0.01 : 1.5, ease: 'power2.inOut' });
   }
   // girou o aparelho no meio da conta: a flor, medida para a outra tela, sai
@@ -249,8 +296,7 @@ export function criarDepois(ctx) {
   async function contar() {
     if (!temContador) return;
     montar();
-    contador.dataset.dias = String(dias);
-    contador.setAttribute('aria-label', `${dias} ${rotulo.textContent}`);
+    rotular();
     raiz.append(contador);
     gsap.set([contador, rotulo, fio, ...(frase ? [frase] : [])], { autoAlpha: 0 });
     gsap.set(contador, { autoAlpha: 1 });
@@ -259,8 +305,14 @@ export function criarDepois(ctx) {
     if (flor) {
       gsap.set([flor.tela, flor.ponto], { autoAlpha: 0 });
       fio.style.marginTop = `${flor.d}px`;                // o fio, o rótulo e a frase descem para fora da flor
+      gsap.set(flor.marcas.filter(Boolean), { autoAlpha: 0 });
       largura = innerWidth;
       addEventListener('resize', aoGirar);
+    }
+    if (lembra) {
+      contador.append(lembra);
+      lembra.style.top = `${fio.offsetTop}px`;
+      gsap.set(lembra, { autoAlpha: 0 });
     }
     await new Promise((ok) => {
       const tl = gsap.timeline({ onComplete: ok });
@@ -289,7 +341,25 @@ export function criarDepois(ctx) {
           tl.to(flor.ponto, { scale: 1, duration: 0.5, ease: 'back.out(2.2)' }, 4.86);
         }
       }
-      const depois = (calmo ? 1.4 : 4.9) + (flor ? (calmo ? 1.2 : 0.7) : 0);
+      // os dias que importam: um de cada vez, o pontinho acende na flor e a linha diz o que foi
+      const chegou = (calmo ? 1.4 : 4.9) + (flor ? (calmo ? 1.2 : 0.7) : 0);
+      lembrados.forEach(({ n, fala }, k) => {
+        const t = chegou + k * PASSO_DIA;
+        const marca = flor && flor.marcas[k];
+        tl.call(() => { lembraDia.textContent = `no seu dia ${comPonto(n)}:`; lembraFala.textContent = fala; }, null, t);
+        tl.fromTo(lembra, { autoAlpha: 0, y: calmo ? 0 : 8 }, { autoAlpha: 1, y: 0, duration: 0.5, ease: calmo ? 'none' : 'power2.out' }, t);
+        tl.to(lembra, { autoAlpha: 0, duration: 0.4, ease: 'none' }, t + 2.7);
+        if (!marca) return;
+        if (calmo) tl.to(marca, { autoAlpha: 1, duration: 0.5, ease: 'none' }, t);
+        else {
+          tl.fromTo(marca, { autoAlpha: 0, scale: 0.4 }, { autoAlpha: 1, scale: 2.2, duration: 0.16, ease: 'power2.out' }, t);
+          tl.to(marca, { scale: 1.25, duration: 0.5, ease: 'back.out(2.2)' }, t + 0.16);
+        }
+        // deu lugar ao próximo: continua aceso, discreto
+        tl.to(marca, { opacity: 0.7, scale: calmo ? 1 : 0.8, duration: 0.4, ease: 'sine.inOut' }, t + 2.7);
+      });
+      const depois = chegou + lembrados.length * PASSO_DIA;
+      if (lembra) tl.call(() => lembra.remove(), null, depois);
       if (flor) tl.to(flor.tela, { opacity: 0.35, duration: calmo ? 0.6 : 0.9, ease: 'sine.inOut' }, depois - 0.6);
       tl.fromTo(fio, { autoAlpha: 0, scaleX: calmo ? 1 : 0 }, { autoAlpha: 1, scaleX: 1, duration: calmo ? 0.6 : 0.9, ease: 'power3.out' }, depois - (calmo ? 0 : 0.1));
       tl.to(rotulo, { autoAlpha: 1, duration: 0.9, ease: 'none' }, depois + (calmo ? 0 : 0.25));
@@ -332,14 +402,44 @@ export function criarDepois(ctx) {
     montar();
     raiz.dataset.fim = '';
     if (!temContador || contador.dataset.alto !== undefined) return;
-    contador.dataset.dias = String(dias);
-    contador.setAttribute('aria-label', `${dias} ${rotulo.textContent}`);
+    rotular();
     mostrarDias(dias);
     if (frase) gsap.set(frase, { autoAlpha: 0 });
     raiz.append(contador);
     contador.dataset.alto = '';
     gsap.set(contador, { y: yNoAlto(), scale: ESCALA_ALTO });
+    conferirDia();
   }
+
+  // ---- a virada do dia ------------------------------------------------------------------
+  // Com o contador pequeno no alto (o fim e o menu), um temporizador espera a próxima
+  // meia-noite do aparelho; ao voltar a ficar visível, a conta é refeita (o iPhone para os
+  // temporizadores da aba escondida). O número passa para o dia novo na frente dela, com o
+  // mesmo pulinho da chegada e uma luz curta por trás (movimento reduzido: só troca).
+  const brilho = el('span', { class: 'contador-brilho', 'aria-hidden': 'true' });
+  let viraEm = 0;
+  function conferirDia() {
+    clearTimeout(viraEm);
+    // com a aba escondida nada troca: a virada espera ela voltar, para acontecer na frente dela
+    if (!temContador || contador.dataset.alto === undefined || !contador.isConnected || document.hidden) return;
+    const agora = new Date();
+    const falta = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() + 1).getTime() - agora.getTime();
+    viraEm = setTimeout(conferirDia, Math.max(1000, falta + 500));
+    const novo = diasDeVida(dadosC.nascimento, hojeAgora());
+    if (novo === null || novo === dias) return;
+    dias = novo;
+    rotular();
+    if (calmo) { mostrarDias(dias); return; }
+    if (!brilho.isConnected) contador.append(brilho);
+    som.efeito?.('brilho');
+    gsap.timeline()
+      .to(numero, { scale: 1.12, duration: 0.16, ease: 'power2.out', overwrite: true })
+      .call(() => mostrarDias(dias))
+      .to(numero, { scale: 1, duration: 0.5, ease: 'back.out(2.2)' })
+      .fromTo(brilho, { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: 0.3, ease: 'power2.out' }, 0)
+      .to(brilho, { opacity: 0, duration: 1.4, ease: 'sine.inOut' }, 0.3);
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) conferirDia(); });
 
   // ---- a folha de resposta ------------------------------------------------------------
   let folha = null;
@@ -533,6 +633,7 @@ export function criarDepois(ctx) {
   function repousar() {
     montar();
     recolherContador();
+    conferirDia();
     acordar();
     gsap.to(veu, { opacity: 0, duration: calmo ? 0.8 : 2.2, ease: 'sine.inOut', overwrite: true, onComplete: escreverNaFolha });
     raiz.dataset.fim = '';
@@ -591,5 +692,5 @@ export function criarDepois(ctx) {
     gsap.set(contador, { y: yNoAlto() });
   }
 
-  return { temContador, temResposta, dias, contar, escrever, repousar, seguir, reescrever, noAlto, limparFim, reposicionar, raiz };
+  return { temContador, temResposta, get dias() { return dias; }, contar, escrever, repousar, seguir, reescrever, noAlto, limparFim, reposicionar, raiz };
 }
