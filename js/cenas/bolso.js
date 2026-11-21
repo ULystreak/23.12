@@ -139,7 +139,7 @@ export function criarBolso({ conteudo, amb, som, raiz }) {
 
   /** Dito em voz alta (o desenho é aria-hidden): um aviso educado, fora de #bolso. */
   function anunciar() {
-    if (!rotulo || typeof document === 'undefined') return () => {};
+    if (!rotulo) return () => {};
     const aviso = el('p', { class: 'bolso-aviso', role: 'status', 'aria-live': 'polite' });
     document.body.append(aviso);
     // (o texto entra depois do nó: é a mudança que os leitores de tela anunciam)
@@ -229,7 +229,7 @@ export function criarBolso({ conteudo, amb, som, raiz }) {
     const ate = { x: alvo.x - (esquerda + largura / 2), y: alvo.y - (topo + altura / 2), escala: Math.max(0.08, 48 / largura) };
 
     descartar(envelope);                       // a carta do mundo já não aparece: a daqui assume
-    const efeito = (nome) => { try { som?.efeito?.(nome); } catch { /* sem som */ } };
+    const efeito = (nome) => som?.efeito?.(nome);
     const mundo = olhar();
 
     await new Promise((ok) => {

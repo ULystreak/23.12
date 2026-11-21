@@ -256,7 +256,7 @@ export const capitulo = {
       amb,
       quando: quandoCeu,
       aoQuadro: (e) => acertarLuz(e),
-      aoDividir: () => { try { som.efeito('brilho'); } catch { /* sem som */ } },
+      aoDividir: () => som?.efeito?.('brilho'),
       aoTrocar: (tipo) => { if (vivo) raiz.classList.toggle('yn-leve', tipo !== 'webgl'); },
     });
     raiz.classList.toggle('yn-leve', tempo.tipo !== 'webgl');
@@ -688,7 +688,7 @@ export const capitulo = {
       fechar.disabled = true;
       raiz.classList.add('yn-fechando');
       tempo.encerrar();
-      try { som.efeito('toque'); } catch { /* sem som */ }
+      som?.efeito?.('toque');
       await espera(reduzido ? 500 : 1100);
       if (vivo) api.fechar();
     }, { once: true });

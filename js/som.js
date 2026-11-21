@@ -26,9 +26,8 @@
 // Com ?mudo=1 (ou se qualquer coisa do áudio falhar) tudo vira silêncio sem erro:
 // o estado continua mudando, para a interface se comportar igual.
 //
-// Os efeitos são sintetizados (nenhum arquivo). As receitas ficam em RECEITAS e
-// também podem ser tocadas num OfflineAudioContext com sintetizar(), para medir
-// pico e duração sem ouvir.
+// Os efeitos são sintetizados (nenhum arquivo): as receitas ficam em RECEITAS e
+// tocam por sintetizar().
 
 import { clamp, semente, espera } from './nucleo/util.js';
 
@@ -370,19 +369,19 @@ export function criarSom(conteudo, amb) {
       }, Math.max(0, ms));
     },
 
-    falar(arquivo, { fundo = 0.45 } = {}) {
+    falar(arquivo) {
       const buffer = falas.get(arquivo);
       if (mudo || !buffer || !ctx || ctx.state !== 'running') return false;
       try {
         const fonte = ctx.createBufferSource();
         const ganho = ctx.createGain();
         // Acompanha o volume que ela escolheu, como os efeitos: clara por cima da música
-        // (que abaixa para `fundo`), sem passar do pico do arquivo.
+        // (que abaixa para 0,45), sem passar do pico do arquivo.
         ganho.gain.value = clamp(estado.volume * 2.6, 0, 1);
         fonte.buffer = buffer;
         fonte.connect(ganho).connect(ctx.destination);
         fonte.start();
-        som.abafar(fundo, buffer.duration * 1000);
+        som.abafar(0.45, buffer.duration * 1000);
         faladas++;
         return true;
       } catch {
@@ -525,7 +524,7 @@ function caixa(c, saida, t0) {
   return k;
 }
 
-export const RECEITAS = {
+const RECEITAS = {
   // O lacre de cera: um estalo seco em três grãos e a cera cedendo (batida grave).
   lacre: {
     nivel: 0.04,      // os estalos medem mais alto que o RMS: este fica a ~−17,5 dB do pico da música
@@ -712,7 +711,7 @@ export const RECEITAS = {
  * Toca uma receita num contexto qualquer (o da página ou um OfflineAudioContext).
  * Devolve a duração em segundos, ou 0 se o efeito não existe.
  */
-export function sintetizar(contexto, destino, nome, opcoes, quando) {
+function sintetizar(contexto, destino, nome, opcoes, quando) {
   const receita = RECEITAS[nome];
   if (!receita) return 0;
   const saida = contexto.createGain();

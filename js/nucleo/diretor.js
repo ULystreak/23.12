@@ -55,11 +55,6 @@ const BOLSA_LIVRE = new Set(['carta2:caminhada', 'carta2:carta-chegando', 'carta
  */
 const RETOMAR = new Set(['inicio', 'poppy', 'carta2', 'yourname', 'mao', 'cartas', 'final', 'menu']);
 
-/**
- * Cenas que só existem quando o content.js tem o que mostrar. Pulada, a cena nem
- * aparece em data-cena: a seguinte entra como entraria sem ela (fria só se a
- * carta começou ali por ?cena=).
- */
 /** Há senha a pedir? (qualquer texto: números, letras, o que ele quiser) */
 export function temSenha(conteudo) {
   const codigo = conteudo && conteudo.senha && conteudo.senha.codigo;
@@ -102,6 +97,11 @@ export function temMenu(conteudo) {
   const menu = conteudo && conteudo.menu;
   return !!menu && typeof menu === 'object' && !Array.isArray(menu);
 }
+/**
+ * Cenas que só existem quando o content.js tem o que mostrar. Pulada, a cena nem
+ * aparece em data-cena: a seguinte entra como entraria sem ela (fria só se a
+ * carta começou ali por ?cena=).
+ */
 const PULAR = {
   senha: (ctx) => !temSenha(ctx.conteudo),
   cartas: (ctx) => !temCartas(ctx.conteudo),

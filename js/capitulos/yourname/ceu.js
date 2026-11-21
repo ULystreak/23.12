@@ -16,6 +16,7 @@
 // sem ela, um quadro depois). O canvas só entra no recipiente pronto e
 // desenhado; quem cria decide quando mostrá-lo (tempo.js faz a dissolvência).
 
+import { quadro } from '../../nucleo/util.js';
 import { VERTICE, fragmento } from './ceu-glsl.js';
 
 const OITAVAS = { alto: 4, medio: 3, baixo: 2 };
@@ -29,8 +30,6 @@ const UNIFORMES = [
   'uSolCor', 'uSol', 'uLonge', 'uPerto', 'uNuvem', 'uEstrelas', 'uTerra',
   'uCometa', 'uCometaAB', 'uCometaO', 'uClarao',
 ];
-
-const proximoQuadro = () => new Promise((r) => requestAnimationFrame(() => r()));
 
 export function criarPintorWebGL(recipiente, amb) {
   const tela = document.createElement('canvas');
@@ -89,10 +88,10 @@ export function criarPintorWebGL(recipiente, amb) {
       for (let i = 0; i < ESPERA_MAX; i++) {
         if (!vivo || g !== geracao || gl.isContextLost()) return false;
         if (gl.getProgramParameter(alvo.p, paralelo.COMPLETION_STATUS_KHR)) break;
-        await proximoQuadro();
+        await quadro();
       }
     } else {
-      await proximoQuadro();
+      await quadro();
     }
     if (!vivo || g !== geracao || gl.isContextLost()) return false;
     const ok = !!gl.getProgramParameter(alvo.p, gl.LINK_STATUS);
