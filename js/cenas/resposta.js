@@ -653,16 +653,33 @@ export function criarDepois(ctx) {
   async function reescrever() {
     if (!temResposta || reescrevendo || aberta || ctx.inventario?.aberto) return;
     reescrevendo = true;
+    // Reabrindo (ela só quer reler): Esc ou um toque fora fecham como o Guardar (o campo já grava a
+    // cada letra), e o Tab fica dentro da folha.
+    const aoTeclar = (ev) => {
+      if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); aoGuardar?.(); return; }
+      if (ev.key !== 'Tab' || !folha) return;
+      const alvos = [...folha.querySelectorAll('textarea, button, a[href]')];
+      const i = alvos.indexOf(document.activeElement);
+      ev.preventDefault();
+      alvos[ev.shiftKey ? (i <= 0 ? alvos.length - 1 : i - 1) : (i + 1) % alvos.length]?.focus();
+    };
+    const aoTocar = (ev) => { if (folha && !folha.contains(ev.target)) aoGuardar?.(); };
     try {
       await abrirFolha();
+      addEventListener('keydown', aoTeclar, true);
+      addEventListener('pointerdown', aoTocar, true);
       await new Promise((ok) => { aoGuardar = ok; });
       aoGuardar = null;
+      removeEventListener('keydown', aoTeclar, true);
+      removeEventListener('pointerdown', aoTocar, true);
       folhaFinal()?.apagarDela?.();                        // a letra antiga sai ainda debaixo da noite
       await fecharFolha();
       acordar();
       gsap.to(veu, { opacity: 0, duration: 1.2, ease: 'sine.inOut', overwrite: true, onComplete: escreverNaFolha });
       gsap.to(fileira(), { autoAlpha: 1, duration: 0.8, ease: 'none', onComplete: focarReabrir });
     } finally {
+      removeEventListener('keydown', aoTeclar, true);
+      removeEventListener('pointerdown', aoTocar, true);
       reescrevendo = false;
     }
   }
