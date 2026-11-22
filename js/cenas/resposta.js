@@ -51,7 +51,7 @@
 // próxima meia-noite do aparelho (refeito quando a página volta a ficar visível) e o número
 // passa para o dia novo na frente dela.
 
-import { el, svg, suave, espera, menuLembrado } from '../nucleo/util.js';
+import { el, svg, suave, espera, menuLembrado, debounce } from '../nucleo/util.js';
 import { temMenu } from '../nucleo/diretor.js';
 
 // Ícones da papelaria (_dev/UI.md): grade 24, traço 1.75, pontas redondas.
@@ -691,6 +691,8 @@ export function criarDepois(ctx) {
     if (!temContador || contador.dataset.alto === undefined || !contador.isConnected || gsap.isTweening(contador)) return;
     gsap.set(contador, { y: yNoAlto() });
   }
+  // (no fim e no menu: girar o celular ou mudar a janela não pode deixar os dias fora da tela)
+  addEventListener('resize', debounce(reposicionar), { passive: true });
 
   return { temContador, temResposta, get dias() { return dias; }, contar, escrever, repousar, seguir, reescrever, noAlto, limparFim, reposicionar, raiz };
 }
