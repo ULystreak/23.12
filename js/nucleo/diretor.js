@@ -53,7 +53,7 @@ const BOLSA_LIVRE = new Set(['carta2:caminhada', 'carta2:carta-chegando', 'carta
  * voltar/avançar ou o iPhone descartar a aba (na volta do WhatsApp) caem no atalho
  * ?cena= (e a música volta no primeiro toque, main.js), não na senha com tudo do zero.
  */
-const RETOMAR = new Set(['inicio', 'poppy', 'carta2', 'yourname', 'mao', 'cartas', 'final', 'menu']);
+const RETOMAR = new Set(['inicio', 'poppy', 'carta2', 'yourname', 'mao', 'cartas', 'encontro', 'final', 'menu']);
 
 /** Há senha a pedir? (qualquer texto: números, letras, o que ele quiser) */
 export function temSenha(conteudo) {
