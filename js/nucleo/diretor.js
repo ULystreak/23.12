@@ -445,6 +445,8 @@ export function criarDiretor() {
         } catch (erro) {
           // Nada pode travar: se uma cena quebrar, a próxima entra fria e ela segue adiante.
           console.error(`[carta] a cena "${nome}" falhou`, erro);
+          // A última (o menu) não tem fria depois dela: vindo do fim, a página recomeça por ela (?cena=menu já está no endereço).
+          if (!frio && i === ORDEM.length - 1) { location.reload(); return; }
           await recuperar(ctx);
           frio = true;
         }
