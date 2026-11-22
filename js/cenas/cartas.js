@@ -573,7 +573,9 @@ export async function cenaCartas(ctx, { frio } = {}) {
     botao: null, desenho: null, nome: null,
   }));
 
-  try { localStorage.removeItem(CHAVE_CHAO); } catch { /* nada */ }   // (esta vez é que vale)
+  // Vindo do caminho, esta vez é que vale; recomeçando por atalho (recarregou), as que ela já abriu continuam abertas.
+  const jaVistas = frio ? lembradas() : new Set();
+  if (!frio) { try { localStorage.removeItem(CHAVE_CHAO); } catch { /* nada */ } }
   const cancelamentos = [];
   const ouvir = (alvo, evento, fn, opcoes) => {
     alvo.addEventListener(evento, fn, opcoes);
@@ -858,6 +860,24 @@ export async function cenaCartas(ctx, { frio } = {}) {
     diretor.etapa('escolhendo');
     escreverNome(item).then(correrLuz);   // depois do nome, a luz corre pelo fio até ele
     if (!amb.toque) item.botao?.focus({ preventScroll: true });
+  }
+
+  for (const item of itens) {
+    if (!jaVistas.has(item.carta.id)) continue;
+    item.estado = item.botao.dataset.estado = item.desenho.dataset.estado = 'aberta';
+    item.botao.setAttribute('aria-label', item.carta.nome);
+    item.escrito = true;
+    caberNome(item);
+    abertas.add(item.carta.id);
+    inventario.guardar({ id: item.carta.id, tipo: item.carta.tipo, titulo: item.carta.nome, abrir: () => mostrar(item.carta) });
+  }
+  if (abertas.size) {
+    inventario.mostrarBotao();
+    atualizarSeguir();
+    if (ultima && itens.every((o) => o === ultima || abertas.has(o.carta.id))) {
+      delete ultima.desenho.dataset.trancada;
+      ultima.botao.removeAttribute('aria-disabled');
+    }
   }
 
   // ==========================================================================
