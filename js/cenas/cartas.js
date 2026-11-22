@@ -872,8 +872,7 @@ export async function cenaCartas(ctx, { frio } = {}) {
     inventario.guardar({ id: item.carta.id, tipo: item.carta.tipo, titulo: item.carta.nome, abrir: () => mostrar(item.carta) });
   }
   if (abertas.size) {
-    inventario.mostrarBotao();
-    atualizarSeguir();
+    inventario.mostrarBotao();       // (o seguir só aparece quando a frase do chão sair: senão cai em cima dela)
     if (ultima && itens.every((o) => o === ultima || abertas.has(o.carta.id))) {
       delete ultima.desenho.dataset.trancada;
       ultima.botao.removeAttribute('aria-disabled');
@@ -936,8 +935,8 @@ export async function cenaCartas(ctx, { frio } = {}) {
     if (frase) {
       const f = frase;
       frase = null;
-      gsap.delayedCall(calmo ? 1.6 : 2.4, () => ocultarPalavras(f).then(() => f.remove()));
-    }
+      gsap.delayedCall(calmo ? 1.6 : 2.4, () => ocultarPalavras(f).then(() => { f.remove(); atualizarSeguir(); }));
+    } else atualizarSeguir();
     if (!amb.toque && (!document.activeElement || document.activeElement === document.body)) {
       itens[0]?.botao.focus({ preventScroll: true });
     }
