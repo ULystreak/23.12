@@ -633,7 +633,7 @@ html[data-portao] #inventario { visibility: hidden; }
   .menu-saudade-frase { display: none; }
   .menu-ponta { margin-top: clamp(12px, 3.2vh - 4px, 26px); }
 }
-@media (max-height: 699px) and (min-width: 760px) {
+@media (max-height: 860px) and (min-width: 760px) {
   .menu { --menu-alt: 52px; --menu-topo: clamp(76px, 12vh, 96px); }
 }
 @media (max-width: 400px) {
