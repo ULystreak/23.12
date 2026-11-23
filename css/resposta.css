@@ -1,0 +1,428 @@
+/* ============================================================================
+   RESPOSTA: o depois da frase final
+   ============================================================================
+   O véu da noite, o contador (número, fio costurado, rótulo e frase), a flor de
+   pontinhos e os dias que importam, a folha de resposta (caderno de pautas,
+   aviso e botões), a fileira de baixo (pena e pílula) e a figura pintada dele
+   (.ele-leve) da versão sem WebGL. Só transform e opacity são animados; a
+   sacudida do erro também é transform. Os data-* são postos pelo JS
+   (js/cenas/resposta.js): data-fim, data-folha, data-teclado, data-alto,
+   data-rola, data-tem, data-erro, data-so.
+
+   Medidas que o JS também usa: o top da folha (116 px) e o margin-top do
+   contador (-5,6rem). Mudar um sem o outro desalinha o contador no alto.
+   ========================================================================== */
+
+.depois {
+  --depois-topo: var(--seguro-topo);
+  --depois-vista: var(--tela); /* o JS troca pela altura visível (teclado do iPhone) */
+  --depois-noite: 5, 8, 24; /* a noite funda do fim, em r, g, b */
+  position: absolute;
+  inset: 0;
+  /* O JS lê o topo seguro daqui: env() não se lê de dentro de uma variável. */
+  padding-top: var(--depois-topo);
+  pointer-events: none;
+}
+
+/* ---- O véu da noite -------------------------------------------------------- */
+.depois-veu {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 70% at 50% 46%,
+    rgb(var(--depois-noite)) 46%,
+    rgba(var(--depois-noite), 0.975) 72%,
+    rgba(var(--depois-noite), 0.9));
+  opacity: 0;
+}
+
+/* ---- O contador ------------------------------------------------------------ */
+.contador {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  margin-top: -5.6rem;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 0 max(24px, var(--seguro-dir)) 0 max(24px, var(--seguro-esq));
+  transform-origin: 50% 0;
+  isolation: isolate; /* a placa e o brilho (z -1) ficam atrás do número, dentro dele */
+  color: var(--luar);
+  font-family: var(--fonte-mao);
+  text-align: center;
+}
+
+/* O número, na letra do campo da senha. */
+.contador-numero {
+  font-weight: 600;
+  font-size: clamp(3.75rem, 2.6rem + 6vw, 5.75rem);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums lining-nums;
+  text-shadow: 0 0 28px rgba(255, 209, 161, 0.22);
+  white-space: nowrap;
+}
+/* Uma caixa por algarismo: a contagem não treme. */
+.contador-casa {
+  display: inline-block;
+  width: 0.66em;
+  text-align: center;
+}
+
+/* O fio: o mesmo traço que estava sob a senha. O JS o desenha com scaleX. */
+.contador-fio {
+  display: block;
+  width: min(60vw, 228px);
+  height: 8px;
+  background: var(--enfeite-fio) left center / 24px 8px repeat-x;
+  transform-origin: left center;
+}
+
+.contador-rotulo {
+  margin-top: 4px;
+  font-size: 1.1875rem;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  color: var(--luar-suave);
+  transform-origin: 50% 0;
+}
+.contador-rotulo:empty { display: none; }
+
+.contador-frase {
+  margin: 26px 0 0;
+  max-width: 17em;
+  font-family: var(--fonte-titulo);
+  font-size: clamp(1.2rem, 1.1rem + 0.6vw, 1.45rem);
+  line-height: 1.6;
+  text-wrap: balance;
+}
+
+/* No alto: o rótulo cresce para ser lido na escala 0,46. */
+.contador[data-alto] {
+  gap: 6px;
+  text-shadow: 0 1px 10px rgba(4, 6, 20, 0.7);
+}
+.contador[data-alto] .contador-rotulo {
+  font-size: 2rem;
+  color: var(--luar);
+}
+
+/* No fim o contador fica sobre o céu e, no computador, sobre a beira da carta:
+   ganha uma etiqueta de noite por trás para ler nos dois (só opacidade;
+   medidas antes da escala). */
+.contador::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -10px;
+  width: 348px;
+  margin-left: -174px;
+  height: calc(clamp(3.75rem, 2.6rem + 6vw, 5.75rem) * 1.1 + 3rem + 46px);
+  border-radius: 44px;
+  background: rgba(13, 17, 48, 0.84);
+  box-shadow: inset 0 0 0 2px rgba(214, 222, 255, 0.16), 0 10px 26px rgba(4, 6, 20, 0.4);
+  opacity: 0;
+  transition: opacity 0.9s linear;
+  z-index: -1;
+  pointer-events: none;
+}
+.depois[data-fim]:not([data-folha]) .contador[data-alto]::before { opacity: 1; }
+
+/* A virada da meia-noite: um brilho de estrela atrás do número. */
+.contador-brilho {
+  position: absolute;
+  left: 50%;
+  top: -14px;
+  width: 300px;
+  margin-left: -150px;
+  height: calc(clamp(3.75rem, 2.6rem + 6vw, 5.75rem) * 1.1 + 28px);
+  background: radial-gradient(closest-side,
+    rgba(255, 209, 161, 0.5),
+    rgba(255, 209, 161, 0.16) 55%,
+    rgba(255, 209, 161, 0));
+  opacity: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* ---- A flor e os dias que importam (o canvas e os pontos são do JS) ---------- */
+.contador-flor {
+  position: absolute;
+  max-width: none;
+  pointer-events: none;
+}
+.contador-hoje,
+.contador-dia {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--fio);
+  pointer-events: none;
+}
+.contador-hoje {
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+}
+.contador-dia {
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  box-shadow: 0 0 0 1.5px rgb(var(--depois-noite));
+}
+
+/* "no seu dia 7.411:" em cima e a fala embaixo, onde depois ficam o fio e o rótulo. */
+.contador-lembra {
+  position: absolute;
+  left: max(24px, var(--seguro-esq));
+  right: max(24px, var(--seguro-dir));
+  margin: 0;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  font-size: 1.1875rem;
+  line-height: 1.45;
+}
+.contador-lembra-dia {
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+  color: var(--luar-suave);
+}
+.contador-lembra-fala {
+  max-width: 17em;
+  text-wrap: balance;
+}
+
+/* ---- A folha "Escrever de volta" ------------------------------------------- */
+.resposta {
+  --resp-l: min(100vw - 32px - var(--seguro-esq) - var(--seguro-dir), 468px);
+  position: absolute;
+  left: 50%;
+  top: calc(var(--depois-topo) + 116px);
+  width: var(--resp-l);
+  max-width: none;
+  margin: 0 0 0 calc(var(--resp-l) / -2);
+  max-height: calc(var(--depois-vista) - var(--depois-topo) - 136px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 30px 24px 20px;
+  transform-origin: 50% 0;
+  pointer-events: auto;
+  /* O #palco tira a seleção; no Safari o campo herdaria isso e não aceitaria texto. */
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+/* O foco programático (toque, leitor de tela) não desenha anel na folha inteira. */
+.resposta:focus { outline: none; }
+.resposta[data-rola] {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+/* Rolando, o laço do alto sairia cortado. */
+.resposta[data-rola] > .ui-laco { display: none; }
+
+.resposta-convite {
+  padding: 0 2px;
+  font-size: clamp(1.1875rem, 1.1rem + 0.4vw, 1.3125rem);
+  line-height: 1.45;
+}
+
+/* O caderno: pautas que rolam com o texto. 19 px: acima de 16, o Safari do
+   iPhone não dá zoom ao focar. */
+.resposta-texto {
+  --linha: 2.05rem;
+  --pauta: var(--papel-linha);
+  flex: 1 1 auto;
+  height: clamp(8.2rem, 32vh, 16.4rem);
+  min-height: 4.1rem;
+  padding: 0 4px;
+  border-radius: 0;
+  font-size: 1.1875rem;
+  line-height: var(--linha);
+  background-image: linear-gradient(to bottom, transparent calc(var(--linha) - 1px), var(--pauta) calc(var(--linha) - 1px));
+  background-size: 100% var(--linha);
+  background-attachment: local;
+  -webkit-appearance: none;
+  appearance: none;
+  touch-action: pan-y;
+  -webkit-user-select: text;
+  user-select: text;
+}
+/* O foco do caderno é a pauta que fica rosa (e o cursor vermelho piscando). */
+.resposta-texto:focus,
+.resposta-texto:focus-visible {
+  --pauta: var(--sakura);
+  outline: none;
+}
+/* A dica apagada com o mesmo contraste do texto pequeno (a tinta fraca não chega a 4,5:1). */
+.resposta-texto::placeholder { color: var(--tinta-suave); }
+
+.resposta-aviso {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 1.5em;
+}
+.resposta-aviso:not(:empty)::before {
+  content: "";
+  flex: none;
+  width: 13px;
+  height: 13px;
+  background: var(--enfeite-petala) center / contain no-repeat;
+  transform: rotate(-18deg);
+}
+.resposta-aviso[data-erro] {
+  color: var(--sakura-tinta);
+  font-weight: 600;
+  animation: resposta-nega 280ms var(--curva-ui);
+}
+@keyframes resposta-nega {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  55% { transform: translateX(4px); }
+  80% { transform: translateX(-2px); }
+}
+
+.resposta-botoes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 2px;
+}
+.resposta-botoes .ui-pilula {
+  padding: 0 18px;
+  gap: 8px;
+  font-size: 1.0625rem;
+}
+.resposta-enviar { text-decoration: none; }
+.resposta-enviar .ui-icone { width: 22px; height: 22px; }
+/* Sem texto fica apagado, mas segue tocável: o toque mostra o aviso. */
+.resposta-enviar[aria-disabled="true"] { opacity: 0.5; }
+.resposta-coracao {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  fill: currentColor;
+  opacity: 0.92;
+  transform: rotate(10deg);
+}
+
+.resposta-outro {
+  align-self: flex-end;
+  min-height: 44px;
+  margin: -6px 0 -8px;
+  padding: 0 4px;
+  font-family: var(--fonte-mao);
+  font-size: 0.9375rem;
+  color: var(--tinta-suave);
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-decoration-color: var(--ponto);
+  text-underline-offset: 5px;
+  -webkit-touch-callout: none;
+  transition: transform var(--dur-mola) var(--mola), color var(--dur-ui) var(--curva-ui);
+}
+.resposta-outro:active {
+  transform: scale(0.96);
+  transition-duration: var(--dur-toque);
+}
+@media (hover: hover) and (pointer: fine) {
+  .resposta-outro:hover { color: var(--tinta); }
+}
+
+/* Até 419 px, cada botão ocupa a linha inteira. */
+@media (max-width: 419px) {
+  .resposta-botoes .ui-pilula { flex: 1 1 100%; }
+}
+
+/* ---- A fileira de baixo ------------------------------------------------------ */
+/* Os botões usam a propriedade translate (não transform): o :active e o hover
+   da papelaria continuam livres para o transform. */
+.depois-reabrir,
+.depois-ir {
+  position: absolute;
+  left: 50%;
+  translate: -50% 0;
+  pointer-events: auto;
+}
+.depois-reabrir { bottom: calc(var(--seguro-base) + 20px); }
+.depois-reabrir .ui-icone { width: 20px; height: 20px; }
+.depois-reabrir[data-so="pena"] {
+  left: calc(var(--seguro-esq) + 16px);
+  translate: none;
+}
+.depois-reabrir[data-so="pena"] .ui-icone { width: 22px; height: 22px; }
+.depois-ir {
+  bottom: calc(var(--seguro-base) + 18px);
+  white-space: nowrap;
+}
+.depois-ir-seta {
+  width: 20px;
+  height: 20px;
+  color: var(--fio);
+}
+
+@media (max-width: 380px) {
+  .depois-reabrir[data-so="pena"] { left: calc(var(--seguro-esq) + 12px); }
+  /* Sem menu, a pílula fica no meio do que sobra à esquerda da bolsa. */
+  .depois-reabrir:not([data-so]) { left: calc((100% - 88px) / 2); }
+  .depois-ir {
+    left: calc(50% - 6px);
+    padding: 0 16px;
+    gap: 7px;
+    font-size: 1rem;
+  }
+  .contador-rotulo { white-space: nowrap; }
+}
+
+/* ---- Teclado aberto: a folha sobe e usa só o que sobra da tela ---------------- */
+.depois[data-teclado] .contador { visibility: hidden; }
+/* O aviso de erro continua à vista: é a resposta ao toque dela. */
+.depois[data-teclado] .resposta-aviso:not([data-erro]),
+.depois[data-teclado] .resposta-outro { display: none; }
+.depois[data-teclado] .resposta {
+  top: calc(var(--depois-topo) + 16px);
+  max-height: calc(var(--depois-vista) - var(--depois-topo) - 26px);
+  padding: 24px 16px 16px;
+}
+.depois[data-teclado] .resposta-convite {
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+/* ---- Celular deitado ----------------------------------------------------------- */
+@media (orientation: landscape) and (max-height: 520px) {
+  .resposta {
+    top: calc(var(--depois-topo) + 64px);
+    max-height: calc(var(--depois-vista) - var(--depois-topo) - 76px);
+    padding-top: 22px;
+    gap: 6px;
+  }
+  .resposta-texto { height: 4.1rem; }
+}
+
+/* ---- Sem WebGL: a figura pintada dele, parada atrás da carta (final.js a acende) --- */
+.ele-leve {
+  position: absolute;
+  left: 50%;
+  bottom: 4%;
+  height: min(74%, 150vw);
+  width: auto;
+  max-width: none;
+  aspect-ratio: 1 / 2;
+  translate: -50% 0;
+  opacity: 0;
+  filter: brightness(0.6) saturate(0.85);
+  pointer-events: none;
+}
+
+/* ---- Movimento reduzido ---------------------------------------------------------- */
+html.reduzido .resposta-aviso[data-erro] { animation: none; }
+html.reduzido .resposta-outro { transition-duration: 0.01ms; }
+@media (prefers-reduced-motion: reduce) {
+  .resposta-aviso[data-erro] { animation: none; }
+  .resposta-outro { transition-duration: 0.01ms; }
+}

@@ -1,0 +1,19 @@
+# GitHub Pages (Jekyll): publica o site como está e deixa de fora o que é só
+# de desenvolvimento. (Pastas que começam com "_" ou "." já ficam de fora
+# sozinhas: _dev/, .claude/...)
+# Com "exclude" definido, a lista padrão do Jekyll deixa de valer; por isso
+# node_modules entra aqui. Nada que o site use (js, css, lib, assets) entra.
+exclude:
+  - PRODUCT.md
+  - DESIGN.md
+  - LEIA-ME.md
+  - PROMPT.md
+  - colocar-letra.bat
+  - colocar-textos.bat
+  - output
+  - node_modules
+  - graphify-out
+  # Já estão fora do git; ficam aqui também para nunca irem ao ar por engano.
+  - letra-1.txt
+  - letra-2.txt
+  - textos

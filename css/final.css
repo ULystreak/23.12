@@ -1,0 +1,168 @@
+/* ============================================================================
+   FINAL: a última folha sem WebGL e o traço do caminho
+   ============================================================================
+   A versão DOM da folha de js/mundo/folha.js: um bloco 1:2 em CSS 3D, com
+   perspectiva, dividido num painel do meio e duas abas que giram nos vincos.
+   O JS põe posição, escala, balanço, recorte e os canvas da tinta; aqui ficam
+   a geometria, a fibra do papel, as sombras dos vincos, as camadas (tinta, fio
+   e pétala) e o brilho do fio. Também o traço do caminho sem WebGL
+   (.fio-leve-caminho), que js/cenas/final.js cria.
+
+   Contrato com o JS (não mexer sem mexer lá):
+   - os terços (33,33%) são a base da posição da tinta (top em % da folha);
+   - os translateZ (sombra −2, tinta 4, fio 26, pétala 28 px) e as origens das
+     abas (50% 100% em cima, 50% 0% embaixo) decidem quem fica na frente e que
+     lado gira;
+   - a perspectiva é 4 × L: o balanço em graus do JS foi medido com ela.
+   Prefixos -webkit- em toda propriedade 3D: o Safari antigo precisa deles.
+   Movimento reduzido: nada aqui se desloca; os tempos curtos são do JS.
+   ========================================================================== */
+
+.folha-leve {
+  /* L: em pé, 86% da largura; deitado, 40% da altura (a folha fica com 80% dela). */
+  --folha-l: min(86vw, calc(var(--tela) * 0.4), 440px);
+  /* O tom do vinco no próprio papel (a paleta da folha). */
+  --fl-vinco: rgba(176, 156, 128, 0.35);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--folha-l);
+  height: calc(var(--folha-l) * 2);
+  margin: calc(var(--folha-l) * -1) 0 0 calc(var(--folha-l) * -0.5);
+  -webkit-perspective: calc(var(--folha-l) * 4);
+  perspective: calc(var(--folha-l) * 4);
+  transform-origin: 50% 50%;
+  /* Acima da carta leve: o WebKit ordena as camadas 3D pela profundidade. */
+  z-index: 1;
+  /* Camada própria: sem ela o Safari engasga no balanço. */
+  will-change: transform, opacity;
+}
+
+.fl-corpo {
+  position: absolute;
+  inset: 0;
+  -webkit-transform-style: preserve-3d;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+/* O papel creme com uma fibra quase invisível: ruído fixo, desenhado uma vez. */
+.fl-painel {
+  position: absolute;
+  inset: 0;
+  background-color: var(--papel);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9 0.12' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.33 0 0 0 0 0.24 0 0 0 0 0.2 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23f)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  -webkit-backface-visibility: visible;
+  backface-visibility: visible;
+}
+
+/* O terço do meio fica parado; luz do alto e da esquerda: ele é o mais claro. */
+.fl-meio {
+  top: 33.3333%;
+  bottom: auto;
+  height: 33.3334%;
+  box-shadow: inset 0 0 0 0.5px var(--fl-vinco);
+}
+
+/* As abas giram nos vincos (o JS escreve rotationX). */
+.fl-aba {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 33.3334%;
+  -webkit-transform-style: preserve-3d;
+  transform-style: preserve-3d;
+}
+.fl-cima { top: 0; transform-origin: 50% 100%; }
+.fl-baixo { bottom: 0; transform-origin: 50% 0%; }
+
+/* Cada vinco: um risco fino na dobra e uma penumbra que se abre para dentro da aba. */
+.fl-cima .fl-painel {
+  box-shadow:
+    inset 0 0 0 0.5px var(--fl-vinco),
+    inset 0 -1px 0 rgba(120, 96, 84, 0.16),
+    inset 0 -10px 12px -10px rgba(42, 27, 34, 0.07);
+}
+.fl-baixo .fl-painel {
+  box-shadow:
+    inset 0 0 0 0.5px var(--fl-vinco),
+    inset 0 1px 0 rgba(120, 96, 84, 0.18),
+    inset 0 12px 14px -12px rgba(42, 27, 34, 0.08);
+}
+
+/* A aba ainda dobrada é um nada mais escura; o JS a apaga enquanto desdobra. */
+.fl-escuro {
+  position: absolute;
+  inset: 0;
+  background: var(--tinta);
+  opacity: 0.035;
+  pointer-events: none;
+}
+
+/* A sombra atrás: macia, deslocada para baixo, do tamanho do que está aberto. */
+.fl-sombra {
+  position: absolute;
+  inset: 1% 3% 0;
+  border-radius: 2px;
+  box-shadow:
+    0 calc(var(--folha-l) * 0.05) calc(var(--folha-l) * 0.12) rgba(42, 27, 34, 0.13),
+    0 2px 6px rgba(42, 27, 34, 0.06);
+  transform: translateZ(-2px);
+}
+
+/* A tinta é um canvas por cima do papel, não uma imagem. */
+.fl-tinta {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: auto;
+  transform: translateZ(4px);
+  pointer-events: none;
+}
+
+/* O fio que repousa: um SVG de 1000 × 2000 sobre a folha inteira, acima da aba
+   de baixo (que se levanta uns 17 px na borda). Nunca display: none nem outro inset. */
+.fl-fio {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform: translateZ(26px);
+  pointer-events: none;
+}
+.fl-fio-sombra { stroke: rgba(42, 27, 34, 0.16); }
+.fl-fio-brilho { opacity: 0; }
+/* Depois de deitado, o fio respira: só a opacidade do brilho, a cada 7,5 s. */
+.fl-fio-respira .fl-fio-brilho { animation: fl-fio-respira 7.5s var(--curva-branco-deriva) infinite; }
+@keyframes fl-fio-respira {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 0.32; }
+}
+
+/* A pétala que pousa: a mesma forma das pétalas do mundo, acima do fio. */
+.fl-petala {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc(var(--folha-l) * 0.075);
+  height: calc(var(--folha-l) * 0.094);
+  margin: calc(var(--folha-l) * -0.047) 0 0 calc(var(--folha-l) * -0.0375);
+  background: var(--rosa);
+  border-radius: 60% 60% 55% 55% / 85% 85% 35% 35%;
+  filter: drop-shadow(1px 2px 1.5px rgba(42, 27, 34, 0.22));
+  transform: translateZ(28px);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+/* O traço do caminho sem WebGL: o JS desenha o path em px de tela. */
+.fio-leve-caminho {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}

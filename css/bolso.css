@@ -1,0 +1,84 @@
+/* ============================================================================
+   BOLSO: a carta entrando na bolsa de ombro dela (js/cenas/bolso.js)
+   ============================================================================
+   A camada fica por cima do mundo e abaixo da folha e do palco. O JS põe
+   tamanhos e posições em px da tela; aqui só o que não muda. Só transform e
+   opacity são animados. A versão calma (só a carta, que aparece e some) é
+   decidida no JS; este arquivo não precisa de regra própria para ela.
+   ========================================================================== */
+
+#bolso {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh; /* depois do 100vh de propósito: reserva para quem não tem dvh */
+  z-index: calc(var(--z-pergaminho) - 1);
+  pointer-events: none; /* nada aqui recebe toque */
+  overflow: hidden;
+  contain: layout paint;
+}
+/* Explícito: se um dia #bolso ganhar display, é esta regra que o mantém escondido. */
+#bolso[hidden] { display: none; }
+
+/* O olhar desce: o pé da tela escurece de leve (sombra é tinta). */
+.bolso-veu {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(42, 27, 34, 0) 30%, rgba(42, 27, 34, 0.38) 100%);
+  will-change: opacity;
+}
+
+.bolso-bolsa {
+  position: absolute;
+  will-change: transform, opacity;
+}
+/* fundo, frente e aba empilhados; a alça sobe para fora do desenho */
+.bolso-bolsa-parte {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  max-width: none;
+  overflow: visible;
+}
+/* a sombra fica na aba (e não na bolsa) para acompanhar a aba quando ela abre */
+.bolso-aba {
+  filter: drop-shadow(0 6px 8px rgba(42, 27, 34, 0.18));
+  will-change: transform;
+}
+
+/* A carta vai num suporte 0 × 0: o JS só move o suporte. */
+.bolso-leva {
+  position: absolute;
+  top: 0; left: 0;
+  width: 0; height: 0;
+  will-change: transform;
+}
+.bolso-carta {
+  position: absolute;
+  /* o recorte acompanha o envelope em qualquer tamanho */
+  border-radius: 2.2% / 3.2%;
+  background-color: var(--papel);
+  box-shadow: 0 10px 26px rgba(42, 27, 34, 0.2), 0 2px 5px rgba(42, 27, 34, 0.16);
+  overflow: hidden;
+}
+/* a face (canvas), a cor do papel e as dobras: cada filho ocupa a carta inteira */
+.bolso-carta > * {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  max-width: none;
+}
+.bolso-carta-papel { background: var(--papel); }
+
+/* O aviso para o leitor de tela (fora de #bolso, que é aria-hidden). */
+.bolso-aviso {
+  position: fixed;
+  width: 1px; height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

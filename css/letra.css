@@ -1,0 +1,102 @@
+/* ============================================================================
+   LETRA: o karaokê no alto da tela
+   ============================================================================
+   Uma pílula escura centralizada, um verso por vez, com a palavra cantada em
+   vermelho e sublinhada (#letra, criado por js/letra.js). A pílula dá
+   passagem (opacity 0) quando outra voz fala ou quando a carta fala: a tela
+   preta, as frases dele, a folha aberta, a bolsa, a voz, as cartas do chão, o
+   encontro e o fim. Anima só opacity (400 ms) e cor (140 ms).
+   ========================================================================== */
+
+#letra {
+  /* Fundo a 0,9 e sem desfoque: o vermelho da palavra dá 4,7:1 sobre a pílula
+     composta no branco do dia (6,2:1 à noite), e o branco, 14:1. Um desfoque
+     atrás dela custaria refazê-lo a cada quadro do WebGL. */
+  --letra-fundo: rgba(22, 16, 34, 0.9);
+  --letra-acesa: #ff5a68;
+}
+
+.letra {
+  position: fixed;
+  /* Logo abaixo do disco da música. */
+  top: calc(var(--seguro-topo) + 72px);
+  left: 50%;
+  z-index: 45;
+  width: max-content;
+  max-width: min(640px, calc(100% - 2 * max(16px, var(--seguro-dir) + 12px)));
+  transform: translateX(-50%);
+  pointer-events: none;
+  white-space: normal;
+  opacity: 1;
+  transition: opacity 400ms linear;
+}
+.letra[data-vazia] { opacity: 0; }
+
+/* ---- Dar passagem --------------------------------------------------------------
+   A folha e a bolsa vêm antes de #letra no <body> e não precisam de :has().
+   O cartão da voz nasce depois dela (voz.js o monta ao abrir): só o :has() o vê. */
+html:not(.sem-entrada) #letra,
+#pergaminho:not([hidden]) ~ #letra,
+#inventario[data-aberto] ~ #letra,
+html:is([data-cena="cartas"], [data-cena="encontro"], [data-etapa="frases"], [data-etapa="guardando"], [data-etapa="papel"]) #letra,
+html[data-cena="final"]:is([data-etapa="desdobrando"], [data-etapa="escrevendo"], [data-etapa="contador"], [data-etapa="resposta"], [data-etapa="fim"]) #letra {
+  opacity: 0;
+}
+/* Com :has(), em regras próprias: um navegador sem :has() descarta a regra
+   inteira, e as de cima continuam valendo. As frases dele: a letra espera a
+   última sair, não só o começo da caminhada. */
+html:has(#frases > *, #pergaminho:not([hidden]), #inventario[data-aberto], .carta-chao-visor, #voz[data-aberto]) #letra {
+  opacity: 0;
+}
+/* Notebook baixo: a caixa cobriria a dica da última carta. */
+@media (min-width: 900px) and (max-height: 760px) {
+  html[data-cena="final"][data-etapa="carta-espera"]:has(#dica:not([hidden])) #letra { opacity: 0; }
+}
+
+/* ---- O verso ------------------------------------------------------------------------ */
+.letra-linha {
+  margin: 0;
+  padding: 10px 20px 11px;
+  border-radius: 18px;
+  background: var(--letra-fundo);
+  box-shadow: 0 8px 28px -10px rgba(30, 14, 40, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  font-family: var(--fonte-titulo);
+  font-size: 1.3125rem;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  color: var(--branco);
+  text-align: center;
+  text-shadow: 0 1px 8px rgba(30, 14, 40, 0.45);
+}
+/* Bloco: um span solto não aceita transform, e o verso entra subindo. */
+.letra-texto {
+  display: block;
+  text-wrap: balance;
+}
+/* O sublinhado já existe, transparente: nada pula quando a palavra acende.
+   Em propriedades separadas, para a espessura valer também no Safari do celular. */
+.letra-palavra {
+  text-decoration-line: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.22em;
+  text-decoration-skip-ink: none;
+  transition: color 140ms linear, text-decoration-color 140ms linear;
+}
+.letra-palavra[data-agora] {
+  color: var(--letra-acesa);
+  text-decoration-color: var(--letra-acesa);
+}
+
+@media (min-width: 900px) {
+  .letra {
+    top: calc(var(--seguro-topo) + 22px);
+    max-width: min(760px, calc(100% - 200px));
+  }
+  .letra-linha {
+    padding: 12px 28px 13px;
+    font-size: 1.75rem;
+  }
+  .letra-palavra { text-decoration-thickness: 3px; }
+}

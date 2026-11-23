@@ -1,0 +1,309 @@
+/* ============================================================================
+   MUNDO: a abertura sobre o branco, o fundo e os véus, o mundo leve e a hora
+   ============================================================================
+   As frases da abertura com o halo que segura a leitura; o fundo da alameda
+   sem WebGL (#mundo-fundo, de js/mundo/fundo.js) e os véus atrás do texto com
+   WebGL (#mundo-veus), que nascem do branco; o mundo leve (#mundo-leve, de
+   js/mundo/leve.js), com pétalas pintadas uma vez em canvas e animadas aqui
+   em três camadas de profundidade; e a hora do dia por html[data-hora].
+
+   Só transform e opacity animam a cada quadro. Nenhum desfoque roda em tempo
+   real no leve: a camada de perto já vem pintada macia. O JS escreve
+   --fundo-veu e --fundo-veu-noite (em <html>) e --fundo-fuga-x/y (no fundo);
+   sem eles, os véus somem e a névoa fica no meio.
+   ========================================================================== */
+
+/* ---- Paleta e tempos do mundo (só a alameda usa) ------------------------------ */
+:root {
+  /* A noite sobre o texto do palco */
+  --hora-texto-noite: #f6eef4;
+  --hora-realce-noite: #ffc4d6;
+  --hora-sombra-noite: 6, 8, 26; /* rgb, composto com alfa */
+
+  /* A névoa clara no ponto de fuga da foto */
+  --hora-nevoa-foto: 255, 248, 250;
+
+  /* As camadas da hora sobre a foto (sem WebGL) */
+  --hora-tarde-miolo: 26, 14, 40;
+  --hora-tarde-meio: 24, 12, 38;
+  --hora-tarde-borda: 16, 8, 28;
+  --hora-tarde-alto: 150, 78, 96;
+  --hora-tarde-baixo: 58, 36, 86;
+  --hora-noite-borda: 20, 24, 60;
+  --hora-noite-alto: rgb(52, 66, 132);
+  --hora-noite-baixo: rgb(40, 52, 112);
+
+  /* Nascer do branco, véus, troca da foto e densidade do leve */
+  --mundo-nasce: 1.8s;
+  --mundo-nasce-calmo: 1s;
+  --mundo-veus: 1.2s;
+  --mundo-veu: 1.4s;
+  --mundo-troca: 1.1s;
+  --leve-petala: 1.6s;
+  --leve-chao: 2.4s;
+  --leve-frente: 1.2s;
+}
+
+/* ---- Abertura: as frases sobre o branco ----------------------------------------- */
+.frase-abertura {
+  max-width: 10.6em;
+  margin: 0 auto;
+  font-size: clamp(1.6rem, 6.6vw, 3.4rem);
+  line-height: 1.5;
+  font-kerning: normal;
+  font-feature-settings: "kern", "liga";
+  text-wrap: balance;
+}
+@media (min-width: 900px) {
+  .frase-abertura { max-width: 16em; letter-spacing: 0.025em; }
+}
+/* Três auras brancas: a palavra continua legível quando uma pétala passa atrás. */
+.frase-abertura .palavra {
+  text-shadow: 0 0 0.18em var(--branco), 0 0 0.5em var(--branco), 0 0 1.1em var(--branco);
+}
+
+/* ---- O fundo (sem WebGL) e os véus (com WebGL) ------------------------------------ */
+/* Nascem do branco: é o que faz a alameda surgir do nada. */
+#mundo-fundo,
+#mundo-veus {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%;
+  height: var(--tela);
+  z-index: var(--z-mundo);
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+  opacity: 0;
+  transition: opacity var(--mundo-nasce) linear;
+}
+#mundo-veus { transition-duration: var(--mundo-veus); }
+#mundo-fundo.fundo-pronto,
+#mundo-veus.fundo-pronto { opacity: 1; }
+html.reduzido #mundo-fundo { transition-duration: var(--mundo-nasce-calmo); }
+
+/* A foto: o que muda a cada quadro é só o transform (a escala da caminhada). */
+.fundo-foto {
+  position: absolute;
+  will-change: transform, opacity;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+/* Meio pixel de desfoque funde as duas cópias; na troca de enquadramento, um pouco mais. */
+.fundo-foto > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  filter: blur(0.5px);
+  transition: filter var(--mundo-troca) var(--curva-branco-deriva);
+}
+#mundo-fundo.fundo-trocando .fundo-foto > img { filter: blur(2.6px); }
+
+.fundo-nevoa {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 58% 34% at var(--fundo-fuga-x, 50%) var(--fundo-fuga-y, 56%),
+    rgba(var(--hora-nevoa-foto), 0.3), rgba(var(--hora-nevoa-foto), 0.1) 55%, rgba(var(--hora-nevoa-foto), 0) 100%);
+}
+
+/* Véu em vez de caixa: uma clareira macia, sem borda, pintada uma vez em
+   canvas (um gradiente radial grande custaria um quadro longo ao aparecer).
+   Dá 4,5:1 ao texto sobre qualquer parte da foto. */
+.fundo-veu {
+  position: absolute;
+  inset: auto;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  background: var(--fundo-veu, none) center / 100% 100% no-repeat;
+  transition: opacity var(--mundo-veu) var(--curva-branco-deriva);
+}
+.fundo-veu-alto { left: 50%; top: 31%; width: 184%; height: 48%; }
+.fundo-veu-baixo { left: 50%; top: 85%; width: 164%; height: 30%; }
+@media (min-width: 900px) {
+  .fundo-veu-alto { width: 104%; height: 44%; }
+  .fundo-veu-baixo { width: 80%; }
+}
+/* O véu de cima com frase na tela; o de baixo com ação (o alvo invisível da carta não conta). */
+html:has(#frases:not(:empty)) .fundo-veu-alto,
+html:has(#acoes > :not(.alvo-carta)) .fundo-veu-baixo { opacity: 1; }
+
+/* ---- A hora sobre a foto (sem WebGL): pintadas uma vez, o JS só mexe na opacidade --- */
+.fundo-hora {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  will-change: opacity;
+  pointer-events: none;
+}
+.fundo-hora-tarde {
+  background:
+    radial-gradient(92% 74% at 50% 56%, rgba(var(--hora-tarde-miolo), 0) 34%, rgba(var(--hora-tarde-meio), 0.3) 76%, rgba(var(--hora-tarde-borda), 0.56) 100%),
+    linear-gradient(rgba(var(--hora-tarde-alto), 0.34), rgba(var(--hora-tarde-baixo), 0.46));
+}
+/* Multiplicada, a noite vira luar sobre a foto. */
+.fundo-hora-noite {
+  background:
+    radial-gradient(96% 80% at 50% 50%, rgba(var(--hora-noite-borda), 0) 30%, rgba(var(--hora-noite-borda), 0.5) 100%),
+    linear-gradient(var(--hora-noite-alto), var(--hora-noite-baixo));
+  mix-blend-mode: multiply;
+}
+.fundo-hora-cometa {
+  inset: auto;
+  left: 50%;
+  top: -5%;
+  width: min(118vw, 58vh);
+  aspect-ratio: 1;
+  transform: translateX(-46%);
+  background-position: center;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  mix-blend-mode: screen;
+}
+
+/* ---- O mundo leve (sem WebGL) ---------------------------------------------------------- */
+#mundo-leve { contain: strict; }
+.leve-mundo,
+.leve-frente {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.leve-frente { z-index: 2; }
+.leve-frente:not(.leve-soltas) { transition: opacity var(--leve-frente) linear; }
+
+.leve-camada {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 46%;
+  will-change: transform, opacity;
+}
+
+/* A imagem de cada pétala vem das classes .leve-s<i> (injetadas por leve.js):
+   aqui só posição, tamanho e repetição, nunca o atalho `background`, que
+   apagaria a imagem. */
+.leve-petala {
+  position: absolute;
+  left: 0; top: 0;
+  width: var(--tam, 24px);
+  height: var(--tam, 24px);
+  margin: calc(var(--tam, 24px) * -0.5) 0 0 calc(var(--tam, 24px) * -0.5);
+  opacity: 0;
+  animation: leve-cair var(--dur, 12s) linear var(--atraso, 0s) infinite;
+}
+.leve-petala > b {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-position: center;
+  background-size: contain;
+  background-repeat: no-repeat;
+  animation: leve-tombar var(--tombo, 5s) var(--curva-branco-deriva) var(--fase, 0s) infinite alternate;
+  transition: opacity var(--leve-petala) linear;
+}
+.leve-petala.fora > b { opacity: 0; }
+
+.leve-zerar .leve-petala,
+.leve-zerar .leve-petala > b { animation: none; }
+.leve-camada.parada .leve-petala,
+.leve-camada.parada .leve-petala > b { animation-play-state: paused; }
+
+@keyframes leve-cair {
+  0% { transform: translate3d(var(--x0, 0), -12vh, 0); opacity: 0; }
+  7% { opacity: var(--alfa, 1); }
+  88% { opacity: var(--alfa, 1); }
+  100% { transform: translate3d(var(--x1, 0), var(--y1, 112vh), 0); opacity: 0; }
+}
+@keyframes leve-tombar {
+  from { transform: translate3d(calc(var(--bal, 12px) * -1), 0, 0) rotate(var(--r0, -30deg)) scale(var(--s0, 0.9), 1); }
+  to { transform: translate3d(var(--bal, 12px), 0, 0) rotate(var(--r1, 50deg)) scale(var(--s1, 0.3), 1); }
+}
+
+/* O chão: pétalas deitadas, paradas, achatadas pela perspectiva. */
+.leve-chao {
+  position: absolute;
+  left: 0; right: 0;
+  top: 46%;
+  bottom: 0;
+  will-change: transform, opacity;
+}
+.leve-chao > i {
+  position: absolute;
+  width: var(--tam, 20px);
+  height: var(--tam, 20px);
+  margin: calc(var(--tam, 20px) * -0.5) 0 0 calc(var(--tam, 20px) * -0.5);
+  background-position: center;
+  background-size: contain;
+  background-repeat: no-repeat;
+  opacity: var(--alfa, 1);
+  transform: scale(1, var(--achata, 0.4)) rotate(var(--r, 0deg));
+  transition: opacity var(--leve-chao) linear;
+}
+.leve-chao > i.fora { opacity: 0; }
+
+/* Rajadas e protagonistas: passam por cima da carta. */
+.leve-solta {
+  position: absolute;
+  left: 0; top: 0;
+  width: var(--tam, 22px);
+  height: var(--tam, 22px);
+  margin: calc(var(--tam, 22px) * -0.5) 0 0 calc(var(--tam, 22px) * -0.5);
+  background-position: center;
+  background-size: contain;
+  background-repeat: no-repeat;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+/* Na leitura, a camada de perto recua para não passar na frente do texto. */
+.leve-protege .leve-frente:not(.leve-soltas),
+html:is([data-etapa="frases"], [data-etapa="carta-espera"], [data-etapa="carta-abrindo"], [data-etapa="mao-espera"], [data-etapa="desdobrando"], [data-etapa="escrevendo"], [data-etapa="fim"]) .leve-frente:not(.leve-soltas) {
+  opacity: 0.1;
+}
+
+/* A versão calma: as pétalas caem devagar e não tombam. */
+html.reduzido .leve-petala > b {
+  animation: none;
+  transform: rotate(var(--r0, -30deg)) scale(0.72, 1);
+}
+.leve-instante,
+.leve-instante * { transition: none !important; }
+
+/* ---- A dica sobre a foto ------------------------------------------------------------------ */
+/* Tinta cheia e uma clareira atrás. As regras da noite, abaixo e mais
+   específicas, vencem estas: à noite a dica fica em luar sobre o véu escuro. */
+html.com-fundo #dica { color: var(--tinta); }
+html.com-fundo #dica::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -1.4em;
+  bottom: -1.4em;
+  width: min(26em, 92%);
+  transform: translateX(-50%);
+  background: var(--fundo-veu, none) center / 100% 100% no-repeat;
+  opacity: 0.92;
+  z-index: -1;
+  pointer-events: none;
+}
+html.com-fundo #dica:empty::before { display: none; }
+
+/* ---- A noite ---------------------------------------------------------------------------------- */
+/* Véus escuros e o texto em luar, com sombra de noite para o contraste. Só
+   com fundo (a alameda ou a foto, html.com-fundo): sem ele o mundo continua
+   branco à noite (pagina.fundo vazio, ou a foto que não abriu), e o luar
+   sumiria no branco. */
+html.com-fundo[data-hora="noite"] .fundo-veu,
+html.com-fundo[data-hora="noite"] #dica::before { background-image: var(--fundo-veu-noite, none); }
+html.com-fundo[data-hora="noite"] #frases,
+html.com-fundo[data-hora="noite"] #dica,
+html.com-fundo[data-hora="noite"] #acoes > .botao {
+  color: var(--hora-texto-noite);
+  text-shadow: 0 0 0.3em rgba(var(--hora-sombra-noite), 0.9), 0 0 0.9em rgba(var(--hora-sombra-noite), 0.7);
+}
+html.com-fundo[data-hora="noite"] .frase-abertura .palavra {
+  text-shadow: 0 0 0.18em rgba(var(--hora-sombra-noite), 0.9), 0 0 0.6em rgba(var(--hora-sombra-noite), 0.8);
+}
+@media (hover: hover) and (pointer: fine) {
+  html.com-fundo[data-hora="noite"] #acoes > .botao:hover { color: var(--hora-realce-noite); }
+}

@@ -1,0 +1,376 @@
+/* ============================================================================
+   SENHA: a tela preta do começo
+   ============================================================================
+   O quadro da senha (campo, traço, cadeado, fio de costura, coração e
+   setinha), o aviso e a dica como bilhetes da noite, a contagem até o dia, a
+   área do seletor de música (#entrada-musica) e as duas pálpebras que se
+   abrem sobre a alameda. Os estados vêm do JS, no .senha: data-tem, data-erro,
+   data-chegou e data-certa (e data-erro também no campo). Anima transform e
+   opacity; o coração do cadeado acende por fill.
+   ========================================================================== */
+
+/* ---- As duas áreas do preto ------------------------------------------------ */
+#entrada-senha,
+#entrada-musica {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: calc(var(--seguro-topo) + 24px) max(24px, var(--seguro-dir)) calc(var(--seguro-base) + 24px) max(24px, var(--seguro-esq));
+}
+#entrada-senha:empty,
+#entrada-musica:empty { display: none; }
+
+/* No celular o quadro sobe para o terço de cima: o teclado ocupa o resto. */
+@media (pointer: coarse) {
+  #entrada-senha {
+    align-items: start;
+    padding-top: calc(var(--seguro-topo) + min(26vh, 240px));
+  }
+}
+@media (pointer: coarse) and (max-height: 520px) {
+  #entrada-senha { padding-top: calc(var(--seguro-topo) + 9vh); }
+}
+
+/* ---- O quadro ---------------------------------------------------------------- */
+.senha {
+  display: grid;
+  justify-items: center;
+  gap: 18px;
+  width: min(100%, 328px);
+  will-change: opacity;
+}
+
+.senha-frase {
+  margin: 0;
+  max-width: 18em;
+  font-family: var(--fonte-titulo);
+  font-size: 1.0625rem;
+  line-height: 1.5;
+  letter-spacing: 0.08em;
+  color: var(--luar-suave);
+  text-align: center;
+  text-wrap: balance;
+}
+
+/* O cadeado: acorda com o foco, acende na virada e abre no acerto. */
+.senha-cadeado {
+  width: 34px;
+  height: 34px;
+  color: var(--luar-suave);
+  opacity: 0.72;
+  transition: opacity 240ms linear;
+}
+.senha:is(:focus-within, [data-chegou], [data-certa]) .senha-cadeado { opacity: 1; }
+/* Os pivôs estão no viewBox 24 do ícone. */
+.senha-cadeado-coracao {
+  fill: var(--sakura);
+  stroke: none;
+  transform-origin: 12px 15.4px;
+  transition: fill 700ms linear;
+}
+.senha[data-chegou] .senha-cadeado-coracao { fill: var(--fio); }
+.senha-cadeado-arco {
+  transform-origin: 15.5px 10.5px;
+  transition: transform var(--dur-mola) var(--mola);
+}
+.senha[data-certa] .senha-cadeado-arco { transform: translateY(-1.6px) rotate(32deg); }
+
+.senha-quadro {
+  position: relative;
+  width: 100%;
+}
+
+/* Uma linha só, sem casas: o campo não entrega o tamanho da senha.
+   30 px de letra: o Safari não dá zoom ao focar. */
+.senha-campo {
+  display: block;
+  width: 100%;
+  min-height: 56px;
+  margin: 0;
+  padding: 8px 56px 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--luar);
+  caret-color: var(--sakura);
+  font-family: var(--fonte-mao);
+  font-weight: 600;
+  font-size: 1.875rem;
+  line-height: 1.3;
+  letter-spacing: 0.16em;
+  /* O espaço depois da última letra puxaria o texto para a esquerda: o recuo devolve o centro. */
+  text-indent: 0.16em;
+  text-align: center;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.senha-campo:disabled {
+  pointer-events: none;
+  opacity: 1;
+  -webkit-text-fill-color: var(--luar);
+}
+.senha-campo[data-erro] {
+  color: var(--sakura);
+  -webkit-text-fill-color: var(--sakura);
+}
+
+/* O traço pespontado: respira antes do toque, porque é ali que se escreve. */
+.senha-traco {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 1px;
+  background: repeating-linear-gradient(90deg, var(--luar) 0 7px, transparent 7px 14px);
+  opacity: 0.55;
+  pointer-events: none;
+  transition: opacity 240ms linear;
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.reduzido) .senha:not(:focus-within):not([data-certa]) .senha-traco {
+    animation: senha-chama 1.8s var(--curva-branco-deriva) infinite alternate;
+  }
+}
+@keyframes senha-chama {
+  from { opacity: 0.45; }
+  to { opacity: 0.85; }
+}
+.senha-campo:focus ~ .senha-traco { opacity: 0.82; }
+.senha[data-erro] .senha-traco {
+  opacity: 0.82;
+  background-image: repeating-linear-gradient(90deg, var(--sakura) 0 7px, transparent 7px 14px);
+}
+.senha[data-certa] .senha-traco {
+  opacity: 0;
+  transition-duration: 500ms;
+}
+
+/* A setinha: só existe com texto; entra com mola e sai rápido, sem mola.
+   Os estados vão em :where() para a versão calma poder encurtar tudo. */
+.senha-ir {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  margin-top: -24px;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.6);
+  transition: transform var(--dur-sair) var(--curva-sair), opacity var(--dur-sair) linear;
+}
+.senha-ir .ui-icone {
+  width: 22px;
+  height: 22px;
+}
+.senha:where([data-tem]) .senha-ir {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+  transition: transform var(--dur-mola) var(--mola), opacity var(--dur-ui) linear;
+}
+.senha:where([data-tem]) .senha-ir:active {
+  transform: scale(0.9);
+  transition: transform var(--dur-toque) var(--curva-ui);
+}
+.senha:where([data-erro], [data-certa]) .senha-ir {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.6);
+  transition: transform var(--dur-sair) var(--curva-sair), opacity var(--dur-sair) linear;
+}
+/* Sem o :not(:active), o hover ganharia do afundar e o clique do mouse não responderia. */
+@media (hover: hover) and (pointer: fine) {
+  .senha[data-tem]:not([data-erro]):not([data-certa]) .senha-ir:hover:not(:active) { transform: translateX(2px); }
+}
+
+/* O fio que o acerto costura por baixo do campo, e o coração na ponta.
+   A janela (.senha-fio) e o desenho andam em sentidos opostos (JS). */
+.senha-fio {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 8px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+.senha-fio-linha {
+  position: absolute;
+  inset: 0;
+  background: var(--enfeite-fio) left center / 18px 8px repeat-x;
+}
+.senha-ponto {
+  position: absolute;
+  right: -9px;
+  bottom: -7px;
+  width: 16px;
+  height: 16px;
+  opacity: 0;
+}
+
+/* Erro: três idas curtas para os lados, no quadro e no cadeado. */
+.senha[data-erro] .senha-quadro,
+.senha[data-erro] .senha-cadeado { animation: senha-tremor 280ms var(--curva-ui); }
+@keyframes senha-tremor {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7px); }
+  50% { transform: translateX(6px); }
+  80% { transform: translateX(-3px); }
+}
+@keyframes senha-pisca {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* ---- O aviso e a dica -------------------------------------------------------- */
+.senha-erro {
+  margin: 2px 0 0;
+  font-family: var(--fonte-mao);
+  font-weight: 600;
+  font-size: 1.0625rem;
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+  color: var(--sakura);
+  text-align: center;
+}
+
+/* Um bilhete da noite, com pesponto, posto um pouco torto (o torto vem do JS). */
+.senha .senha-dica {
+  position: relative;
+  max-width: 100%;
+  margin: 0;
+  padding: 12px 20px 13px;
+  border-radius: var(--raio-m);
+  background: linear-gradient(168deg, rgba(34, 42, 96, 0.9), rgba(16, 20, 58, 0.9));
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  font-size: 1.0625rem;
+  line-height: 1.45;
+  letter-spacing: 0.02em;
+  color: var(--luar);
+  text-align: center;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+.senha .senha-dica::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px dashed var(--ponto-noite);
+  border-radius: calc(var(--raio-m) - 4px);
+  pointer-events: none;
+}
+.senha-dica:empty,
+.senha-erro:empty { display: none; }
+
+/* ---- A contagem até o dia ------------------------------------------------------ */
+.senha-conta {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.senha-conta-frase {
+  margin: 0;
+  font-family: var(--fonte-titulo);
+  font-size: 0.9375rem;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+}
+.senha-conta-casas {
+  display: flex;
+  gap: 10px;
+}
+.senha-conta-casa {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  min-width: 58px;
+  padding: 10px 6px 8px;
+  border-radius: var(--raio-m);
+  border: 1px dashed rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.04);
+}
+.senha-conta-n {
+  font-family: var(--fonte-titulo);
+  font-size: 1.625rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums lining-nums;
+  color: var(--branco);
+}
+.senha-conta-r {
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: lowercase;
+  color: var(--sakura);
+}
+/* Os dias, a casa que importa, em rosa. */
+.senha-conta-casa:first-child .senha-conta-n { color: var(--sakura); }
+
+/* ---- A escolha da música, no mesmo preto (o carrossel está em css/musica.css) --- */
+#entrada-musica {
+  grid-template-columns: minmax(0, 1fr);
+  place-items: start stretch;
+  padding-left: 0;
+  padding-right: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+#entrada-musica > * { margin: auto; }
+/* O mini fica acima do preto enquanto ele existe. */
+html:not(.sem-entrada) #mini { z-index: 62; }
+
+/* ---- Os olhos que se abrem sobre a alameda ---------------------------------------
+   Duas pálpebras em amêndoa, de borda macia: o desfoque é o próprio degradê,
+   pintado uma vez; só o translateY anda (JS). A luz é o primeiro clarão. */
+.entrada-olhos {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.entrada-olhos > i {
+  position: absolute;
+  left: 0;
+  right: 0;
+}
+.entrada-luz {
+  top: 0;
+  bottom: 0;
+  background: var(--branco);
+  opacity: 0.55;
+}
+.entrada-palpebra {
+  top: 0;
+  height: 75%;
+  background: radial-gradient(64% 30% at 50% 100%, rgba(0, 0, 0, 0) 42%, rgba(0, 0, 0, 0.55) 72%, #000 100%);
+  -webkit-mask-image: linear-gradient(to top, transparent, #000 20%);
+  mask-image: linear-gradient(to top, transparent, #000 20%);
+  will-change: transform;
+}
+.entrada-palpebra-baixo {
+  top: auto;
+  bottom: 0;
+  background: radial-gradient(64% 30% at 50% 0, rgba(0, 0, 0, 0) 42%, rgba(0, 0, 0, 0.55) 72%, #000 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 20%);
+  mask-image: linear-gradient(to bottom, transparent, #000 20%);
+}
+
+/* ---- A versão calma ----------------------------------------------------------------
+   O tremor vira um piscar; a setinha e o arco mudam sem viagem. */
+html.reduzido .senha[data-erro] .senha-quadro,
+html.reduzido .senha[data-erro] .senha-cadeado { animation: senha-pisca 280ms linear; }
+html.reduzido .senha-ir,
+html.reduzido .senha-cadeado-arco { transition-duration: 0.01ms; }
+@media (prefers-reduced-motion: reduce) {
+  .senha[data-erro] .senha-quadro,
+  .senha[data-erro] .senha-cadeado { animation: senha-pisca 280ms linear; }
+  .senha .senha-ir,
+  .senha-cadeado-arco { transition-duration: 0.01ms; }
+}

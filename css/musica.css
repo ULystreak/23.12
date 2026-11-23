@@ -1,0 +1,982 @@
+/* ============================================================================
+   MÚSICA: o carrossel de capas na tela preta e o disco no canto
+   ============================================================================
+   Dois modos. Em #entrada-musica, as capas passam lado a lado; a escolhida
+   desliza para a esquerda e deixa o vinil espiar pela direita, amarrada por um
+   lacinho, com o fio desenhado à mão em volta do nome. Em #mini, o mesmo disco,
+   pequeno, no canto: gira enquanto toca, com o anel de progresso e um painel
+   que nasce dele. O disco é um só desenho (.disco) na folha, no voo e no mini.
+
+   Quem move o trilho, encolhe as vizinhas, gira o disco e anima as entradas é
+   o js/musica.js (transform, opacity e visibility inline). Aqui ficam os estados
+   finais, lidos dos atributos que ele escreve: data-unica, data-centro,
+   data-arrastando, data-saindo, data-chama, aria-pressed, .sem-capa e, no mini,
+   data-pele, data-aberto, data-tocando, data-quieto e data-longe. As peles do
+   mini só trocam as variáveis --mini-*.
+   ========================================================================== */
+
+/* ---- O carrossel ------------------------------------------------------------- */
+.carrossel {
+  /* A capa cabe na largura (64vw) e na altura (36% da tela), entre 150 e 320 px. */
+  --lado: clamp(150px, min(64vw, calc(var(--tela) * 0.36)), 320px);
+  --vao: clamp(20px, 6vw, 44px);
+  /* Quanto as vizinhas se afastam quando há escolha: o bastante para o vinil
+     (31% do lado) não encostar nelas, já descontada a escala 0,84 do JS. */
+  --afasta: max(0px, (var(--lado) * 0.19 - var(--vao) + 10px) / 0.84);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  color: var(--branco);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* ---- O disco (na folha, no voo e no mini) ------------------------------------ */
+.disco {
+  position: relative;
+  display: block;
+  border-radius: 50%;
+}
+.disco-sulcos {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    /* o reflexo em leque */
+    conic-gradient(from 28deg, transparent 0deg, rgba(255, 255, 255, 0.3) 18deg, transparent 50deg, transparent 180deg, rgba(255, 255, 255, 0.2) 200deg, transparent 232deg, transparent 360deg),
+    /* três faixas mais claras, entre as músicas do lado */
+    radial-gradient(circle closest-side, transparent 55.4%, rgba(255, 255, 255, 0.1) 56%, transparent 57%, transparent 69.4%, rgba(255, 255, 255, 0.08) 70%, transparent 71%, transparent 83.4%, rgba(255, 255, 255, 0.07) 84%, transparent 85%),
+    /* os sulcos finos */
+    repeating-radial-gradient(circle closest-side, rgba(255, 255, 255, 0.045) 0%, transparent 1.1%, rgba(255, 255, 255, 0.045) 2.2%),
+    /* o vinil, com a borda que pega luz */
+    radial-gradient(circle closest-side, #3b2832 0%, #2a1b22 44%, #24171d 94%, #4d3944 96.6%, #150d11 99%);
+  box-shadow: 0 1px 2px rgba(42, 27, 34, 0.3), 0 8px 18px -6px rgba(42, 27, 34, 0.36);
+}
+.disco-rotulo {
+  position: absolute;
+  inset: 30%;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--fio);
+  box-shadow: 0 0 0 1px rgba(21, 13, 17, 0.5);
+  /* Safari: sem a máscara e a camada própria, o que gira escapa do círculo. */
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  transform: translateZ(0);
+}
+.disco-gira {
+  position: absolute;
+  inset: 0;
+  display: block;
+  will-change: transform;
+}
+.disco-gira img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+}
+/* Sem capa: o rótulo vermelho com um anel de papel. */
+.disco.sem-capa .disco-gira {
+  background:
+    radial-gradient(circle closest-side, rgba(251, 247, 240, 0) 56%, rgba(251, 247, 240, 0.55) 58%, rgba(251, 247, 240, 0.55) 62%, rgba(251, 247, 240, 0) 64%),
+    var(--fio);
+}
+.disco-furo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4.2%;
+  height: 4.2%;
+  min-width: 3px;
+  min-height: 3px;
+  border-radius: 50%;
+  background: var(--papel);
+  box-shadow: 0 0 0 1px rgba(21, 13, 17, 0.45);
+  transform: translate(-50%, -50%);
+}
+/* No preto, a sombra de tinta some: um filete claro desenha a borda. */
+.carrossel .disco-sulcos,
+.disco.musica-voador .disco-sulcos {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* ---- O fio que se desenha em volta do nome -------------------------------------- */
+.musica-laco {
+  position: absolute;
+  left: -18px; /* o JS escreve a folga certa */
+  top: -12px;
+  max-width: none;
+  overflow: visible;
+  pointer-events: none;
+}
+.fio-linha,
+.fio-sombra {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.fio-linha { stroke: var(--fio); stroke-width: 2.1; }
+.fio-sombra { stroke: rgba(42, 27, 34, 0.15); stroke-width: 2.7; transform: translate(0.9px, 1.9px); }
+.carrossel .fio-linha { stroke-width: 2.2; }
+.carrossel .fio-sombra { display: none; }
+
+/* ---- Título, palco, janela e trilho ------------------------------------------------ */
+.musica-titulo {
+  flex: none;
+  max-width: 12em;
+  margin: 0 24px clamp(14px, calc(var(--tela) * 0.045), 44px);
+  font-family: var(--fonte-titulo);
+  font-weight: 400;
+  font-size: clamp(1.375rem, 1.1rem + 1.5vw, 1.875rem);
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-wrap: balance;
+  color: rgba(255, 255, 255, 0.94);
+}
+.car-palco {
+  position: relative;
+  width: 100%;
+}
+.car-janela {
+  overflow: hidden;
+  /* a folga deixa o brilho e o laço respirarem sem serem cortados */
+  padding: 26px 0 30px;
+  margin: -26px 0 -30px;
+  touch-action: pan-y;
+  cursor: grab;
+}
+.carrossel[data-arrastando] .car-janela { cursor: grabbing; }
+.carrossel[data-unica] .car-janela { cursor: default; }
+.car-trilho {
+  display: flex;
+  column-gap: var(--vao);
+  width: max-content;
+  margin: 0;
+  padding: 0 0 0 calc(50% - var(--lado) / 2);
+  list-style: none;
+  will-change: transform;
+}
+.car-item {
+  position: relative;
+  flex: none;
+  width: var(--lado);
+  transform-origin: 50% 42%;
+  will-change: transform, opacity;
+}
+.car-item[data-centro] { z-index: 1; }
+.car-item[hidden] { display: none; }
+
+/* ---- A faixa: capa, disco e nome -------------------------------------------------- */
+.car-faixa {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(14px, calc(var(--tela) * 0.026), 24px);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  outline: none; /* o anel de foco vai na capa */
+}
+.car-objeto {
+  position: relative;
+  display: block;
+  width: var(--lado);
+  height: var(--lado);
+  transition: transform var(--dur-mola) var(--mola);
+}
+.car-item[data-centro] .car-faixa:active .car-objeto {
+  transform: scale(0.965);
+  transition-duration: var(--dur-toque);
+  transition-timing-function: var(--curva-ui);
+}
+/* O brilho atrás da capa: meio aceso no centro, inteiro na escolhida. */
+.car-objeto::before {
+  content: "";
+  position: absolute;
+  inset: -16%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(244, 184, 200, 0.26) 0%, rgba(215, 25, 45, 0.12) 54%, rgba(215, 25, 45, 0) 100%);
+  opacity: 0;
+  transition: opacity 900ms linear;
+  pointer-events: none;
+}
+.car-item[data-centro] .car-objeto::before { opacity: 0.5; }
+.car-faixa[aria-pressed="true"] .car-objeto::before { opacity: 1; }
+.carrossel[data-saindo] .car-objeto::before { opacity: 0 !important; transition-duration: 320ms; }
+
+/* O vinil espia pela direita da capa e sai pela metade quando ela escolhe. */
+.car-disco-trilho {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transform: translateX(8%);
+  transition: transform 1000ms var(--curva-branco-entrar);
+}
+.car-faixa[aria-pressed="true"] .car-disco-trilho { transform: translateX(31%); }
+.car-disco { position: absolute; inset: 4%; }
+
+.car-moldura {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transition: transform 1000ms var(--curva-branco-entrar);
+}
+.car-faixa[aria-pressed="true"] .car-moldura { transform: translateX(-21%); }
+.car-capa {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+  border-radius: var(--raio-m);
+  background: #1c1418;
+  /* a borda de papel do encarte e a sombra que a solta do preto */
+  box-shadow: 0 0 0 4px var(--papel), 0 22px 44px -18px rgba(0, 0, 0, 0.9);
+}
+.car-capa img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+/* O reflexo do plástico do encarte. */
+.car-capa::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(128deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 38%, rgba(0, 0, 0, 0.18) 100%);
+  pointer-events: none;
+}
+
+/* Sem capa: o disco vermelho fica inteiro no meio, e o botão de tocar e o
+   lacinho continuam nele (a moldura fica, sem o encarte). */
+.car-item.sem-capa .car-capa { display: none; }
+.car-item.sem-capa .car-disco { inset: 0; }
+.car-item.sem-capa .car-disco-trilho,
+.car-item.sem-capa .car-faixa[aria-pressed="true"] .car-disco-trilho,
+.car-item.sem-capa .car-faixa[aria-pressed="true"] .car-moldura { transform: none; }
+
+/* ---- As vizinhas abrem espaço para o vinil da escolhida ------------------------- */
+/* O JS escreve transform e opacity no .car-item; por isso aqui é o filho. */
+.car-faixa:not(:disabled) {
+  transition: transform 1000ms var(--curva-branco-entrar), opacity 600ms linear;
+}
+.car-item[data-centro]:has(> [aria-pressed="true"]) ~ .car-item > .car-faixa {
+  opacity: 0.35;
+  transform: translateX(var(--afasta));
+}
+.car-item:has(~ .car-item[data-centro] > [aria-pressed="true"]) > .car-faixa {
+  opacity: 0.35;
+  transform: translateX(calc(var(--afasta) * -1));
+}
+
+/* ---- O botão de tocar e o lacinho ------------------------------------------------- */
+.carrossel .car-tocar {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 60px;
+  height: 60px;
+  margin: -30px 0 0 -30px;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: transform var(--dur-sair) var(--curva-sair), opacity var(--dur-sair) linear;
+}
+.carrossel:not([data-arrastando], [data-saindo]) .car-item[data-centro] .car-faixa[aria-pressed="false"] .car-tocar {
+  opacity: 1;
+  transform: none;
+  transition: transform var(--dur-mola) var(--mola), opacity var(--dur-ui-lenta) linear;
+}
+.car-tocar .ui-icone { width: 28px; height: 28px; margin-left: 2px; }
+.icone-cheio { fill: currentColor; stroke: currentColor; stroke-width: 1; }
+.car-tocar .icone-cheio { fill: var(--fio); stroke: var(--fio); }
+.icone-pausa { stroke-width: 2.6; }
+
+.carrossel .car-laco {
+  position: absolute;
+  left: 50%;
+  top: -15px;
+  width: 54px;
+  height: 30px;
+  margin-left: -27px;
+  opacity: 0;
+  transform: translateY(6px) scale(0.5) rotate(-14deg);
+  transition: transform var(--dur-sair) var(--curva-sair), opacity var(--dur-sair) linear;
+}
+/* O laço amarra depois que a capa começou a andar. */
+.carrossel .car-faixa[aria-pressed="true"] .car-laco {
+  opacity: 1;
+  transform: rotate(-5deg);
+  transition: transform var(--dur-mola) var(--mola) 380ms, opacity 140ms linear 380ms;
+}
+
+/* ---- Nome e artista ------------------------------------------------------------------ */
+.car-texto {
+  position: relative;
+  display: flex;
+  width: fit-content;
+  max-width: calc(100% + var(--vao) - 6px);
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.car-nome {
+  position: relative;
+  font-family: var(--fonte-mao);
+  font-weight: 600;
+  font-size: clamp(1.625rem, 1.35rem + 1.5vw, 2.125rem);
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  overflow-wrap: anywhere;
+}
+.car-artista {
+  font-family: var(--fonte-mao);
+  font-size: clamp(1rem, 0.95rem + 0.3vw, 1.125rem);
+  line-height: 1.3;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.64); /* 8,5:1 sobre o preto */
+  overflow-wrap: anywhere;
+}
+
+/* ---- Foco: a estrela em volta da capa ------------------------------------------- */
+.carrossel :focus-visible { outline-color: var(--estrela); }
+.car-faixa:focus-visible .car-capa,
+.car-item.sem-capa .car-faixa:focus-visible .car-disco {
+  outline: 2px solid var(--estrela);
+  outline-offset: 8px;
+}
+.car-item.sem-capa .car-faixa:focus-visible .car-disco { border-radius: 50%; }
+
+/* ---- Pontos e setas -------------------------------------------------------------------- */
+.car-pontos {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  height: 18px;
+  margin-top: clamp(16px, calc(var(--tela) * 0.03), 26px);
+}
+.carrossel[data-unica] .car-pontos,
+.car-ponto[hidden] { display: none; }
+.car-ponto {
+  display: block;
+  width: 14px;
+  height: 14px;
+  background: var(--enfeite-petala) center / contain no-repeat;
+  opacity: 0.36;
+  transform: scale(0.74) rotate(-20deg);
+  transition: opacity 240ms linear, transform var(--dur-mola) var(--mola);
+}
+.car-ponto[data-escolhida] { background-image: var(--enfeite-coracao); opacity: 0.8; }
+.car-ponto[data-atual] { opacity: 1; transform: scale(1.12); }
+
+.carrossel .car-seta {
+  position: absolute;
+  top: calc(var(--lado) / 2);
+  display: none;
+  margin-top: -24px;
+  cursor: pointer;
+}
+.car-seta .ui-icone { width: 22px; height: 22px; }
+.car-seta[data-dir="-1"] { left: max(16px, calc(50% - var(--lado) * 1.42 - var(--vao) - 84px)); }
+.car-seta[data-dir="-1"] .ui-icone { transform: scaleX(-1); }
+.car-seta[data-dir="1"] { right: max(16px, calc(50% - var(--lado) * 1.42 - var(--vao) - 84px)); }
+.car-seta:disabled { opacity: 0.28; cursor: default; }
+/* As setas são do computador; no celular, o dedo passa as capas. */
+@media (min-width: 720px) and (min-height: 521px), (hover: hover) and (pointer: fine) {
+  .carrossel .car-seta { display: inline-grid; }
+  .carrossel[data-unica] .car-seta { display: none; }
+}
+
+/* ---- Continuar --------------------------------------------------------------------------- */
+.musica-continuar-caixa {
+  flex: none;
+  margin-top: clamp(14px, calc(var(--tela) * 0.034), 34px);
+}
+.musica-continuar { cursor: pointer; padding: 0 22px 0 28px; }
+.musica-continuar-texto { position: relative; }
+.musica-seta {
+  width: 22px;
+  height: 22px;
+  transition: transform var(--dur-ui-lenta) var(--curva-branco-entrar);
+}
+/* Escolhida a música, a seta chama para seguir. */
+.musica-continuar[data-chama] .musica-seta {
+  animation: musica-chama 1.1s var(--curva-branco-deriva) infinite alternate;
+}
+@keyframes musica-chama {
+  from { transform: translateX(-1px); }
+  to { transform: translateX(5px); }
+}
+@media (hover: hover) and (pointer: fine) {
+  .musica-continuar:not(:disabled):hover .musica-seta { transform: translateX(4px); }
+}
+
+/* ---- Celular deitado ---------------------------------------------------------------------- */
+@media (max-height: 520px) {
+  .carrossel { --lado: clamp(132px, calc(var(--tela) * 0.36), 200px); }
+  .musica-titulo { max-width: none; margin-bottom: 10px; font-size: 1.25rem; }
+  .car-faixa { gap: 13px; }
+  .car-nome { font-size: 1.3125rem; }
+  .car-artista { font-size: 0.9375rem; }
+  .car-pontos { margin-top: 10px; }
+  .musica-continuar-caixa { margin-top: 6px; }
+  .musica-continuar { min-height: 46px; }
+  .carrossel .car-tocar { width: 48px; height: 48px; margin: -24px 0 0 -24px; }
+}
+
+/* ---- O disco que voa até o canto ------------------------------------------------------------ */
+/* Acima do preto de #entrada (z 60) e do mini durante a entrada (z 62). */
+.musica-voador,
+.disco.musica-voador {
+  position: fixed;
+  z-index: 63;
+  margin: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* ============================================================================
+   O MINI SELETOR (#mini)
+   ========================================================================== */
+#mini {
+  /* Pele papel (o mundo branco): a papelaria. */
+  --mini-fundo: var(--papel);
+  --mini-texto: var(--tinta);
+  --mini-suave: var(--tinta-suave);
+  --mini-linha: var(--papel-linha);
+  --mini-realce: rgba(42, 27, 34, 0.055);
+  --mini-sombra: 0 1px 2px rgba(42, 27, 34, 0.08), 0 18px 40px -14px rgba(42, 27, 34, 0.32);
+  --mini-aro: var(--papel);
+  --mini-aro-sombra: 0 4px 12px -2px rgba(42, 27, 34, 0.3);
+  --mini-trilho: rgba(42, 27, 34, 0.16);
+  --mini-fio: var(--fio);
+  --mini-marca: var(--fio-escuro);
+  --mini-conta: radial-gradient(circle at 36% 30%, #ffb3b5 0%, #e3283c 34%, #a80f22 80%);
+  --mini-conta-sombra: 0 1px 2px rgba(42, 27, 34, 0.3), 0 4px 10px -3px rgba(168, 15, 34, 0.5);
+  --mini-tecla-fundo: var(--sakura-clara);
+  --mini-tecla-texto: var(--sakura-tinta);
+  --mini-tecla-borda: 0 0 0 1px rgba(143, 31, 69, 0.14);
+  --mini-raio: var(--raio-m);
+  --mini-fonte: var(--fonte-mao);
+  --mini-ponto: var(--ponto);
+  --mini-ativa: var(--sakura-clara);
+  --mini-foco: var(--fio);
+  position: fixed;
+  top: calc(var(--seguro-topo) + 12px);
+  right: calc(var(--seguro-dir) + 12px);
+  z-index: var(--z-mini);
+  width: 48px;
+  height: 48px;
+  font-family: var(--mini-fonte);
+  color: var(--mini-texto);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+/* Durante a tela preta o disco pousa por cima dela (o mesmo vale em css/senha.css). */
+html:not(.sem-entrada) #mini { z-index: 62; }
+
+/* Pele do jogo: plástico escuro com a tecla amarela. */
+#mini[data-pele="poppy"] {
+  --mini-fundo: #123044;
+  --mini-texto: var(--poppy-texto);
+  --mini-suave: #b7c6c8;
+  --mini-linha: rgba(242, 234, 216, 0.16);
+  --mini-realce: rgba(242, 234, 216, 0.07);
+  --mini-sombra: 0 4px 0 #071a26, 0 20px 36px -10px rgba(2, 10, 16, 0.7);
+  --mini-aro: #0d2534;
+  --mini-aro-sombra: 0 3px 0 #071a26, 0 10px 18px -6px rgba(2, 10, 16, 0.6);
+  --mini-trilho: rgba(242, 234, 216, 0.2);
+  --mini-fio: var(--poppy-vermelho);
+  --mini-marca: var(--poppy-amarelo);
+  --mini-conta: radial-gradient(circle at 36% 30%, #fff1b8 0%, #f6c12d 38%, #c08d0c 84%);
+  --mini-conta-sombra: 0 2px 0 #a87b08, 0 4px 10px -3px rgba(2, 10, 16, 0.6);
+  --mini-tecla-fundo: var(--poppy-amarelo);
+  --mini-tecla-texto: #0d2534;
+  --mini-tecla-borda: 0 3px 0 #a87b08;
+  --mini-raio: 18px;
+  --mini-fonte: var(--fonte-brinquedo);
+  --mini-ponto: transparent;
+  --mini-ativa: rgba(246, 193, 45, 0.13);
+  --mini-foco: var(--poppy-amarelo);
+}
+/* Pele do filme: vidro índigo com a luz do fim da tarde. */
+#mini[data-pele="yourname"] {
+  --mini-fundo: rgba(17, 21, 68, 0.86);
+  --mini-texto: var(--yn-texto);
+  --mini-suave: #cdc7e2;
+  --mini-linha: rgba(255, 209, 161, 0.3);
+  --mini-realce: rgba(255, 209, 161, 0.08);
+  --mini-sombra: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 20px 44px -14px rgba(4, 7, 30, 0.75);
+  --mini-aro: rgba(17, 21, 68, 0.8);
+  --mini-aro-sombra: 0 4px 12px -2px rgba(4, 7, 30, 0.55);
+  --mini-trilho: rgba(253, 246, 238, 0.2);
+  --mini-fio: #f0434f;
+  --mini-marca: var(--yn-pessego);
+  --mini-conta: radial-gradient(circle at 36% 30%, #ffffff 0%, #ffd1a1 40%, #d99a72 86%);
+  --mini-conta-sombra: 0 1px 2px rgba(4, 7, 30, 0.4), 0 4px 12px -3px rgba(255, 209, 161, 0.45);
+  --mini-tecla-fundo: rgba(255, 209, 161, 0.12);
+  --mini-tecla-texto: var(--yn-texto);
+  --mini-tecla-borda: inset 0 0 0 1px rgba(255, 209, 161, 0.55);
+  --mini-raio: 16px;
+  --mini-fonte: var(--fonte-titulo);
+  --mini-ponto: var(--ponto-noite);
+  --mini-ativa: rgba(255, 209, 161, 0.14);
+  --mini-foco: var(--estrela);
+}
+#mini[data-pele="yourname"] .mini-painel {
+  -webkit-backdrop-filter: blur(12px) saturate(1.25);
+  backdrop-filter: blur(12px) saturate(1.25);
+}
+#mini :focus-visible { outline-color: var(--mini-foco); }
+
+/* ---- O botão: o disco com o anel -------------------------------------------------------- */
+.mini-botao {
+  position: relative;
+  z-index: 2; /* o disco fica por cima do painel, na quina dele */
+  display: block;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  transition: transform var(--dur-mola) var(--mola);
+}
+.mini-botao:active {
+  transform: scale(0.9);
+  transition-duration: var(--dur-toque);
+  transition-timing-function: var(--curva-ui);
+}
+/* O anel de foco vai no desenho, para acompanhar o disco quando ele recolhe. */
+.mini-botao:focus-visible { outline: none; }
+.mini-botao:focus-visible .mini-visual { outline: 2px solid var(--mini-foco); outline-offset: 3px; }
+
+/* Só o desenho anda e encolhe; o alvo de toque continua com 48 px. */
+.mini-visual {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border-radius: 50%;
+  background: var(--mini-aro);
+  box-shadow: var(--mini-aro-sombra);
+  transform-origin: 100% 0;
+  transition:
+    transform 460ms var(--curva-branco-entrar),
+    opacity 300ms linear,
+    background-color 600ms linear,
+    box-shadow 600ms linear;
+}
+.mini-anel {
+  position: absolute;
+  inset: 0;
+  width: 48px;
+  height: 48px;
+  max-width: none;
+  overflow: visible;
+  fill: none;
+}
+.mini-anel-trilho {
+  stroke: var(--mini-trilho);
+  stroke-width: 1;
+  transition: stroke 600ms linear;
+}
+.mini-anel-fio {
+  stroke: var(--mini-fio);
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 420ms linear, opacity 300ms linear, stroke 600ms linear;
+}
+.disco.disco-mini { position: absolute; inset: 2px; }
+.disco-mini .disco-sulcos { box-shadow: none; }
+.disco-mini .disco-rotulo {
+  inset: 5%;
+  transition: transform 700ms var(--curva-branco-entrar);
+}
+/* A capa nova entra por opacidade (GSAP, no img); o esmaecer do mundo branco fica no pai. */
+.disco-mini .disco-gira { transition: opacity 700ms linear; }
+.disco-mini .disco-gira img { transition: filter 700ms linear; }
+.disco-mini .disco-furo {
+  width: 8%;
+  height: 8%;
+  background: var(--mini-aro, var(--papel));
+  transition: background-color 600ms linear;
+}
+
+/* Recolhido enquanto ela rola: uma conta na margem da folha. */
+#mini[data-quieto] .mini-visual {
+  transform: translate(9px, -3px) scale(0.36);
+  opacity: 0.66;
+  transition:
+    transform 240ms var(--curva-ui),
+    opacity 200ms linear,
+    background-color 600ms linear,
+    box-shadow 600ms linear;
+}
+
+/* No mundo branco do fim, o disco volta a ser disco: menor, com a capa sem cor.
+   Nada ali compete com o branco e com o fio; o toque ou o foco trazem a cor. */
+#mini[data-longe] .mini-visual { transform: scale(0.84); opacity: 0.88; }
+#mini[data-longe] .disco-mini .disco-rotulo { transform: translateZ(0) scale(0.47); }
+#mini[data-longe] .disco-mini .disco-gira { opacity: 0.86; }
+#mini[data-longe] .disco-mini .disco-gira img { filter: grayscale(1) sepia(0.18) contrast(0.92); }
+#mini[data-longe][data-quieto] .mini-visual { transform: translate(9px, -3px) scale(0.36); opacity: 0.66; }
+#mini[data-longe][data-aberto] .mini-visual,
+#mini[data-longe] .mini-botao:focus-visible .mini-visual { transform: none; opacity: 1; }
+#mini[data-longe][data-aberto] .disco-mini .disco-rotulo,
+#mini[data-longe] .mini-botao:focus-visible .disco-mini .disco-rotulo { transform: translateZ(0); }
+#mini[data-longe][data-aberto] .disco-mini .disco-gira,
+#mini[data-longe] .mini-botao:focus-visible .disco-mini .disco-gira { opacity: 1; }
+#mini[data-longe][data-aberto] .disco-mini .disco-gira img,
+#mini[data-longe] .mini-botao:focus-visible .disco-mini .disco-gira img { filter: none; }
+#mini[data-aberto] .mini-visual { transform: none; opacity: 1; }
+
+/* No celular com a folha aberta, o disco encosta na quina do papel, em cima da
+   margem da costura, fora da coluna do texto. */
+@media (max-width: 759.98px) {
+  #mini { transition: transform 460ms var(--curva-branco-entrar); }
+  #pergaminho[data-estado] ~ #mini {
+    transform: translate(10px, calc(max(var(--perg-margem, 10px), var(--seguro-topo)) - var(--seguro-topo) - 18px + min(var(--seguro-topo), 6px)));
+  }
+  #pergaminho[data-estado] ~ #mini .mini-visual { transform: scale(0.834); }
+  #pergaminho[data-estado] ~ #mini[data-quieto] .mini-visual { transform: translate(0, 2px) scale(0.36); }
+  #pergaminho[data-estado] ~ #mini[data-aberto] .mini-visual { transform: none; }
+  #pergaminho[data-estado] ~ #mini .mini-painel { right: -2px; }
+}
+
+/* ---- O painel que nasce do disco ---------------------------------------------------------- */
+.mini-painel {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  z-index: 1;
+  width: min(calc(100vw - 2 * var(--seguro-dir) - 8px), 296px);
+  padding: 8px;
+  border-radius: var(--mini-raio) 32px var(--mini-raio) var(--mini-raio);
+  background: var(--mini-fundo);
+  color: var(--mini-texto);
+  box-shadow: 0 0 0 1px var(--mini-linha), var(--mini-sombra);
+  transform-origin: calc(100% - 32px) 32px;
+  transform: scale(0.9);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 180ms linear,
+    transform 180ms var(--curva-sair),
+    visibility 0s linear 180ms;
+}
+#mini[data-aberto] .mini-painel {
+  transform: none;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 140ms linear, transform 340ms var(--mola);
+}
+/* O pesponto, por dentro da borda. */
+.mini-painel::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px dashed var(--mini-ponto);
+  border-radius: calc(var(--mini-raio) - 4px) 28px calc(var(--mini-raio) - 4px) calc(var(--mini-raio) - 4px);
+  pointer-events: none;
+}
+
+/* O que toca agora: a tecla e o nome (58 px à direita ficam para o disco). */
+.mini-agora {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 58px 0 2px;
+}
+.mini-alternar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--mini-tecla-fundo);
+  color: var(--mini-tecla-texto);
+  box-shadow: var(--mini-tecla-borda);
+  transition: transform var(--dur-mola) var(--mola);
+}
+.mini-alternar:active {
+  transform: scale(0.9);
+  transition-duration: var(--dur-toque);
+  transition-timing-function: var(--curva-ui);
+}
+.mini-alternar .ui-icone {
+  grid-area: 1 / 1;
+  width: 22px;
+  height: 22px;
+  transition: transform 220ms var(--curva-ui), opacity 140ms linear;
+}
+#mini:not([data-tocando]) .mini-alternar .icone-pausa,
+#mini[data-tocando] .mini-alternar .icone-tocar { opacity: 0; transform: scale(0.5); }
+.mini-atual {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.mini-nome,
+.mini-artista {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.mini-nome { font-size: 1.0625rem; font-weight: 600; }
+.mini-artista { font-size: 0.8125rem; letter-spacing: 0.02em; color: var(--mini-suave); }
+.mini-artista:empty { display: none; }
+
+/* A lista só existe quando há o que trocar. */
+.mini-lista {
+  max-height: 204px;
+  margin: 8px 0 0;
+  padding: 6px 0 0;
+  list-style: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--mini-linha) transparent;
+  border-top: 1px dashed var(--mini-linha);
+}
+.mini-lista li { margin: 0; padding: 0; }
+#mini[data-aberto] .mini-lista li {
+  animation: ui-entra 460ms var(--mola) both;
+  animation-delay: calc(50ms + var(--i, 0) * var(--passo));
+}
+.mini-faixa {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 6px 10px 6px 6px;
+  border-radius: var(--raio-p);
+  text-align: left;
+  transition: transform 460ms var(--mola);
+}
+.mini-faixa:active {
+  transform: scale(0.97);
+  transition-duration: var(--dur-toque);
+  transition-timing-function: var(--curva-ui);
+}
+.mini-faixa[aria-pressed="true"] { background: var(--mini-ativa); }
+@media (hover: hover) and (pointer: fine) {
+  .mini-faixa:not([aria-pressed="true"]):hover { background: var(--mini-realce); }
+}
+.mini-capa {
+  position: relative;
+  grid-row: 1 / 3;
+  align-self: center;
+  width: 36px;
+  height: 36px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--mini-realce);
+}
+.mini-capa img {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+}
+.mini-capa.sem-capa {
+  border-radius: 50%;
+  background: radial-gradient(circle closest-side, var(--mini-fundo) 0 12%, var(--mini-fio) 13% 40%, #2a1b22 41% 100%);
+}
+.mini-faixa[aria-pressed="true"] .mini-capa {
+  box-shadow: 0 0 0 2px var(--mini-fundo), 0 0 0 3.5px var(--mini-fio);
+}
+.mini-faixa-nome {
+  align-self: end;
+  min-width: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.2;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.mini-faixa-nome:last-child { grid-row: 1 / 3; align-self: center; }
+.mini-faixa[aria-pressed="true"] .mini-faixa-nome { color: var(--mini-marca); }
+.mini-faixa-artista {
+  align-self: start;
+  min-width: 0;
+  font-size: 0.8125rem;
+  line-height: 1.25;
+  color: var(--mini-suave);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ---- Volume: a conta corre no fio vermelho ------------------------------------------------- */
+.mini-volume {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  align-items: center;
+  column-gap: 14px;
+  height: 48px;
+  margin-top: 6px;
+  padding: 0 14px 0 12px;
+  border-top: 1px dashed var(--mini-linha);
+}
+.mini-volume-icone { width: 22px; height: 22px; color: var(--mini-suave); }
+.mini-volume-fio,
+.mini-volume-controle { grid-column: 2; grid-row: 1; }
+.mini-volume-fio {
+  position: relative;
+  height: 1.5px;
+  border-radius: 1px;
+  background: var(--mini-fio);
+  pointer-events: none;
+}
+/* os nós nas pontas do fio */
+.mini-volume-fio::before,
+.mini-volume-fio::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  margin-top: -2.5px;
+  border-radius: 50%;
+  background: var(--mini-fio);
+}
+.mini-volume-fio::before { left: -2px; }
+.mini-volume-fio::after { right: -2px; }
+.mini-volume-controle {
+  width: 100%;
+  height: 44px;
+  margin: 0;
+  background: transparent;
+  touch-action: pan-y;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.mini-volume-controle::-webkit-slider-runnable-track { height: 44px; background: transparent; border: 0; }
+.mini-volume-controle::-moz-range-track { height: 44px; background: transparent; border: 0; }
+.mini-volume-controle::-webkit-slider-thumb {
+  width: 22px;
+  height: 22px;
+  margin-top: 11px; /* o WebKit encosta a conta no alto do trilho de 44 px */
+  border: 0;
+  border-radius: 50%;
+  background: var(--mini-conta);
+  box-shadow: var(--mini-conta-sombra);
+  -webkit-appearance: none;
+  appearance: none;
+}
+.mini-volume-controle::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--mini-conta);
+  box-shadow: var(--mini-conta-sombra);
+}
+.mini-volume-controle:focus-visible {
+  outline: 2px solid var(--mini-foco);
+  outline-offset: -8px;
+  border-radius: 22px;
+}
+
+/* ---- O elo "Voltar ao menu" (só depois que ela chegou ao menu) ------------------------------- */
+.mini-menu {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  margin-top: 2px;
+  border-top: 1px dashed var(--mini-linha);
+  color: currentColor;
+  font-family: var(--fonte-mao);
+  font-weight: 600;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  transition: transform var(--dur-mola) var(--mola);
+}
+.mini-menu > span {
+  padding: 2px 2px 3px;
+  border-bottom: 1.5px dashed var(--mini-ponto, var(--ponto));
+}
+.mini-menu:active {
+  transform: scale(0.96);
+  transition-duration: var(--dur-toque);
+  transition-timing-function: var(--curva-ui);
+}
+.mini-menu:focus-visible {
+  outline: 2px solid var(--mini-fio);
+  outline-offset: -4px;
+  border-radius: var(--raio-p);
+}
+html[data-cena="menu"] .mini-menu { display: none; }
+
+/* ---- A versão calma ------------------------------------------------------------------------- */
+/* As posições finais são as mesmas; só não há caminho entre elas. */
+html.reduzido .carrossel { --afasta: max(0px, var(--lado) * 0.27 - var(--vao) + 10px); }
+html.reduzido .car-objeto,
+html.reduzido .car-faixa,
+html.reduzido .car-tocar,
+html.reduzido .car-laco,
+html.reduzido .car-moldura,
+html.reduzido .car-disco-trilho,
+html.reduzido .car-ponto,
+html.reduzido .musica-seta,
+html.reduzido .mini-botao,
+html.reduzido .mini-alternar,
+html.reduzido .mini-faixa,
+html.reduzido .mini-visual,
+html.reduzido .disco-mini .disco-rotulo { transition-duration: 0.01ms !important; }
+/* O lacinho e o botão de tocar aparecem sem mudar de escala. */
+html.reduzido .carrossel .car-laco,
+html.reduzido .carrossel .car-tocar { transform: none !important; }
+html.reduzido .musica-continuar[data-chama] .musica-seta { animation: none; }
+html.reduzido #mini { transition: none; }
+html.reduzido .mini-anel-fio { transition: opacity 300ms linear; }
+html.reduzido .mini-painel {
+  transform: none !important;
+  transition: opacity 150ms linear, visibility 0s linear 150ms;
+}
+html.reduzido #mini[data-aberto] .mini-painel { transition: opacity 150ms linear; }
+html.reduzido #mini[data-aberto] .mini-lista li { animation: ui-aparece 200ms linear both; animation-delay: 0s; }
+@media (prefers-reduced-motion: reduce) {
+  #mini[data-aberto] .mini-lista li { animation: ui-aparece 200ms linear both; animation-delay: 0s; }
+  .musica-continuar[data-chama] .musica-seta { animation: none; }
+}
+
+/* ---- Aparelho fraco ------------------------------------------------------------------------- */
+html[data-nivel="baixo"] #mini[data-pele="yourname"] { --mini-fundo: rgba(17, 21, 68, 0.95); }
+html[data-nivel="baixo"] #mini[data-pele="yourname"] .mini-painel {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+/* Os sulcos viram só o reflexo e o vinil. */
+html[data-nivel="baixo"] .disco-sulcos {
+  background:
+    conic-gradient(from 28deg, transparent 0deg, rgba(255, 255, 255, 0.3) 18deg, transparent 50deg, transparent 180deg, rgba(255, 255, 255, 0.2) 200deg, transparent 232deg, transparent 360deg),
+    radial-gradient(circle closest-side, #3b2832 0%, #2a1b22 44%, #24171d 94%, #4d3944 96.6%, #150d11 99%);
+}

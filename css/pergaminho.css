@@ -1,0 +1,352 @@
+/* ============================================================================
+   PERGAMINHO: a folha onde os capítulos são lidos (js/pergaminho.js)
+   ============================================================================
+   No celular a folha cobre a tela; no computador é uma coluna central de até
+   720 px, com o mundo branco e as pétalas dos lados. Camadas: a sombra (pousada
+   e "no ar"), o papel com fibra, a folha em branco, a camada do capítulo com a
+   janela recortada, a costura do fio na margem direita, a aba de dica e o rolo.
+   O JS põe transform, opacity, clip-path e as variáveis; aqui fica o que não
+   muda. Alturas que o JS também conhece: --perg-rolo (medida.rolo),
+   --perg-ladrilho (LADRILHO, 256), .perg-rolo-curva (46) e .perg-rolo-sombra (42).
+   ========================================================================== */
+
+#pergaminho {
+  --perg-margem: 10px;
+  --perg-margem-costura: 18px; /* a margem direita é maior: é onde a costura passa */
+  --perg-rolo: clamp(50px, 7.6vh, 72px); /* espessura do rolo cheio */
+  --perg-ladrilho: 256px;
+  --perg-sombra-cor: 42, 27, 34; /* a tinta */
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%;
+  height: var(--tela);
+  z-index: var(--z-pergaminho);
+  display: flex;
+  justify-content: center;
+  pointer-events: none; /* dos lados da coluna, o toque passa para o mundo */
+}
+@media (min-width: 760px) {
+  #pergaminho {
+    --perg-margem: 16px;
+    --perg-margem-costura: 28px;
+  }
+}
+
+.perg-moldura {
+  position: relative;
+  width: 100%;
+  max-width: var(--coluna);
+  height: 100%;
+  color: var(--tinta);
+  pointer-events: auto;
+}
+
+/* A sombra mora num elemento próprio e troca por opacidade (nunca animando
+   box-shadow): a troca do papel 3D pela folha não mostra nada novo no
+   primeiro quadro. A "no ar" só aparece quando a folha se levanta. */
+.perg-sombra {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow:
+    0 2px 3px rgba(var(--perg-sombra-cor), 0.05),
+    0 16px 30px -14px rgba(var(--perg-sombra-cor), 0.17),
+    0 46px 110px -26px rgba(var(--perg-sombra-cor), 0.2);
+}
+.perg-sombra-alta {
+  opacity: 0;
+  box-shadow:
+    0 34px 70px -18px rgba(var(--perg-sombra-cor), 0.2),
+    0 90px 150px -40px rgba(var(--perg-sombra-cor), 0.18);
+}
+
+.perg-papel {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--papel);
+}
+.perg-fibra {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    var(--perg-fibra, none),
+    linear-gradient(158deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0) 36%, rgba(188, 158, 116, 0) 58%, rgba(188, 158, 116, 0.09) 100%);
+  background-size: var(--perg-ladrilho) var(--perg-ladrilho), 100% 100%;
+  background-repeat: repeat, no-repeat;
+}
+
+/* A folha em branco. O primeiro e o último filho com margem automática
+   centralizam o que for montado nela. */
+.perg-folha {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding:
+    calc(var(--seguro-topo) + var(--esp-7))
+    max(var(--margem), var(--seguro-dir))
+    calc(var(--seguro-base) + var(--esp-7))
+    max(var(--margem), var(--seguro-esq));
+}
+.perg-folha > :first-child { margin-top: auto; }
+.perg-folha > :last-child { margin-bottom: auto; }
+
+/* O capítulo: a camada desce e o miolo sobe o mesmo tanto, então o capítulo
+   fica parado na tela e só a borda de baixo anda (sem clip-path). */
+.perg-camada {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  background: var(--papel);
+}
+.perg-camada-miolo {
+  position: absolute;
+  inset: 0;
+  background: var(--papel);
+}
+
+/* A janela recortada no papel: luz nas bordas de baixo e da direita,
+   contraluz em cima e à esquerda. */
+.perg-janela {
+  position: absolute;
+  top: max(var(--perg-margem), var(--seguro-topo));
+  right: max(var(--perg-margem-costura), calc(var(--seguro-dir) + 8px));
+  bottom: max(var(--perg-margem), var(--seguro-base));
+  left: max(var(--perg-margem), var(--seguro-esq));
+  border-radius: 2px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95),
+    1px 0 0 rgba(255, 255, 255, 0.7),
+    0 -1px 0 rgba(var(--perg-sombra-cor), 0.09),
+    -1px 0 0 rgba(var(--perg-sombra-cor), 0.06);
+}
+/* O transform faz desta caixa a referência de qualquer position: fixed do
+   capítulo, que fica preso à janela e não à tela. */
+.perg-vista {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  background: var(--papel-sombra);
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+.perg-fundo {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+}
+/* O JS trava a rolagem com overflow-y: hidden inline fora do estado aberto. */
+.perg-rolagem {
+  position: absolute;
+  inset: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.perg-rolagem::-webkit-scrollbar { display: none; }
+.perg-rolagem:focus-visible {
+  outline: 2px solid var(--fio);
+  outline-offset: -5px;
+  border-radius: 2px;
+}
+/* O título recebe o foco só para o leitor de tela: sem contorno. */
+.perg-rolagem [data-perg-foco]:focus,
+.perg-rolagem [data-perg-foco]:focus-visible { outline: none; }
+.perg-conteudo {
+  position: relative;
+  min-height: 100%;
+}
+/* A espessura do corte: a borda da janela faz sombra para dentro. */
+.perg-corte {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 0 3px 4px -2px rgba(12, 6, 9, 0.55),
+    inset 2px 0 3px -2px rgba(12, 6, 9, 0.38),
+    inset 0 0 0 1px rgba(12, 6, 9, 0.12);
+}
+
+/* ---- A costura: o fio de progresso na margem direita ------------------------ */
+.perg-costura {
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 100%;
+  width: 16px;
+  margin-left: calc((var(--perg-margem-costura) - 16px) / 2);
+  pointer-events: none;
+}
+.perg-costura svg {
+  position: absolute;
+  top: 0; left: 0;
+  max-width: none;
+  overflow: visible;
+}
+.perg-furos { fill: rgba(var(--perg-sombra-cor), 0.24); }
+/* Os pontos já dados: o JS abre o recorte conforme ela lê. */
+.perg-pontos {
+  position: absolute;
+  inset: 0;
+  -webkit-clip-path: inset(0 0 100% 0);
+  clip-path: inset(0 0 100% 0);
+}
+.perg-pontos path {
+  fill: none;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.perg-ponto-sombra { stroke: rgba(var(--perg-sombra-cor), 0.2); }
+.perg-ponto-fio { stroke: var(--fio); }
+.perg-pontos .perg-laco { stroke-width: 1.4; }
+.perg-no { fill: var(--fio); }
+
+/* A agulha: o olho fica no ponto atual e ela gira de leve a cada ponto. */
+.perg-agulha {
+  position: absolute;
+  top: -4px; left: 3px;
+  width: 10px; height: 30px;
+  transform-origin: 5px 4px;
+  will-change: transform;
+}
+.perg-agulha-corpo { fill: var(--tinta); fill-opacity: 0.86; }
+.perg-agulha-brilho { fill: none; stroke: rgba(255, 255, 255, 0.6); stroke-width: 0.5; stroke-linecap: round; }
+.perg-agulha-olho { fill: var(--papel); }
+.perg-agulha-laco { fill: none; stroke: var(--fio); stroke-width: 1.1; stroke-linecap: round; }
+
+/* ---- A aba de dica: um pedaço de papel que espia de baixo, com a seta ------- */
+.perg-dica {
+  position: absolute;
+  left: 50%;
+  bottom: -1px;
+  z-index: 4;
+  width: 64px; height: 38px;
+  margin-left: -32px;
+  border-radius: 32px 32px 0 0;
+  display: grid;
+  place-items: center;
+  padding-top: 5px;
+  color: var(--tinta);
+  background-color: var(--papel);
+  background-image: var(--perg-fibra, none);
+  background-size: var(--perg-ladrilho) var(--perg-ladrilho);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 0 0 1px rgba(var(--perg-sombra-cor), 0.06),
+    0 0 7px rgba(12, 6, 9, 0.26);
+  pointer-events: none;
+  visibility: hidden; /* o JS mostra com autoAlpha */
+}
+.perg-dica .ui-icone { width: 22px; height: 22px; }
+.perg-dica.ativa .ui-icone { animation: perg-dica-descer 2.4s var(--curva-branco-deriva) infinite; }
+@keyframes perg-dica-descer {
+  0%, 100% { transform: translateY(-3px); opacity: 0.5; }
+  55% { transform: translateY(3px); opacity: 1; }
+}
+@keyframes perg-dica-pulsar {
+  0%, 100% { opacity: 0.45; }
+  55% { opacity: 1; }
+}
+html.reduzido .perg-dica.ativa .ui-icone { animation-name: perg-dica-pulsar; }
+@media (prefers-reduced-motion: reduce) {
+  .perg-dica.ativa .ui-icone { animation-name: perg-dica-pulsar; }
+}
+
+/* ---- O rolo ------------------------------------------------------------------ */
+/* Uma caixa de altura zero: o topo dela é o eixo do rolo. */
+.perg-rolo {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 0;
+  z-index: 5;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+/* As peças inclinadas têm um contorno transparente: a aresta fica dentro da
+   textura e sai suavizada, sem degraus (WebKit). */
+.perg-rolo-corpo {
+  position: absolute;
+  left: -8px; right: -8px;
+  top: calc(var(--perg-rolo) / -2);
+  height: var(--perg-rolo);
+  overflow: hidden;
+  background: var(--papel);
+  will-change: transform;
+  outline: 1px solid transparent;
+}
+/* Dois ladrilhos desencontrados: o rolo parece mais denso que a folha. */
+.perg-rolo-fibra {
+  position: absolute;
+  left: 0; right: 0;
+  top: calc(var(--perg-ladrilho) * -1);
+  height: calc(var(--perg-rolo) + var(--perg-ladrilho));
+  background-image: var(--perg-fibra, none), var(--perg-fibra, none);
+  background-size: var(--perg-ladrilho) var(--perg-ladrilho);
+  background-position: 0 0, 97px 131px;
+  will-change: transform;
+}
+/* A luz: as voltas do papel nas pontas, a sombra das laterais e o volume. */
+.perg-rolo-luz {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right,
+      transparent 11px, rgba(84, 60, 38, 0.2) 11px 12px,
+      transparent 12px 16px, rgba(84, 60, 38, 0.1) 16px 17px,
+      transparent 17px),
+    linear-gradient(to left,
+      transparent 10px, rgba(84, 60, 38, 0.16) 10px 11px,
+      transparent 11px 14px, rgba(84, 60, 38, 0.12) 14px 15px,
+      transparent 15px 21px, rgba(84, 60, 38, 0.07) 21px 22px,
+      transparent 22px),
+    linear-gradient(to right,
+      rgba(84, 60, 38, 0.24) 0, rgba(84, 60, 38, 0.07) 15px, rgba(84, 60, 38, 0) 30px,
+      rgba(84, 60, 38, 0) calc(100% - 30px), rgba(84, 60, 38, 0.07) calc(100% - 15px), rgba(84, 60, 38, 0.24) 100%),
+    linear-gradient(to bottom,
+      rgba(96, 70, 44, 0.38) 0%,
+      rgba(96, 70, 44, 0.11) 5%,
+      rgba(255, 255, 255, 0.24) 11%,
+      rgba(255, 255, 255, 0.82) 22%,
+      rgba(255, 255, 255, 0.32) 36%,
+      rgba(92, 66, 42, 0.05) 48%,
+      rgba(92, 66, 42, 0.2) 63%,
+      rgba(92, 66, 42, 0.4) 80%,
+      rgba(66, 44, 28, 0.27) 91%,
+      rgba(66, 44, 28, 0.52) 100%);
+  background-size: 40px 100%, 40px 100%, 100% 100%, 100% 100%;
+  background-position: left top, right top, left top, left top;
+  background-repeat: no-repeat;
+}
+/* A curva: o papel que se dobra para entrar no rolo (acima do eixo). */
+.perg-rolo-curva {
+  position: absolute;
+  left: -8px; right: -8px;
+  bottom: 0;
+  height: 46px;
+  background: linear-gradient(to bottom, rgba(14, 7, 10, 0) 0%, rgba(14, 7, 10, 0.07) 42%, rgba(14, 7, 10, 0.22) 78%, rgba(14, 7, 10, 0.46) 100%);
+  will-change: transform;
+  outline: 1px solid transparent;
+}
+/* A sombra que o rolo deixa no papel em branco (abaixo do eixo). */
+.perg-rolo-sombra {
+  position: absolute;
+  left: -8px; right: -8px;
+  top: 0;
+  height: 42px;
+  background: linear-gradient(to bottom, rgba(58, 38, 24, 0.38) 0%, rgba(58, 38, 24, 0.2) 12%, rgba(58, 38, 24, 0.09) 40%, rgba(58, 38, 24, 0.025) 74%, rgba(58, 38, 24, 0) 100%);
+  will-change: transform;
+  outline: 1px solid transparent;
+}

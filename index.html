@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Para você</title>
+  <!-- Página particular: fora dos buscadores, e a prévia do link não entrega a surpresa. -->
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="description" content="Para você">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Para você">
+  <meta property="og:description" content="Para você">
+  <meta property="og:image" content="https://ulystreak.github.io/23.12/assets/images/og-capa.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Começa preto (a tela da senha) e fica branco quando o mundo aparece. -->
+  <meta name="theme-color" content="#000000">
+  <meta name="color-scheme" content="only light">
+  <meta name="format-detection" content="telephone=no">
+  <!-- Favicon embutido (uma pétala), para não pedir /favicon.ico. -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 3c7 5 10 11 8 18-1 5-4 8-8 8s-7-3-8-8C6 14 9 8 16 3z' fill='%23b3123a'/%3E%3C/svg%3E">
+  <link rel="apple-touch-icon" href="assets/images/icone-180.png">
+  <meta name="apple-mobile-web-app-title" content="Para você">
+
+  <!-- A fonte da primeira frase vem antes de tudo. -->
+  <link rel="preload" href="assets/fonts/shippori-mincho-400.woff2" as="font" type="font/woff2" crossorigin>
+
+  <!-- CSS crítico: só o que a primeira tela precisa. O resto vem em css/. -->
+  <style>
+    @font-face {
+      font-family: "Shippori Mincho";
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+      src: url("assets/fonts/shippori-mincho-400.woff2") format("woff2");
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    }
+    html, body { margin: 0; height: 100%; background: #ffffff; color: #2a1b22; overflow: hidden; }
+    html.entra-noite, html.entra-noite body { background: #07091e; }
+    body { position: fixed; inset: 0; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    #mundo, #mundo-leve, #palco { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; height: 100dvh; }
+    #mundo, #mundo-leve { display: block; }
+    #palco { pointer-events: none; }
+    #frases {
+      position: absolute; left: 0; right: 0; top: 24%;
+      padding: 0 max(28px, env(safe-area-inset-right)) 0 max(28px, env(safe-area-inset-left));
+      text-align: center;
+      font-family: "Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", Georgia, serif;
+      font-size: clamp(1.625rem, 6.6vw, 2.75rem); line-height: 1.5; letter-spacing: 0.02em; font-weight: 400;
+    }
+    [hidden] { display: none !important; }
+    #entrada { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; height: 100dvh; z-index: 60; background: #000; color: #fff; }
+    html.sem-entrada #entrada { display: none; }
+    /* O ponto vermelho que respira enquanto a senha não montou (só depois de 0,8 s). */
+    @supports selector(:has(*)) {
+      #entrada::after {
+        content: ""; position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px;
+        border-radius: 50%; background: #d7192d; opacity: 0;
+        animation: entrada-vida 1.6s ease-in-out 0.8s infinite alternate;
+      }
+      #entrada:has(:not(:empty))::after { display: none; }
+    }
+    @keyframes entrada-vida { from { opacity: 0; transform: scale(0.7); } to { opacity: 0.9; transform: none; } }
+    @keyframes entrada-aparece { to { opacity: 0.7; } }
+    html.reduzido #entrada::after { animation: entrada-aparece 1.2s linear 0.8s both; }
+    @media (prefers-reduced-motion: reduce) {
+      #entrada::after { animation: entrada-aparece 1.2s linear 0.8s both; }
+    }
+  </style>
+
+  <!-- O atalho ?cena= de inicio em diante pula a tela preta: a classe tem de
+       estar no <html> antes do primeiro quadro, por isso o script fica aqui. -->
+  <script>
+    (function () {
+      var p = new URLSearchParams(location.search);
+      var c = p.get('cena');
+      var semEntrada = ['inicio', 'poppy', 'carta2', 'yourname', 'mao', 'cartas', 'segredos', 'encontro', 'final', 'menu'];
+      var m = document.querySelector('meta[name="theme-color"]');
+      if (semEntrada.indexOf(c) >= 0) {
+        document.documentElement.className += ' sem-entrada';
+        if (m) m.setAttribute('content', '#ffffff');
+      }
+      if (c === 'menu' || (semEntrada.indexOf(c) >= 0 && p.get('volta') === '1')) {
+        document.documentElement.className += ' entra-noite';
+      }
+    })();
+  </script>
+
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/senha.css">
+  <link rel="stylesheet" href="css/mundo.css">
+  <link rel="stylesheet" href="css/musica.css">
+  <link rel="stylesheet" href="css/pergaminho.css">
+  <link rel="stylesheet" href="css/poppy.css">
+  <link rel="stylesheet" href="css/yourname.css">
+  <link rel="stylesheet" href="css/bolso.css">
+  <link rel="stylesheet" href="css/inventario.css">
+  <link rel="stylesheet" href="css/voz.css">
+  <link rel="stylesheet" href="css/cartas.css">
+  <link rel="stylesheet" href="css/mao.css">
+  <link rel="stylesheet" href="css/encontro.css">
+  <link rel="stylesheet" href="css/final.css">
+  <link rel="stylesheet" href="css/resposta.css">
+  <link rel="stylesheet" href="css/menu.css">
+  <link rel="stylesheet" href="css/letra.css">
+
+  <link rel="modulepreload" href="js/voz.js">
+  <link rel="modulepreload" href="js/letra.js">
+  <link rel="modulepreload" href="js/cenas/senha.js">
+
+  <script defer src="js/content.js"></script>
+  <script defer src="lib/gsap.min.js"></script>
+  <script defer src="lib/CustomEase.min.js"></script>
+  <script defer src="lib/DrawSVGPlugin.min.js"></script>
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <!-- O mundo 3D, atrás de tudo. -->
+  <canvas id="mundo" aria-hidden="true"></canvas>
+  <!-- O mundo leve, sem WebGL (fica vazio quando o canvas funciona). -->
+  <div id="mundo-leve" aria-hidden="true"></div>
+
+  <!-- O palco: as frases, a dica e os botões de cada cena. O JS monta tudo. -->
+  <main id="palco">
+    <div id="frases" aria-live="polite"></div>
+    <p id="dica" hidden></p>
+    <div id="acoes"></div>
+  </main>
+
+  <!-- A folha de capítulo. -->
+  <section id="pergaminho" hidden></section>
+  <!-- A bolsa: fica antes do mini e da tela preta para o Tab chegar nela depois do palco. -->
+  <aside id="inventario" hidden></aside>
+  <!-- O mini seletor de música. -->
+  <aside id="mini" hidden></aside>
+  <!-- A animação do bolso. -->
+  <div id="bolso" aria-hidden="true" hidden></div>
+
+  <!-- A tela preta: a senha e a escolha da música. -->
+  <section id="entrada">
+    <div id="entrada-senha"></div>
+    <div id="entrada-musica"></div>
+  </section>
+
+  <noscript>
+    <style>
+      #mundo, #mundo-leve, #palco, #pergaminho, #mini, #inventario, #bolso, #entrada { display: none !important; }
+      .sem-js { position: fixed; inset: 0; display: grid; place-items: center; padding: 32px; background: #ffffff; color: #2a1b22; text-align: center; font-family: "Shippori Mincho", Georgia, serif; }
+      .sem-js p { max-width: 22em; font-size: 1.25rem; line-height: 1.7; margin: 0; }
+      .sem-js span { display: block; margin-top: 1.2em; font-size: 1rem; color: #6b5961; }
+    </style>
+    <div class="sem-js">
+      <p>Esta carta precisa de JavaScript para se abrir.<span>Ative o JavaScript no navegador e recarregue a página. Ela continua esperando por você.</span></p>
+    </div>
+  </noscript>
+</body>
+</html>

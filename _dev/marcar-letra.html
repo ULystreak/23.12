@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Ferramenta do autor, fora do site: a pasta _dev não é publicada (o Jekyll deixa de fora o que começa com "_"). -->
+  <meta name="robots" content="noindex, nofollow">
+  <title>Marcar a letra</title>
+  <!--
+    MARCAR-LETRA: o tempo de cada verso, marcado com a música tocando.
+    Abra com dois cliques, de dentro da pasta _dev (os caminhos são '../').
+    Escolha a música, cole a letra (um verso por linha), aperte "Começar do
+    zero" e, no começo de cada verso, "Agora!" ou a barra de espaço. A saída
+    tem uma linha por verso, [mm:ss.cc] verso: o mesmo formato do
+    colocar-letra.mjs e do sincronizar-letra.mjs. Nada sai desta página: tudo
+    fica na memória até ela fechar.
+  -->
+  <style>
+    :root {
+      --papel: #fbf7f0;
+      --tinta: #2a2230;
+      --fio: #d7192d;
+      --suave: #8a7f8c; /* só bordas e traços: não tem contraste para texto */
+      color-scheme: light;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--papel);
+      color: var(--tinta);
+      font: 1rem/1.55 system-ui, "Segoe UI", Roboto, sans-serif;
+    }
+    main { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }
+    h1 { margin: 0 0 8px; font: 600 1.6rem/1.3 Georgia, "Times New Roman", serif; }
+    ol { margin: 0 0 24px; padding-left: 1.3em; }
+    label { display: block; margin: 20px 0 6px; font-weight: 600; }
+    select, textarea {
+      width: 100%;
+      font: inherit;
+      color: inherit;
+      background: #fff;
+      border: 1px solid var(--suave);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    select { min-height: 44px; }
+    textarea { min-height: 180px; resize: vertical; }
+    #saida { font-family: ui-monospace, Consolas, monospace; font-size: 0.95rem; }
+    audio { display: block; width: 100%; margin-top: 20px; }
+    .botoes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+    button {
+      min-height: 44px;
+      padding: 10px 18px;
+      font: inherit;
+      color: var(--tinta);
+      background: #fff;
+      border: 1px solid var(--suave);
+      border-radius: 999px;
+      cursor: pointer;
+      transition: transform 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    button:active:not(:disabled) { transform: scale(0.97); }
+    button:disabled { opacity: 0.45; cursor: default; }
+    :focus-visible { outline: 3px solid var(--fio); outline-offset: 2px; }
+    #painel {
+      margin-top: 24px;
+      padding: 20px;
+      background: #fff;
+      border: 1px solid var(--suave);
+      border-radius: 14px;
+      text-align: center;
+    }
+    #painel .rotulo { font-size: 0.9rem; }
+    #proximo { min-height: 1.6em; margin: 6px 0 16px; font: 1.3rem/1.4 Georgia, "Times New Roman", serif; }
+    #agora {
+      padding: 18px 28px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #fff;
+      background: var(--fio);
+      border-color: var(--fio);
+    }
+    #aviso { min-height: 1.5em; margin: 10px 0 0; }
+    @media (prefers-reduced-motion: reduce) { button { transition: none; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Marcar o tempo de cada verso</h1>
+    <ol>
+      <li>Escolha a música.</li>
+      <li>Cole a letra, um verso por linha.</li>
+      <li>Aperte "Começar do zero". Toda vez que um verso começar a ser cantado, aperte "Agora!" (ou a barra de espaço).</li>
+      <li>Copie o resultado e cole no campo <code>letra</code> do js/content.js, entre as crases. Ou salve em letra-1.txt (primeira música) ou letra-2.txt (segunda), na pasta do site, e rode o colocar-letra.bat.</li>
+    </ol>
+
+    <label for="faixa">Música</label>
+    <select id="faixa"></select>
+
+    <label for="versos">Letra, um verso por linha</label>
+    <textarea id="versos" spellcheck="false"></textarea>
+
+    <audio id="som" controls preload="auto"></audio>
+
+    <div class="botoes">
+      <button id="comecar" type="button">Começar do zero</button>
+      <button id="voltar" type="button">Voltar 5 s</button>
+      <button id="desfazer" type="button" disabled>Desfazer o último</button>
+    </div>
+
+    <div id="painel">
+      <span class="rotulo">Próximo verso</span>
+      <p id="proximo" aria-live="polite"></p>
+      <button id="agora" type="button" disabled>Agora!</button>
+    </div>
+
+    <label for="saida">Resultado</label>
+    <textarea id="saida" readonly spellcheck="false"></textarea>
+    <div class="botoes">
+      <button id="copiar" type="button">Copiar</button>
+    </div>
+    <p id="aviso" role="status"></p>
+  </main>
+
+  <script src="../js/content.js"></script>
+  <script>
+    'use strict';
+    const $ = (id) => document.getElementById(id);
+    const som = $('som');
+    const faixas = (Array.isArray(window.CONTEUDO?.musica?.faixas) ? window.CONTEUDO.musica.faixas : [])
+      .filter((f) => typeof f?.arquivo === 'string' && f.arquivo);
+    let versos = [];
+    let marcas = [];
+
+    /** Segundos → "[mm:ss.cc]" (em centésimos: nunca [00:60.00]). */
+    function tempo(s) {
+      const cs = Math.round(Math.max(0, s) * 100);
+      const m = Math.floor(cs / 6000);
+      return `[${String(m).padStart(2, '0')}:${((cs - m * 6000) / 100).toFixed(2).padStart(5, '0')}]`;
+    }
+
+    function avisar(texto) {
+      $('aviso').textContent = texto;
+    }
+
+    function carregar() {
+      const faixa = faixas[$('faixa').value];
+      if (faixa) som.src = `../${faixa.arquivo}`;
+    }
+
+    function atualizar() {
+      $('saida').value = marcas.map((t, i) => `${tempo(t)} ${versos[i]}`).join('\n');
+      $('proximo').textContent = marcas.length < versos.length ? versos[marcas.length] : versos.length ? 'pronto! copie o resultado' : '';
+      $('agora').disabled = !versos.length || marcas.length >= versos.length;
+      $('desfazer').disabled = !marcas.length;
+    }
+
+    function marcar() {
+      if (marcas.length >= versos.length) return;
+      marcas.push(som.currentTime);
+      atualizar();
+    }
+
+    faixas.forEach((f, i) => {
+      const nome = [f.titulo, f.artista].filter((t) => typeof t === 'string' && t).join(' — ') || f.arquivo;
+      $('faixa').append(new Option(nome, String(i)));
+    });
+    if (!window.CONTEUDO) avisar('Não consegui ler o js/content.js. Abra esta página de dentro da pasta _dev e confira se o content.js não ficou com erro.');
+    else if (!faixas.length) avisar('O js/content.js não tem nenhuma música com arquivo.');
+    carregar();
+    atualizar();
+
+    $('faixa').addEventListener('change', carregar);
+
+    $('comecar').addEventListener('click', () => {
+      versos = $('versos').value.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+      marcas = [];
+      atualizar();
+      if (!versos.length) {
+        avisar('Cole a letra primeiro, um verso por linha.');
+        return;
+      }
+      avisar('');
+      som.currentTime = 0;
+      som.play().catch(() => avisar('O navegador não deixou tocar: aperte o play do player.'));
+      $('agora').focus();
+    });
+
+    $('agora').addEventListener('click', marcar);
+
+    $('desfazer').addEventListener('click', () => {
+      marcas.pop();
+      atualizar();
+    });
+
+    $('voltar').addEventListener('click', () => {
+      som.currentTime = Math.max(0, som.currentTime - 5);
+    });
+
+    $('copiar').addEventListener('click', () => {
+      const texto = $('saida').value;
+      if (!texto) {
+        avisar('Ainda não há nenhum verso marcado.');
+        return;
+      }
+      const selecionar = () => {
+        $('saida').focus();
+        $('saida').select();
+        avisar('selecionado: Ctrl+C');
+      };
+      if (navigator.clipboard?.writeText) navigator.clipboard.writeText(texto).then(() => avisar('copiado'), selecionar);
+      else selecionar();
+    });
+
+    // A barra de espaço marca de qualquer lugar, menos de dentro da letra.
+    // Na captura e também no keyup: senão o botão em foco (ou o player) recebe
+    // o espaço junto e o verso seria marcado duas vezes, ou a música pararia.
+    const ehEspaco = (e) => e.code === 'Space' || e.key === ' ';
+    window.addEventListener('keydown', (e) => {
+      if (!ehEspaco(e) || e.target === $('versos')) return;
+      e.preventDefault();
+      if (!e.repeat) marcar();
+    }, true);
+    window.addEventListener('keyup', (e) => {
+      if (ehEspaco(e) && e.target !== $('versos')) e.preventDefault();
+    }, true);
+  </script>
+</body>
+</html>

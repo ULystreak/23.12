@@ -1,0 +1,27 @@
+# Configuração local do Claude e sobras de testes automáticos
+.claude/
+.impeccable/
+.playwright-mcp/
+.playwright-cli/
+output/
+node_modules/
+
+# Rascunho de prompt, não faz parte do site
+PROMPT.md
+
+# Grafo do graphify (gerado)
+graphify-out/
+
+# Os rascunhos da letra que o colocar-letra.bat lê (em qualquer pasta, não só
+# na raiz) e os tempos por palavra que o sincronizar-letra.mjs recebe.
+# Letra de música nunca vai para o git sem decisão do autor.
+letra*.txt
+*.lrc
+tempos*.json
+
+# Os textos dos capítulos que o colocar-textos.bat lê
+textos/
+
+# Sobras do Windows
+Thumbs.db
+desktop.ini

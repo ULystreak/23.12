@@ -1,0 +1,509 @@
+/* ============================================================================
+   VOZ: o cartão "A minha voz" (#voz, montado por js/voz.js)
+   ============================================================================
+   Abre por cima de tudo, a partir da fita que mora na bolsa. Uma folha de
+   papel com o lacinho, a fita cassete cujos carretéis giram enquanto ele fala
+   e a lista dos áudios presos num fio vermelho com um nó. As peças .ui-* vêm
+   de css/base.css. Só transform e opacity são animados; o raio das massas da
+   fita é um atributo SVG que o JS grava.
+   ========================================================================== */
+
+#voz {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: var(--tela);
+  z-index: var(--z-topo);
+  display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  place-items: center;
+  padding: calc(var(--seguro-topo) + 28px) calc(var(--seguro-dir) + 16px) calc(var(--seguro-base) + 20px) calc(var(--seguro-esq) + 16px);
+  font-family: var(--fonte-mao);
+  color: var(--tinta);
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* #voz é grid: sem esta regra, o cartão fechado continuaria na tela. */
+#voz[hidden] { display: none; }
+/* Saindo, o toque já passa para a cena. */
+#voz:not([data-aberto]) { pointer-events: none; }
+
+/* ---- véu e folha ---------------------------------------------------------- */
+
+.voz-veu {
+  position: absolute;
+  inset: 0;
+  background: var(--noite-veu);
+  opacity: 0;
+  transition: opacity var(--dur-sair) linear;
+}
+#voz[data-aberto] .voz-veu {
+  opacity: 1;
+  transition-duration: var(--dur-ui-lenta);
+}
+
+/* A folha sobe e assenta com a mola firme; sai rápido, sem mola. */
+.voz-cartao {
+  width: min(100%, 420px);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  opacity: 0;
+  transform: translate3d(0, 14px, 0) scale(0.94);
+  transition: transform var(--dur-sair) var(--curva-sair), opacity var(--dur-sair) linear;
+}
+#voz[data-aberto] .voz-cartao {
+  opacity: 1;
+  transform: none;
+  transition: transform var(--dur-folha) var(--mola-firme), opacity var(--dur-ui) linear;
+}
+
+/* O lacinho chega por último, como quem fecha o embrulho. */
+.voz-cartao > .ui-laco {
+  z-index: 1;
+  opacity: 0;
+  transform: translateX(-50%) scale(0.6) rotate(-14deg);
+  transition: transform var(--dur-toque) var(--curva-sair), opacity var(--dur-toque) linear;
+}
+#voz[data-aberto] .voz-cartao > .ui-laco {
+  opacity: 1;
+  transform: translateX(-50%);
+  transition: transform var(--dur-mola) var(--mola) 260ms, opacity var(--dur-toque) linear 260ms;
+}
+
+/* A folha não rola: quem rola é o miolo, e o pesponto fica parado. */
+.voz-miolo {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 34px 24px 22px;
+  border-radius: var(--raio-g);
+}
+
+.voz-fechar {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 1;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  color: var(--tinta-suave);
+  box-shadow: var(--sombra-baixa);
+  touch-action: manipulation;
+}
+@media (hover: hover) and (pointer: fine) {
+  .voz-fechar:hover { color: var(--tinta); }
+}
+
+/* ---- a fita --------------------------------------------------------------- */
+
+/* Parada, a fita fica a −3°: −1,8° aqui e −1,2° do começo do balanço. */
+.voz-fita {
+  width: 148px;
+  margin: 0 auto;
+  transform: rotate(-1.8deg);
+}
+.voz-fita-desenho {
+  width: 100%;
+  height: auto;
+  border-radius: var(--raio-p);
+  box-shadow: var(--sombra-baixa), 0 14px 18px -12px rgba(30, 14, 40, 0.4);
+}
+.voz-fita-desenho * { stroke-linejoin: round; stroke-linecap: round; }
+.voz-fita-corpo { fill: var(--branco); stroke: var(--tinta); stroke-width: 2.2; }
+.voz-fita-etiqueta { fill: var(--papel); stroke: var(--tinta); stroke-opacity: 0.3; stroke-width: 1; }
+.voz-fita-listra { fill: none; stroke: var(--fio); stroke-width: 2; }
+.voz-fita-linha { fill: none; stroke: var(--tinta); stroke-opacity: 0.28; stroke-width: 1.2; }
+.voz-fita-coracao { fill: var(--fio); }
+.voz-fita-janela { fill: var(--branco); }
+.voz-massa { fill: var(--tinta); fill-opacity: 0.82; }
+.voz-fita-vidro { fill: none; stroke: var(--tinta); stroke-width: 1.6; }
+.voz-rolo circle { fill: var(--branco); stroke: var(--tinta); stroke-width: 1.4; }
+.voz-rolo rect { fill: var(--tinta); }
+.voz-fita-base { fill: var(--papel-sombra); stroke: var(--tinta); stroke-width: 1.6; }
+.voz-fita-roda { fill: var(--branco); stroke: var(--tinta); stroke-width: 1.2; }
+.voz-fita-meio { fill: none; stroke: var(--tinta); stroke-width: 1.2; }
+.voz-fita-ponto { fill: var(--tinta); opacity: 0.4; }
+
+/* Enquanto ele fala, a fita balança de leve e os carretéis giram em volta do
+   próprio centro. As animações ficam pausadas, não removidas: quando ele para,
+   a fita para onde estava, como uma fita de verdade, sem pulo de volta. */
+.voz-fita-desenho {
+  animation: voz-balanco 2.4s var(--curva-branco-deriva) infinite alternate paused;
+}
+.voz-rolo {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: voz-girar 2.6s linear infinite paused;
+}
+#voz[data-tocando] .voz-fita-desenho,
+#voz[data-tocando] .voz-rolo { animation-play-state: running; }
+@keyframes voz-balanco {
+  from { transform: rotate(-1.2deg); }
+  to { transform: rotate(1.6deg) translateY(-2px); }
+}
+@keyframes voz-girar {
+  from { transform: rotate(0); }
+  to { transform: rotate(360deg); }
+}
+
+/* ---- título e frase ------------------------------------------------------- */
+
+.voz-titulo {
+  margin: 16px 0 0;
+  text-align: center;
+  text-wrap: balance;
+}
+.voz-frase {
+  margin: 6px auto 0;
+  max-width: 22em;
+  font-size: 1.0625rem;
+  text-align: center;
+  text-wrap: balance;
+  white-space: pre-line;
+}
+
+/* ---- a lista, presa no fio ------------------------------------------------- */
+
+.voz-lista {
+  position: relative;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+/* O fio desce pelo meio dos botões e termina num nó. */
+.voz-lista::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  bottom: 12px;
+  left: 23px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--fio);
+}
+.voz-lista::after {
+  content: "";
+  position: absolute;
+  bottom: 6px;
+  left: 20px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--fio);
+}
+
+.voz-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 14px;
+  min-height: 80px;
+  padding: 8px 0;
+}
+
+/* O botão de tocar: a conta fica vermelha por baixo do ícone (uma camada; a cor em si não anima). */
+.voz-tocar {
+  position: relative;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  display: inline-grid;
+  place-items: center;
+  touch-action: manipulation;
+}
+.voz-tocar .ui-icone {
+  position: relative;
+  grid-area: 1 / 1;
+  transition: opacity var(--dur-ui) linear, transform var(--dur-mola) var(--mola);
+}
+.voz-i-tocar { margin-left: 2px; }
+.voz-i-tocar path { fill: currentColor; }
+.voz-i-pausa { opacity: 0; transform: scale(0.6); }
+.voz-item[data-tocando] .voz-i-tocar { opacity: 0; transform: scale(0.6); }
+.voz-item[data-tocando] .voz-i-pausa { opacity: 1; transform: none; }
+
+.voz-tocar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--fio);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.28) inset;
+  opacity: 0;
+  transform: scale(0.7);
+  transition: opacity var(--dur-sair) linear, transform var(--dur-sair) var(--curva-ui);
+}
+.voz-item[data-tocando] .voz-tocar { color: var(--branco); }
+.voz-item[data-tocando] .voz-tocar::before {
+  opacity: 1;
+  transform: none;
+  transition: opacity var(--dur-toque) linear, transform var(--dur-mola) var(--mola);
+}
+/* O anel se abre, devagar, enquanto ele fala. */
+.voz-tocar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1.5px solid var(--fio);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+.voz-item[data-tocando] .voz-tocar::after {
+  animation: voz-onda 1.9s var(--curva-ui) infinite;
+}
+@keyframes voz-onda {
+  from { opacity: 0.55; transform: scale(1); }
+  to { opacity: 0; transform: scale(1.5); }
+}
+@media (hover: hover) and (pointer: fine) {
+  .voz-tocar:hover { transform: scale(1.06); }
+}
+.voz-tocar:active { transform: scale(0.95); }
+
+/* Sem arquivo, ou que não abriu: apagado e opaco, para o fio não aparecer por trás. */
+.voz-lista .voz-tocar-vazio,
+.voz-lista .voz-tocar:disabled {
+  opacity: 1;
+  background: var(--papel-sombra);
+  box-shadow: 0 0 0 1px var(--papel-linha) inset;
+  color: var(--tinta-fraca);
+  cursor: default;
+  pointer-events: none;
+}
+/* A linha vazia fica mais quieta pela cor, não pela opacidade: o texto segue legível (4,5:1). */
+.voz-item[data-estado="vazio"] .voz-nome { color: var(--tinta-suave); }
+
+/* ---- o meio da linha: nome, fio de progresso, tempo e aviso ---------------- */
+
+.voz-meio { min-width: 0; }
+.voz-linha {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.voz-nome {
+  min-width: 0;
+  font-size: 1.1875rem;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+/* Letra à mão, como o resto do cartão: a Fredoka só mora no capítulo do jogo. */
+.voz-tempo {
+  flex: none;
+  min-width: 5.6em;
+  text-align: right;
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  color: var(--tinta-suave);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.voz-aviso {
+  margin: 2px 0 0;
+  font-size: 1rem;
+  line-height: 1.4;
+  color: var(--tinta-suave);
+}
+.voz-aviso[hidden] { display: none; }
+.voz-item[data-estado="falhou"] .voz-aviso { color: var(--sakura-tinta); }
+.voz-item[data-estado="falhou"] .voz-barra,
+.voz-item[data-estado="falhou"] .voz-baixar { display: none; }
+
+/* O progresso: o mesmo desenho do volume da música. A conta, parada no começo, alinha com o nome. */
+.voz-barra {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 -6px -10px;
+}
+.voz-trilho {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+}
+.voz-fio {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  right: 10px;
+  height: 2px;
+  margin-top: -1px;
+  border-radius: 1px;
+  background: var(--papel-linha);
+  pointer-events: none;
+}
+/* Dois nós: o do começo é do fio (vermelho); o do fim, ainda cinza. */
+.voz-fio::before,
+.voz-fio::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
+  border-radius: 50%;
+  background: var(--tinta-fraca);
+}
+.voz-fio::before { left: -2px; background: var(--fio); }
+.voz-fio::after { right: -2px; }
+.voz-fio-cheio {
+  position: absolute;
+  inset: 0;
+  border-radius: 1px;
+  background: var(--fio);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+}
+
+/* O range fica por cima do fio, com 44 px de altura para o dedo. A altura e a
+   margem do polegar (12 px no WebKit) andam juntas: (44 − 20) / 2. */
+.voz-controle {
+  position: absolute;
+  top: -6px;
+  left: 0;
+  width: 100%;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  touch-action: pan-y;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.voz-controle::-webkit-slider-runnable-track { height: 44px; background: transparent; border: 0; }
+.voz-controle::-moz-range-track { height: 44px; background: transparent; border: 0; }
+.voz-controle::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--fio);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset, 0 0 0 3px var(--papel), 0 2px 5px 2px rgba(42, 27, 34, 0.24);
+}
+.voz-controle::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--fio);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset, 0 0 0 3px var(--papel), 0 2px 5px 2px rgba(42, 27, 34, 0.24);
+}
+.voz-controle:disabled { cursor: default; }
+.voz-controle:disabled::-webkit-slider-thumb {
+  background: var(--papel-sombra);
+  box-shadow: 0 0 0 1.5px var(--tinta-fraca) inset, 0 0 0 3px var(--papel);
+}
+.voz-controle:disabled::-moz-range-thumb {
+  background: var(--papel-sombra);
+  box-shadow: 0 0 0 1.5px var(--tinta-fraca) inset, 0 0 0 3px var(--papel);
+}
+.voz-controle:focus-visible {
+  outline: 2px solid var(--fio);
+  outline-offset: -8px;
+  border-radius: var(--raio-pilula);
+}
+
+/* O baixar é um redondo sem sombra: o destaque da linha é a conta de tocar. */
+.voz-baixar {
+  width: 44px;
+  height: 44px;
+  margin-right: -8px;
+  background: none;
+  box-shadow: none;
+  color: var(--tinta-suave);
+  text-decoration: none;
+  touch-action: manipulation;
+}
+.voz-baixar:active { transform: scale(0.92) translateY(3px); }
+@media (hover: hover) and (pointer: fine) {
+  .voz-baixar:hover { transform: translateY(2px); color: var(--tinta); }
+  /* Repetido depois do hover: com o mouse, os dois valem ao mesmo tempo e o toque tem de vencer. */
+  .voz-baixar:active { transform: scale(0.92) translateY(3px); }
+}
+
+/* ---- telas largas: um pouco mais de ar ------------------------------------ */
+
+@media (min-width: 720px) {
+  .voz-cartao { width: 460px; }
+  .voz-miolo { padding: 40px 34px 26px; }
+  .voz-fita { width: 164px; }
+}
+
+/* ---- celular deitado: a fita vai para o canto e a lista ocupa o resto ------ */
+
+@media (orientation: landscape) and (max-height: 520px) {
+  #voz {
+    padding-top: calc(var(--seguro-topo) + 16px);
+    padding-bottom: calc(var(--seguro-base) + 8px);
+  }
+  .voz-cartao { width: min(100%, 560px); }
+  /* A coluna da fita (26 + 84 px) fica livre: nada passa por baixo dela. */
+  .voz-miolo { padding: 18px 22px 12px 128px; }
+  .voz-fita {
+    position: absolute;
+    top: 14px;
+    left: 26px;
+    width: 84px;
+    margin: 0;
+  }
+  .voz-titulo { margin: 4px 0 0; }
+  .voz-lista { margin-top: 10px; }
+  .voz-item { min-height: 68px; padding: 4px 0; }
+}
+
+/* ---- versão calma: o cartão só dissolve; nada gira nem balança ------------- */
+
+/* Cada regra lista também o estado aberto ([data-aberto]), que pesa mais que
+   "#voz .x": assim a versão calma vale aberto e fechado. Sem o balanço, a fita
+   fica parada nos mesmos −3° (−1,8° da caixa e −1,2° do desenho). */
+html.reduzido #voz .voz-cartao,
+html.reduzido #voz[data-aberto] .voz-cartao {
+  transform: none;
+  transition: opacity var(--dur-ui) linear;
+}
+html.reduzido #voz .voz-cartao > .ui-laco,
+html.reduzido #voz[data-aberto] .voz-cartao > .ui-laco {
+  transform: translateX(-50%);
+  transition: opacity var(--dur-ui) linear;
+}
+html.reduzido #voz .voz-veu,
+html.reduzido #voz[data-aberto] .voz-veu,
+html.reduzido #voz .voz-tocar .ui-icone,
+html.reduzido #voz .voz-tocar::before,
+html.reduzido #voz .voz-item[data-tocando] .voz-tocar::before { transition-duration: 0.01ms; }
+html.reduzido #voz .voz-fita-desenho { animation: none; transform: rotate(-1.2deg); }
+html.reduzido #voz .voz-rolo,
+html.reduzido #voz .voz-item[data-tocando] .voz-tocar::after { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  #voz .voz-cartao,
+  #voz[data-aberto] .voz-cartao {
+    transform: none;
+    transition: opacity var(--dur-ui) linear;
+  }
+  #voz .voz-cartao > .ui-laco,
+  #voz[data-aberto] .voz-cartao > .ui-laco {
+    transform: translateX(-50%);
+    transition: opacity var(--dur-ui) linear;
+  }
+  #voz .voz-veu,
+  #voz[data-aberto] .voz-veu,
+  #voz .voz-tocar .ui-icone,
+  #voz .voz-tocar::before,
+  #voz .voz-item[data-tocando] .voz-tocar::before { transition-duration: 0.01ms; }
+  #voz .voz-fita-desenho { animation: none; transform: rotate(-1.2deg); }
+  #voz .voz-rolo,
+  #voz .voz-item[data-tocando] .voz-tocar::after { animation: none; }
+}

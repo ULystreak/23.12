@@ -1,0 +1,285 @@
+/* ============================================================================
+   ENCONTRO: o crepúsculo, os planos do filme, as mãos, o fio e o clarão
+   ============================================================================
+   Quase tudo que se move é feito por js/cenas/encontro.js: transform e
+   opacity nas peças, e o traço do fio (atributo d) no SVG enquanto ela puxa.
+   Aqui fica a aparência. Máscaras, desfoques e degradês são pintados uma vez
+   e nunca animam; a única animação do CSS é o grão do filme.
+
+   Em pé (celular) o céu do crepúsculo cobre a tela e os quadros ocupam uma
+   faixa alta no meio, com as bordas dissolvidas no próprio quadro desfocado.
+   Deitado (computador) o céu é um véu sobre a alameda, que continua andando
+   atrás, e a faixa de cinema se dissolve nela pelos quatro lados.
+   ========================================================================== */
+
+.encontro {
+  /* A paleta do crepúsculo é desta cena, como as paletas dos capítulos. */
+  --enc-ceu-1: #2c2a5e;
+  --enc-ceu-2: #4a3c74;
+  --enc-ceu-3: #382b58;
+  --enc-ceu-4: #1c1530;
+  --enc-veu-1: rgba(22, 14, 40, 0.42);
+  --enc-veu-2: rgba(18, 11, 34, 0.62);
+  --enc-veu-3: rgba(12, 7, 26, 0.84);
+  --enc-sombra: rgba(40, 6, 20, 0.34); /* sombra do fio: tinta, nunca preto */
+  --enc-luz-fio: rgba(255, 214, 196, 0.85);
+  --enc-halo-texto: rgba(12, 7, 26, 0.7);
+  --enc-luz: #fffaf2;
+  --enc-branco: #fff8f3;
+  --enc-fio-l: 3px; /* espessura do fio; o js põe a real em cada medida */
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+
+/* ---- O crepúsculo: em pé cobre a tela; deitado é um véu sobre a alameda ---- */
+.enc-ceu {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  will-change: opacity;
+  background: radial-gradient(ellipse 120% 90% at 50% 46%, var(--enc-veu-1) 0%, var(--enc-veu-2) 70%, var(--enc-veu-3) 100%);
+}
+.enc-em-pe .enc-ceu {
+  background: linear-gradient(var(--enc-ceu-1) 0%, var(--enc-ceu-2) 34%, var(--enc-ceu-3) 62%, var(--enc-ceu-4) 100%);
+}
+
+/* ---- Os planos ---------------------------------------------------------------- */
+.enc-plano {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden; /* o js põe visible enquanto o plano está à vista */
+  will-change: opacity;
+}
+
+/* O quadro desfocado atrás da faixa, só em pé. Rasterizado a um quarto do
+   tamanho e ampliado 4×: o desfoque custa pouco e nunca é refeito. O resto
+   é o céu do crepúsculo (opacidade 0,78). */
+.enc-fundo { display: none; }
+.enc-em-pe .enc-fundo {
+  display: block;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 25%;
+  height: 25%;
+  overflow: hidden;
+  opacity: 0.78;
+  transform: scale(4);
+  transform-origin: 0 0;
+}
+.enc-fundo > img {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  filter: blur(9px) brightness(0.66) saturate(1.12);
+  /* a borda mole do desfoque fica fora */
+  transform: scale(1.3);
+}
+
+/* A faixa nítida. Em pé, as bordas de cima e de baixo se dissolvem. */
+.enc-faixa {
+  position: absolute;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 15%, #000 85%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 15%, #000 85%, transparent 100%);
+}
+/* Deitado, o miolo do quadro é opaco (rostos inteiros); só uma margem
+   estreita se dissolve na alameda, nos quatro lados. */
+.encontro:not(.enc-em-pe) .enc-faixa {
+  --enc-mascara-v: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.75) 3%, #000 6%, #000 94%, rgba(0, 0, 0, 0.75) 97%, transparent 100%);
+  --enc-mascara-h: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.75) 2.5%, #000 5%, #000 95%, rgba(0, 0, 0, 0.75) 97.5%, transparent 100%);
+  -webkit-mask-image: var(--enc-mascara-v), var(--enc-mascara-h);
+  -webkit-mask-composite: source-in;
+  mask-image: var(--enc-mascara-v), var(--enc-mascara-h);
+  mask-composite: intersect;
+}
+/* A janela alta (quadro quase quadrado ou em pé, no computador). */
+.encontro:not(.enc-em-pe) .enc-faixa.enc-faixa-alta {
+  --enc-mascara-v: linear-gradient(to bottom, transparent 0%, #000 7%, #000 93%, transparent 100%);
+  --enc-mascara-h: linear-gradient(to right, transparent 0%, #000 9%, #000 91%, transparent 100%);
+}
+
+/* As imagens dos planos e das mãos: o js calcula translate3d e scale a partir
+   do canto (origem 0 0). Um nada de desfoque junta os pixels dos quadros
+   pequenos; o grão faz o resto. */
+.enc-faixa > img,
+.enc-mao > img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  max-width: none;
+  transform-origin: 0 0;
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  filter: blur(0.6px);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* ---- As mãos: deitado, um recorte oval; em pé, empilhadas em faixas ------------ */
+.enc-mao {
+  position: absolute;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  will-change: transform, opacity;
+  -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 70%, rgba(0, 0, 0, 0.6) 86%, transparent 100%);
+  mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 70%, rgba(0, 0, 0, 0.6) 86%, transparent 100%);
+}
+.enc-em-pe .enc-mao {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 20%, #000 80%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 20%, #000 80%, transparent 100%);
+}
+
+/* ---- O fio ------------------------------------------------------------------- */
+.enc-fio {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  overflow: visible;
+}
+.enc-fio path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0; /* o js põe a opacidade */
+}
+/* Sombra é tinta, com deslocamento: o fio tem peso. */
+.enc-fio-sombra {
+  stroke: var(--enc-sombra);
+  stroke-width: calc(var(--enc-fio-l) * 2.1);
+  transform: translateY(calc(var(--enc-fio-l) * 0.6));
+}
+.enc-fio-linha {
+  stroke: var(--fio);
+  stroke-width: var(--enc-fio-l);
+}
+.enc-fio-luz {
+  stroke: var(--enc-luz-fio);
+  stroke-width: calc(var(--enc-fio-l) * 0.55);
+}
+
+/* A brasinha: a conta de luz que espera no dedinho e corre pelo laço é só
+   transform e opacity. O margin negativo, metade do lado, põe o centro no ponto. */
+.enc-brasa {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc(var(--enc-fio-l) * 30);
+  height: calc(var(--enc-fio-l) * 30);
+  margin: calc(var(--enc-fio-l) * -15) 0 0 calc(var(--enc-fio-l) * -15);
+  border-radius: 50%;
+  opacity: 0;
+  will-change: transform, opacity;
+  background: radial-gradient(circle closest-side, var(--enc-luz) 0%, rgba(255, 236, 214, 0.95) 9%, rgba(255, 190, 160, 0.5) 26%, rgba(255, 150, 130, 0.16) 55%, transparent 100%);
+}
+
+/* ---- Amarrar ------------------------------------------------------------------
+   A área que segue o dedo dela (a tela toda, invisível), o alvo no dedinho
+   dele (88 px; o lugar vem do js, por transform) e a dica, que só aparece se
+   ela demorar. Sem touch-action: none, o arrasto rolaria a página no iPhone. */
+.enc-arrasto {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (hover: hover) and (pointer: fine) {
+  .enc-arrasto { cursor: grab; }
+  .enc-arrasto:active { cursor: grabbing; }
+}
+.enc-alvo {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 88px;
+  height: 88px;
+  margin: -44px 0 0 -44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+/* O anel de foco (só pelo teclado) é estrela, como em todo contexto escuro. */
+.enc-alvo:focus-visible {
+  outline: 2px solid var(--estrela);
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+
+.enc-dica {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--seguro-base) + clamp(22px, 5vh, 56px));
+  margin: 0;
+  padding: 0 var(--margem);
+  text-align: center;
+  text-wrap: balance;
+  font-family: var(--fonte-mao);
+  font-weight: 600;
+  font-size: clamp(1rem, 0.94rem + 0.3vw, 1.15rem);
+  line-height: 1.5;
+  letter-spacing: 0.03em;
+  color: var(--luar);
+  /* um halo de tinta da noite garante a leitura sobre a mão dele */
+  text-shadow: 0 1px 8px var(--enc-halo-texto);
+  opacity: 0;
+}
+
+/* ---- O grão do filme ----------------------------------------------------------- */
+.enc-grao {
+  position: absolute;
+  inset: -64px;
+  opacity: 0;
+  background: var(--enc-grao, none) 0 0 / 128px 128px repeat;
+  will-change: transform;
+  animation: enc-grao 0.72s steps(6) infinite;
+}
+@keyframes enc-grao {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-58px, 46px, 0); }
+}
+
+/* ---- O clarão: um disco de luz bem maior que a tela, centrado no meio do fio ---- */
+.enc-clarao {
+  position: absolute;
+  left: 50%;
+  top: 46%; /* o js põe o centro certo */
+  width: 320vmax;
+  height: 320vmax;
+  margin: -160vmax 0 0 -160vmax;
+  border-radius: 50%;
+  opacity: 0;
+  transform: scale(0.08);
+  will-change: transform, opacity;
+  background: radial-gradient(circle closest-side, var(--enc-luz) 0%, rgba(255, 244, 232, 0.96) 22%, rgba(255, 226, 214, 0.7) 44%, transparent 100%);
+}
+.enc-branco {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: var(--enc-branco);
+}
+
+/* ---- Movimento reduzido: o grão fica parado ---------------------------------- */
+html.reduzido .enc-grao { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .enc-grao { animation: none; }
+}
