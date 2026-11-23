@@ -1,11 +1,11 @@
 /* ============================================================================
    MUNDO: o renderer, a câmera que anda, o laço e a qualidade
    ============================================================================
-   Com WebGL monta o three de lib/, a cena com névoa branca, a câmera dentro
+   Com WebGL monta o three de lib/, a cena na cor da noite, a câmera dentro
    de um `rig` que anda, o laço no ticker do GSAP, a qualidade adaptativa (DPR
    e nível), o passo de base que nunca para (`mundo.deriva`), as caminhadas
    (`mundo.caminhar`), o ponteiro suavizado e as conversões tela↔mundo. Monta
-   as pétalas, a alameda, os véus atrás do texto e a hora do dia. Sem WebGL, ou
+   as pétalas, a alameda, os véus atrás do texto e a hora da noite. Sem WebGL, ou
    se o three falhar, devolve o mundo leve de leve.js: mesma API, `ok` falso.
 
    Não há luz na cena: todo material é ShaderMaterial ou MeshBasicMaterial e a
@@ -26,6 +26,9 @@ import { criarAlameda } from './alameda.js';
 import { criarHora } from './hora.js';
 
 export const ALTURA_OLHOS = 1.5;
+
+// --noite de base.css (#0b1026): o fundo antes de a alameda surgir e sem ela.
+const COR_DA_NOITE = 0x0b1026;
 
 const FOV_EM_PE = 58;
 const FOV_DEITADO = 42;
@@ -206,7 +209,7 @@ export async function criarMundo(opcoes) {
     console.warn('[carta] o WebGL não abriu; o mundo vai leve', erro);
     return leve();
   }
-  renderer.setClearColor(0xffffff, 1);
+  renderer.setClearColor(COR_DA_NOITE, 1);
 
   const gsap = window.gsap;
   const raiz = document.documentElement;
@@ -215,16 +218,16 @@ export async function criarMundo(opcoes) {
   const comAlameda = enderecoFundo === undefined || (typeof enderecoFundo === 'string' && enderecoFundo.trim() !== '');
   // Entrada noturna (?volta=1, ?cena=menu): o canvas fica invisível desde o
   // primeiro desenho e dissolve sobre a página escura quando a alameda fica
-  // pronta, sem clarão branco.
+  // pronta, sem clarão.
   const noturna = comAlameda && raiz.classList.contains('entra-noite');
   if (noturna) canvas.style.opacity = '0';
 
   const cena = new THREE.Scene();
-  cena.background = comAlameda ? null : new THREE.Color(0xffffff);
+  cena.background = comAlameda ? null : new THREE.Color(COR_DA_NOITE);
   // A névoa visível da alameda é nevoar(), nos shaders dela. Este fog guarda a
   // cor que a alameda pinta e as pétalas leem por referência, e vale para os
   // materiais com fog: true.
-  cena.fog = new THREE.Fog(0xffffff, 2.5, 9.5);
+  cena.fog = new THREE.Fog(COR_DA_NOITE, 2.5, 9.5);
   const fundo = criarVeus({ depoisDe: comAlameda ? canvas : null });
 
   const camera = new THREE.PerspectiveCamera(FOV_EM_PE, 1, 0.05, comAlameda ? 60 : 40);
@@ -508,16 +511,16 @@ export async function criarMundo(opcoes) {
     }));
   }
 
-  // A cor do fundo do túnel naquela hora (branco sem alameda).
+  // A cor do fundo do túnel naquela hora (a da noite, sem alameda).
   function corDaNevoa() {
-    if (!alameda || !horaAtual) return '#ffffff';
+    if (!alameda || !horaAtual) return '#0b1026';
     const [r, g, b] = horaAtual.nevoa.map((c) => Math.round(clamp(c) * 255));
     return `rgb(${r}, ${g}, ${b})`;
   }
 
   // Movimento reduzido: um avanço lento, sem balanço; o grosso do caminho
   // acontece dentro de uma dissolvência e o mundo volta mais adiante. O canvas
-  // se dissolve na cor do fundo do túnel, para não piscar branco no crepúsculo.
+  // se dissolve na cor do fundo do túnel, para não piscar outra cor.
   function andarCalmo(z0, d, dur) {
     const lento = Math.sign(d) * Math.min(Math.abs(d), VELOCIDADE_CALMA * dur);
     const salto = d - lento;
@@ -679,7 +682,7 @@ export async function criarMundo(opcoes) {
       alameda = criarAlameda(mundo);
       mundo.alameda = alameda;
       mundo.aoMudarNivel((nivel) => alameda?.nivel(nivel));
-      // Nasce do branco em 1,8 s; entrando por ?cena=, em 0,6 s; na entrada noturna, já pronta.
+      // Nasce da noite em 1,8 s; entrando por ?cena=, em 0,6 s; na entrada noturna, já pronta.
       const duracao = noturna ? 0 : amb.params?.has('cena') ? 0.6 : 1.8;
       alameda.pronta
         .then(() => {
@@ -692,10 +695,10 @@ export async function criarMundo(opcoes) {
           console.error('[carta] a alameda não surgiu', erro);
         });
     } catch (erro) {
-      console.error('[carta] a alameda não montou; o mundo segue branco', erro);
+      console.error('[carta] a alameda não montou; o mundo segue na cor da noite', erro);
       alameda = null;
       mundo.alameda = null;
-      cena.background = new THREE.Color(0xffffff);
+      cena.background = new THREE.Color(COR_DA_NOITE);
       canvas.style.opacity = '';
     }
   }

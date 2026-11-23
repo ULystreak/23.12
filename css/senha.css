@@ -1,15 +1,52 @@
 /* ============================================================================
-   SENHA: a tela preta do começo
+   SENHA: a noite funda do começo
    ============================================================================
-   O quadro da senha (campo, traço, cadeado, fio de costura, coração e
-   setinha), o aviso e a dica como bilhetes da noite, a contagem até o dia, a
-   área do seletor de música (#entrada-musica) e as duas pálpebras que se
-   abrem sobre a alameda. Os estados vêm do JS, no .senha: data-tem, data-erro,
-   data-chegou e data-certa (e data-erro também no campo). Anima transform e
-   opacity; o coração do cadeado acende por fill.
+   A noite de #entrada (com poucas estrelas paradas), o quadro da senha
+   (lanterna de papel, campo, linha de luz, fio de costura, coração e
+   setinha), o aviso, a dica num papelzinho aceso, a contagem em vidro, a área
+   do seletor de música (#entrada-musica) e as duas pálpebras que se abrem,
+   tingidas de luz quente, sobre a alameda. Os estados vêm do JS, no .senha:
+   data-tem, data-erro, data-chegou e data-certa (e data-erro também no
+   campo); a chama, o papel aceso e o halo da lanterna são da GSAP. Anima
+   transform, opacity e cor.
    ========================================================================== */
 
-/* ---- As duas áreas do preto ------------------------------------------------ */
+/* ---- A noite funda ------------------------------------------------------------ */
+/* O index pinta #entrada de preto até o CSS chegar; aqui ela vira noite, com
+   um resto de anil subindo do horizonte. */
+#entrada {
+  background:
+    radial-gradient(150% 55% at 50% 112%, rgba(24, 32, 74, 0.55), rgba(24, 32, 74, 0) 70%),
+    var(--noite-funda);
+}
+/* Poucas estrelas, paradas e discretas, pintadas uma vez; longe do meio, onde
+   fica a lanterna. Recolhem-se quando os olhos abrem (data-abrindo, do JS). */
+#entrada::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.8;
+  transition: opacity 900ms linear;
+  background-image:
+    radial-gradient(circle at 8% 11%, rgba(244, 239, 230, 0.9) 0 0.8px, transparent 1.4px),
+    radial-gradient(circle at 21% 24%, rgba(246, 220, 166, 0.8) 0 0.7px, transparent 1.3px),
+    radial-gradient(circle at 33% 7%, rgba(244, 239, 230, 0.7) 0 0.6px, transparent 1.2px),
+    radial-gradient(circle at 47% 14%, rgba(244, 239, 230, 0.5) 0 0.6px, transparent 1.1px),
+    radial-gradient(circle at 64% 9%, rgba(244, 239, 230, 0.9) 0 0.9px, transparent 1.5px),
+    radial-gradient(circle at 79% 21%, rgba(244, 239, 230, 0.6) 0 0.6px, transparent 1.2px),
+    radial-gradient(circle at 91% 6%, rgba(246, 220, 166, 0.75) 0 0.8px, transparent 1.4px),
+    radial-gradient(circle at 94% 33%, rgba(244, 239, 230, 0.5) 0 0.6px, transparent 1.1px),
+    radial-gradient(circle at 5% 41%, rgba(244, 239, 230, 0.6) 0 0.7px, transparent 1.2px),
+    radial-gradient(circle at 87% 53%, rgba(244, 239, 230, 0.45) 0 0.6px, transparent 1.1px),
+    radial-gradient(circle at 11% 68%, rgba(244, 239, 230, 0.4) 0 0.6px, transparent 1.1px),
+    radial-gradient(circle at 93% 75%, rgba(246, 220, 166, 0.45) 0 0.7px, transparent 1.2px),
+    radial-gradient(circle at 26% 87%, rgba(244, 239, 230, 0.35) 0 0.6px, transparent 1.1px),
+    radial-gradient(circle at 71% 92%, rgba(244, 239, 230, 0.35) 0 0.6px, transparent 1.1px);
+}
+#entrada[data-abrindo]::before { opacity: 0; }
+
+/* ---- As duas áreas da noite ------------------------------------------------------ */
 #entrada-senha,
 #entrada-musica {
   position: absolute;
@@ -25,11 +62,11 @@
 @media (pointer: coarse) {
   #entrada-senha {
     align-items: start;
-    padding-top: calc(var(--seguro-topo) + min(26vh, 240px));
+    padding-top: calc(var(--seguro-topo) + min(18vh, 170px));
   }
 }
 @media (pointer: coarse) and (max-height: 520px) {
-  #entrada-senha { padding-top: calc(var(--seguro-topo) + 9vh); }
+  #entrada-senha { padding-top: calc(var(--seguro-topo) + 6vh); }
 }
 
 /* ---- O quadro ---------------------------------------------------------------- */
@@ -53,29 +90,130 @@
   text-wrap: balance;
 }
 
-/* O cadeado: acorda com o foco, acende na virada e abre no acerto. */
-.senha-cadeado {
-  width: 34px;
-  height: 34px;
-  color: var(--luar-suave);
-  opacity: 0.72;
-  transition: opacity 240ms linear;
+/* ---- A lanterna ----------------------------------------------------------------
+   Pende de um cordão que some na noite e balança como pêndulo, a partir da
+   ponta de cima do cordão. */
+.senha-lanterna {
+  position: relative;
+  width: 52px;
+  height: 78px;
+  margin-top: 16px;
+  transform-origin: 50% -26px;
 }
-.senha:is(:focus-within, [data-chegou], [data-certa]) .senha-cadeado { opacity: 1; }
-/* Os pivôs estão no viewBox 24 do ícone. */
-.senha-cadeado-coracao {
-  fill: var(--sakura);
-  stroke: none;
-  transform-origin: 12px 15.4px;
-  transition: fill 700ms linear;
+.senha-lanterna::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  width: 1px;
+  height: 26px;
+  margin-left: -0.5px;
+  background: linear-gradient(to top, rgba(141, 136, 163, 0.6), rgba(141, 136, 163, 0));
 }
-.senha[data-chegou] .senha-cadeado-coracao { fill: var(--fio); }
-.senha-cadeado-arco {
-  transform-origin: 15.5px 10.5px;
-  transition: transform var(--dur-mola) var(--mola);
+.senha-lanterna-svg {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  opacity: 0.82;
+  transition: opacity 600ms linear;
 }
-.senha[data-certa] .senha-cadeado-arco { transform: translateY(-1.6px) rotate(32deg); }
+.senha:is(:focus-within, [data-chegou], [data-certa]) .senha-lanterna-svg { opacity: 1; }
 
+/* O papel apagado deixa ver só o contorno; o aceso é um degradê de chama. */
+.senha-l-corda {
+  fill: none;
+  stroke: var(--luar-fraco);
+  stroke-width: 1;
+  opacity: 0.6;
+}
+.senha-l-papel {
+  fill: rgba(247, 236, 214, 0.07);
+  stroke: var(--luar-fraco);
+  stroke-width: 1;
+}
+.senha-l-luz {
+  fill: url(#senha-luz-papel);
+  opacity: 0;
+}
+.senha-l-varetas {
+  fill: none;
+  stroke: rgba(141, 136, 163, 0.42);
+  stroke-width: 0.7;
+  stroke-linecap: round;
+  transition: stroke 800ms linear;
+}
+/* Acesa, as varetas aparecem como sombra no papel. */
+.senha:is([data-chegou], [data-certa]) .senha-l-varetas { stroke: rgba(169, 124, 53, 0.55); }
+.senha-l-tampa,
+.senha-l-base {
+  fill: var(--anil);
+  stroke: var(--ouro-escuro);
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+}
+.senha-l-borla {
+  fill: none;
+  stroke: var(--ouro-escuro);
+  stroke-width: 0.9;
+  stroke-linecap: round;
+}
+.senha-l-franja { fill: var(--ouro-escuro); }
+
+.senha-chama-halo { fill: url(#senha-luz-chama); }
+.senha-chama-fogo { fill: var(--chama); }
+.senha-chama-miolo { fill: var(--ouro-claro); }
+/* O pé da chama, no viewBox 48 × 72. */
+.senha-chama-viva {
+  transform-box: view-box;
+  transform-origin: 24px 49.5px;
+}
+
+/* O halo atrás da lanterna, centrado na chama. A GSAP cuida da opacidade e da
+   escala (no acerto ele cresce até cobrir a tela); o miolo só respira. */
+.senha-halo {
+  position: absolute;
+  left: 50%;
+  top: 62%;
+  width: 200px;
+  height: 200px;
+  margin: -100px 0 0 -100px;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+.senha-halo-luz {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 180, 94, 0.38), rgba(255, 138, 61, 0.12) 52%, rgba(255, 138, 61, 0));
+}
+
+/* Luz respira, não pisca: só opacidade, devagar (vale também no calmo).
+   Sem o calmo, a chama também cresce e encolhe um tiquinho, e a lanterna balança. */
+.senha-chama-viva,
+.senha-halo-luz { animation: senha-brilho 3.6s var(--curva-branco-deriva) infinite alternate; }
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.reduzido) .senha-chama-viva {
+    animation-name: senha-respira;
+    animation-duration: 3.2s;
+  }
+  html:not(.reduzido) .senha-lanterna { animation: senha-balanco 5.6s var(--curva-branco-deriva) infinite alternate; }
+}
+@keyframes senha-brilho {
+  from { opacity: 0.78; }
+  to { opacity: 1; }
+}
+@keyframes senha-respira {
+  from { opacity: 0.82; transform: scale(0.95, 0.9); }
+  to { opacity: 1; transform: scale(1.03, 1.06); }
+}
+@keyframes senha-balanco {
+  from { transform: rotate(-1.6deg); }
+  to { transform: rotate(1.6deg); }
+}
+
+/* ---- O campo -------------------------------------------------------------------- */
 .senha-quadro {
   position: relative;
   width: 100%;
@@ -93,7 +231,7 @@
   border-radius: 0;
   background: transparent;
   color: var(--luar);
-  caret-color: var(--sakura);
+  caret-color: var(--chama);
   font-family: var(--fonte-mao);
   font-weight: 600;
   font-size: 1.875rem;
@@ -102,7 +240,9 @@
   /* O espaço depois da última letra puxaria o texto para a esquerda: o recuo devolve o centro. */
   text-indent: 0.16em;
   text-align: center;
+  text-shadow: 0 0 14px rgba(255, 180, 94, 0.3);
   outline: none;
+  transition: color 200ms linear;
   -webkit-appearance: none;
   appearance: none;
 }
@@ -111,37 +251,50 @@
   opacity: 1;
   -webkit-text-fill-color: var(--luar);
 }
+/* O erro apaga a letra junto com a chama. */
 .senha-campo[data-erro] {
-  color: var(--sakura);
-  -webkit-text-fill-color: var(--sakura);
+  color: var(--luar-fraco);
+  -webkit-text-fill-color: var(--luar-fraco);
 }
 
-/* O traço pespontado: respira antes do toque, porque é ali que se escreve. */
+/* A linha de luz dourada: respira antes do toque, porque é ali que se escreve;
+   com o foco, acende e se abre até as pontas. */
 .senha-traco {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 2px;
-  border-radius: 1px;
-  background: repeating-linear-gradient(90deg, var(--luar) 0 7px, transparent 7px 14px);
+  height: 1px;
+  background: linear-gradient(90deg, rgba(233, 194, 122, 0), var(--ouro) 22%, var(--ouro-claro) 50%, var(--ouro) 78%, rgba(233, 194, 122, 0));
   opacity: 0.55;
+  transform: scaleX(0.84);
   pointer-events: none;
-  transition: opacity 240ms linear;
+  transition: opacity 320ms linear, transform 700ms var(--curva-yn-florescer);
 }
-@media (prefers-reduced-motion: no-preference) {
-  html:not(.reduzido) .senha:not(:focus-within):not([data-certa]) .senha-traco {
-    animation: senha-chama 1.8s var(--curva-branco-deriva) infinite alternate;
-  }
+/* O brilho da linha: uma elipse que só existe no meio, sem quina nas pontas. */
+.senha-traco::after {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: -5px;
+  bottom: -5px;
+  background: radial-gradient(50% 50% at 50% 50%, rgba(255, 180, 94, 0.34), rgba(255, 180, 94, 0));
 }
-@keyframes senha-chama {
-  from { opacity: 0.45; }
+.senha:not(:focus-within):not([data-certa]) .senha-traco {
+  animation: senha-linha 2.2s var(--curva-branco-deriva) infinite alternate;
+}
+@keyframes senha-linha {
+  from { opacity: 0.4; }
   to { opacity: 0.85; }
 }
-.senha-campo:focus ~ .senha-traco { opacity: 0.82; }
+.senha-campo:focus ~ .senha-traco {
+  opacity: 1;
+  transform: none;
+}
 .senha[data-erro] .senha-traco {
-  opacity: 0.82;
-  background-image: repeating-linear-gradient(90deg, var(--sakura) 0 7px, transparent 7px 14px);
+  opacity: 0.18;
+  transition-duration: 160ms;
 }
 .senha[data-certa] .senha-traco {
   opacity: 0;
@@ -150,6 +303,7 @@
 
 /* A setinha: só existe com texto; entra com mola e sai rápido, sem mola.
    Os estados vão em :where() para a versão calma poder encurtar tudo. */
+.senha .senha-ir { --ui-borda: var(--fio-ouro); }
 .senha-ir {
   position: absolute;
   right: 0;
@@ -187,14 +341,15 @@
   .senha[data-tem]:not([data-erro]):not([data-certa]) .senha-ir:hover:not(:active) { transform: translateX(2px); }
 }
 
-/* O fio que o acerto costura por baixo do campo, e o coração na ponta.
-   A janela (.senha-fio) e o desenho andam em sentidos opostos (JS). */
+/* O fio que o acerto costura por baixo do campo, com o seu halo vermelho, e o
+   coração na ponta. A janela (.senha-fio) e o desenho andam em sentidos
+   opostos (JS); a janela é alta para o halo caber. */
 .senha-fio {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -3px;
-  height: 8px;
+  bottom: -7px;
+  height: 15px;
   overflow: hidden;
   opacity: 0;
   pointer-events: none;
@@ -202,7 +357,8 @@
 .senha-fio-linha {
   position: absolute;
   inset: 0;
-  background: var(--enfeite-fio) left center / 18px 8px repeat-x;
+  background: var(--enfeite-fio) left center / 18px 6px repeat-x;
+  filter: drop-shadow(0 0 3px var(--fio-brilho));
 }
 .senha-ponto {
   position: absolute;
@@ -211,20 +367,20 @@
   width: 16px;
   height: 16px;
   opacity: 0;
+  filter: drop-shadow(0 0 4px var(--fio-brilho));
 }
 
-/* Erro: três idas curtas para os lados, no quadro e no cadeado. */
-.senha[data-erro] .senha-quadro,
-.senha[data-erro] .senha-cadeado { animation: senha-tremor 280ms var(--curva-ui); }
+/* Erro: o campo diz não com três idas curtas para os lados (a chama treme no JS). */
+.senha[data-erro] .senha-quadro { animation: senha-tremor 300ms var(--curva-ui); }
 @keyframes senha-tremor {
   0%, 100% { transform: translateX(0); }
-  20% { transform: translateX(-7px); }
-  50% { transform: translateX(6px); }
-  80% { transform: translateX(-3px); }
+  22% { transform: translateX(-6px); }
+  52% { transform: translateX(5px); }
+  80% { transform: translateX(-2px); }
 }
-@keyframes senha-pisca {
+@keyframes senha-esmaece {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
+  50% { opacity: 0.45; }
 }
 
 /* ---- O aviso e a dica -------------------------------------------------------- */
@@ -235,23 +391,28 @@
   font-size: 1.0625rem;
   line-height: 1.4;
   letter-spacing: 0.04em;
-  color: var(--sakura);
+  color: var(--ouro-claro);
   text-align: center;
+  text-wrap: balance;
 }
 
-/* Um bilhete da noite, com pesponto, posto um pouco torto (o torto vem do JS). */
+/* A dica é dele: um papelzinho de washi aceso por trás, posto um pouco torto
+   (o torto vem do JS), com a dobra de cima marcada. */
 .senha .senha-dica {
   position: relative;
-  max-width: 100%;
-  margin: 0;
-  padding: 12px 20px 13px;
-  border-radius: var(--raio-m);
-  background: linear-gradient(168deg, rgba(34, 42, 96, 0.9), rgba(16, 20, 58, 0.9));
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  max-width: min(100%, 300px);
+  margin: 2px 0 0;
+  padding: 13px 20px 13px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--papel), var(--papel-sombra));
+  box-shadow:
+    inset 0 0 0 1px rgba(169, 124, 53, 0.22),
+    0 12px 26px -12px rgba(3, 5, 18, 0.9),
+    0 0 28px -6px rgba(255, 180, 94, 0.32);
   font-size: 1.0625rem;
   line-height: 1.45;
   letter-spacing: 0.02em;
-  color: var(--luar);
+  color: var(--tinta);
   text-align: center;
   text-wrap: balance;
   overflow-wrap: anywhere;
@@ -259,27 +420,30 @@
 .senha .senha-dica::before {
   content: "";
   position: absolute;
-  inset: 4px;
-  border: 1px dashed var(--ponto-noite);
-  border-radius: calc(var(--raio-m) - 4px);
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 6px;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(rgba(169, 124, 53, 0.2), rgba(169, 124, 53, 0));
   pointer-events: none;
 }
 .senha-dica:empty,
 .senha-erro:empty { display: none; }
 
-/* ---- A contagem até o dia ------------------------------------------------------ */
+/* ---- A contagem até o dia: células de vidro com números em ouro ---------------- */
 .senha-conta {
   display: grid;
   justify-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
+  gap: 12px;
+  margin-bottom: 6px;
 }
 .senha-conta-frase {
   margin: 0;
   font-family: var(--fonte-titulo);
   font-size: 0.9375rem;
-  letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.7);
+  letter-spacing: 0.12em;
+  color: var(--luar-suave);
   text-align: center;
 }
 .senha-conta-casas {
@@ -289,30 +453,42 @@
 .senha-conta-casa {
   display: grid;
   justify-items: center;
-  gap: 4px;
-  min-width: 58px;
-  padding: 10px 6px 8px;
-  border-radius: var(--raio-m);
-  border: 1px dashed rgba(255, 255, 255, 0.22);
-  background: rgba(255, 255, 255, 0.04);
+  gap: 6px;
+  min-width: 60px;
+  padding: 11px 6px 9px;
+  border-radius: 12px;
+  background: var(--vidro);
+  box-shadow:
+    inset 0 0 0 1px var(--fio-ouro),
+    inset 0 1px 0 rgba(246, 220, 166, 0.1),
+    0 10px 22px -12px rgba(3, 5, 18, 0.9);
 }
 .senha-conta-n {
   font-family: var(--fonte-titulo);
   font-size: 1.625rem;
   line-height: 1;
   font-variant-numeric: tabular-nums lining-nums;
-  color: var(--branco);
+  color: var(--ouro-claro);
+  text-shadow: 0 0 14px rgba(255, 180, 94, 0.35);
 }
 .senha-conta-r {
+  font-family: var(--fonte-titulo);
   font-size: 0.6875rem;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.2em;
   text-transform: lowercase;
-  color: var(--sakura);
+  font-variant-caps: small-caps;
+  color: var(--luar-suave);
 }
-/* Os dias, a casa que importa, em rosa. */
-.senha-conta-casa:first-child .senha-conta-n { color: var(--sakura); }
+/* Os dias, a casa que importa: o filete mais aceso. */
+.senha-conta-casa:first-child {
+  box-shadow:
+    inset 0 0 0 1px rgba(233, 194, 122, 0.62),
+    inset 0 1px 0 rgba(246, 220, 166, 0.14),
+    0 10px 22px -12px rgba(3, 5, 18, 0.9),
+    0 0 20px -6px rgba(255, 180, 94, 0.4);
+}
 
-/* ---- A escolha da música, no mesmo preto (o carrossel está em css/musica.css) --- */
+/* ---- A escolha da música, na mesma noite (o carrossel está em css/musica.css) --- */
 #entrada-musica {
   grid-template-columns: minmax(0, 1fr);
   place-items: start stretch;
@@ -323,12 +499,13 @@
   -webkit-overflow-scrolling: touch;
 }
 #entrada-musica > * { margin: auto; }
-/* O mini fica acima do preto enquanto ele existe. */
+/* O mini fica acima da noite enquanto ela existe. */
 html:not(.sem-entrada) #mini { z-index: 62; }
 
 /* ---- Os olhos que se abrem sobre a alameda ---------------------------------------
-   Duas pálpebras em amêndoa, de borda macia: o desfoque é o próprio degradê,
-   pintado uma vez; só o translateY anda (JS). A luz é o primeiro clarão. */
+   Duas pálpebras em amêndoa, de borda macia, da cor da noite funda: o desfoque
+   é o próprio degradê, pintado uma vez; só o translateY anda (JS). A luz entre
+   elas é quente, a da lanterna, e se apaga enquanto o olho abre. */
 .entrada-olhos {
   position: absolute;
   inset: 0;
@@ -343,13 +520,12 @@ html:not(.sem-entrada) #mini { z-index: 62; }
 .entrada-luz {
   top: 0;
   bottom: 0;
-  background: var(--branco);
-  opacity: 0.55;
+  background: radial-gradient(75% 50% at 50% 50%, rgba(255, 196, 120, 0.55), rgba(255, 138, 61, 0.18) 60%, rgba(255, 138, 61, 0.05));
 }
 .entrada-palpebra {
   top: 0;
   height: 75%;
-  background: radial-gradient(64% 30% at 50% 100%, rgba(0, 0, 0, 0) 42%, rgba(0, 0, 0, 0.55) 72%, #000 100%);
+  background: radial-gradient(64% 30% at 50% 100%, rgba(6, 9, 20, 0) 42%, rgba(6, 9, 20, 0.6) 72%, var(--noite-funda) 100%);
   -webkit-mask-image: linear-gradient(to top, transparent, #000 20%);
   mask-image: linear-gradient(to top, transparent, #000 20%);
   will-change: transform;
@@ -357,20 +533,20 @@ html:not(.sem-entrada) #mini { z-index: 62; }
 .entrada-palpebra-baixo {
   top: auto;
   bottom: 0;
-  background: radial-gradient(64% 30% at 50% 0, rgba(0, 0, 0, 0) 42%, rgba(0, 0, 0, 0.55) 72%, #000 100%);
+  background: radial-gradient(64% 30% at 50% 0, rgba(6, 9, 20, 0) 42%, rgba(6, 9, 20, 0.6) 72%, var(--noite-funda) 100%);
   -webkit-mask-image: linear-gradient(to bottom, transparent, #000 20%);
   mask-image: linear-gradient(to bottom, transparent, #000 20%);
 }
 
 /* ---- A versão calma ----------------------------------------------------------------
-   O tremor vira um piscar; a setinha e o arco mudam sem viagem. */
-html.reduzido .senha[data-erro] .senha-quadro,
-html.reduzido .senha[data-erro] .senha-cadeado { animation: senha-pisca 280ms linear; }
+   O tremor vira um esmaecer; a setinha e a linha mudam sem viagem. */
+html.reduzido .senha[data-erro] .senha-quadro { animation: senha-esmaece 300ms linear; }
 html.reduzido .senha-ir,
-html.reduzido .senha-cadeado-arco { transition-duration: 0.01ms; }
+html.reduzido .senha-traco { transition-duration: 0.01ms; }
+html.reduzido .senha-traco { transform: none; }
 @media (prefers-reduced-motion: reduce) {
-  .senha[data-erro] .senha-quadro,
-  .senha[data-erro] .senha-cadeado { animation: senha-pisca 280ms linear; }
+  .senha[data-erro] .senha-quadro { animation: senha-esmaece 300ms linear; }
   .senha .senha-ir,
-  .senha-cadeado-arco { transition-duration: 0.01ms; }
+  .senha .senha-traco { transition-duration: 0.01ms; }
+  .senha .senha-traco { transform: none; }
 }

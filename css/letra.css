@@ -1,19 +1,20 @@
 /* ============================================================================
    LETRA: o karaokê no alto da tela
    ============================================================================
-   Uma pílula escura centralizada, um verso por vez, com a palavra cantada em
-   vermelho e sublinhada (#letra, criado por js/letra.js). A pílula dá
-   passagem (opacity 0) quando outra voz fala ou quando a carta fala: a tela
-   preta, as frases dele, a folha aberta, a bolsa, a voz, as cartas do chão, o
-   encontro e o fim. Anima só opacity (400 ms) e cor (140 ms).
+   Uma pílula de vidro escuro com filete dourado, centralizada, um verso por
+   vez; a palavra cantada acende em ouro claro, com um leve brilho e um
+   sublinhado de luz (#letra, criado por js/letra.js). A pílula dá passagem
+   (opacity 0) quando outra voz fala ou quando a carta fala: a noite da
+   entrada, as frases dele, a folha aberta, a bolsa, a voz, as cartas do chão,
+   o encontro e o fim. Anima só opacity (400 ms) e cor (140 ms).
    ========================================================================== */
 
 #letra {
-  /* Fundo a 0,9 e sem desfoque: o vermelho da palavra dá 4,7:1 sobre a pílula
-     composta no branco do dia (6,2:1 à noite), e o branco, 14:1. Um desfoque
-     atrás dela custaria refazê-lo a cada quadro do WebGL. */
-  --letra-fundo: rgba(22, 16, 34, 0.9);
-  --letra-acesa: #ff5a68;
+  /* Vidro quase opaco e sem desfoque: um desfoque atrás custaria refazê-lo a
+     cada quadro do WebGL. Sobre ele, mesmo com uma lanterna acesa atrás, o
+     ouro claro da palavra cantada dá 10:1 e o luar suave do resto, 7:1. */
+  --letra-fundo: var(--vidro-forte);
+  --letra-acesa: var(--ouro-claro);
 }
 
 .letra {
@@ -56,37 +57,42 @@ html:has(#frases > *, #pergaminho:not([hidden]), #inventario[data-aberto], .cart
 /* ---- O verso ------------------------------------------------------------------------ */
 .letra-linha {
   margin: 0;
-  padding: 10px 20px 11px;
+  padding: 10px 22px 11px;
   border-radius: 18px;
   background: var(--letra-fundo);
-  box-shadow: 0 8px 28px -10px rgba(30, 14, 40, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  box-shadow:
+    0 10px 26px -10px rgba(3, 5, 18, 0.8),
+    inset 0 0 0 1px var(--fio-ouro),
+    inset 0 1px 0 rgba(246, 220, 166, 0.1);
   font-family: var(--fonte-titulo);
   font-size: 1.3125rem;
   font-weight: 600;
   line-height: 1.35;
-  letter-spacing: 0.01em;
-  color: var(--branco);
+  letter-spacing: 0.02em;
+  color: var(--luar-suave);
   text-align: center;
-  text-shadow: 0 1px 8px rgba(30, 14, 40, 0.45);
 }
 /* Bloco: um span solto não aceita transform, e o verso entra subindo. */
 .letra-texto {
   display: block;
   text-wrap: balance;
 }
-/* O sublinhado já existe, transparente: nada pula quando a palavra acende.
-   Em propriedades separadas, para a espessura valer também no Safari do celular. */
+/* O sublinhado e o brilho já existem, transparentes: nada pula quando a
+   palavra acende. Em propriedades separadas, para a espessura valer também no
+   Safari do celular. O brilho do texto cobre o sublinhado: vira uma linha de luz. */
 .letra-palavra {
   text-decoration-line: underline;
   text-decoration-color: transparent;
   text-decoration-thickness: 2px;
-  text-underline-offset: 0.22em;
+  text-underline-offset: 0.24em;
   text-decoration-skip-ink: none;
-  transition: color 140ms linear, text-decoration-color 140ms linear;
+  text-shadow: 0 0 10px rgba(255, 180, 94, 0);
+  transition: color 140ms linear, text-decoration-color 140ms linear, text-shadow 140ms linear;
 }
 .letra-palavra[data-agora] {
   color: var(--letra-acesa);
-  text-decoration-color: var(--letra-acesa);
+  text-decoration-color: var(--ouro);
+  text-shadow: 0 0 10px rgba(255, 180, 94, 0.5);
 }
 
 @media (min-width: 900px) {

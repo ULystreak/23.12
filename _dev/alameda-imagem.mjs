@@ -1,7 +1,8 @@
 /* ============================================================================
    ALAMEDA-IMAGEM: a alameda 3D de frente, numa foto (assets/images/alameda.webp)
    ============================================================================
-   Quadro quadrado com o ponto de fuga no centro, sem pétalas. É a imagem que o
+   Quadro quadrado com o ponto de fuga no centro, sem pétalas, na hora em que
+   todas as lanternas estão acesas (entardecer da v2, já noite). É a imagem que o
    aparelho sem WebGL mostra atrás do mundo leve (content.js: pagina.fundo).
    Não há build: mexeu na alameda, rode de novo. A cena do site não muda; o
    script desliga o laço do mundo e renderiza um quadro à mão.
@@ -53,6 +54,9 @@ async function principal() {
       if (!m.alameda) return { erro: 'a alameda 3D não existe (pagina.fundo está vazio no content.js?)' };
       await Promise.race([m.alameda.pronta, new Promise((r) => setTimeout(r, 3000))]);
       m.desligar();
+      // A foto é do entardecer da v2: todas as lanternas acesas, sem cometa (o
+      // modo leve pinta a noite e o cometa por cima, em camadas próprias).
+      await m.hora?.('entardecer', { duracao: 0 });
       m.petalas.objeto.visible = false;
       // Se a cena já trouxe a carta, ela também sai da foto: a imagem é só a alameda.
       const envelope = window.__carta.ctx.estado?.envelope?.grupo;

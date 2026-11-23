@@ -1,9 +1,10 @@
 /* ============================================================================
-   ABERTURA: as primeiras frases no mundo branco
+   ABERTURA: as primeiras frases na noite
    ============================================================================
    As pétalas começam a cair, as frases de abertura.frases aparecem palavra por
-   palavra e cada uma sai levada pelo vento, para o lado em que as pétalas
-   caem. Na primeira frase toca, uma vez por página, a voz dele (vozArquivo),
+   palavra, como se acendessem (cada palavra nasce em ouro claro e assenta no
+   luar, com um halo anil por cima das pétalas), e cada uma sai levada pelo
+   vento, para o lado em que as pétalas caem. Na primeira frase toca, uma vez por página, a voz dele (vozArquivo),
    se o arquivo já chegou. cenaAbertura resolve quando a última frase acabou de
    aparecer: a saída dela continua agendada e a carta começa com a frase ainda
    na tela. A caminhada até a carta é de cenaCarta (js/cenas/carta.js).
@@ -16,7 +17,7 @@
 import { el, espera, quadro } from '../nucleo/util.js';
 import { curvas, comoPromise, revelarPalavras } from '../nucleo/movimento.js';
 
-// Branco parado antes de tudo; só no atalho ?cena=inicio (vindo do preto, a carta já aqueceu).
+// Noite parada antes de tudo; só no atalho ?cena=inicio (vindo do preto, a carta já aqueceu).
 const SILENCIO = 1000;
 // A câmera começa com foco perto e assenta no mundo quando a primeira palavra aparece.
 const FOCO_DO_COMECO = 1.1;
@@ -28,6 +29,24 @@ let aquecimento = null;
 let falou = false;
 
 const tempoDeLer = (texto) => 1250 + texto.length * 28;
+
+// O halo anil vai na própria palavra: ganha das auras do mundo e mantém o luar
+// legível quando uma pétala ou uma lanterna passa atrás.
+const HALO = '0 0 0.2em rgba(6, 9, 22, 0.85), 0 0 0.7em rgba(6, 9, 22, 0.7), 0 0 1.5em rgba(11, 16, 38, 0.5)';
+
+/** Cada palavra nasce em ouro claro, junto com a subida de revelarPalavras, e esfria até o luar. */
+function acenderPalavras(frase, amb) {
+  const gsap = window.gsap;
+  const palavras = frase._pedacos?.palavras || [];
+  if (!gsap || !palavras.length) return;
+  gsap.set(palavras, { textShadow: HALO });
+  if (amb?.reduzido) return;
+  const raiz = getComputedStyle(document.documentElement);
+  const ouro = raiz.getPropertyValue('--ouro-claro').trim();
+  const luar = getComputedStyle(frase).color;
+  if (!ouro || !luar) return;
+  gsap.fromTo(palavras, { color: ouro }, { color: luar, duration: 2.4, stagger: 0.15, ease: 'sine.inOut', clearProps: 'color' });
+}
 
 /** Prepara a primeira carta e as pétalas soltas, uma vez por página. Nunca rejeita. */
 export function aquecerAbertura(ctx) {
@@ -115,7 +134,10 @@ export async function cenaAbertura(ctx, { frio = false } = {}) {
       falou = true;
       som?.falar?.(voz);
     }
-    await revelarPalavras(frase, texto, { intervalo: 0.15, duracao: 1.2 });
+    // revelarPalavras monta as palavras na hora; o acender anda junto com a subida delas.
+    const revelada = revelarPalavras(frase, texto, { intervalo: 0.15, duracao: 1.2 });
+    acenderPalavras(frase, amb);
+    await revelada;
 
     // Fixa a frase onde está antes de a próxima nascer, para a próxima não nascer deslocada.
     const ir = () => {

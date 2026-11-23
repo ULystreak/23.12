@@ -1,5 +1,5 @@
 /* ============================================================================
-   TOQUE: pétalas que fogem do dedo
+   TOQUE: pétalas e vaga-lumes que fogem do dedo
    ============================================================================
    Só nas etapas em que nada pede o toque dela: as frases, a caminhada e a carta
    chegando (inicio e carta2) e as cartas do chão pousando. Nunca em
@@ -7,11 +7,14 @@
    Nunca sobre botão ou link, com a bolsa, um visor, o mini ou a folha aberta,
    nem relendo. Com o mouse, só o clique conta; passar por cima não faz nada.
 
-   Soltar o dedo no mundo solta cinco pétalas do ponto tocado (no movimento
-   reduzido a própria rajada solta menos). Com WebGL, o raio do olho até o dedo
-   cruza o plano do dedo, rente ao chão, e a rajada nasce ali; tocar acima do
-   horizonte, ou longe, já na névoa, não faz nada. Sem WebGL, a rajada nasce do
-   próprio ponto da tela, só nos 45% de baixo.
+   Enquanto o dedo está no mundo, as pétalas no ar e os vaga-lumes abrem
+   caminho em volta dele, devagar, e voltam sem pressa quando ele sai
+   (petalas.fugir). Soltar o dedo ainda solta cinco pétalas do ponto tocado
+   (no movimento reduzido a própria rajada solta menos e a fuga é mais curta).
+   Com WebGL, o raio do olho até o dedo cruza o plano do dedo, rente ao chão, e
+   a rajada nasce ali; tocar acima do horizonte, ou longe, já na névoa, não
+   solta nada. Sem WebGL, a rajada nasce do próprio ponto da tela, só nos 45%
+   de baixo, e não há fuga.
    ========================================================================== */
 
 import { pxParaNdc } from '../nucleo/util.js';
@@ -42,8 +45,13 @@ export function ligarToque({ mundo, inventario, pergaminho }) {
     && !document.querySelector('.carta-chao-visor, #voz[data-aberto], #mini[data-aberto]')
     && !(e.target instanceof Element && e.target.closest(INTERATIVO));
 
+  // Lido no toque, não na criação: as pétalas podem ainda não existir.
+  function fugir(e) {
+    if (!mundo.ok) return;
+    mundo.petalas?.fugir?.(e ? pxParaNdc(e.clientX, e.clientY, mundo.tamanho.largura, mundo.tamanho.altura) : null);
+  }
+
   function soltar(e) {
-    // Lido no toque, não na criação: as pétalas podem ainda não existir.
     const petalas = mundo.petalas;
     if (!mundo.ok) {
       if (e.clientY > mundo.tamanho.altura * HORIZONTE_LEVE) petalas?.rajada?.({ px: e.clientX, py: e.clientY }, PETALAS);
@@ -60,17 +68,31 @@ export function ligarToque({ mundo, inventario, pergaminho }) {
     petalas?.rajada?.(olho.addScaledVector(raio, t), PETALAS);
   }
 
+  function largar() {
+    aperto = null;
+    fugir(null);
+  }
+
   const passivo = { passive: true };
   // Na captura: vê a bolsa, o visor e o mini ainda abertos, antes que este mesmo toque os feche.
   window.addEventListener('pointerdown', (e) => {
     aperto = e.isPrimary && e.button === 0 && livre(e) ? e.pointerId : null;
+    if (aperto !== null) fugir(e);
   }, { passive: true, capture: true });
+  // O dedo arrastando leva a fuga junto; se a cena mudou no meio, ela termina.
+  window.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== aperto) return;
+    if (livre(e)) fugir(e);
+    else largar();
+  }, passivo);
   // Sem isto o aperto poderia ficar preso a um dedo que o sistema cancelou.
-  window.addEventListener('pointercancel', () => { aperto = null; }, passivo);
+  window.addEventListener('pointercancel', (e) => {
+    if (e.pointerId === aperto) largar();
+  }, passivo);
   // `livre` vale de novo ao soltar: se a cena mudou no meio do toque, nada sai.
   window.addEventListener('pointerup', (e) => {
     if (e.pointerId !== aperto) return;
-    aperto = null;
+    largar();
     if (livre(e)) soltar(e);
   }, passivo);
 }

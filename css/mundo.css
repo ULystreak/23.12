@@ -1,27 +1,28 @@
 /* ============================================================================
-   MUNDO: a abertura sobre o branco, o fundo e os véus, o mundo leve e a hora
+   MUNDO: a abertura sobre a noite, o fundo e os véus, o mundo leve e a hora
    ============================================================================
-   As frases da abertura com o halo que segura a leitura; o fundo da alameda
-   sem WebGL (#mundo-fundo, de js/mundo/fundo.js) e os véus atrás do texto com
-   WebGL (#mundo-veus), que nascem do branco; o mundo leve (#mundo-leve, de
+   As frases da abertura com o halo anil que segura a leitura; o fundo da
+   alameda sem WebGL (#mundo-fundo, de js/mundo/fundo.js), que vira hora azul
+   sobre a foto, e os véus atrás do texto com WebGL (#mundo-veus), que nascem
+   da noite; o mundo leve (#mundo-leve, de
    js/mundo/leve.js), com pétalas pintadas uma vez em canvas e animadas aqui
    em três camadas de profundidade; e a hora do dia por html[data-hora].
 
    Só transform e opacity animam a cada quadro. Nenhum desfoque roda em tempo
    real no leve: a camada de perto já vem pintada macia. O JS escreve
-   --fundo-veu e --fundo-veu-noite (em <html>) e --fundo-fuga-x/y (no fundo);
-   sem eles, os véus somem e a névoa fica no meio.
+   --fundo-veu-noite (em <html>) e --fundo-fuga-x/y (no fundo); sem eles, os
+   véus somem e a névoa fica no meio. O véu claro (--fundo-veu) da v1 não
+   entra: o mundo é sempre noite, e o texto é luar sobre véu anil.
    ========================================================================== */
 
 /* ---- Paleta e tempos do mundo (só a alameda usa) ------------------------------ */
 :root {
-  /* A noite sobre o texto do palco */
-  --hora-texto-noite: #f6eef4;
-  --hora-realce-noite: #ffc4d6;
-  --hora-sombra-noite: 6, 8, 26; /* rgb, composto com alfa */
+  /* O halo anil atrás da letra (a sombra é noite, nunca preto) */
+  --hora-sombra-noite: 6, 9, 22; /* rgb, composto com alfa */
 
-  /* A névoa clara no ponto de fuga da foto */
-  --hora-nevoa-foto: 255, 248, 250;
+  /* A foto vira hora azul: anil por cima e a névoa violeta no ponto de fuga */
+  --hora-anil-foto: 14, 20, 60;
+  --hora-nevoa-foto: 112, 92, 168;
 
   /* As camadas da hora sobre a foto (sem WebGL) */
   --hora-tarde-miolo: 26, 14, 40;
@@ -33,7 +34,7 @@
   --hora-noite-alto: rgb(52, 66, 132);
   --hora-noite-baixo: rgb(40, 52, 112);
 
-  /* Nascer do branco, véus, troca da foto e densidade do leve */
+  /* Nascer da noite, véus, troca da foto e densidade do leve */
   --mundo-nasce: 1.8s;
   --mundo-nasce-calmo: 1s;
   --mundo-veus: 1.2s;
@@ -44,7 +45,7 @@
   --leve-frente: 1.2s;
 }
 
-/* ---- Abertura: as frases sobre o branco ----------------------------------------- */
+/* ---- Abertura: as frases sobre a noite ------------------------------------------ */
 .frase-abertura {
   max-width: 10.6em;
   margin: 0 auto;
@@ -57,13 +58,17 @@
 @media (min-width: 900px) {
   .frase-abertura { max-width: 16em; letter-spacing: 0.025em; }
 }
-/* Três auras brancas: a palavra continua legível quando uma pétala passa atrás. */
+/* Três auras anil: a palavra continua legível quando uma lanterna ou uma
+   pétala acesa passa atrás. */
 .frase-abertura .palavra {
-  text-shadow: 0 0 0.18em var(--branco), 0 0 0.5em var(--branco), 0 0 1.1em var(--branco);
+  text-shadow:
+    0 0 0.18em rgba(var(--hora-sombra-noite), 0.9),
+    0 0 0.55em rgba(var(--hora-sombra-noite), 0.75),
+    0 0 1.2em rgba(var(--hora-sombra-noite), 0.5);
 }
 
 /* ---- O fundo (sem WebGL) e os véus (com WebGL) ------------------------------------ */
-/* Nascem do branco: é o que faz a alameda surgir do nada. */
+/* Nascem da noite: é o que faz a alameda surgir do escuro. */
 #mundo-fundo,
 #mundo-veus {
   position: fixed;
@@ -89,7 +94,8 @@ html.reduzido #mundo-fundo { transition-duration: var(--mundo-nasce-calmo); }
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
 }
-/* Meio pixel de desfoque funde as duas cópias; na troca de enquadramento, um pouco mais. */
+/* Meio pixel de desfoque funde as duas cópias; na troca de enquadramento, um
+   pouco mais. A foto já é a alameda à noite (_dev/alameda-imagem.mjs). */
 .fundo-foto > img {
   display: block;
   width: 100%;
@@ -103,8 +109,10 @@ html.reduzido #mundo-fundo { transition-duration: var(--mundo-nasce-calmo); }
 .fundo-nevoa {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse 58% 34% at var(--fundo-fuga-x, 50%) var(--fundo-fuga-y, 56%),
-    rgba(var(--hora-nevoa-foto), 0.3), rgba(var(--hora-nevoa-foto), 0.1) 55%, rgba(var(--hora-nevoa-foto), 0) 100%);
+  background:
+    radial-gradient(ellipse 58% 34% at var(--fundo-fuga-x, 50%) var(--fundo-fuga-y, 56%),
+      rgba(var(--hora-nevoa-foto), 0.34), rgba(var(--hora-nevoa-foto), 0.12) 55%, rgba(var(--hora-nevoa-foto), 0) 100%),
+    linear-gradient(rgba(var(--hora-anil-foto), 0.56), rgba(var(--hora-anil-foto), 0.34));
 }
 
 /* Véu em vez de caixa: uma clareira macia, sem borda, pintada uma vez em
@@ -115,7 +123,7 @@ html.reduzido #mundo-fundo { transition-duration: var(--mundo-nasce-calmo); }
   inset: auto;
   opacity: 0;
   transform: translate(-50%, -50%);
-  background: var(--fundo-veu, none) center / 100% 100% no-repeat;
+  background: var(--fundo-veu-noite, none) center / 100% 100% no-repeat;
   transition: opacity var(--mundo-veu) var(--curva-branco-deriva);
 }
 .fundo-veu-alto { left: 50%; top: 31%; width: 184%; height: 48%; }
@@ -270,9 +278,8 @@ html.reduzido .leve-petala > b {
 .leve-instante * { transition: none !important; }
 
 /* ---- A dica sobre a foto ------------------------------------------------------------------ */
-/* Tinta cheia e uma clareira atrás. As regras da noite, abaixo e mais
-   específicas, vencem estas: à noite a dica fica em luar sobre o véu escuro. */
-html.com-fundo #dica { color: var(--tinta); }
+/* A cor e o halo da dica vêm de base.css (luar suave); sobre a foto, uma
+   clareira anil atrás garante o contraste. */
 html.com-fundo #dica::before {
   content: "";
   position: absolute;
@@ -281,29 +288,9 @@ html.com-fundo #dica::before {
   bottom: -1.4em;
   width: min(26em, 92%);
   transform: translateX(-50%);
-  background: var(--fundo-veu, none) center / 100% 100% no-repeat;
+  background: var(--fundo-veu-noite, none) center / 100% 100% no-repeat;
   opacity: 0.92;
   z-index: -1;
   pointer-events: none;
 }
 html.com-fundo #dica:empty::before { display: none; }
-
-/* ---- A noite ---------------------------------------------------------------------------------- */
-/* Véus escuros e o texto em luar, com sombra de noite para o contraste. Só
-   com fundo (a alameda ou a foto, html.com-fundo): sem ele o mundo continua
-   branco à noite (pagina.fundo vazio, ou a foto que não abriu), e o luar
-   sumiria no branco. */
-html.com-fundo[data-hora="noite"] .fundo-veu,
-html.com-fundo[data-hora="noite"] #dica::before { background-image: var(--fundo-veu-noite, none); }
-html.com-fundo[data-hora="noite"] #frases,
-html.com-fundo[data-hora="noite"] #dica,
-html.com-fundo[data-hora="noite"] #acoes > .botao {
-  color: var(--hora-texto-noite);
-  text-shadow: 0 0 0.3em rgba(var(--hora-sombra-noite), 0.9), 0 0 0.9em rgba(var(--hora-sombra-noite), 0.7);
-}
-html.com-fundo[data-hora="noite"] .frase-abertura .palavra {
-  text-shadow: 0 0 0.18em rgba(var(--hora-sombra-noite), 0.9), 0 0 0.6em rgba(var(--hora-sombra-noite), 0.8);
-}
-@media (hover: hover) and (pointer: fine) {
-  html.com-fundo[data-hora="noite"] #acoes > .botao:hover { color: var(--hora-realce-noite); }
-}

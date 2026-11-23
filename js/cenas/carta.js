@@ -33,10 +33,19 @@ const ESPERA_CHACOALHO = 10000; // ms: depois disso a dica volta a pedir o toque
 const DEPOIS_DO_CONVITE = 600; // ms: o segundo toque de um toque duplo não abre
 const ARRASTO = 14; // px: o dedo andou mais que isso, é arrasto
 
+// A dica é luar sobre um véu anil que se desfaz nas bordas (sem caixa nem
+// filete: não é botão), centrada e do tamanho do texto.
 const ESTILO_DICA = {
-  fontFamily: 'var(--fonte-mao)',
-  letterSpacing: '0.03em',
-  fontSize: 'clamp(1rem, 0.94rem + 0.3vw, 1.15rem)',
+  fontFamily: 'var(--fonte-titulo)',
+  fontWeight: '500',
+  letterSpacing: '0.07em',
+  fontSize: 'clamp(1rem, 0.94rem + 0.3vw, 1.125rem)',
+  color: 'var(--luar)',
+  width: 'fit-content',
+  maxWidth: 'calc(100% - 2 * var(--margem))',
+  marginInline: 'auto',
+  padding: '14px 34px 12px',
+  background: 'radial-gradient(closest-side, rgba(11, 16, 38, 0.82), rgba(11, 16, 38, 0.66) 62%, rgba(11, 16, 38, 0))',
 };
 
 // O anel de foco só aparece com teclado: um toque nunca mostra anel. O teclado

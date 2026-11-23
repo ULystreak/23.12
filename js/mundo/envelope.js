@@ -3,14 +3,16 @@
    ============================================================================
    Duas versões com a mesma API (`env`): a 3D (three.js com ShaderMaterial) e a
    leve (DOM, SVG e CSS), usada quando `mundo.ok` é falso. Cada uma monta o
-   corpo fechado, o forro vermelho, a aba de cima, o cordão (ou o fio) com laço,
-   o lacre de cera, a carta dobrada em três dentro e a animação de abrir, que
+   corpo fechado de washi, o forro anil com pétalas de ouro, a aba de cima, o
+   cordão (ou o fio) com laço, o lacre de cera dourada, a carta dobrada em três
+   dentro e a animação de abrir (com faíscas de ouro junto das pétalas), que
    termina com a entrega do papel à folha DOM (o pergaminho).
 
    Escala real: 23 × 16 cm, em metros, para a pose do papel (a 0,6 m da lente,
-   com o FOV da câmera) bater com o tamanho real. A luz é própria e fixa no
-   espaço da câmera: o papel se lê contra o branco por sombreamento e não
-   depende das luzes da cena (que não tem nenhuma).
+   com o FOV da câmera) bater com o tamanho real. A luz é falsa, toda no shader
+   e fixa no espaço da câmera (a cena não tem luzes): a chama de uma lanterna
+   de cima, o luar frio que preenche e o papel aceso por dentro, como uma
+   lanterna de papel, com a borda mais quente. Ela respira, não pisca.
 
    O arquivo não ouve nada sozinho: quem chama `atualizar` (por mundo.aoQuadro),
    `pressionar`, `chegar`, `abrir`, `entregarPapel`, `irEmbora` e `dispose` é a
@@ -48,20 +50,23 @@ const PAPEL_Z = -0.0025;
 const PAPEL_Y = -0.004;
 const ABERTA = Math.PI * 1.1; // ~198°: a aba passa um pouco do plano
 const TAU = Math.PI * 2;
+const LUZ_DENTRO = 0.55; // a lanterna dentro do papel; o resto da luz vem de fora
 
 /* ---- cores ------------------------------------------------------------------------ */
 
-const COR_ENVELOPE = '#f7f2ea';
-const COR_CARTA = '#fbf7f0'; // a folha; reserva de --papel
-const COR_FORRO = '#b3123a';
-const COR_CORDAO = '#d7192d';
-const COR_CERA = '#9c0d2b';
+// Os tokens de DESIGN.md: washi, anil, ouro e o vermelho do fio (só o cordão).
+const COR_ENVELOPE = '#f7ecd6'; // washi
+const COR_CARTA = '#f7ecd6'; // a folha; reserva de --papel
+const COR_FORRO = '#18204a'; // anil
+const COR_CORDAO = '#e3283c'; // --fio
+const COR_CERA = '#b8873c'; // cera de ouro: a luz leva ao --ouro, a sombra ao --ouro-escuro
+const PETALAS_FORRO = ['rgba(233,194,122,0.34)', 'rgba(242,182,198,0.2)', 'rgba(246,220,166,0.22)'];
 
 // base: a cor chapada da frente do envelope (vista quando ele gira);
 // borda: multiplica o brilho de borda.
 const TEMAS = {
-  poppy: { base: '#0d2534', cordao: ['#e23b3b', '#f4c430'], cera: '#c2182f', borda: 0.35 },
-  yourname: { base: '#2c2468', cordao: ['#d7192d', '#f39a3d'], cera: '#c98f2c', borda: 0.4 },
+  poppy: { base: '#0d2534', cordao: ['#e3283c', '#f4c430'], cera: '#c0913f', borda: 0.35 },
+  yourname: { base: '#2c2468', cordao: ['#e3283c', '#f39a3d'], cera: '#c98f2c', borda: 0.4 },
 };
 
 /* ---- o laço, em volta de (0, LACRE_Y); [x, y] relativos ao centro ----------------- */
@@ -253,19 +258,19 @@ function caminhoPetala(g, r) {
   g.closePath();
 }
 
-/** O forro: vermelho com pétalas, repetido sem costura. */
+/** O forro: anil, como o céu da alameda, com pétalas de ouro e pontos de estrela, sem costura. */
 function telaForro(tam) {
   return tela(`forro:${tam}`, () => {
     const { c, g } = novaTela(tam, tam);
     const rnd = semente(1223);
     g.fillStyle = COR_FORRO;
     g.fillRect(0, 0, tam, tam);
-    for (let i = 0; i < 26; i++) {
+    for (let i = 0; i < 22; i++) {
       const x = rnd() * tam;
       const y = rnd() * tam;
       const r = (0.035 + 0.03 * rnd()) * tam;
       const ang = rnd() * TAU;
-      const cor = rnd() > 0.4 ? 'rgba(120,6,32,0.32)' : 'rgba(214,52,88,0.22)';
+      const cor = PETALAS_FORRO[Math.floor(rnd() * PETALAS_FORRO.length)];
       emVolta(tam, (ox, oy) => {
         g.save();
         g.translate(x + ox, y + oy);
@@ -275,6 +280,16 @@ function telaForro(tam) {
         g.fill();
         g.restore();
       });
+    }
+    for (let i = 0; i < 30; i++) {
+      const x = rnd() * tam;
+      const y = rnd() * tam;
+      const r = (0.003 + 0.004 * rnd()) * tam;
+      g.fillStyle = `rgba(246,220,166,${(0.35 + 0.4 * rnd()).toFixed(2)})`;
+      emVolta(tam, (ox, oy) => {
+        circulo(g, x + ox, y + oy, r);
+        g.fill();
+      }, x, y, r);
     }
     return c;
   });
@@ -312,7 +327,7 @@ function desenharPoppy(g, w, h) {
   for (let y = 0; y < h; y += passo) g.fillRect(0, y, w, faixa);
 
   retArred(g, 0.035 * w, 0.05 * h, 0.93 * w, 0.9 * h, 0.02 * w);
-  g.strokeStyle = 'rgba(255,255,255,0.14)';
+  g.strokeStyle = 'rgba(233,194,122,0.22)';
   g.lineWidth = Math.max(1, 0.004 * w);
   g.stroke();
 
@@ -468,6 +483,32 @@ function desenharYourName(g, w, h) {
   serra(0.985 * h, 0.06 * h, '#1c1445', 2.1);
 }
 
+/**
+ * O acabamento de noite das faces: a luz de uma lanterna que vem de baixo, um
+ * canto de céu que escurece em cima e um filete de ouro, como papel dourado à mão.
+ */
+function acabamentoNoite(g, w, h) {
+  const chama = g.createRadialGradient(0.5 * w, 1.15 * h, 0, 0.5 * w, 1.15 * h, 0.95 * h);
+  chama.addColorStop(0, 'rgba(255,180,94,0.2)');
+  chama.addColorStop(1, 'rgba(255,180,94,0)');
+  g.fillStyle = chama;
+  g.fillRect(0, 0, w, h);
+  const ceu = g.createLinearGradient(0, 0, 0, 0.35 * h);
+  ceu.addColorStop(0, 'rgba(6,9,20,0.28)');
+  ceu.addColorStop(1, 'rgba(6,9,20,0)');
+  g.fillStyle = ceu;
+  g.fillRect(0, 0, w, 0.35 * h);
+  const m = 0.022 * w;
+  g.lineWidth = Math.max(1, 0.0035 * w);
+  g.strokeStyle = 'rgba(233,194,122,0.78)';
+  retArred(g, m, m, w - 2 * m, h - 2 * m, 0.014 * w);
+  g.stroke();
+  g.lineWidth = Math.max(1, 0.0015 * w);
+  g.strokeStyle = 'rgba(246,220,166,0.42)';
+  retArred(g, 1.6 * m, 1.6 * m, w - 3.2 * m, h - 3.2 * m, 0.01 * w);
+  g.stroke();
+}
+
 /** A face de um tema, na proporção do envelope (altura = largura · H/W). */
 function telaTema(tema, larg) {
   return tela(`tema:${tema}:${larg}`, () => {
@@ -475,6 +516,7 @@ function telaTema(tema, larg) {
     const { c, g } = novaTela(larg, alt);
     if (tema === 'poppy') desenharPoppy(g, larg, alt);
     else desenharYourName(g, larg, alt);
+    acabamentoNoite(g, larg, alt);
     return c;
   });
 }
@@ -563,20 +605,42 @@ const GLSL_MEDIDAS = /* glsl */ `
 #define PAPEL_A ${f(PAPEL_A)}
 `;
 
-// Luz própria, no espaço da câmera; relevo por derivadas de tela; a fuga para o
-// branco (ou para a cor da névoa, quando há a foto da alameda atrás).
+// Luz falsa, no espaço da câmera: a chama de uma lanterna pendurada acima e à
+// esquerda (uLuzDir), o luar frio que preenche e o papel aceso por dentro.
+// Cores lineares. Relevo por derivadas de tela; a fuga para a cor da névoa.
 const GLSL_COMUM = /* glsl */ `
 uniform vec3 uLuzDir;
 uniform float uLuz;
+uniform float uDentro;
 uniform float uBranco;
 uniform vec3 uCorBranco;
 const vec2 LUZ2 = vec2(-0.54, 0.84);
+const vec3 CHAMA = vec3(1.0, 0.7, 0.42);
+const vec3 LUAR = vec3(0.6, 0.66, 0.95);
+const vec3 DENTRO = vec3(1.0, 0.9, 0.76);
+const vec3 BRASA = vec3(1.0, 0.42, 0.12);
+const vec3 OURO = vec3(0.815, 0.539, 0.195);
+const vec3 OURO_CLARO = vec3(0.922, 0.716, 0.381);
+const vec3 FIO_BRILHO = vec3(1.0, 0.051, 0.076);
 
-float luzPapel(vec3 N, vec3 V) {
-  float ceu = mix(0.74, 1.0, 0.5 + 0.5 * N.y);
-  float difusa = clamp((dot(N, uLuzDir) + 0.5) / 1.5, 0.0, 1.0);
-  float rasante = pow(max(1.0 - abs(dot(N, V)), 0.0), 2.5);
-  return uLuz * (0.47 * ceu + 0.8 * difusa) * (1.0 - 0.22 * rasante);
+// De fora: o luar de cima e a chama, que também contorna o papel visto de lado.
+vec3 luzPapel(vec3 N, vec3 V) {
+  float ceu = 0.5 + 0.5 * N.y;
+  float difusa = clamp((dot(N, uLuzDir) + 0.35) / 1.35, 0.0, 1.0);
+  float rasante = pow(max(1.0 - abs(dot(N, V)), 0.0), 3.0);
+  return LUAR * (0.2 + 0.14 * ceu) + uLuz * CHAMA * (0.5 * difusa + 0.3 * rasante);
+}
+
+// De dentro: contra a luz a fibra aparece (mais fibra, menos luz) e cada folha
+// a mais segura um pouco dela (camadas = 1 é uma folha só).
+vec3 luzDentro(float fibra, float camadas) {
+  return DENTRO * uDentro * (0.86 + 1.6 * (fibra - 0.5)) * camadas;
+}
+
+// A beira acende quente, como a de uma lanterna de papel.
+vec3 bordaQuente(vec2 p) {
+  float d = min(W * 0.5 - abs(p.x), H * 0.5 - abs(p.y));
+  return BRASA * uDentro * 0.32 * exp(-max(d, 0.0) / 0.006);
 }
 
 // As derivadas são tomadas no topo do main, antes de qualquer discard.
@@ -649,6 +713,13 @@ float sombrasDeCima(vec2 p) {
   float s = (sombraLinha(uLinha0, q) + sombraLinha(uLinha1, q)) * uSombraFio;
   vec2 ql = p + LUZ2 * 0.0036;
   return s + uSombraLacre * 0.38 * (1.0 - smoothstep(LACRE_R * 0.7, LACRE_R * 1.55, length(ql - uLacre.xy)));
+}
+
+// O fio brilha: um halo vermelho leve no papel, ao longo das voltas; some com elas.
+vec3 haloFio(vec2 p) {
+  float d0 = uLinha0.w > 0.0 ? abs(dot(uLinha0.xy, p) + uLinha0.z) : 1.0;
+  float d1 = uLinha1.w > 0.0 ? abs(dot(uLinha1.xy, p) + uLinha1.z) : 1.0;
+  return FIO_BRILHO * 0.16 * exp(-min(d0, d1) / 0.0032) * uSombraFio;
 }
 `;
 
@@ -759,7 +830,11 @@ void main() {
   brilhoBorda *= uBordaTema;
 #endif
   vec3 albedo = base * (0.975 + 0.05 * (h - 0.5));
-  vec3 cor = albedo * luzPapel(N, V) * caimento(p) * (1.0 - min(sombra, 0.6)) + brilhoBorda;
+  // a aba de baixo é uma folha a mais: contra a luz de dentro, fica um nada mais escura
+  float camadas = dB < 0.0 ? 0.84 : 1.0;
+  float sb = min(sombra, 0.6);
+  vec3 luz = luzPapel(N, V) * caimento(p) * (1.0 - sb) + luzDentro(h, camadas) * (1.0 - 0.4 * sb) + bordaQuente(p);
+  vec3 cor = albedo * luz + brilhoBorda * CHAMA + haloFio(p);
   gl_FragColor = vec4(acabar(cor), presenca());
 ` + GLSL_SAIDA + '}\n';
 
@@ -789,10 +864,11 @@ void main() {
     vec2 e;
     float s = smoothstep(-0.0035, 0.0025, boca(p + LUZ2 * 0.0048, e));
     float fundo = mix(0.74, 1.0, smoothstep(BOCA_Y, H * 0.5, p.y));
-    cor = albedoForro * luzPapel(N, V) * (1.0 - 0.5 * s) * fundo * 0.92;
+    // por dentro mora a luz: o anil fica quente e as pétalas de ouro acendem
+    cor = (albedoForro * (luzPapel(N, V) * (1.0 - 0.5 * s) + DENTRO * uDentro * 1.5) + CHAMA * uDentro * 0.05) * fundo;
   } else {
     N = relevo(-N, dpx, dpy, dhx * 0.00011, dhy * 0.00011);
-    cor = uCorPapel * (0.975 + 0.05 * (h - 0.5)) * luzPapel(N, V);
+    cor = uCorPapel * (0.975 + 0.05 * (h - 0.5)) * (luzPapel(N, V) + luzDentro(h, 1.0) + bordaQuente(p));
   }
   gl_FragColor = vec4(acabar(cor), presenca());
 ` + GLSL_SAIDA + '}\n';
@@ -912,12 +988,16 @@ void main() {
     brilhoBorda *= uBordaTema;
 #endif
     vec3 albedo = base * (0.975 + 0.05 * (h - 0.5));
-    cor = albedo * luzPapel(N, V) * caimento(p) * (1.0 - min(sombra, 0.6)) + brilhoBorda;
+    float sb = min(sombra, 0.6);
+    // fechada, a aba soma uma folha ao verso: a luz de dentro passa um pouco menos
+    vec3 luz = luzPapel(N, V) * caimento(p) * (1.0 - sb)
+      + luzDentro(h, mix(1.0, 0.8, fechada)) * (1.0 - 0.4 * sb) + bordaQuente(p) * fechada;
+    cor = albedo * luz + brilhoBorda * CHAMA + haloFio(p) * fechada;
   } else {
-    // por dentro, o forro
+    // por dentro, o forro, com a beira dourada
     float b = 1.0 - smoothstep(0.0, 0.0015, -d);
     N = relevo(-N, dpx, dpy, dhx * 0.00008, dhy * 0.00008);
-    cor = albedoForro * luzPapel(N, V) * 0.97 + vec3(0.1, 0.06, 0.06) * b;
+    cor = albedoForro * (luzPapel(N, V) * 0.97 + DENTRO * uDentro * 0.9) + OURO * 0.16 * b;
   }
   gl_FragColor = vec4(acabar(cor), presenca());
 ` + GLSL_SAIDA + '}\n';
@@ -956,8 +1036,8 @@ void main() {
 }
 `;
 
-// A folha é mais clara e reflete mais o céu que o envelope; nunca passa de 1
-// (o creme estouraria num branco amarelado) nem escurece como papelão. Com
+// A folha sobe da luz de dentro do envelope e pega a chama; nunca passa de 1
+// (o washi estouraria num branco amarelado) nem escurece como papelão. Com
 // uPlano = 1 ela chega na cor exata da folha DOM, sem luz: a troca é invisível.
 const FRAG_CARTA = GLSL_MEDIDAS + GLSL_COMUM + /* glsl */ `
 uniform sampler2D uFibra;
@@ -981,7 +1061,7 @@ void main() {
   N = relevo(N, dpx, dpy, dhx, dhy);
   vec3 V = normalize(-vPosV);
   float vinco = exp(-vVinco / 0.0012) * (0.35 + 0.65 * uDobra);
-  float luz = clamp(mix(luzPapel(N, V), 1.0, 0.4), 0.92, 1.0);
+  vec3 luz = clamp(mix(luzPapel(N, V) + luzDentro(h, 0.6), vec3(1.0), 0.4), 0.88, 1.0);
   vec3 lit = uCorPapel * (0.98 + 0.04 * (h - 0.5)) * luz * (1.0 - 0.12 * vinco);
   gl_FragColor = vec4(mix(acabar(lit), uCorChapada, uPlano), uOpac);
   #include <tonemapping_fragment>
@@ -1044,13 +1124,17 @@ void main() {
   float fibra = 0.5 + 0.5 * sin((7.0 * vUv.x + 13.0 * vUv.y) * 6.2831853);
   float difusa = clamp((dot(N, uLuzDir) + 0.4) / 1.4, 0.0, 1.0);
   float perna = mod(floor(vUv.x + 2.0 * vUv.y), 2.0);
-  vec3 cor = mix(uCorFio, uCorFio2, perna) * (0.38 + 0.8 * difusa) * uLuz * (1.0 - 0.5 * sulco) * (0.94 + 0.06 * fibra);
+  vec3 fio = mix(uCorFio, uCorFio2, perna);
+  // o fio brilha por conta própria (metade da cor é dele) e a beira acende num halo
+  vec3 cor = fio * (0.45 + 0.55 * difusa * uLuz) * (1.0 - 0.45 * sulco) * (0.94 + 0.06 * fibra);
+  float beira = pow(max(1.0 - abs(dot(N, V)), 0.0), 2.0);
+  cor += mix(fio, FIO_BRILHO, 0.6) * beira * 0.4;
   vec3 meio = normalize(uLuzDir + V);
-  float esp = pow(max(dot(N, meio), 0.0), 18.0) * 0.16 * (1.0 - sulco);
+  float esp = pow(max(dot(N, meio), 0.0), 18.0) * 0.14 * (1.0 - sulco);
   float t = (0.8 * vP.x + 0.6 * vP.y - uBrilho) / 0.004;
   float d = length(vP - uCentroLaco.xy);
   float faixa = exp(-t * t) * (1.0 - smoothstep(0.03, 0.05, d));
-  cor += vec3(1.0, 0.86, 0.84) * (esp + faixa * 0.32 * (1.0 - sulco));
+  cor += CHAMA * esp * uLuz + vec3(1.0, 0.8, 0.72) * faixa * 0.32 * (1.0 - sulco);
   if (uAceso > 0.001) {
     float e = d / 0.026;
     float k = uAceso * (0.28 + 0.72 * exp(-e * e));
@@ -1076,7 +1160,8 @@ void main() {
 }
 `;
 
-// A cera é difusa e avermelhada, com a luz que atravessa a borda: nunca fica preta.
+// A cera de ouro: fosca e quente, devolve a chama num reflexo largo, tem um
+// ponto de luz pequeno e a beira clara; o sinete se lê pelo relevo. Nunca fica preta.
 const FRAG_CERA = GLSL_MEDIDAS + GLSL_COMUM + /* glsl */ `
 uniform sampler2D uSinete;
 uniform float uRaioSinete;
@@ -1100,17 +1185,50 @@ void main() {
   if (!gl_FrontFacing) N = -N;
   N = relevo(N, dpx, dpy, dhx, dhy);
   vec3 V = normalize(-vPosV);
-  float difusa = clamp((dot(N, uLuzDir) + 0.6) / 1.6, 0.0, 1.0);
+  float difusa = clamp((dot(N, uLuzDir) + 0.5) / 1.5, 0.0, 1.0);
   float frente = abs(dot(N, V));
-  vec3 cor = uCorCera * (0.5 + 0.72 * difusa);
-  cor *= mix(1.0, mix(0.8, 1.06, hs), dentro);
-  cor += uCorCera * 0.22 * (1.0 - frente) * (1.0 - frente);
+  float reflexo = smoothstep(-0.3, 0.8, dot(reflect(-V, N), uLuzDir));
+  vec3 cor = uCorCera * (0.3 + 0.62 * difusa + 0.45 * reflexo);
+  cor *= mix(1.0, mix(0.52, 1.16, hs), dentro); // o ouro é claro: o sinete precisa de mais relevo que a cera vermelha
   vec3 meio = normalize(uLuzDir + V);
-  cor += vec3(1.0, 0.9, 0.88) * pow(max(dot(N, meio), 0.0), 36.0) * 0.3;
+  cor += OURO_CLARO * pow(max(dot(N, meio), 0.0), 40.0) * 0.55;
+  cor += OURO * 0.22 * (1.0 - frente) * (1.0 - frente);
   float t = (0.8 * vL.x + 0.6 * vL.y - uBrilho) / 0.004;
-  cor += vec3(1.0, 0.86, 0.84) * exp(-t * t) * 0.3;
+  cor += OURO_CLARO * exp(-t * t) * 0.35;
   gl_FragColor = vec4(acabar(cor * uLuz), uAlfa * presenca());
 ` + GLSL_SAIDA + '}\n';
+
+// As faíscas de ouro ao abrir: pontos aditivos, um miolo claro e um halo de
+// chama. aVida vai de 1 a 0; acendem rápido e se apagam devagar, sem piscar.
+const VERT_FAISCA = /* glsl */ `
+attribute float aVida;
+attribute float aTam;
+uniform float uEscala;
+varying float vAlfa;
+varying float vMiolo;
+void main() {
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vAlfa = smoothstep(0.0, 0.6, aVida) * (1.0 - smoothstep(0.9, 1.0, aVida));
+  vMiolo = aVida;
+  gl_PointSize = aVida > 0.0 ? min(72.0, aTam * (0.65 + 0.35 * aVida) * uEscala / max(-mv.z, 0.05)) : 0.0;
+  gl_Position = projectionMatrix * mv;
+}
+`;
+
+const FRAG_FAISCA = /* glsl */ `
+varying float vAlfa;
+varying float vMiolo;
+void main() {
+  vec2 q = gl_PointCoord * 2.0 - 1.0;
+  float r = dot(q, q);
+  if (r > 1.0) discard;
+  float miolo = exp(-r * 22.0) * (0.5 + 0.5 * vMiolo);
+  float halo = exp(-r * 4.5) * 0.5 * (1.0 - r);
+  gl_FragColor = vec4(mix(vec3(1.0, 0.56, 0.2), vec3(1.0, 0.9, 0.7), miolo), 1.0);
+  #include <colorspace_fragment>
+  gl_FragColor.a = (miolo + halo) * vAlfa;
+}
+`;
 
 /* ============================================================================
    A CARTA 3D
@@ -1269,6 +1387,7 @@ function criarEnvelope3D(mundo, opcoes = {}) {
     // Por referência: a carta acompanha a cor da névoa que a alameda pinta.
     uCorBranco: { value: cena.fog ? cena.fog.color : new THREE.Color(1, 1, 1) },
     uLuz: { value: 1 },
+    uDentro: { value: LUZ_DENTRO },
   };
   const nevoa = THREE.UniformsUtils.clone(THREE.UniformsLib.fog);
   const shader = (vertexShader, fragmentShader, uniforms, extra = {}) => {
@@ -1543,8 +1662,92 @@ function criarEnvelope3D(mundo, opcoes = {}) {
     }
   }
 
+  /* ---- faíscas: luz falsa em pontos, nenhuma luz real ---- */
+
+  const NF = baixo ? 14 : 26;
+  const rndF = semente(1223);
+  const posF = new Float32Array(NF * 3);
+  const vidaF = new Float32Array(NF);
+  const tamF = new Float32Array(NF);
+  const faiscas = Array.from({ length: NF }, () => ({ vel: V3(), vida: 0, total: 1 }));
+  const geoFaiscas = guardarGeo(new THREE.BufferGeometry());
+  geoFaiscas.setAttribute('position', new THREE.BufferAttribute(posF, 3));
+  geoFaiscas.setAttribute('aVida', new THREE.BufferAttribute(vidaF, 1));
+  geoFaiscas.setAttribute('aTam', new THREE.BufferAttribute(tamF, 1));
+  geoFaiscas.setDrawRange(0, 0); // nada desenha até abrir; o shader compila no preparo
+  const uEscalaF = { value: 1000 };
+  const matFaiscas = new THREE.ShaderMaterial({
+    vertexShader: VERT_FAISCA,
+    fragmentShader: FRAG_FAISCA,
+    uniforms: { uEscala: uEscalaF },
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  materiais.push(matFaiscas);
+  const pontosF = new THREE.Points(geoFaiscas, matFaiscas);
+  pontosF.frustumCulled = false;
+  pontosF.renderOrder = 4;
+  grupo.add(pontosF); // no grupo, não no `interno`: elas não acompanham o balanço da carta
+  let faiscasVivas = false;
+
+  /** Solta as faíscas do ponto (no mundo). Com movimento reduzido, poucas e paradas: só se apagam. */
+  function soltarFaiscas(noMundoPonto) {
+    grupo.updateWorldMatrix(true, false);
+    const origem = grupo.worldToLocal(noMundoPonto.clone());
+    const altura = renderer?.domElement?.height || innerHeight;
+    uEscalaF.value = altura / (2 * Math.tan(((camera.fov || 58) * Math.PI) / 360));
+    const n = reduzido ? Math.min(8, NF) : NF;
+    for (let i = 0; i < n; i++) {
+      const f = faiscas[i];
+      const a = rndF() * TAU;
+      const r = reduzido ? 0.004 + 0.02 * rndF() : 0.002 * rndF();
+      posF[i * 3] = origem.x + Math.cos(a) * r;
+      posF[i * 3 + 1] = origem.y + Math.sin(a) * r * 0.7;
+      posF[i * 3 + 2] = origem.z + 0.004;
+      const forca = reduzido ? 0 : 0.07 + 0.2 * rndF();
+      f.vel.set(Math.cos(a) * forca, Math.sin(a) * forca * 0.6 + (reduzido ? 0 : 0.1 + 0.16 * rndF()), reduzido ? 0 : 0.04 + 0.1 * rndF());
+      f.total = reduzido ? 0.9 + 0.4 * rndF() : 1.1 + 0.9 * rndF();
+      f.vida = f.total;
+      tamF[i] = 0.006 + 0.008 * rndF();
+      vidaF[i] = 1;
+    }
+    geoFaiscas.setDrawRange(0, n);
+    geoFaiscas.attributes.aTam.needsUpdate = true;
+    faiscasVivas = true;
+  }
+
+  /** Por quadro: o ar segura as faíscas e o calor as leva um pouco para cima. */
+  function moverFaiscas(passo) {
+    let vivas = 0;
+    const arrasto = Math.exp(-1.7 * passo);
+    for (let i = 0; i < NF; i++) {
+      const f = faiscas[i];
+      if (f.vida <= 0) continue;
+      f.vida -= passo;
+      if (f.vida <= 0) {
+        vidaF[i] = 0;
+        continue;
+      }
+      vivas++;
+      f.vel.multiplyScalar(arrasto);
+      if (!reduzido) f.vel.y += 0.05 * passo;
+      posF[i * 3] += f.vel.x * passo;
+      posF[i * 3 + 1] += f.vel.y * passo;
+      posF[i * 3 + 2] += f.vel.z * passo;
+      vidaF[i] = f.vida / f.total;
+    }
+    geoFaiscas.attributes.position.needsUpdate = true;
+    geoFaiscas.attributes.aVida.needsUpdate = true;
+    if (!vivas) {
+      faiscasVivas = false;
+      geoFaiscas.setDrawRange(0, 0);
+    }
+  }
+
   /* ---- estado ---- */
 
+  const luz = { dentro: 1 }; // multiplica a luz de dentro: acende ao chegar e ao abrir
   const tweens = new Set();
   // Um tween concluído sai do Set; os vivos morrem no dispose.
   const guardar = (t) => {
@@ -1630,6 +1833,11 @@ function criarEnvelope3D(mundo, opcoes = {}) {
     } else {
       brilho.value = 99;
     }
+
+    // A luz respira devagar (a chama em 4,6 s, a de dentro em 3,4 s), nunca pisca.
+    comum.uLuz.value = 1 + 0.035 * Math.sin(t * 1.366);
+    comum.uDentro.value = luz.dentro * LUZ_DENTRO * (1 + 0.07 * Math.sin(t * 1.848 + 1.1));
+    if (faiscasVivas) moverFaiscas(passo);
 
     for (let i = voando.length - 1; i >= 0; i--) {
       const v = voando[i];
@@ -1745,8 +1953,10 @@ function criarEnvelope3D(mundo, opcoes = {}) {
     entrada.k = 1;
     entrada.z = distancia;
     const tl = gsap.timeline({ delay: atraso });
+    // A lanterna dentro dela se acende enquanto ela sai da névoa.
     tl.to(entrada, { z: 0, duration: duracao, ease: curvas.branco.entrar }, 0)
-      .to(entrada, { k: 0, duration: duracao * 1.15, ease: 'power3.out' }, 0);
+      .to(entrada, { k: 0, duration: duracao * 1.15, ease: 'power3.out' }, 0)
+      .fromTo(luz, { dentro: 0.3 }, { dentro: 1, duration: 0.9, ease: curvas.yourname.florescer }, duracao * 0.4);
     const chegou = new Promise((resolve) => {
       tl.call(resolve, null, duracao);
       tl.eventCallback('onInterrupt', resolve);
@@ -1762,12 +1972,13 @@ function criarEnvelope3D(mundo, opcoes = {}) {
     })));
   }
 
-  /** O lacre salta em três pedaços (e o farelo), com uma rajada de pétalas. */
+  /** O lacre salta em três pedaços (e o farelo), com faíscas de ouro e uma rajada de pétalas. */
   function estourarLacre() {
     if (descartado || !lacreGrupo) return;
     grupo.updateWorldMatrix(true, true);
     const centro = lacreGrupo.getWorldPosition(V3());
-    mundo.petalas?.rajada?.(centro.add(V3(0, 0, -0.01)), reduzido ? 6 : 18);
+    soltarFaiscas(centro);
+    mundo.petalas?.rajada?.(centro.add(V3(0, 0, -0.01)), reduzido ? 6 : 14);
     const giroEnv = interno.getWorldQuaternion(new THREE.Quaternion());
     const frente = V3(0, 0, 1).applyQuaternion(giroEnv); // a normal do envelope no mundo
     const itens = [...pedacos.map((p) => [p.pivo, true]), ...farelo.map((m) => [m, false])];
@@ -1789,9 +2000,9 @@ function criarEnvelope3D(mundo, opcoes = {}) {
   }
 
   /**
-   * Abre a carta: o lacre trinca e salta, o laço se desfaz no próprio cordão,
-   * as voltas escorregam cada uma para um lado, a aba levanta com o forro
-   * vermelho e o papel sobe. Resolve { papel } em ~3,27 s (~3,17 sem lacre).
+   * Abre a carta: o lacre trinca e salta com faíscas de ouro, o laço se desfaz
+   * no próprio cordão, as voltas escorregam cada uma para um lado, a aba levanta
+   * com o forro anil e o papel sobe. Resolve { papel } em ~3,27 s (~3,17 sem lacre).
    * A segunda chamada resolve na hora, mesmo com a primeira em curso.
    */
   function abrir() {
@@ -1831,7 +2042,10 @@ function criarEnvelope3D(mundo, opcoes = {}) {
         .to(sombras.uSombraLacre, { value: 0, duration: 0.2, ease: 'none' }, tEstouro);
     } else {
       tl.call(() => {
-        if (!descartado) mundo.petalas?.rajada?.(noMundo(0, LACRE_Y, zSuperficie(0, LACRE_Y) + alturaLaco), reduzido ? 6 : 14);
+        if (descartado) return;
+        const no = noMundo(0, LACRE_Y, zSuperficie(0, LACRE_Y) + alturaLaco);
+        soltarFaiscas(no);
+        mundo.petalas?.rajada?.(no, reduzido ? 6 : 12);
       }, null, 0.3);
     }
 
@@ -1873,8 +2087,10 @@ function criarEnvelope3D(mundo, opcoes = {}) {
       uAba.uTheta.value = th;
       uAba.uCurva.value = -3.4 * Math.sin(Math.min(Math.PI, th));
     };
+    // Aberta, a luz de dentro sai pela boca e cresce um pouco.
     tl.to(abaP, { p: 1, duration: reduzido ? 1 : 1.3, ease: 'power2.inOut', onUpdate: girarAba }, tAba)
-      .to(uAbertura, { value: 1, duration: 0.45, ease: 'none' }, tAba);
+      .to(uAbertura, { value: 1, duration: 0.45, ease: 'none' }, tAba)
+      .to(luz, { dentro: 1.3, duration: 0.8, ease: curvas.yourname.florescer }, tAba + 0.2);
 
     // O papel sobe pela boca, o envelope afunda um pouco e o papel vem para a frente.
     tl.call(() => {
@@ -1964,7 +2180,7 @@ function criarEnvelope3D(mundo, opcoes = {}) {
     });
   }
 
-  /** O envelope vai embora no branco (para trás e para cima) e fica invisível. */
+  /** O envelope vai embora na névoa (para trás e para cima) e fica invisível. */
   function irEmbora() {
     modo = 'indo';
     if (descartado || !grupo.visible) return Promise.resolve();
@@ -2072,9 +2288,24 @@ const ESTILO_LEVE = `
 }
 .cl-corpo > * { position: absolute; display: block; }
 .cl svg { overflow: visible; }
+/* A lanterna dentro do papel acende a noite em volta; respira, não pisca. */
+.cl::before {
+  content: ''; position: absolute; inset: -22% -16%;
+  background: radial-gradient(closest-side, rgba(255, 180, 94, 0.2), rgba(255, 180, 94, 0.07) 55%, rgba(255, 180, 94, 0));
+  animation: cl-respira 4.6s ease-in-out infinite alternate;
+}
+@keyframes cl-respira { from { opacity: 0.7; } to { opacity: 1; } }
 .cl-sombra {
   position: absolute; left: 4%; right: 4%; bottom: -9%; height: 16%;
-  background: radial-gradient(closest-side, rgba(42, 27, 34, 0.14), rgba(42, 27, 34, 0));
+  background: radial-gradient(closest-side, rgba(3, 5, 18, 0.4), rgba(3, 5, 18, 0));
+}
+.cl-faisca {
+  position: absolute; left: 50%; top: 60%;
+  width: calc(var(--cl-l) * 0.04); height: calc(var(--cl-l) * 0.04);
+  margin: calc(var(--cl-l) * -0.02) 0 0 calc(var(--cl-l) * -0.02);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 241, 214, 1) 0 16%, rgba(255, 180, 94, 0.85) 32%, rgba(255, 180, 94, 0) 70%);
+  visibility: hidden; opacity: 0; pointer-events: none;
 }
 .cl-forro { left: 0.5%; top: 0.5%; width: 99%; height: 99%; }
 .cl-frente, .cl-amarra { left: 0; top: 0; width: 100%; height: 100%; }
@@ -2086,12 +2317,12 @@ const ESTILO_LEVE = `
 .cl-papel {
   left: 5.5%; top: 5%; width: 89%; height: 84%;
   background: var(--papel);
-  box-shadow: 0 0 0 1px rgba(150, 128, 104, 0.18);
+  box-shadow: 0 0 0 1px rgba(169, 124, 53, 0.2), 0 0 18px rgba(255, 180, 94, 0.18);
   visibility: hidden;
 }
 .cl-papel::before, .cl-papel::after {
   content: ''; position: absolute; left: 0; right: 0; height: 1px;
-  background: rgba(120, 100, 80, 0.16);
+  background: rgba(169, 124, 53, 0.2);
   transition: opacity 0.6s;
 }
 .cl-papel::before { top: 33.3%; }
@@ -2158,9 +2389,10 @@ function desenhoLeve(lacre, amarracao, id, tema) {
   const forro = `<svg class="cl-forro" viewBox="0 0 ${LW} ${LH}" preserveAspectRatio="none" aria-hidden="true">
 <defs><pattern id="${id}-petalas" width="46" height="46" patternUnits="userSpaceOnUse">
 <rect width="46" height="46" fill="${COR_FORRO}"/>
-${petalaSvg(12, 13, 7, 25, 'rgba(120,6,32,0.35)')}
-${petalaSvg(33, 27, 6.2, -50, 'rgba(214,52,88,0.25)')}
-${petalaSvg(17, 36, 5.4, 140, 'rgba(120,6,32,0.28)')}
+${petalaSvg(12, 13, 7, 25, PETALAS_FORRO[0])}
+${petalaSvg(33, 27, 6.2, -50, PETALAS_FORRO[1])}
+${petalaSvg(17, 36, 5.4, 140, PETALAS_FORRO[2])}
+<circle cx="38" cy="8" r="0.9" fill="#f6dca6" fill-opacity="0.6"/><circle cx="5" cy="27" r="0.7" fill="#f6dca6" fill-opacity="0.5"/>
 </pattern></defs>
 <rect width="${LW}" height="${LH}" rx="3" fill="url(#${id}-petalas)"/>
 </svg>`;
@@ -2173,43 +2405,54 @@ ${petalaSvg(17, 36, 5.4, 140, 'rgba(120,6,32,0.28)')}
   const beiraAba = `M0 3L${CX - 22} ${AY - 14}Q${CX} ${AY + 4} ${CX + 22} ${AY - 14}L${LW} 3`;
   const abaCima = `M0 3Q0 0 3 0H${LW - 3}Q${LW} 0 ${LW} 3L${CX + 22} ${AY - 14}Q${CX} ${AY + 4} ${CX - 22} ${AY - 14}Z`;
 
+  // O lume: o papel aceso por dentro (claro no meio) e a beira quente, como numa
+  // lanterna de papel. Em coordenadas da carta, para a aba casar com o corpo.
+  const lume = (nome) => `<radialGradient id="${id}-${nome}" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1" gradientTransform="translate(${CX} ${Math.round(LH * 0.56)}) scale(${Math.round(LW * 0.62)} ${Math.round(LH * 0.66)})">
+<stop offset="0" stop-color="#fff6e2" stop-opacity="${url ? 0.22 : 0.6}"/><stop offset="0.55" stop-color="#fff6e2" stop-opacity="0"/>
+<stop offset="0.8" stop-color="#ffb45e" stop-opacity="0.1"/><stop offset="1" stop-color="#ff8a3d" stop-opacity="0.34"/></radialGradient>`;
+  const NOITE = '#03050f'; // sombra é noite, nunca preto puro
+
   const frente = `<svg class="cl-frente" viewBox="0 0 ${LW} ${LH}" aria-hidden="true">
 <defs>
-<linearGradient id="${id}-luz" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fbf8f3"/><stop offset="1" stop-color="#ebe3d6"/></linearGradient>
-<linearGradient id="${id}-luz2" x1="0.2" y1="0" x2="0.8" y2="1"><stop offset="0" stop-color="#fcfaf6"/><stop offset="1" stop-color="#efe8dc"/></linearGradient>
+<linearGradient id="${id}-luz" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fbf2de"/><stop offset="1" stop-color="#ecd8b4"/></linearGradient>
+<linearGradient id="${id}-luz2" x1="0.2" y1="0" x2="0.8" y2="1"><stop offset="0" stop-color="#f7ebd2"/><stop offset="1" stop-color="#e6cfa6"/></linearGradient>
+${lume('lume')}
 <clipPath id="${id}-boca"><path d="${bocaV}Z"/></clipPath>
 ${url ? `<pattern id="${id}-tema" width="${LW}" height="${LH}" patternUnits="userSpaceOnUse"><image href="${url}" width="${LW}" height="${LH}" preserveAspectRatio="none"/></pattern>` : ''}
 </defs>
-<g clip-path="url(#${id}-boca)" fill="none" stroke="#2a1b22">
-<path d="${bocaV}" stroke-width="22" stroke-opacity="0.07" transform="translate(1 -4)"/>
-<path d="${bocaV}" stroke-width="9" stroke-opacity="0.1" transform="translate(0.5 -1.5)"/>
+<g clip-path="url(#${id}-boca)" fill="none" stroke="${NOITE}">
+<path d="${bocaV}" stroke-width="22" stroke-opacity="0.14" transform="translate(1 -4)"/>
+<path d="${bocaV}" stroke-width="9" stroke-opacity="0.18" transform="translate(0.5 -1.5)"/>
 </g>
 <path d="${corpo}" fill="${pele('luz')}"/>
-<path d="M${CX} ${BY}V${FY + 2}" stroke="#b9ab96" stroke-width="1"/>
-<path d="${beiraFundo}" fill="none" stroke="#2a1b22" stroke-opacity="0.08" stroke-width="5"/>
+<path d="M${CX} ${BY}V${FY + 2}" stroke="#c9ae84" stroke-width="1"/>
+<path d="${beiraFundo}" fill="none" stroke="${NOITE}" stroke-opacity="0.12" stroke-width="5"/>
 <path d="${abaFundo}" fill="${pele('luz2')}"/>
-<g fill="none" stroke="#fff" stroke-width="1.2" stroke-opacity="${claro}" stroke-linecap="round">
+<path d="${corpo}" fill="url(#${id}-lume)"/>
+<g fill="none" stroke="#fff1d6" stroke-width="1.2" stroke-opacity="${claro}" stroke-linecap="round">
 <path d="M1.5 1L${CX} ${BY - 0.8}L${LW - 1.5} 1"/>
 <path d="${beiraFundo}" transform="translate(0 0.8)"/>
 </g>
-<g class="cl-sombra-aba" fill="none" stroke="#2a1b22" stroke-linejoin="round">
-<path d="${beiraAba}" stroke-width="10" stroke-opacity="0.06" transform="translate(1.5 3)"/>
-<path d="${beiraAba}" stroke-width="4" stroke-opacity="0.08" transform="translate(0.8 1.6)"/>
+<g class="cl-sombra-aba" fill="none" stroke="${NOITE}" stroke-linejoin="round">
+<path d="${beiraAba}" stroke-width="10" stroke-opacity="0.1" transform="translate(1.5 3)"/>
+<path d="${beiraAba}" stroke-width="4" stroke-opacity="0.13" transform="translate(0.8 1.6)"/>
 </g>
 </svg>`;
 
   const aba = `<svg class="cl-aba" viewBox="0 0 ${LW} ${Math.round(LH * 0.66875)}" aria-hidden="true">
-<defs><linearGradient id="${id}-aba" x1="0" y1="0" x2="0.25" y2="1"><stop offset="0" stop-color="#fdfbf7"/><stop offset="1" stop-color="#eee6d9"/></linearGradient></defs>
+<defs><linearGradient id="${id}-aba" x1="0" y1="0" x2="0.25" y2="1"><stop offset="0" stop-color="#f9eed6"/><stop offset="1" stop-color="#e9d3ac"/></linearGradient>
+${lume('lume-aba')}</defs>
 <g class="cl-aba-fora" visibility="visible">
 <path d="${abaCima}" fill="${pele('aba')}"/>
-<path d="M3 0.8H${LW - 3}" stroke="#2a1b22" stroke-opacity="0.06" stroke-width="1.6"/>
-<path d="${beiraAba}" fill="none" stroke="#2a1b22" stroke-opacity="0.12" stroke-width="1"/>
-<path d="${beiraAba}" fill="none" stroke="#fff" stroke-opacity="${claro}" stroke-width="1.2" transform="translate(0 -1)"/>
+<path d="${abaCima}" fill="url(#${id}-lume-aba)"/>
+<path d="M3 0.8H${LW - 3}" stroke="${NOITE}" stroke-opacity="0.1" stroke-width="1.6"/>
+<path d="${beiraAba}" fill="none" stroke="${NOITE}" stroke-opacity="0.16" stroke-width="1"/>
+<path d="${beiraAba}" fill="none" stroke="#fff1d6" stroke-opacity="${claro}" stroke-width="1.2" transform="translate(0 -1)"/>
 </g>
 <g class="cl-aba-dentro" visibility="hidden">
 <path d="${abaCima}" fill="url(#${id}-petalas)"/>
-<path d="${abaCima}" fill="#2a1b22" fill-opacity="0.12"/>
-<path d="${beiraAba}" fill="none" stroke="#ffd9dc" stroke-opacity="0.3" stroke-width="1.2"/>
+<path d="${abaCima}" fill="#ffb45e" fill-opacity="0.06"/>
+<path d="${beiraAba}" fill="none" stroke="#e9c27a" stroke-opacity="0.6" stroke-width="1.2"/>
 </g>
 </svg>`;
 
@@ -2218,7 +2461,9 @@ ${url ? `<pattern id="${id}-tema" width="${LW}" height="${LH}" patternUnits="use
   const T = n1(2.6 * r);
   const [c1, c2] = tema ? TEMAS[tema].cordao : [COR_CORDAO, '#9d0c1f'];
   const traco = `fill="none" stroke="url(#${id}-torcao)" stroke-width="${n1(2 * r)}" stroke-linecap="round" stroke-linejoin="round"`;
-  const sombraTraco = `fill="none" stroke="#2a1b22" stroke-opacity="0.08" stroke-width="${n1(3 * r)}" stroke-linecap="round" transform="translate(2 4)"`;
+  const sombraTraco = `class="cl-rastro" fill="none" stroke="${NOITE}" stroke-opacity="0.14" stroke-width="${n1(3 * r)}" stroke-linecap="round" transform="translate(2 4)"`;
+  // O fio brilha: um halo vermelho largo e fraco por baixo do traço.
+  const haloTraco = `class="cl-rastro" fill="none" stroke="#ff404e" stroke-opacity="0.16" stroke-width="${n1(6.5 * r)}" stroke-linecap="round" stroke-linejoin="round"`;
   const alca = (pts, justo) => curvaSvg(pts.map(([x, y]) => [CX + x * S * (justo ? 0.86 : 1), CY - y * S * (justo ? 0.9 : 1)]), true);
   const aberta = (pts) => curvaSvg(pts.map(([x, y]) => [CX + x * S, CY - y * S]));
 
@@ -2241,39 +2486,41 @@ ${url ? `<pattern id="${id}-tema" width="${LW}" height="${LH}" patternUnits="use
 </pattern></defs>
 <g class="cl-voltas">
 <path d="${[...voltas, ponta].join('')}" ${sombraTraco}/>
+<path d="${[...voltas, ponta].join('')}" ${haloTraco}/>
 ${voltas.map((v) => `<path class="cl-volta" d="${v}" ${traco}/>`).join('\n')}
 </g>
 ${ponta ? `<path class="cl-ponta" d="${ponta}" ${traco}/>` : ''}
 <g class="cl-laco">
 <path d="${laco.join('')}" ${sombraTraco}/>
+<path d="${laco.join('')}" ${haloTraco}/>
 ${laco.map((d) => `<path d="${d}" ${traco}/>`).join('\n')}
 <circle cx="${CX}" cy="${CY}" r="${n1(1.6 * r)}" fill="${c1}"/>
 <circle cx="${n1(CX - 0.5 * r)}" cy="${n1(CY - 0.6 * r)}" r="${n1(0.5 * r)}" fill="#fff" fill-opacity="0.25"/>
 </g>
 </svg>`;
 
-  // O selo é sempre vermelho (o gradiente não usa o tema), em duas metades pré-trincadas.
+  // O selo é sempre de cera de ouro (o vermelho cheio é só do fio), em duas metades pré-trincadas.
   let selo = null;
   if (lacre) {
     const m = MARCAS[lacre] || MARCAS.coracao;
     const metade = (corte) => `<g class="cl-metade" clip-path="url(#${id}-${corte})">
 <path d="${BLOB}" fill="url(#${id}-cera)"/>
-<circle r="21" fill="none" stroke="#6e0820" stroke-width="2.4" stroke-opacity="0.55"/>
-<circle r="21" fill="none" stroke="#e0526f" stroke-width="1" stroke-opacity="0.5" transform="translate(-0.8 -1)"/>
+<circle r="21" fill="none" stroke="#6e4d18" stroke-width="2.4" stroke-opacity="0.55"/>
+<circle r="21" fill="none" stroke="#fff0c8" stroke-width="1" stroke-opacity="0.55" transform="translate(-0.8 -1)"/>
 <g transform="scale(1.25)">
-<path d="${m}" fill="#f07a92" fill-opacity="0.7" transform="translate(-0.4 -0.6)"/>
-<path d="${m}" fill="#7a0a24" fill-opacity="0.6" transform="translate(0.6 0.9)"/>
-<path d="${m}" fill="#c11a42"/>
+<path d="${m}" fill="#fff3d0" fill-opacity="0.75" transform="translate(-0.4 -0.6)"/>
+<path d="${m}" fill="#6e4d18" fill-opacity="0.6" transform="translate(0.6 0.9)"/>
+<path d="${m}" fill="#c39446"/>
 </g>
-<ellipse cx="-12" cy="-16" rx="9" ry="4.5" fill="#fff" fill-opacity="0.22" transform="rotate(-32 -12 -16)"/>
+<ellipse cx="-12" cy="-16" rx="9" ry="4.5" fill="#fff6dc" fill-opacity="0.34" transform="rotate(-32 -12 -16)"/>
 </g>`;
     selo = `<svg class="cl-lacre" viewBox="-40 -40 80 80" aria-hidden="true">
 <defs>
-<radialGradient id="${id}-cera" cx="0.38" cy="0.34" r="0.75"><stop offset="0" stop-color="#c8183f"/><stop offset="0.6" stop-color="${COR_CERA}"/><stop offset="1" stop-color="#6d0820"/></radialGradient>
+<radialGradient id="${id}-cera" cx="0.38" cy="0.34" r="0.75"><stop offset="0" stop-color="#f6dca6"/><stop offset="0.55" stop-color="${COR_CERA}"/><stop offset="1" stop-color="#7d5a22"/></radialGradient>
 <clipPath id="${id}-corte-a"><path d="M-40-40H3L-3-20 5-8-4 4 4 17-2 40H-40Z"/></clipPath>
 <clipPath id="${id}-corte-b"><path d="M40-40H3L-3-20 5-8-4 4 4 17-2 40H40Z"/></clipPath>
 </defs>
-<path class="cl-sombra-lacre" d="${BLOB}" fill="#2a1b22" fill-opacity="0.18" transform="translate(2 4) scale(1.03)"/>
+<path class="cl-sombra-lacre" d="${BLOB}" fill="#03050f" fill-opacity="0.28" transform="translate(2 4) scale(1.03)"/>
 ${metade('corte-a')}
 ${metade('corte-b')}
 </svg>`;
@@ -2412,10 +2659,37 @@ function criarEnvelopeLeve(mundo, opcoes = {}) {
     })));
   }
 
+  /** Faíscas de ouro saem do lacre e sobem; com movimento reduzido, ficam paradas e só se apagam. */
+  function soltarFaiscas(largura) {
+    const l = largura || 300;
+    const rnd = semente(1223);
+    for (let i = 0; i < (reduzido ? 6 : 14); i++) {
+      const f = el('span', 'cl-faisca');
+      carta.append(f);
+      const a = rnd() * TAU;
+      const tam = 0.6 + 0.6 * rnd();
+      const vida = 1.1 + 0.8 * rnd();
+      const tl = gsap.timeline({ onComplete: () => f.remove() });
+      if (reduzido) {
+        gsap.set(f, { x: Math.cos(a) * 0.08 * l, y: Math.sin(a) * 0.05 * l, scale: tam });
+        tl.to(f, { autoAlpha: 1, duration: 0.25, ease: 'none' }).to(f, { autoAlpha: 0, duration: 0.8, ease: 'none' }, 0.5);
+      } else {
+        const forca = (0.12 + 0.3 * rnd()) * l;
+        tl.fromTo(f, { x: 0, y: 0, scale: tam }, {
+          x: Math.cos(a) * forca, y: Math.sin(a) * forca * 0.55 - (0.1 + 0.12 * rnd()) * l, scale: tam * 0.55,
+          duration: vida, ease: 'power3.out',
+        }, 0)
+          .to(f, { autoAlpha: 1, duration: 0.12, ease: 'none' }, 0)
+          .to(f, { autoAlpha: 0, duration: vida * 0.6, ease: 'power1.in' }, vida * 0.4);
+      }
+      guardar(tl);
+    }
+  }
+
   /**
-   * Abre a carta: o selo trinca em duas metades que caem, o laço se desfaz, as
-   * voltas escorregam, a aba vira mostrando o forro e o papel sobe. ~3,2 s.
-   * A segunda chamada resolve na hora.
+   * Abre a carta: o selo trinca em duas metades que caem (com faíscas de ouro),
+   * o laço se desfaz, as voltas escorregam, a aba vira mostrando o forro anil e
+   * o papel sobe. ~3,2 s. A segunda chamada resolve na hora.
    */
   function abrir() {
     if (env.aberto) return Promise.resolve({ papel });
@@ -2431,8 +2705,9 @@ function criarEnvelopeLeve(mundo, opcoes = {}) {
         if (descartado) return;
         avisar('lacre');
         const r = carta.getBoundingClientRect();
-        // Sempre 14: com movimento reduzido, as pétalas leves já tiram dois terços sozinhas.
-        mundo?.petalas?.rajada?.({ px: r.left + r.width / 2, py: r.top + r.height * 0.6 }, 14);
+        soltarFaiscas(r.width);
+        // Sempre 12: com movimento reduzido, as pétalas leves já tiram dois terços sozinhas.
+        mundo?.petalas?.rajada?.({ px: r.left + r.width / 2, py: r.top + r.height * 0.6 }, 12);
       }, null, 0.16);
 
     if (selo && reduzido) {
@@ -2453,7 +2728,7 @@ function criarEnvelopeLeve(mundo, opcoes = {}) {
       const origem = `${CX} ${CY}`;
       tl.to(q('.cl-laco'), { scaleX: 0.3, scaleY: 0.6, svgOrigin: origem, autoAlpha: 0, duration: 0.4, ease: 'power2.in' }, 0.4)
         .to(amarra, { scaleX: 1.04, scaleY: 1.06, duration: 0.35, ease: 'power2.out' }, 0.6)
-        .to(q('.cl-voltas > path'), { autoAlpha: 0, duration: 0.3, ease: 'none' }, 0.7);
+        .to(carta.querySelectorAll('.cl-voltas > .cl-rastro'), { autoAlpha: 0, duration: 0.3, ease: 'none' }, 0.7);
       // Cada volta escorrega para um lado, com um pequeno atraso entre elas.
       carta.querySelectorAll('.cl-volta').forEach((v, i) => {
         const lado = i % 2 ? 1 : -1;

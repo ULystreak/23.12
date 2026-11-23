@@ -1,10 +1,13 @@
 /* ============================================================================
-   HORA: o dia que passa enquanto ela lê
+   HORA: a noite que cai enquanto ela lê
    ============================================================================
-   A hora é uma posição numa linha só, de 0 (manhã) a 4 (noite). Cada ponto de
-   controle tem a sua paleta; entre dois vizinhos tudo é interpolado. Ir de uma
-   hora a outra é andar pela linha (sine.inOut, sem quina no começo nem no fim),
-   passando pelas horas do meio, nunca saltar.
+   A hora é uma posição numa linha só, de 0 a 4. Os nomes internos são os da
+   v1 (contrato), mas a luz é outra: manha = hora azul logo depois do pôr do
+   sol, lanternas apagadas; dia = as primeiras lanternas; entardecer = todas
+   acesas; crepusculo = noite; noite = noite estrelada com o cometa. Cada
+   ponto de controle tem a sua paleta; entre dois vizinhos tudo é
+   interpolado. Ir de uma hora a outra é andar pela linha (sine.inOut, sem
+   quina no começo nem no fim), passando pelas horas do meio, nunca saltar.
 
    ligarHora liga o diretor ao mundo pelo ROTEIRO (cena:etapa → hora e
    segundos). html[data-hora] muda só quando a hora mais próxima muda, nunca a
@@ -16,15 +19,18 @@ import { clamp, lerp } from '../nucleo/util.js';
 
 const HORAS = ['manha', 'dia', 'entardecer', 'crepusculo', 'noite'];
 
-// sRGB de 0 a 1. nevoa: o fundo do túnel; ceu: o alto; luz: multiplica tudo;
-// tarde: o escuro da figura dele; noite: estrelas e cometa (0..1); dens:
-// multiplica a névoa; petalas: a luz das pétalas da frente.
+// sRGB de 0 a 1. nevoa: o fundo do túnel; ceu: o alto; luz: a luz da hora
+// (multiplica tudo; a das lanternas soma por cima); tarde: o escuro da figura
+// dele; noite: o cometa e a noite da foto (0..1); dens: multiplica a névoa;
+// petalas: a luz das pétalas da frente; lanternas: a fração acesa (a frente
+// de luz anda de perto para longe); estrelas: quantas aparecem (as mais
+// fortes primeiro); veu: o véu violeta no horizonte.
 const PALETA = [
-  { nevoa: [0.925, 0.878, 0.902], ceu: [0.972, 0.962, 0.968], luz: [1, 1, 1], tarde: 0, noite: 0, dens: 1, petalas: [1, 1, 1] },
-  { nevoa: [0.95, 0.915, 0.895], ceu: [0.905, 0.945, 0.985], luz: [1.06, 1.03, 0.97], tarde: 0, noite: 0, dens: 0.92, petalas: [1, 1, 1] },
-  { nevoa: [0.76, 0.56, 0.575], ceu: [0.64, 0.5, 0.68], luz: [0.8, 0.615, 0.63], tarde: 0.55, noite: 0, dens: 1, petalas: [0.95, 0.84, 0.86] },
-  { nevoa: [0.5, 0.44, 0.58], ceu: [0.39, 0.35, 0.55], luz: [0.5, 0.47, 0.66], tarde: 0.93, noite: 0.12, dens: 1, petalas: [0.78, 0.72, 0.86] },
-  { nevoa: [0.095, 0.125, 0.255], ceu: [0.022, 0.036, 0.105], luz: [0.3, 0.37, 0.6], tarde: 1, noite: 1, dens: 1.08, petalas: [0.52, 0.5, 0.74] },
+  { nevoa: [0.27, 0.25, 0.47], ceu: [0.075, 0.105, 0.27], luz: [0.5, 0.52, 0.78], tarde: 0.6, noite: 0, dens: 0.95, petalas: [0.7, 0.66, 0.88], lanternas: 0, estrelas: 0.3, veu: 1 },
+  { nevoa: [0.22, 0.2, 0.4], ceu: [0.06, 0.085, 0.225], luz: [0.44, 0.45, 0.7], tarde: 0.72, noite: 0, dens: 1, petalas: [0.8, 0.68, 0.8], lanternas: 0.32, estrelas: 0.5, veu: 0.85 },
+  { nevoa: [0.17, 0.155, 0.32], ceu: [0.045, 0.065, 0.18], luz: [0.37, 0.38, 0.62], tarde: 0.85, noite: 0, dens: 1.02, petalas: [0.92, 0.74, 0.76], lanternas: 1, estrelas: 0.7, veu: 0.7 },
+  { nevoa: [0.13, 0.12, 0.26], ceu: [0.032, 0.046, 0.13], luz: [0.31, 0.32, 0.54], tarde: 0.95, noite: 0.12, dens: 1.04, petalas: [0.9, 0.72, 0.77], lanternas: 1, estrelas: 0.88, veu: 0.5 },
+  { nevoa: [0.1, 0.1, 0.22], ceu: [0.022, 0.032, 0.1], luz: [0.27, 0.29, 0.5], tarde: 1, noite: 1, dens: 1.06, petalas: [0.86, 0.71, 0.8], lanternas: 1, estrelas: 1, veu: 0.38 },
 ];
 
 // Enrolar e guardar o capítulo do filme dividem a mesma passagem: sendo o
@@ -85,6 +91,9 @@ export function estadoDaHora(p) {
     tarde: lerp(a.tarde, b.tarde, t),
     noite: lerp(a.noite, b.noite, t),
     dens: lerp(a.dens, b.dens, t),
+    lanternas: lerp(a.lanternas, b.lanternas, t),
+    estrelas: lerp(a.estrelas, b.estrelas, t),
+    veu: lerp(a.veu, b.veu, t),
   };
 }
 
@@ -173,7 +182,7 @@ export function pintarCometa(largura = 512, altura = 512) {
 /**
  * Cria `mundo.hora(alvo, { duracao = 4 })` → Promise, que leva a posição até
  * `alvo` (nome de HORAS ou número de 0 a 4). Sem argumento, devolve o nome da
- * hora atual. Pinta já a manhã e chama `aplicar(estado)` a cada passo.
+ * hora atual. Pinta já a hora azul e chama `aplicar(estado)` a cada passo.
  */
 export function criarHora(mundo, amb, aplicar) {
   const atual = { p: 0 };

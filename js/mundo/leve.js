@@ -11,10 +11,17 @@
    profundidades (longe, meio, perto) e o chão deitado. Nenhum filtro roda em
    tempo real. Rajadas e protagonistas são <i class="leve-solta"> do GSAP.
 
+   A noite: pétalas rosadas, aquecidas por baixo pela luz das lanternas, e
+   poucos vaga-lumes dourados (um sprite pintado uma vez). Eles respiram em
+   CSS (só opacidade e escala, 3 a 6 s); a deriva lenta e a fuga do dedo são
+   um transform escrito pelo laço, que no movimento reduzido não anda: lá eles
+   ficam parados e só respiram.
+
    A caminhada não move câmera: cada camada cresce a partir do horizonte no
    seu ritmo (a de perto muito, a de longe quase nada), enquanto a gêmea dela
    nasce lá atrás; a foto de js/mundo/fundo.js se aproxima junto. Não há
-   figura dele, foco nem luz da hora nas pétalas: só a foto recebe a hora.
+   figura dele nem foco; da hora, a foto recebe as camadas e os vaga-lumes
+   acendem junto com as lanternas.
 
    O CSS das pétalas vem daqui (style#estilo-mundo-leve, antes das folhas de
    css/), para o modo leve não depender de outro arquivo; css/mundo.css pode
@@ -45,11 +52,16 @@ const PASSO_BASE = 0.42; // m/s
 // metro andado, a profundidade que divide o balanço do passo e a espera da
 // chuva na abertura (s).
 const CAMADAS = {
-  longe: { n: 28, tamanho: [9, 17], queda: [17, 26], balanco: [4, 9], alfa: [0.42, 0.78], fim: [54, 70], deriva: [3, 8], avanco: 0.02, prof: 6, atraso: [0, 5.6] },
-  meio: { n: 17, tamanho: [22, 42], queda: [10.5, 15], balanco: [12, 22], alfa: [0.92, 1], fim: [84, 108], deriva: [7, 15], avanco: 0.085, prof: 2, atraso: [0, 5.6] },
-  perto: { n: 4, tamanho: [120, 200], queda: [7.5, 10.5], balanco: [18, 34], alfa: [0.7, 0.95], fim: [128, 136], deriva: [14, 26], avanco: 0.26, prof: 0.9, atraso: [2.2, 7] },
+  longe: { n: 20, tamanho: [9, 17], queda: [17, 26], balanco: [4, 9], alfa: [0.42, 0.78], fim: [54, 70], deriva: [3, 8], avanco: 0.02, prof: 6, atraso: [0, 5.6] },
+  meio: { n: 12, tamanho: [22, 42], queda: [10.5, 15], balanco: [12, 22], alfa: [0.92, 1], fim: [84, 108], deriva: [7, 15], avanco: 0.085, prof: 2, atraso: [0, 5.6] },
+  perto: { n: 3, tamanho: [120, 200], queda: [7.5, 10.5], balanco: [18, 34], alfa: [0.7, 0.95], fim: [128, 136], deriva: [14, 26], avanco: 0.26, prof: 0.9, atraso: [2.2, 7] },
 };
-const CHAO = { n: 24, avanco: 0.075, prof: 3.2 };
+const CHAO = { n: 18, avanco: 0.075, prof: 3.2 };
+
+// Vaga-lumes: quantos (num celular em pé), tamanho do sprite em px (o miolo é
+// ~1/8 dele), faixa de altura (fração da tela), deriva em px, período da
+// deriva e da respiração (s), e o raio e a força da fuga do dedo (px).
+const LUMES = { n: 10, tamanho: [16, 38], alto: [0.36, 0.92], deriva: [9, 24], vaga: [16, 30], respira: [2.8, 5.8], raio: 120, fuga: 0.9 };
 
 // As grandes e desfocadas que cruzam a tela na abertura (fração da tela; s).
 const PROTAGONISTAS = [
@@ -113,6 +125,24 @@ const ESTILO = `
 html:is([data-etapa="frases"], [data-etapa="carta-espera"], [data-etapa="carta-abrindo"], [data-etapa="mao-espera"], [data-etapa="desdobrando"], [data-etapa="escrevendo"], [data-etapa="fim"]) .leve-frente:not(.leve-soltas) { opacity: 0.1; }
 html.reduzido .leve-petala > b { animation: none; transform: rotate(var(--r0, -30deg)) scale(0.72, 1); }
 .leve-instante, .leve-instante * { transition: none !important; }
+.leve-lumes { position: absolute; inset: 0; pointer-events: none; transition: opacity 2.4s linear; }
+.leve-lume {
+  position: absolute; left: 0; top: 0;
+  width: var(--tam, 24px); height: var(--tam, 24px);
+  margin: calc(var(--tam, 24px) * -0.5) 0 0 calc(var(--tam, 24px) * -0.5);
+  will-change: transform;
+}
+.leve-lume > b {
+  display: block; width: 100%; height: 100%;
+  background-position: center; background-size: contain; background-repeat: no-repeat;
+  opacity: var(--alfa, 0.8);
+  animation: leve-respirar var(--respira, 4s) ease-in-out var(--fase, 0s) infinite alternate;
+}
+.leve-parado .leve-lume > b { animation-play-state: paused; }
+@keyframes leve-respirar {
+  from { opacity: calc(var(--alfa, 0.8) * 0.6); transform: scale(0.92); }
+  to { opacity: var(--alfa, 0.8); transform: scale(1.04); }
+}
 @keyframes leve-cair {
   0% { transform: translate3d(var(--x0), -12vh, 0); opacity: 0; }
   7% { opacity: var(--alfa, 1); }
@@ -136,7 +166,7 @@ function novaTela(tam) {
   return { tela, g };
 }
 
-/** A pétala em foco: base escura, margem viva, sombra do côncavo, luz do alto e nervura. */
+/** A pétala em foco, à noite: rosa que clareia na ponta, sombra anil do côncavo, luz de lanterna por baixo, margem acesa e nervura. */
 function pintarNitida(tam, contorno, noChao = false) {
   const { tela, g } = novaTela(tam);
   const forma = new Path2D(contorno);
@@ -147,7 +177,7 @@ function pintarNitida(tam, contorno, noChao = false) {
     // Sombra de contato mínima: a forma é desenhada fora da tela e só a sombra
     // deslocada cai dentro, um nada à direita e abaixo da pétala.
     g.save();
-    g.shadowColor = 'rgba(42, 27, 34, 0.2)';
+    g.shadowColor = 'rgba(3, 5, 18, 0.4)';
     g.shadowBlur = tam * 0.07;
     g.shadowOffsetX = tam * 3.03;
     g.shadowOffsetY = tam * 0.05;
@@ -162,30 +192,31 @@ function pintarNitida(tam, contorno, noChao = false) {
   g.translate(borda, borda);
   g.scale(k, k);
   const corpo = g.createLinearGradient(50, 92, 50, 8);
-  corpo.addColorStop(0, '#650920');
-  corpo.addColorStop(0.42, '#a01035');
-  corpo.addColorStop(1, '#cb1c4d');
+  corpo.addColorStop(0, '#a85f80');
+  corpo.addColorStop(0.45, '#d590ab');
+  corpo.addColorStop(1, '#efbfc9');
   g.fillStyle = corpo;
   g.fill(forma);
   g.clip(forma);
-  const concha = g.createRadialGradient(50, 62, 3, 50, 58, 40);
-  concha.addColorStop(0, 'rgba(66, 4, 22, 0.3)');
-  concha.addColorStop(1, 'rgba(66, 4, 22, 0)');
+  const concha = g.createRadialGradient(50, 58, 3, 50, 54, 40);
+  concha.addColorStop(0, 'rgba(36, 26, 72, 0.3)');
+  concha.addColorStop(1, 'rgba(36, 26, 72, 0)');
   g.fillStyle = concha;
   g.fillRect(0, 0, 100, 100);
-  const luz = g.createRadialGradient(34, 26, 2, 38, 34, 46);
-  luz.addColorStop(0, 'rgba(255, 156, 180, 0.36)');
-  luz.addColorStop(1, 'rgba(255, 156, 180, 0)');
+  // A luz das lanternas vem de baixo, quente.
+  const luz = g.createRadialGradient(52, 92, 2, 50, 80, 48);
+  luz.addColorStop(0, 'rgba(255, 190, 132, 0.42)');
+  luz.addColorStop(1, 'rgba(255, 190, 132, 0)');
   g.fillStyle = luz;
   g.fillRect(0, 0, 100, 100);
   g.beginPath();
   g.moveTo(50, 90);
   g.quadraticCurveTo(52.5, 55, 50, 20);
-  g.strokeStyle = 'rgba(78, 6, 26, 0.2)';
+  g.strokeStyle = 'rgba(96, 44, 86, 0.22)';
   g.lineWidth = 1.1;
   g.stroke();
-  // Só a metade de dentro do traço aparece (o recorte): a margem viva.
-  g.strokeStyle = 'rgba(238, 104, 136, 0.5)';
+  // Só a metade de dentro do traço aparece (o recorte): a margem acesa.
+  g.strokeStyle = 'rgba(255, 222, 200, 0.5)';
   g.lineWidth = 2.6;
   g.stroke(forma);
   g.restore();
@@ -214,8 +245,9 @@ function pintarMacia(tam, contorno, desfoque, alfa) {
     g.fill(forma);
     g.restore();
   };
-  passar(`rgba(204, 44, 84, ${alfa})`, tam * desfoque, 1);
-  passar(`rgba(160, 18, 56, ${alfa * 0.45})`, tam * desfoque * 0.9, 0.6);
+  // Fora de foco e perto do olho, a pétala fica na sombra: rosa escuro, miolo aquecido.
+  passar(`rgba(156, 92, 130, ${alfa})`, tam * desfoque, 1);
+  passar(`rgba(236, 160, 146, ${alfa * 0.35})`, tam * desfoque * 0.9, 0.6);
 
   // Navegador que não desenha a sombra deixaria a tela vazia: vale uma mancha radial.
   let veio = true;
@@ -226,13 +258,28 @@ function pintarMacia(tam, contorno, desfoque, alfa) {
   }
   if (!veio) {
     const r = g.createRadialGradient(tam / 2, tam / 2, 0, tam / 2, tam / 2, tam / 2);
-    r.addColorStop(0, `rgba(196, 40, 78, ${alfa})`);
-    r.addColorStop(0.45, `rgba(204, 52, 90, ${alfa * 0.7})`);
-    r.addColorStop(1, 'rgba(210, 60, 98, 0)');
+    r.addColorStop(0, `rgba(176, 108, 142, ${alfa})`);
+    r.addColorStop(0.45, `rgba(156, 92, 130, ${alfa * 0.7})`);
+    r.addColorStop(1, 'rgba(156, 92, 130, 0)');
     g.clearRect(0, 0, tam, tam);
     g.fillStyle = r;
     g.fillRect(0, 0, tam, tam);
   }
+  return tela.toDataURL('image/png');
+}
+
+/** O vaga-lume: miolo claro, halo de chama que some devagar (todo somado, como luz). */
+function pintarLume(tam) {
+  const { tela, g } = novaTela(tam);
+  const c = tam / 2;
+  const r = g.createRadialGradient(c, c, 0, c, c, c);
+  r.addColorStop(0, 'rgba(255, 248, 222, 1)');
+  r.addColorStop(0.1, 'rgba(246, 220, 166, 0.95)');
+  r.addColorStop(0.24, 'rgba(255, 180, 94, 0.42)');
+  r.addColorStop(0.55, 'rgba(255, 160, 80, 0.1)');
+  r.addColorStop(1, 'rgba(255, 160, 80, 0)');
+  g.fillStyle = r;
+  g.fillRect(0, 0, tam, tam);
   return tela.toDataURL('image/png');
 }
 
@@ -246,7 +293,7 @@ function injetarEstilo(id, texto, antes = null) {
   estilo.textContent = texto;
 }
 
-/** Pinta as dez imagens e devolve os índices de cada tipo, ou null sem canvas. */
+/** Pinta as onze imagens e devolve os índices de cada tipo, ou null sem canvas. */
 function prepararImagens() {
   const urls = [];
   const pintar = (fn) => {
@@ -267,12 +314,13 @@ function prepararImagens() {
     ...pintar(() => pintarMacia(224, CONTORNOS[1], 0.16, 0.58)),
   ];
   const chao = CONTORNOS.flatMap((c) => pintar(() => pintarNitida(128, c, true)));
+  const [lume = null] = pintar(() => pintarLume(64));
   if (!nitidas.length) return null;
 
   // :root dá à imagem mais peso que qualquer regra de forma (.leve-petala > b).
   injetarEstilo('estilo-petalas-leves', urls.map((u, i) => `:root .leve-s${i} { background-image: url("${u}"); }`).join('\n'));
   const ou = (lista) => (lista.length ? lista : nitidas);
-  return { nitidas, macias: ou(macias), manchas: ou(manchas), chao: ou(chao) };
+  return { nitidas, macias: ou(macias), manchas: ou(manchas), chao: ou(chao), lume };
 }
 
 /** Curva em S de `a` a `b`. */
@@ -376,6 +424,82 @@ export function criarMundoLeve({ amb, canvas, recipienteLeve, fundo = null }) {
     return par;
   }
 
+  /* ---- vaga-lumes ---- */
+
+  const lumes = []; // { no, x, y (fração da tela), ax, ay, wx, wy, f1, f2, fx, fy (fuga), t }
+  const camadaLumes = el('div', 'leve-lumes');
+  const dedo = { x: 0, y: 0, ate: -1 };
+  let luzLumes = '';
+
+  function novosLumes() {
+    const n = Math.max(4, Math.round(LUMES.n * clamp(Math.sqrt(area), 1, 1.8) * (amb?.nivel === 'baixo' ? 0.7 : 1)));
+    for (let k = 0; k < n; k++) {
+      const perto = sorte() ** 0.8; // 0: longe, alto, pequeno e fraco
+      const y = LUMES.alto[0] + perto * (LUMES.alto[1] - LUMES.alto[0]);
+      let x = entre(0.04, 0.96);
+      // Na faixa da frase e na dos botões o meio fica livre: um ponto de ouro
+      // atrás da letra disputaria com o luar dela.
+      if ((y < 0.56 || y > 0.74) && x > 0.28 && x < 0.72) x += x < 0.5 ? -0.24 : 0.24;
+      const respira = entre(LUMES.respira);
+      const i = el('i', 'leve-lume');
+      i.style.setProperty('--tam', `${((LUMES.tamanho[0] + perto * (LUMES.tamanho[1] - LUMES.tamanho[0])) * porte).toFixed(1)}px`);
+      const b = el('b', `leve-s${tipos.lume}`);
+      b.style.cssText = `--alfa:${(0.5 + perto * 0.45).toFixed(3)};--respira:${respira.toFixed(2)}s;--fase:${(-sorte() * respira * 2).toFixed(2)}s`;
+      i.append(b);
+      camadaLumes.append(i);
+      const amp = entre(LUMES.deriva) * (0.6 + perto * 0.4) * porte;
+      lumes.push({
+        no: i, x, y, ax: amp, ay: amp * entre(0.5, 0.9),
+        wx: (Math.PI * 2) / entre(LUMES.vaga), wy: (Math.PI * 2) / entre(LUMES.vaga),
+        f1: sorte() * 6.3, f2: sorte() * 6.3, fx: 0, fy: 0, t: '',
+      });
+    }
+  }
+
+  // A deriva é uma soma de senos lentos; a fuga empurra para a borda do raio do
+  // dedo e volta devagar. No reduzido eles só respiram, parados.
+  function moverLumes(dt, t) {
+    const vivo = !reduzido && t < dedo.ate;
+    for (const l of lumes) {
+      let x = l.x * innerWidth;
+      let y = l.y * innerHeight;
+      if (!reduzido) {
+        x += l.ax * (Math.sin(t * l.wx + l.f1) + 0.35 * Math.sin(t * l.wx * 2.3 + l.f2)) + balanco.x / 2;
+        y += l.ay * (Math.sin(t * l.wy + l.f2) + 0.35 * Math.sin(t * l.wy * 1.7 + l.f1)) + balanco.y / 2;
+        let alvoX = 0;
+        let alvoY = 0;
+        if (vivo) {
+          const dx = x - dedo.x;
+          const dy = y - dedo.y;
+          const d = Math.hypot(dx, dy);
+          if (d < LUMES.raio) {
+            const k = ((LUMES.raio - d) * LUMES.fuga) / Math.max(d, 1);
+            alvoX = dx * k;
+            alvoY = dy * k;
+          }
+        }
+        l.fx = amortecer(l.fx, alvoX, vivo ? 3 : 0.8, dt);
+        l.fy = amortecer(l.fy, alvoY, vivo ? 3 : 0.8, dt);
+        x += l.fx;
+        y += l.fy;
+      }
+      const s = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+      if (s !== l.t) {
+        l.t = s;
+        l.no.style.transform = s;
+      }
+    }
+  }
+
+  /** Os vaga-lumes acendem com as lanternas da hora, sem nunca sumir. */
+  function acenderLumes(e) {
+    const acesas = clamp(Number.isFinite(e?.lanternas) ? e.lanternas : (Number(e?.p) || 0) / 2);
+    const v = (0.4 + 0.6 * acesas).toFixed(2);
+    if (v === luzLumes) return;
+    luzLumes = v;
+    camadaLumes.style.opacity = v;
+  }
+
   const raiz = el('div', 'leve-mundo');
   const frente = el('div', 'leve-frente');
   const soltas = el('div', 'leve-frente leve-soltas');
@@ -391,7 +515,8 @@ export function criarMundoLeve({ amb, canvas, recipienteLeve, fundo = null }) {
     const meio = camada('meio');
     const perto = camada('perto');
     // A ordem dos filhos é a ordem de pintura: não reordene.
-    raiz.append(longe.b, longe.a, chao.b, chao.a, meio.b, meio.a);
+    if (tipos.lume !== null) novosLumes();
+    raiz.append(longe.b, longe.a, chao.b, chao.a, camadaLumes, meio.b, meio.a);
     frente.append(perto.b, perto.a);
   }
   // As soltas (rajadas e protagonistas) passam por cima da carta.
@@ -480,7 +605,7 @@ export function criarMundoLeve({ amb, canvas, recipienteLeve, fundo = null }) {
         duration: r.dura,
         ease: 'none',
       }, 0);
-      tl.fromTo(i, { autoAlpha: 0 }, { autoAlpha: 0.9, duration: r.dura * 0.16, ease: 'none' }, 0);
+      tl.fromTo(i, { autoAlpha: 0 }, { autoAlpha: 0.72, duration: r.dura * 0.16, ease: 'none' }, 0);
       tl.to(i, { autoAlpha: 0, duration: r.dura * 0.16, ease: 'none' }, r.dura * 0.84);
     }
   }
@@ -540,6 +665,7 @@ export function criarMundoLeve({ amb, canvas, recipienteLeve, fundo = null }) {
   const parado = () => !ligado || document.hidden;
 
   function pausar() {
+    raiz.classList.toggle('leve-parado', parado());
     for (const par of pares) {
       par.a.classList.toggle('parada', parado());
       if (andando) par.b.classList.toggle('parada', parado());
@@ -655,6 +781,7 @@ export function criarMundoLeve({ amb, canvas, recipienteLeve, fundo = null }) {
       deriva += (Math.hypot(PASSO_BASE, caminhada) - caminhada) * dt;
     }
     zAnterior = rig.position.z;
+    moverLumes(dt, tempo);
     for (const fn of ouvintes) {
       try {
         fn(dt, tempo);
@@ -684,6 +811,16 @@ export function criarMundoLeve({ amb, canvas, recipienteLeve, fundo = null }) {
     }
   }
   document.addEventListener('visibilitychange', atualizarLaco);
+
+  if (lumes.length && !reduzido) {
+    const tocar = (e) => {
+      dedo.x = e.clientX;
+      dedo.y = e.clientY;
+      dedo.ate = tempo + (e.pointerType === 'mouse' ? 0.4 : 0.8);
+    };
+    addEventListener('pointerdown', tocar, { passive: true });
+    addEventListener('pointermove', tocar, { passive: true });
+  }
 
   function ligar() {
     ligado = true;
@@ -778,8 +915,12 @@ export function criarMundoLeve({ amb, canvas, recipienteLeve, fundo = null }) {
     fundo,
   };
 
-  // Só a foto recebe a hora: as pétalas leves não têm luzDaHora.
-  criarHora(mundo, amb, (e) => fundo?.aplicarHora?.(e));
+  // A foto e os vaga-lumes recebem a hora; as pétalas leves não têm luzDaHora.
+  criarHora(mundo, amb, (e) => {
+    fundo?.aplicarHora?.(e);
+    acenderLumes(e);
+  });
+  moverLumes(0, 0);
   atualizarLaco();
   return mundo;
 }

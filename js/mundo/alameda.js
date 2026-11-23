@@ -1,16 +1,23 @@
 /* ============================================================================
-   ALAMEDA: o corredor de cerejeiras em flor, feito todo em código
+   ALAMEDA: o corredor de cerejeiras à noite, aceso por lanternas de papel
    ============================================================================
    Nenhum arquivo de modelo nem de imagem: as texturas (ruído fbm e Voronoi,
    atlas de flores pintado num canvas), as árvores (tubos recursivos e cartões
-   de flor instanciados), o salgueiro, o capim, os postes com corrente, as
-   sebes, o chão com caminho e lago, o céu, as pétalas no ar e o cometa.
+   de flor instanciados), o salgueiro, o capim, as sebes, o chão com caminho e
+   lago, o céu estrelado, as pétalas no ar, o cometa e as lanternas: baixas
+   em postes dos dois lados do caminho e em fieiras penduradas de copa a copa.
 
-   O corredor é infinito para a frente: árvores, postes, sebes e capim moram
-   em "vagas" pelo índice; só as vagas perto da câmera existem, e a névoa
-   esconde onde elas nascem. A mesma árvore volta sempre no mesmo lugar.
+   O corredor é infinito para a frente: árvores, lanternas, sebes e capim
+   moram em "vagas" pelo índice; só as vagas perto da câmera existem, e a
+   névoa esconde onde elas nascem. A mesma árvore volta sempre no mesmo lugar.
    Sem luz real, sem shadow map e sem pós-processamento: a luz é a da hora
-   (uLuz) e a sombra de contato é falsa.
+   (uLuz) somada à das lanternas, que o shader calcula pela posição analítica
+   delas (periódica ao longo do caminho, as duas vizinhas de cada fila). A
+   chama tem halo em sprite e a sombra de contato é falsa.
+
+   As lanternas se acendem de perto para longe: a frente de luz fica a
+   uLanternas × 62 m da câmera (o valor `lanternas` da hora), então a luz vai
+   sempre na frente dela. Cada chama respira devagar (3,6 a 5,5 s, ±10%).
 
    Passo de base: a alameda fica parada e a câmera anda. Os shaders trabalham
    em coordenadas da alameda (camA, viewA), que descontam `deriva` (o passeio
@@ -28,7 +35,6 @@ import { pintarCometa } from './hora.js';
 
 const MEIA_PISTA = 1.75; // o caminho tem 3,5 m
 const ESP_ARVORE = 4.6; // entre cerejeiras do mesmo lado
-const ESP_POSTE = 2.0;
 const ESP_SEBE = 2.6;
 const ESP_CAPIM = 2.3;
 const LAGO = 5.1; // margem do lago, a partir do meio do caminho
@@ -42,14 +48,28 @@ const SALGUEIRO_A_CADA = 38;
 const ATLAS = { colunas: 4, linhas: 2 };
 const LAD = { massas: [0, 1, 2], cachos: [3, 4, 7], salgueiro: 5, capim: 6 };
 
-// Cores em sRGB, sem conversão no shader. As das outras horas estão em hora.js.
-const NEVOA = [0.925, 0.878, 0.902]; // #ECE0E6
-const CEU = [0.972, 0.962, 0.968];
+// As lanternas baixas: cada lado tem uma a cada 4,6 m, no meio entre as
+// cerejeiras do mesmo lado (a da esquerda deslocada meio vão). As fieiras
+// atravessam o caminho a cada 9,2 m. Os shaders refazem estas contas para
+// achar a luz: mudar aqui muda lá (os números entram no GLSL).
+const ESP_LANTERNA = ESP_ARVORE;
+const LADO_LANTERNA = MEIA_PISTA + 0.22;
+const ALT_LANTERNA = 0.86; // o meio do papel
+const ESP_FIEIRA = 2 * ESP_ARVORE;
+const DESLOC_FIEIRA = 3.4;
+const ALT_FIEIRA = 2.95; // a altura média das penduradas, para a luz
+const MEIA_FIEIRA = 1.7; // as penduradas vão de −1,7 a 1,7 m do meio
 
-// Limites de instância. MAX_ARVORES, MAX_POSTES, os 12 vizinhos do chão e o
-// laço de 12 do FRAG_CHAO precisam combinar com ALCANCE e ATRAS.
+// Cores em sRGB, sem conversão no shader. A hora azul (as outras estão em hora.js).
+const NEVOA = [0.27, 0.25, 0.47];
+const CEU = [0.075, 0.105, 0.27];
+const NOITE = [0.043, 0.063, 0.149]; // --noite (#0b1026): a alameda surge dela
+
+// Limites de instância. MAX_ARVORES, MAX_LANTERNAS, os 12 vizinhos do chão e
+// o laço de 12 do FRAG_CHAO precisam combinar com ALCANCE e ATRAS.
 const MAX_ARVORES = 2 * Math.ceil((ATRAS + ALCANCE.alto) / ESP_ARVORE + 2); // 28 por variante
-const MAX_POSTES = 2 * Math.ceil((ATRAS + ALCANCE.alto) / ESP_POSTE + 2); // 60
+const MAX_LANTERNAS = 2 * Math.ceil((ATRAS + ALCANCE.alto) / ESP_LANTERNA + 2); // 28
+const MAX_FIEIRAS = Math.ceil((ATRAS + ALCANCE.alto) / ESP_FIEIRA + 2); // 8
 const MAX_SEBES = 48;
 const MAX_CAPIM = 40;
 const MAX_SALGUEIROS = 3;
@@ -694,7 +714,7 @@ function gerarCerejeira(THREE, s, nCartoes) {
     ex.normalize();
     const ey = V().crossVectors(ex, n).normalize(); // "cima" do cartão para o alto
     const v = Math.pow(rc(), 1.3);
-    const cor = [lerp(1.0, 0.97, v), lerp(0.965, 0.74, v), lerp(0.98, 0.85, v)];
+    const cor = [lerp(1.0, 0.98, v), lerp(0.92, 0.7, v), lerp(0.95, 0.82, v)];
     const alto = (c.y - ymin) / Math.max(1e-3, ymax - ymin);
     const fora = Math.hypot(c.x - cx, c.z - cz) / foraMax;
     const ao = clamp(0.06 + 0.5 * clamp(alto) + 0.22 * clamp(fora) + 0.26 * no.t + (rc() - 0.5) * 0.14);
@@ -776,70 +796,149 @@ function gerarCapim(THREE, s) {
   return geometriaDeCartoes(THREE, cartoes);
 }
 
-/** Junta partes (com ou sem índice) numa geometria só, sem índice. */
-function juntar(THREE, partes) {
+/**
+ * Junta partes numa geometria só, sem índice, com uv e o gancho de cada
+ * vértice: `em` é o ponto de onde a parte pende (o pêndulo gira em volta
+ * dele); sem `em`, o gancho é o próprio vértice e ele não balança. `sem`
+ * desencontra o balanço de cada lanterna.
+ */
+function montar(THREE, partes) {
   const pos = [];
   const nor = [];
-  for (const parte of partes) {
-    const g = parte.index ? parte.toNonIndexed() : parte;
-    for (const v of g.attributes.position.array) pos.push(v);
-    for (const v of g.attributes.normal.array) nor.push(v);
-    if (g !== parte) g.dispose();
-    parte.dispose();
+  const uv = [];
+  const gancho = [];
+  const sem = [];
+  for (const { geo, em, s = 0 } of partes) {
+    const g = geo.index ? geo.toNonIndexed() : geo;
+    const P = g.attributes.position;
+    const N = g.attributes.normal;
+    const T = g.attributes.uv;
+    for (let i = 0; i < P.count; i++) {
+      pos.push(P.getX(i), P.getY(i), P.getZ(i));
+      nor.push(N.getX(i), N.getY(i), N.getZ(i));
+      uv.push(T ? T.getX(i) : 0, T ? T.getY(i) : 0);
+      if (em) gancho.push(em[0], em[1], em[2]);
+      else gancho.push(P.getX(i), P.getY(i), P.getZ(i));
+      sem.push(s);
+    }
+    if (g !== geo) g.dispose();
+    geo.dispose();
   }
   const saida = new THREE.BufferGeometry();
   saida.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   saida.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  saida.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  saida.setAttribute('aGancho', new THREE.Float32BufferAttribute(gancho, 3));
+  saida.setAttribute('aSem', new THREE.Float32BufferAttribute(sem, 1));
   return saida;
 }
 
-/** O poste baixo de ferro: corpo, anel e cabeça. */
-function gerarPoste(THREE) {
-  return juntar(THREE, [
-    new THREE.CylinderGeometry(0.038, 0.046, 0.62, 10, 1, true).translate(0, 0.31, 0),
-    new THREE.CylinderGeometry(0.052, 0.052, 0.035, 10).translate(0, 0.47, 0),
-    new THREE.SphereGeometry(0.048, 10, 6, 0, Math.PI * 2, 0, 0.6 * Math.PI).translate(0, 0.585, 0),
+/**
+ * O corpo de papel (chōchin): um barril torneado de meia altura `hh`, mais
+ * largo no meio, com as bocas a meio raio (a tampa e a base escuras cobrem).
+ * O uv.y vai de 0 (embaixo) a 1 (em cima): o shader desenha as costelas por ele.
+ */
+function corpoDePapel(THREE, r, hh) {
+  const perfil = [];
+  for (let i = 0; i <= 10; i++) {
+    const t = i / 5 - 1;
+    perfil.push(new THREE.Vector2(r * (0.5 + 0.5 * Math.sqrt(Math.max(0, 1 - t * t))), t * hh));
+  }
+  return new THREE.LatheGeometry(perfil, 14);
+}
+
+/** Um quad de halo (−0,5..0,5) por centro; o shader o vira para a câmera. */
+function gerarHalos(THREE, centros) {
+  const pos = [];
+  const centro = [];
+  const sem = [];
+  const idx = [];
+  centros.forEach(([x, y, z, s], i) => {
+    for (const [a, b] of [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]]) {
+      pos.push(a, b, 0);
+      centro.push(x, y, z);
+      sem.push(s);
+    }
+    idx.push(4 * i, 4 * i + 1, 4 * i + 2, 4 * i, 4 * i + 2, 4 * i + 3);
+  });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('aCentro', new THREE.Float32BufferAttribute(centro, 3));
+  g.setAttribute('aSem', new THREE.Float32BufferAttribute(sem, 1));
+  g.setIndex(idx);
+  return g;
+}
+
+/** A lanterna baixa: poste de madeira escura, base, tampa e o corpo de papel. */
+function gerarLanterna(THREE) {
+  const r = 0.135;
+  const hh = 0.18;
+  const y = ALT_LANTERNA;
+  const madeira = montar(THREE, [
+    { geo: new THREE.CylinderGeometry(0.03, 0.04, y - hh, 8, 1, true).translate(0, (y - hh) / 2, 0) },
+    { geo: new THREE.CylinderGeometry(0.085, 0.1, 0.035, 14).translate(0, -0.012, 0) },
+    { geo: new THREE.CylinderGeometry(0.6 * r, 0.62 * r, 0.03, 14).translate(0, y - hh - 0.01, 0) },
+    { geo: new THREE.CylinderGeometry(0.42 * r, 0.7 * r, 0.05, 14).translate(0, y + hh + 0.02, 0) },
+    { geo: new THREE.SphereGeometry(0.018, 8, 4).translate(0, y + hh + 0.055, 0) },
   ]);
+  const papel = montar(THREE, [{ geo: corpoDePapel(THREE, r, hh).translate(0, y, 0) }]);
+  const halo = gerarHalos(THREE, [[0, y, 0, 0]]);
+  return { madeira, papel, halo };
 }
 
 /**
- * Um vão de corrente de 2 m ao longo de +x, com 47 elos: os ímpares deitados,
- * os pares em pé. Cada elo é um quad; o FRAG_FERRO recorta o anel.
+ * Uma fieira, de copa a copa ao longo de +x: a corda em catenária rasa (uma
+ * fita em pé, de frente para quem anda), cinco lanternas penduradas por
+ * cordões de comprimentos diferentes, cada uma com tampa e base.
  */
-function gerarCorrente(THREE) {
-  const N = 47;
-  const L = 2.0;
-  const lado = 0.052;
-  const pos = [];
-  const nor = [];
-  const uv = [];
-  const idx = [];
-  const y = (t) => 0.44 - 0.15 * (1 - (2 * t - 1) ** 2) - 0.012 * Math.sin(Math.PI * t);
-  const T = new THREE.Vector3();
-  const A = new THREE.Vector3();
-  const Nn = new THREE.Vector3();
+function gerarFieira(THREE) {
+  const L = 5.8;
+  const yCorda = (x) => 3.62 - 0.42 * (1 - (2 * x / L) ** 2);
+  const r = semente(4231);
+  const madeira = [];
+  const papel = [];
+  const halos = [];
+
+  const fita = (x0, y0, x1, y1, larg) => {
+    const dx = x1 - x0;
+    const dy = y1 - y0;
+    const c = Math.hypot(dx, dy) || 1;
+    const nx = (-dy / c) * larg / 2;
+    const ny = (dx / c) * larg / 2;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute([
+      x0 - nx, y0 - ny, 0, x1 - nx, y1 - ny, 0, x1 + nx, y1 + ny, 0,
+      x0 - nx, y0 - ny, 0, x1 + nx, y1 + ny, 0, x0 + nx, y0 + ny, 0,
+    ], 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(Array(18).fill(0).map((_, i) => (i % 3 === 2 ? 1 : 0)), 3));
+    return g;
+  };
+
+  const N = 24;
   for (let i = 0; i < N; i++) {
-    const t = (i + 0.5) / N;
-    const x = t * L;
-    const yy = y(t);
-    T.set(1, (y(t + 0.001) - y(t - 0.001)) / (0.002 * L), 0).normalize();
-    if (i % 2) A.set(0, 0, 1);
-    else A.set(-T.y, T.x, 0);
-    Nn.crossVectors(T, A).normalize();
-    const base = i * 4;
-    for (const [su, sv] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
-      pos.push(x + (T.x * su + A.x * sv) * lado / 2, yy + (T.y * su + A.y * sv) * lado / 2, (T.z * su + A.z * sv) * lado / 2);
-      nor.push(Nn.x, Nn.y, Nn.z);
-      uv.push((su + 1) / 2, (sv + 1) / 2);
-    }
-    idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    const x0 = -L / 2 + (L * i) / N;
+    const x1 = -L / 2 + (L * (i + 1)) / N;
+    madeira.push({ geo: fita(x0, yCorda(x0), x1, yCorda(x1), 0.014) });
   }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
-  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-  g.setIndex(idx);
-  return g;
+
+  for (let i = 0; i < 5; i++) {
+    const x = -MEIA_FIEIRA + (MEIA_FIEIRA / 2) * i + (r() - 0.5) * 0.16;
+    const yg = yCorda(x);
+    const cordao = 0.16 + 0.14 * r();
+    const rr = 0.095 + 0.02 * r();
+    const hh = rr * 1.3;
+    const yc = yg - cordao - hh;
+    const s = r();
+    const em = [x, yg, 0];
+    madeira.push(
+      { geo: fita(x, yg, x, yc + hh, 0.008), em, s },
+      { geo: new THREE.CylinderGeometry(0.45 * rr, 0.62 * rr, 0.03, 12).translate(x, yc + hh + 0.012, 0), em, s },
+      { geo: new THREE.CylinderGeometry(0.62 * rr, 0.5 * rr, 0.025, 12).translate(x, yc - hh - 0.01, 0), em, s },
+    );
+    papel.push({ geo: corpoDePapel(THREE, rr, hh).translate(x, yc, 0), em, s });
+    halos.push([x, yc, 0, s]);
+  }
+  return { madeira: montar(THREE, madeira), papel: montar(THREE, papel), halo: gerarHalos(THREE, halos) };
 }
 
 /** A sebe: esfera puxada para um superelipsoide, com calombos e a base achatada. */
@@ -887,16 +986,67 @@ uniform float uSurgir;
 uniform float uTempo;
 uniform vec3 uVao;
 uniform float uVaoZ;
+uniform float uLanternas;
+uniform float uVeu;
+
+const vec3 CHAMA = vec3(1.0, 0.64, 0.32);
+const vec3 VIOLETA = vec3(0.37, 0.26, 0.54);
+const vec3 NOITE = vec3(${NOITE.map((c) => c.toFixed(3)).join(', ')});
+
+// O fundo numa direção: do horizonte (névoa) ao alto (céu), o véu violeta
+// rente ao horizonte e, com as lanternas acesas, a névoa baixa aquecida.
+vec3 fundo(vec3 d) {
+  vec3 c = mix(uNevoa, uCeu, smoothstep(0.0, 0.55, d.y));
+  c = mix(c, VIOLETA, (1.0 - smoothstep(0.0, 0.3, abs(d.y - 0.05))) * uVeu * 0.42);
+  return c + CHAMA * (0.07 * uLanternas) * (1.0 - smoothstep(-0.05, 0.18, d.y));
+}
 
 // Névoa exponencial com expoente 1,45: 0,26 a 10 m, 0,55 a 20 m, 0,93 a 45 m.
 vec3 nevoar(vec3 c, vec3 d) {
   float dist = length(d);
   float f = 1.0 - exp(-pow(dist * uDens, 1.45));
-  vec3 nc = mix(uNevoa, uCeu, smoothstep(0.0, 0.55, d.y / max(dist, 0.001)));
-  return mix(c, nc, f);
+  return mix(c, fundo(d / max(dist, 0.001)), f);
 }
-vec3 tardar(vec3 c) { return c * uLuz; }
-vec3 acabar(vec3 c) { return mix(vec3(1.0), c, uSurgir); }
+vec3 aquecer(vec3 c, vec3 q) { return c * (uLuz + q); }
+vec3 acabar(vec3 c) { return mix(NOITE, c, uSurgir); }
+
+/* A luz das lanternas, sem luz real. A frente acesa fica a uLanternas × 62 m
+   da câmera e cada lanterna leva 6 m de caminho para acender inteira. */
+float acesa(float z) {
+  float x = clamp((uLanternas * 62.0 - max(0.0, camA.z - z)) / 6.0, 0.0, 1.0);
+  return x * x * (3.0 - 2.0 * x);
+}
+// Respira devagar: 3,6 a 5,5 s por ciclo, ±10%. Nada pisca.
+float respira(float s) { return 0.9 + 0.1 * sin(uTempo * (1.15 + 0.6 * s) + 37.0 * s); }
+float semLanterna(float z, float lado) { return fract(z * 0.1344 + lado * 0.31); }
+float poca(vec3 d, float r2) {
+  float q = 1.0 + dot(d, d) / r2;
+  return 1.0 / (q * q);
+}
+vec3 luzQuente(vec3 p) {
+  if (uLanternas < 0.001) return vec3(0.0);
+  float soma = 0.0;
+  // As baixas: as duas vizinhas de cada lado.
+  for (int i = 0; i < 2; i++) {
+    float lado = float(i) * 2.0 - 1.0;
+    float desl = lado < 0.0 ? ${(ESP_LANTERNA / 2).toFixed(3)} : 0.0;
+    float k0 = floor((-p.z - desl) / ${ESP_LANTERNA.toFixed(3)});
+    for (int j = 0; j < 2; j++) {
+      float z = -((k0 + float(j)) * ${ESP_LANTERNA.toFixed(3)} + desl);
+      vec3 q = vec3(centro(z) + lado * ${LADO_LANTERNA.toFixed(3)}, ${ALT_LANTERNA.toFixed(3)}, z);
+      soma += 2.6 * poca(p - q, 1.4) * acesa(z) * respira(semLanterna(z, lado));
+    }
+  }
+  // As fieiras: um segmento de luz sobre o caminho, as duas vizinhas.
+  float f0 = floor((-p.z - ${DESLOC_FIEIRA.toFixed(3)}) / ${ESP_FIEIRA.toFixed(3)});
+  for (int j = 0; j < 2; j++) {
+    float z = -((f0 + float(j)) * ${ESP_FIEIRA.toFixed(3)} + ${DESLOC_FIEIRA.toFixed(3)});
+    float cx = centro(z);
+    vec3 q = vec3(clamp(p.x, cx - ${MEIA_FIEIRA.toFixed(3)}, cx + ${MEIA_FIEIRA.toFixed(3)}), ${ALT_FIEIRA.toFixed(3)}, z);
+    soma += 1.7 * poca(p - q, 1.6) * acesa(z);
+  }
+  return CHAMA * soma;
+}
 
 // O vão em volta da linha dos olhos: nada passa a menos de uVao.z do olhar.
 // O pé do tronco fica no lugar, e o efeito só vale perto da câmera.
@@ -990,11 +1140,11 @@ void main() {
   float jx = min(fract(lx), 1.0 - fract(lx)) * 0.7;
   float j = min(jz, jx);
   float junta = 1.0 - smoothstep(0.006, 0.006 + fwidth(j) * 1.5 + 0.002, j);
-  vec3 pedra = vec3(0.87, 0.83, 0.81) * (0.94 + 0.1 * hash12(vec2(fila, floor(lx)))) * (0.9 + 0.14 * nC.r);
-  pedra = mix(pedra, vec3(0.6, 0.55, 0.57), junta * 0.75);
+  vec3 pedra = vec3(0.72, 0.69, 0.7) * (0.94 + 0.1 * hash12(vec2(fila, floor(lx)))) * (0.9 + 0.14 * nC.r);
+  pedra = mix(pedra, vec3(0.42, 0.38, 0.42), junta * 0.75);
   float chance = 0.08 + 0.3 * smoothstep(W - 0.6, W, adx);
   pedra = mix(pedra, vec3(0.98, 0.85, 0.9), step(1.0 - chance, nC.b) * smoothstep(0.25, 0.45, nC.a));
-  vec3 guia = vec3(0.92, 0.89, 0.87) * (0.92 + 0.1 * nC.g);
+  vec3 guia = vec3(0.8, 0.76, 0.76) * (0.92 + 0.1 * nC.g);
   vec3 piso = mix(pedra, guia, smoothstep(W - aa, W + aa, adx));
   cor = mix(piso, cor, smoothstep(W + 0.12 - aa, W + 0.12 + aa, adx));
 
@@ -1005,14 +1155,14 @@ void main() {
   float lago = dx - (${LAGO.toFixed(2)} + (nA.g - 0.5) * 1.5);
   float margem = smoothstep(-0.8, -0.15, lago);
   cor = mix(cor, cor * vec3(0.72, 0.7, 0.74), smoothstep(-1.4, -0.6, lago) * (1.0 - margem));
-  cor = tardar(cor);
+  cor = aquecer(cor, luzQuente(vW));
   float rasante = 1.0 - clamp(-V.y, 0.0, 1.0);
   float fresnel = 0.15 + 0.85 * pow(rasante, 5.0);
   float elev = -V.y + (nC.r - 0.5) * 0.03;
   float topo = 0.09 + 0.13 * nA.b;
-  vec3 ceuRef = mix(uNevoa, uCeu, smoothstep(-0.02, 0.55, elev));
-  vec3 copaRef = mix(uNevoa, vec3(0.97, 0.84, 0.9) * uLuz, 0.6);
-  vec3 agua = mix(vec3(0.3, 0.34, 0.4) * uLuz, mix(copaRef, ceuRef, smoothstep(topo - 0.04, topo + 0.06, elev)), fresnel);
+  vec3 ceuRef = fundo(normalize(vec3(V.x, max(elev, 0.0), V.z)));
+  vec3 copaRef = mix(uNevoa, vec3(0.97, 0.8, 0.88) * (uLuz + CHAMA * 0.35 * uLanternas), 0.6);
+  vec3 agua = mix(vec3(0.16, 0.18, 0.26) * uLuz, mix(copaRef, ceuRef, smoothstep(topo - 0.04, topo + 0.06, elev)), fresnel);
   cor = mix(cor, agua, margem);
 
   cor = nevoar(cor, dv);
@@ -1028,12 +1178,14 @@ varying vec3 vW;
 varying vec3 vN;
 varying vec2 vUv;
 varying float vAo;
+varying vec3 vQuente;
 void main() {
   mat4 m = modelMatrix * instanceMatrix;
   vec4 w = m * vec4(position, 1.0);
   float s = fract(m[3].x * 0.731 + m[3].z * 0.197);
   w.xyz = abrirVao(vento(w.xyz, aFlex, uVento, s));
   vW = w.xyz;
+  vQuente = luzQuente(w.xyz);
   vN = normalize(mat3(m) * normal);
   vUv = uv;
   vAo = aAo;
@@ -1051,6 +1203,7 @@ varying vec3 vW;
 varying vec3 vN;
 varying vec2 vUv;
 varying float vAo;
+varying vec3 vQuente;
 void main() {
   vec3 dv = vW - camA;
   float d = length(dv);
@@ -1078,7 +1231,7 @@ void main() {
   float lado = 0.85 + 0.25 * max(dot(n, normalize(vec3(-0.3, 0.4, 0.8))), 0.0);
   cor = cor * ceu * lado + vec3(0.075, 0.04, 0.055) * max(-n.y, 0.0) * vAo;
   cor = mix(cor, cor * vec3(1.15, 0.95, 1.12) + vec3(0.04, 0.02, 0.04), smoothstep(2.5, 4.5, vW.y) * 0.6);
-  cor = nevoar(tardar(cor), dv);
+  cor = nevoar(aquecer(cor, vQuente), dv);
 #ifdef SEM_COBERTURA
   if (perto < pontilhado()) discard;
 #else
@@ -1103,9 +1256,11 @@ varying vec3 vW;
 varying vec3 vN;
 varying float vAo;
 varying float vFlor;
+varying vec3 vQuente;
 void main() {
   mat4 m = modelMatrix * instanceMatrix;
   vec3 c = (m * vec4(aCentro, 1.0)).xyz;
+  vQuente = luzQuente(c);
   vec3 p = (m * vec4(position, 1.0)).xyz;
   float esc = length(m[0].xyz);
   vec3 direita = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
@@ -1135,6 +1290,7 @@ varying vec3 vW;
 varying vec3 vN;
 varying float vAo;
 varying float vFlor;
+varying vec3 vQuente;
 void main() {
   vec4 t = texture2D(uFlor, vUv);
   t.rgb = mix(t.rgb, t.rgb / max(t.a, 0.001), smoothstep(0.12, 0.55, t.a));
@@ -1154,9 +1310,11 @@ void main() {
   vec3 sombra = mix(vec3(0.5, 0.56, 0.46), vec3(0.66, 0.47, 0.6), vFlor);
   vec3 claro = mix(vec3(1.0, 1.02, 0.98), vec3(1.05, 1.03, 1.04), vFlor);
   cor *= mix(sombra, claro, vAo);
+  // A noite vem de cima, fraca; a chama vem de baixo: a face que olha para o
+  // chão é a que mais se acende.
   float ceu = clamp(n.y * 0.5 + 0.5, 0.0, 1.0);
-  cor = mix(cor, mix(cor, mix(vec3(0.92, 0.97, 0.9), vec3(1.0, 0.96, 0.975), vFlor), 0.6), ceu * 0.55);
-  cor = nevoar(tardar(cor), dv);
+  vec3 luz = uLuz * (0.62 + 0.38 * ceu) + vQuente * (1.25 - 0.6 * ceu);
+  cor = nevoar(cor * luz, dv);
   gl_FragColor = vec4(acabar(cor), a);
 }
 `;
@@ -1164,41 +1322,135 @@ void main() {
 const VERT_SIMPLES = /* glsl */ `
 varying vec3 vW;
 varying vec3 vN;
-#ifdef COM_UV
-varying vec2 vUv;
-#endif
+varying vec3 vQuente;
 void main() {
   mat4 m = modelMatrix * instanceMatrix;
   vec4 w = m * vec4(position, 1.0);
   vN = normalize(mat3(m) * normal);
-#ifdef COM_UV
-  vUv = uv;
-#endif
   vW = w.xyz;
+  vQuente = luzQuente(w.xyz);
   gl_Position = projectionMatrix * viewA * w;
 }
 `;
 
-// Postes e elos de ferro escuro, com brilho rasante e no alto.
-const FRAG_FERRO = /* glsl */ `
+// As lanternas: a origem da instância é o pé da baixa ou o meio da fieira.
+// PENDURADA: cada parte gira em volta do seu gancho, um pêndulo de ±2° em
+// dois eixos com períodos de 4,2 a 6,2 s (uBalanco 0 no movimento reduzido).
+const VERT_LANTERNA = /* glsl */ `
+attribute vec3 aGancho;
+attribute float aSem;
+uniform float uBalanco;
 varying vec3 vW;
 varying vec3 vN;
-#ifdef COM_UV
 varying vec2 vUv;
-#endif
+varying float vAcesa;
+varying vec3 vQuente;
 void main() {
-#ifdef ELO
-  vec2 q = (vUv - 0.5) * vec2(1.0, 1.55);
-  if (abs(length(q) - 0.36) > 0.12) discard;
+  mat4 m = modelMatrix * instanceMatrix;
+  vec3 p = position;
+  vec3 nl = normal;
+#ifdef PENDURADA
+  float fase = aSem * 6.2832 + m[3].z * 0.37;
+  float a = uBalanco * 0.035 * sin(uTempo * 6.2832 / (4.2 + 2.0 * aSem) + fase);
+  float b = uBalanco * 0.022 * sin(uTempo * 6.2832 / (5.2 + 1.0 * aSem) + 1.7 * fase);
+  mat3 ra = mat3(1.0, 0.0, 0.0, 0.0, cos(a), sin(a), 0.0, -sin(a), cos(a));
+  mat3 rb = mat3(cos(b), sin(b), 0.0, -sin(b), cos(b), 0.0, 0.0, 0.0, 1.0);
+  p = aGancho + rb * ra * (p - aGancho);
+  nl = rb * ra * nl;
+  float sem = fract(m[3].z * 0.217 + aSem);
+#else
+  float sem = semLanterna(m[3].z, sign(m[3].x - centro(m[3].z)));
 #endif
+  vec4 w = m * vec4(p, 1.0);
+  vW = w.xyz;
+  vN = normalize(mat3(m) * nl);
+  vUv = uv;
+  vAcesa = acesa(m[3].z) * respira(sem);
+  vQuente = luzQuente(w.xyz);
+  gl_Position = projectionMatrix * viewA * w;
+}
+`;
+
+// Madeira escura laqueada: a luz é a da hora e a da chama mais perto (que,
+// no poste, é a da própria lanterna), com um fio de brilho rasante.
+const FRAG_MADEIRA = /* glsl */ `
+varying vec3 vW;
+varying vec3 vN;
+varying vec3 vQuente;
+void main() {
   vec3 dv = vW - camA;
   vec3 V = -dv / max(length(dv), 0.001);
   vec3 n = normalize(vN);
   if (dot(n, V) < 0.0) n = -n;
-  float ceu = n.y * 0.5 + 0.5;
   float fr = 1.0 - abs(dot(n, V));
-  vec3 cor = vec3(0.07, 0.065, 0.075) * (0.7 + 0.5 * ceu) + vec3(0.5, 0.47, 0.5) * (0.55 * fr * fr * fr + 0.25 * pow(max(n.y, 0.0), 6.0));
-  gl_FragColor = vec4(acabar(nevoar(tardar(cor), dv)), 1.0);
+  vec3 cor = vec3(0.12, 0.08, 0.065) * (0.7 + 0.3 * (n.y * 0.5 + 0.5));
+  cor = aquecer(cor, vQuente) + (uLuz * 0.12 + vQuente * 0.1) * fr * fr * fr;
+  gl_FragColor = vec4(acabar(nevoar(cor, dv)), 1.0);
+}
+`;
+
+// O papel: apagado, é washi pálido na luz da hora; aceso, o miolo (onde o
+// papel fica de frente) clareia quase a branco e as bordas ficam cor de
+// chama; as costelas de bambu fazem as linhas. A chama fura um pouco a névoa.
+const FRAG_PAPEL = /* glsl */ `
+varying vec3 vW;
+varying vec3 vN;
+varying vec2 vUv;
+varying float vAcesa;
+void main() {
+  vec3 dv = vW - camA;
+  float d = length(dv);
+  vec3 n = normalize(vN);
+  float frente = abs(dot(n, dv / max(d, 0.001)));
+  float alt = vUv.y * 2.0 - 1.0;
+  float costela = (1.0 - smoothstep(0.0, 0.22, abs(sin(alt * 14.137)))) * (1.0 - smoothstep(3.0, 11.0, d));
+  float pontas = smoothstep(0.6, 1.0, abs(alt));
+  vec3 apagada = vec3(0.93, 0.88, 0.78) * uLuz * (0.5 + 0.4 * frente) * (1.0 - 0.3 * costela);
+  vec3 chama = mix(vec3(1.0, 0.55, 0.22), vec3(1.0, 0.9, 0.7), frente * frente) * (1.28 - 0.5 * pontas) * (1.0 - 0.4 * costela);
+  vec3 cor = mix(apagada, chama, clamp(vAcesa * 1.1, 0.0, 1.0));
+  float f = 1.0 - exp(-pow(d * uDens * mix(1.0, 0.72, vAcesa), 1.45));
+  cor = mix(cor, fundo(dv / max(d, 0.001)), f);
+  gl_FragColor = vec4(acabar(cor), 1.0);
+}
+`;
+
+// O halo de cada chama: um quad virado para a câmera, somado por cima. Some
+// na névoa e perto do olho (não vira um borrão do tamanho da tela).
+const VERT_HALO = /* glsl */ `
+attribute vec3 aCentro;
+attribute float aSem;
+uniform float uTam;
+varying vec2 vQ;
+varying float vBrilho;
+void main() {
+  mat4 m = modelMatrix * instanceMatrix;
+  vec3 c = (m * vec4(aCentro, 1.0)).xyz;
+  vec3 direita = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
+  vec3 cima = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
+  vec3 p = c + (direita * position.x + cima * position.y) * uTam;
+  vQ = position.xy * 2.0;
+  float d = length(c - camA);
+  float f = 1.0 - exp(-pow(d * uDens * 0.8, 1.45));
+#ifdef PENDURADA
+  float sem = fract(m[3].z * 0.217 + aSem);
+#else
+  float sem = semLanterna(m[3].z, sign(m[3].x - centro(m[3].z)));
+#endif
+  vBrilho = acesa(m[3].z) * respira(sem) * (1.0 - f) * smoothstep(0.6, 1.8, d) * uSurgir;
+  gl_Position = projectionMatrix * viewA * vec4(p, 1.0);
+}
+`;
+
+const FRAG_HALO = /* glsl */ `
+uniform float uForca;
+varying vec2 vQ;
+varying float vBrilho;
+void main() {
+  float r2 = dot(vQ, vQ);
+  float a = (0.55 * exp(-r2 * 9.0) + 0.45 * exp(-r2 * 2.6)) * (1.0 - smoothstep(0.5, 1.0, r2));
+  vec3 cor = CHAMA * (a * vBrilho * uForca);
+  if (cor.r < 0.002) discard;
+  gl_FragColor = vec4(cor, 1.0);
 }
 `;
 
@@ -1208,6 +1460,7 @@ const FRAG_ARBUSTO = /* glsl */ `
 uniform sampler2D uRuido;
 varying vec3 vW;
 varying vec3 vN;
+varying vec3 vQuente;
 void main() {
   vec3 n = normalize(vN);
   vec3 an = abs(n);
@@ -1226,7 +1479,7 @@ void main() {
   cor = mix(cor, vec3(0.93, 0.76, 0.84), petala);
   float ceu = 0.45 + 0.55 * (n.y * 0.5 + 0.5);
   float lado = 0.85 + 0.25 * max(dot(n, normalize(vec3(-0.3, 0.4, 0.8))), 0.0);
-  cor = nevoar(tardar(cor * ceu * lado), dv);
+  cor = nevoar(aquecer(cor * ceu * lado, vQuente), dv);
   float a = smoothstep(0.0, 0.25, abs(dot(n, V)) + (folha.r - 0.5) * 0.35 * fino);
 #ifdef SEM_COBERTURA
   if (a < 0.5) discard;
@@ -1250,28 +1503,37 @@ void main() {
 }
 `;
 
+// Estrelas pequenas e nítidas: uma por célula sorteada. O raio nunca fica
+// abaixo de ~1 px (px), e o brilho cai na mesma conta: nada cintila de
+// serrilhado. As mais fortes aparecem primeiro conforme uEstrelas sobe, e
+// todas respiram devagar (7 a 18 s), sem piscar.
 const FRAG_CEU = /* glsl */ `
+uniform float uEstrelas;
 varying vec3 vW;
+float estrela(vec2 uv, float chance, float raio, float px) {
+  vec2 cel = floor(uv);
+  float h1 = hash12(cel);
+  if (h1 < 1.0 - chance) return 0.0;
+  float h2 = hash12(cel + 17.3);
+  vec2 lugar = vec2(hash12(cel + 3.1), hash12(cel + 7.7)) * 0.7 + 0.15;
+  float r = length(uv - cel - lugar);
+  float re = max(raio, 1.1 * px);
+  float forca = fract(13.1 * h1);
+  float ver = clamp((uEstrelas * 1.3 - (1.0 - forca)) * 3.0, 0.0, 1.0);
+  float respiro = 0.84 + 0.16 * sin(uTempo * (0.35 + 0.5 * h2) + 40.0 * h1);
+  float nucleo = 1.0 - smoothstep(0.0, re, r);
+  float halo = 1.0 - smoothstep(0.0, 3.5 * re, r);
+  return (nucleo + 0.16 * halo * halo) * (raio * raio) / (re * re) * (0.35 + 0.65 * forca) * ver * respiro;
+}
 void main() {
   vec3 d = normalize(vW - camA);
-  vec3 cor = mix(uNevoa, uCeu, smoothstep(-0.02, 0.55, d.y));
-  // Faixa rosada no horizonte, para o fundo do caminho; mais forte à tarde.
-  // smoothstep com a borda de baixo maior que a de cima é indefinido em GLSL:
-  // a rampa invertida vai por 1 − smoothstep.
-  float faixa = (1.0 - smoothstep(0.0, 0.22, abs(d.y - 0.04))) * (1.0 - smoothstep(-0.8, 0.1, d.z));
-  cor = mix(cor, cor * vec3(1.04, 0.95, 0.99) + vec3(0.02, 0.0, 0.01), faixa * (0.35 + 0.65 * uTarde) * (1.0 - uNoite) * 0.6);
-  if (uNoite > 0.01) {
-    vec2 uv = d.xz / max(d.y + 0.4, 0.05) * 22.0;
-    vec2 cel = floor(uv);
-    float h1 = hash12(cel);
-    if (h1 >= 0.5) {
-      float h2 = hash12(cel + 17.3);
-      vec2 lugar = vec2(hash12(cel + 3.1), hash12(cel + 7.7)) * 0.7 + 0.15;
-      float r = length(uv - cel - lugar);
-      float brilho = 0.3 + 0.7 * fract(13.1 * h1);
-      float pisca = 0.72 + 0.28 * sin(uTempo * (0.7 + 2.0 * h2) + 40.0 * h1);
-      cor += vec3(1.0, 0.97, 0.92) * (1.0 - smoothstep(0.0, 0.085, r)) * brilho * pisca * smoothstep(0.0, 0.2, d.y) * uNoite;
-    }
+  vec3 cor = fundo(d);
+  vec2 uv = d.xz / max(d.y + 0.4, 0.05) * 22.0;
+  float px = max(fwidth(uv.x), fwidth(uv.y));
+  if (uEstrelas > 0.01) {
+    float alto = smoothstep(0.03, 0.24, d.y);
+    float e = estrela(uv, 0.5, 0.065, px) + 0.55 * estrela(uv * 2.7 + 3.7, 0.4, 0.05, px * 2.7);
+    cor += vec3(1.0, 0.96, 0.9) * e * alto;
   }
   cor += (hash12(gl_FragCoord.xy) - 0.5) / 255.0;
   gl_FragColor = vec4(acabar(cor), 1.0);
@@ -1289,6 +1551,7 @@ varying float vAlfa;
 varying float vRot;
 varying float vLarg;
 varying vec3 vW;
+varying vec3 vQuente;
 void main() {
   float t = uTempo * uQueda;
   vec3 base = camA + vec3(-4.5, -1.4, -14.76);
@@ -1303,6 +1566,7 @@ void main() {
   vRot = t * (0.6 + 1.4 * aW) + aW * 40.0;
   vLarg = 0.35 + 0.65 * abs(cos(t * (0.9 + aW) + aW * 17.0));
   vW = w;
+  vQuente = luzQuente(w);
   gl_Position = projectionMatrix * mv;
 }
 `;
@@ -1312,6 +1576,7 @@ varying float vAlfa;
 varying float vRot;
 varying float vLarg;
 varying vec3 vW;
+varying vec3 vQuente;
 void main() {
   vec2 q = gl_PointCoord - 0.5;
   q.y = -q.y;
@@ -1327,7 +1592,7 @@ void main() {
   float a = smoothstep(-aa, aa, forma) * vAlfa;
   if (a < 0.01) discard;
   vec3 cor = mix(vec3(0.97, 0.78, 0.86), vec3(1.0, 0.94, 0.96), 1.0 - smoothstep(-0.3, 0.2, q.y));
-  cor = nevoar(tardar(cor), vW - camA);
+  cor = nevoar(aquecer(cor, vQuente * 1.2), vW - camA);
   gl_FragColor = vec4(acabar(cor), a * 0.92);
 }
 `;
@@ -1370,7 +1635,11 @@ export function criarAlameda(mundo) {
     uVao: { value: new THREE.Vector3(0, 1.6, 1.32) },
     uVaoZ: { value: 0 },
     uDeriva: { value: 0 },
+    uLanternas: { value: 0 },
+    uVeu: { value: 1 },
+    uEstrelas: { value: 0 },
   };
+  const uBalanco = { value: reduzido ? 0 : 1 };
   const uVento = { value: reduzido ? 0.25 : 1 };
   const uEscala = { value: 1 };
   const uPerto = { value: new THREE.Vector2(0.55, 1.25) };
@@ -1396,7 +1665,7 @@ export function criarAlameda(mundo) {
       fragmentShader: DERIVA + COMUM + SO_FRAG + fragmentShader,
     };
     // Com alpha-to-coverage o navegador também gravaria o alfa no canvas, e a
-    // página branca vazaria por ele (um contorno branco em cada cacho): a cor
+    // página vazaria por ele (um contorno claro em cada cacho): a cor
     // entra inteira e o alfa do destino fica como está.
     if ('alphaToCoverage' in op) {
       Object.assign(opcoes, {
@@ -1445,8 +1714,9 @@ export function criarAlameda(mundo) {
   const matCopa = cartoes(uEscala);
   const matFolhas = cartoes({ value: 1 });
 
-  // Ordem de desenho: troncos 0, cartões 1, chão 2 (a parte coberta não paga o
-  // shader), céu 3 (só o que sobrou), pétalas 4; o cometa, transparente, −5.
+  // Ordem de desenho: troncos e madeira 0, cartões e papel 1, chão 2 (a parte
+  // coberta não paga o shader), céu 3 (só o que sobrou), pétalas 4, halos 5;
+  // o cometa, transparente, −5.
   const variantes = Array.from({ length: VARIANTES }, (_, v) => {
     const arvore = gerarCerejeira(THREE, 101 + 37 * v, CARTOES.alto);
     return { tronco: malha(arvore.tronco, matTronco, MAX_ARVORES, 0), copa: malha(arvore.copa, matCopa, MAX_ARVORES, 1), n: 0 };
@@ -1457,12 +1727,26 @@ export function criarAlameda(mundo) {
     copa: malha(salgueiro.copa, matFolhas, MAX_SALGUEIROS, 1),
   };
   const capim = malha(gerarCapim(THREE, 307), matFolhas, MAX_CAPIM, 1);
-  const postes = malha(gerarPoste(THREE), material({ vertexShader: VERT_SIMPLES, fragmentShader: FRAG_FERRO }), MAX_POSTES);
-  const elos = malha(
-    gerarCorrente(THREE),
-    material({ vertexShader: VERT_SIMPLES, fragmentShader: FRAG_FERRO, side: THREE.DoubleSide, defines: { ELO: '', COM_UV: '' } }),
-    MAX_POSTES,
-  );
+  // As lanternas: madeira e papel opacos; o halo somado depois das pétalas.
+  const lampiao = (geo, max, pendurada, tam, forca) => {
+    const defines = pendurada ? { PENDURADA: '' } : {};
+    const uniforms = { uBalanco };
+    return {
+      madeira: malha(geo.madeira, material({ vertexShader: VERT_LANTERNA, fragmentShader: FRAG_MADEIRA, uniforms, defines, side: THREE.DoubleSide }), max),
+      papel: malha(geo.papel, material({ vertexShader: VERT_LANTERNA, fragmentShader: FRAG_PAPEL, uniforms, defines, side: THREE.DoubleSide }), max, 1),
+      halo: malha(geo.halo, material({
+        vertexShader: VERT_HALO,
+        fragmentShader: FRAG_HALO,
+        uniforms: { uTam: { value: tam }, uForca: { value: forca } },
+        defines,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }), max, 5),
+    };
+  };
+  const lanternas = lampiao(gerarLanterna(THREE), MAX_LANTERNAS, false, 1.15, 0.5);
+  const fieiras = lampiao(gerarFieira(THREE), MAX_FIEIRAS, true, 0.8, 0.42);
   const sebes = malha(
     gerarArbusto(THREE),
     material({ vertexShader: VERT_SIMPLES, fragmentShader: FRAG_ARBUSTO, uniforms: { uRuido }, alphaToCoverage: cobertura, defines: semCobertura() }),
@@ -1594,22 +1878,39 @@ export function criarAlameda(mundo) {
     fechar(salgueiros.tronco, n);
     fechar(salgueiros.copa, n);
 
-    // Postes baixos dos dois lados, a cada 2 m, e a corrente até o próximo.
+    // As mesmas contas de luzQuente(): mudar uma é mudar a outra.
+    const lampioes = (l, n) => {
+      l.papel.setMatrixAt(n, matriz);
+      l.halo.setMatrixAt(n, matriz);
+    };
+    const fecharLampioes = (l, n) => {
+      fechar(l.madeira, n);
+      fechar(l.papel, n);
+      fechar(l.halo, n);
+    };
     n = 0;
     for (const lado of [-1, 1]) {
-      fila(ESP_POSTE, 0, 0, (k) => {
-        const z = -k * ESP_POSTE;
-        if (!dentro(z) || n >= MAX_POSTES) return;
-        const x = centroCaminho(z) + lado * (MEIA_PISTA + 0.24);
-        por(postes, n, x, 0, z, 0, 1);
-        // O vão nasce ao longo de +x; o giro o leva até o poste seguinte (−z).
-        const dx = centroCaminho(z - ESP_POSTE) - centroCaminho(z);
-        por(elos, n, x, 0, z, Math.atan2(ESP_POSTE, dx), 1);
+      const desloc = lado < 0 ? ESP_LANTERNA / 2 : 0;
+      fila(ESP_LANTERNA, desloc, 0, (k) => {
+        const z = -(k * ESP_LANTERNA + desloc);
+        if (!dentro(z) || n >= MAX_LANTERNAS) return;
+        por(lanternas.madeira, n, centroCaminho(z) + lado * LADO_LANTERNA, 0, z, 0, 1);
+        lampioes(lanternas, n);
         n += 1;
       });
     }
-    fechar(postes, n);
-    fechar(elos, n);
+    fecharLampioes(lanternas, n);
+
+    // A fieira atravessa o caminho de frente para quem anda (giro pela curva).
+    n = 0;
+    fila(ESP_FIEIRA, DESLOC_FIEIRA, 0, (k) => {
+      const z = -(k * ESP_FIEIRA + DESLOC_FIEIRA);
+      if (!dentro(z) || n >= MAX_FIEIRAS) return;
+      por(fieiras.madeira, n, centroCaminho(z), 0, z, -Math.atan(centroCaminho(z - 1) - centroCaminho(z)), 1);
+      lampioes(fieiras, n);
+      n += 1;
+    });
+    fecharLampioes(fieiras, n);
 
     // Sebes compridas à esquerda (78% das vagas); touceiras à direita (25%).
     n = 0;
@@ -1668,7 +1969,7 @@ export function criarAlameda(mundo) {
   function pintarNevoa() {
     if (!surgido || !cena.fog) return;
     const k = comuns.uSurgir.value;
-    cena.fog.color.setRGB(lerp(1, corNevoa[0], k), lerp(1, corNevoa[1], k), lerp(1, corNevoa[2], k), THREE.SRGBColorSpace);
+    cena.fog.color.setRGB(lerp(NOITE[0], corNevoa[0], k), lerp(NOITE[1], corNevoa[1], k), lerp(NOITE[2], corNevoa[2], k), THREE.SRGBColorSpace);
   }
 
   function aplicarHora(e) {
@@ -1682,6 +1983,9 @@ export function criarAlameda(mundo) {
     if (Number.isFinite(e.tarde)) comuns.uTarde.value = e.tarde;
     if (Number.isFinite(e.noite)) comuns.uNoite.value = e.noite;
     if (Number.isFinite(e.dens)) densHora = e.dens;
+    if (Number.isFinite(e.lanternas)) comuns.uLanternas.value = clamp(e.lanternas);
+    if (Number.isFinite(e.estrelas)) comuns.uEstrelas.value = clamp(e.estrelas);
+    if (Number.isFinite(e.veu)) comuns.uVeu.value = clamp(e.veu);
     comuns.uDens.value = densBase() * densHora;
     if (Array.isArray(e.nevoa) && e.nevoa.length >= 3) corNevoa.splice(0, 3, e.nevoa[0], e.nevoa[1], e.nevoa[2]);
     pintarNevoa();
@@ -1783,7 +2087,7 @@ export function criarAlameda(mundo) {
     atualizarCometa(tempo);
   }
 
-  /** Nasce do branco: uSurgir de 0 a 1 em `duracao` s, linear, e o fog com ele. */
+  /** Nasce da noite: uSurgir de 0 a 1 em `duracao` s, linear, e o fog com ele. */
   function surgir(duracao = 1.8) {
     grupo.visible = true;
     surgido = true;

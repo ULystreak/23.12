@@ -250,7 +250,7 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
     };
   }
 
-  /** O disco: sulcos, rótulo com a capa que gira e o furo. Sem capa, o rótulo vermelho. */
+  /** O disco: sulcos, rótulo com a capa que gira e o furo. Sem capa, vidro com uma lanterna (CSS). */
   function criarDisco(classe) {
     const gira = el('span', 'disco-gira');
     const etiqueta = el('span', 'disco-rotulo', gira);
@@ -412,7 +412,7 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
       type: 'button',
       class: 'musica-continuar ui-pilula',
       'data-acao': 'continuar',
-      'data-tom': 'noite',
+      'data-tom': 'fio', // a pílula principal, acesa (ouro em base.css)
       'aria-label': textoContinuar ? null : rotulo('continuar'),
       disabled: true,
     }, [textoContinuar ? el('span', 'musica-continuar-texto', textoContinuar) : null, svg(ICONE_SEGUIR)]);
@@ -446,7 +446,7 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
       if (pronta) {
         capa.append(pronta);
       } else {
-        // Sem capa (ou atrasada): o disco vermelho; a capa que chegar depois entra devagar.
+        // Sem capa (ou atrasada): o disco de vidro com a lanterna; a capa que chegar depois entra devagar.
         li.classList.add('sem-capa');
         capas[n].then((img) => {
           if (!img || terminado) return;

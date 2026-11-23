@@ -1,7 +1,12 @@
 /* ============================================================================
-   PÉTALAS: a chuva de rosa do mundo 3D, com profundidade de campo
+   PÉTALAS E VAGA-LUMES: as luzes que caem e as que flutuam na noite
    ============================================================================
-   Três conjuntos instanciados, com o mesmo par de shaders (a variante entra
+   As pétalas são sakura sob o luar, aquecidas por baixo pela luz das lanternas
+   (uCalor sobe com a hora, de <html data-hora>). Os vaga-lumes moram no mesmo
+   grupo: pontos dourados com halo, à beira do caminho e entre as árvores, que
+   derivam em curvas lentas e respiram. O dedo dela (fugir) afasta os dois.
+
+   Três conjuntos instanciados de pétalas, com o mesmo par de shaders (a variante entra
    por #define):
      CHUVA  cai em volta da câmera. Posição, balanço e tombo saem do tempo,
             dentro do vertex shader; a CPU só manda uniforms.
@@ -14,21 +19,37 @@
    do foco, nítida e com nervura; longe dele, uma mancha macia de luz.
 
    API: definirDensidade, luzDaHora, definirFoco, definirAbertura, definirTempo,
-   protegerRetangulo, comecar, protagonistas, preparar, rajada, magia,
+   protegerRetangulo, comecar, protagonistas, preparar, rajada, magia, fugir,
    atualizar(dt) e dispose. Sem WebGL este arquivo não roda: js/mundo/leve.js
-   dá a mesma API (sem luzDaHora, definirAbertura, definirTempo, magia nem
-   preparar; quem chama usa ?.).
+   dá a mesma API (sem luzDaHora, definirAbertura, definirTempo, magia, fugir
+   nem preparar; quem chama usa ?.).
    ========================================================================== */
 
 import { clamp, amortecer, semente } from '../nucleo/util.js';
 
+// À noite, menos pétalas: cada uma acesa vale mais que a chuva cheia do dia.
 const QUANTIDADE = {
-  alto: { chuva: 700, chao: 300 },
-  medio: { chuva: 420, chao: 180 },
-  baixo: { chuva: 220, chao: 90 },
+  alto: { chuva: 380, chao: 170 },
+  medio: { chuva: 240, chao: 100 },
+  baixo: { chuva: 130, chao: 55 },
+};
+const VAGALUMES = { alto: 40, medio: 28, baixo: 18 };
+const MAX_VAGALUMES = VAGALUMES.alto;
+// Os vaga-lumes ocupam 19 m de alameda, de 1 m atrás da câmera para a frente;
+// quem sai por trás renasce no fundo, já apagado pela distância.
+const VAGA_COMPRIMENTO = 19;
+const VAGA_CENTRO = 8.5;
+// Luar (o quanto o tom da hora acende a pétala) e calor das lanternas, por hora.
+// manha é a hora azul, ainda sem lanternas; noite, todas acesas.
+const LUZ_DA_HORA = {
+  manha: { lua: 0.7, calor: 0.22 },
+  dia: { lua: 0.64, calor: 0.5 },
+  entardecer: { lua: 0.6, calor: 0.8 },
+  crepusculo: { lua: 0.56, calor: 0.92 },
+  noite: { lua: 0.52, calor: 1 },
 };
 // Em tela deitada a caixa de ar é mais larga: até 1,7× mais pétalas para a
-// mesma densidade. As malhas já nascem com o máximo (1190 e 510).
+// mesma densidade. As malhas já nascem com o máximo (646 e 289).
 const FOLGA_TELA_LARGA = 1.7;
 const MAX_CHUVA = Math.ceil(QUANTIDADE.alto.chuva * FOLGA_TELA_LARGA);
 const MAX_CHAO = Math.ceil(QUANTIDADE.alto.chao * FOLGA_TELA_LARGA);
@@ -70,9 +91,24 @@ const ROTEIROS = [
 
 /* ---- shaders ------------------------------------------------------------------ */
 
+// O dedo afasta, na tela, o que passa por baixo dele. O empurrão é medido em
+// NDC (com x na escala de y) e vira metros na profundidade de cada um. Com
+// raio² r2 e força f, f < 1,16·sqrt(r2) garante que ninguém pula por cima de
+// ninguém: a fuga abre caminho sem embaralhar.
+const FUGA = /* glsl */ `
+uniform vec3 uDedo;
+vec2 fugaDoDedo(vec3 v, float r2, float f) {
+  float prof = max(-v.z, 0.05);
+  vec2 ndc = vec2(projectionMatrix[0][0] * v.x, projectionMatrix[1][1] * v.y) / prof;
+  vec2 d = (ndc - uDedo.xy) * vec2(projectionMatrix[1][1] / projectionMatrix[0][0], 1.0);
+  float k = uDedo.z * exp(-dot(d, d) / r2);
+  return normalize(d + vec2(0.0, 1e-4)) * k * f * prof / projectionMatrix[1][1];
+}
+`;
+
 // aR1 e aR2 são lidos por componente (x, y, z, w): a ordem do sorteio em
 // semear() é parte do visual.
-const VERTICE = /* glsl */ `
+const VERTICE = FUGA + /* glsl */ `
 #define TAU 6.2831853
 
 uniform float uFoco;
@@ -102,6 +138,9 @@ void sumir() {
 
 void montar(vec3 centro, mat3 R, float tamanho, float rolagem, float extra, float alfa, float tom, float forma) {
   vec4 mvC = viewMatrix * vec4(centro, 1.0);
+  #ifndef CHAO
+  if (uDedo.z > 0.001) mvC.xy += fugaDoDedo(mvC.xyz, 0.08, 0.2);
+  #endif
   float prof = -mvC.z;
   #ifndef CHAO
   // Com a folha perto (foco < 2 m), a pétala da frente encolhe até ~5% da altura.
@@ -312,6 +351,8 @@ uniform vec3 uCorLuz;
 uniform vec3 uCorSombra;
 uniform vec3 uNevoaCor;
 uniform vec3 uLuzHora;
+uniform vec3 uChama;
+uniform float uCalor;
 
 varying vec2 vP;
 varying vec2 vQ;
@@ -380,14 +421,17 @@ void main() {
   cor = mix(cor, uCorLuz, veludo * veludo * 0.3);
   cor *= 0.9 + 0.2 * fract(forma * 9.1);
 
-  cor = mix(cor, uNevoaCor, vLuz.y * 0.8);
-
   // Bokeh de fotografia só quando a névoa tem cor (a alameda e a hora a
   // pintam); no mundo branco puro a mancha fica só rosa.
   float foto = smoothstep(0.02, 0.4, length(vec3(1.0) - uNevoaCor));
   float bokeh = foto * smoothstep(0.28, 0.62, s);
-  cor = mix(cor, mix(uCorLuz, vec3(1.0, 0.93, 0.95), 0.45), bokeh * 0.45);
+  cor = mix(cor, mix(uCorLuz, vec3(1.0, 0.88, 0.92), 0.4), bokeh * 0.45);
   alfa *= 1.0 - 0.5 * bokeh;
+
+  // A noite: o luar dá o tom (uLuzHora) e as lanternas, baixas, aquecem mais
+  // a face de baixo. A névoa entra depois, para a pétala sumir na cor dela.
+  float porBaixo = 0.5 + 0.5 * smoothstep(-0.3, 0.8, -nl);
+  cor *= uLuzHora + uChama * (uCalor * porBaixo * 0.5);
 
   #ifdef CHAO
   float ds = petala(vP - vec2(0.05, -0.06), forma, 0.0);
@@ -397,13 +441,107 @@ void main() {
   alfa = total;
   #endif
 
+  cor = mix(cor, uNevoaCor, vLuz.y * 0.8);
+
   // Um grão mínimo no alfa das manchas grandes desfaz o degrau do gradiente.
   alfa += (ruido(gl_FragCoord.xy) - 0.5) * 0.012 * step(0.2, s) * step(0.004, alfa);
 
   if (alfa < 0.003) discard;
-  gl_FragColor = vec4(cor * uLuzHora, alfa);
+  gl_FragColor = vec4(cor, alfa);
   #include <colorspace_fragment>
   gl_FragColor.rgb *= gl_FragColor.a;
+}
+`;
+
+// Vaga-lumes: tudo sai do tempo, como a chuva. aA = (lado e distância do meio
+// do caminho, altura, z, halo em m); aB = (três frequências da deriva, fase);
+// aRespira = o período da respiração, de 2 a 6 s.
+const VERTICE_VAGA = FUGA + /* glsl */ `
+attribute vec4 aA;
+attribute vec4 aB;
+attribute float aRespira;
+
+uniform float uTempo;
+uniform float uDeriva;
+uniform float uCentroZ;
+uniform float uVagueio;
+uniform float uBrilho;
+uniform float uEscala;
+uniform float uMaxPx;
+uniform vec4 uProtege;
+uniform float uProtegeK;
+
+varying float vLuz;
+
+// O meio do caminho em z de alameda (o mesmo traçado de js/mundo/alameda.js).
+float centro(float z) {
+  float u = -z;
+  return 0.45 * sin(0.12 * u) + 0.18 * sin(0.047 * u);
+}
+
+void main() {
+  float t = uTempo;
+  float z = aA.z * ${VAGA_COMPRIMENTO.toFixed(1)} + uDeriva;
+  z = mod(z - uCentroZ + ${(VAGA_COMPRIMENTO / 2).toFixed(2)}, ${VAGA_COMPRIMENTO.toFixed(1)}) - ${(VAGA_COMPRIMENTO / 2).toFixed(2)} + uCentroZ;
+
+  // Três em dez sobre o caminho; o resto na beira, entre lanternas e árvores.
+  float lado = aA.x < 0.5 ? -1.0 : 1.0;
+  float u = fract(aA.x * 2.0);
+  float dist = u < 0.3 ? u / 0.3 * 1.45 : mix(1.6, 4.2, (u - 0.3) / 0.7);
+  vec3 p = vec3(centro(z - uDeriva) + lado * dist, aA.y, z);
+
+  // Deriva em curvas lentas, de 15 a 40 s por volta.
+  vec3 f = 0.16 + 0.26 * aB.xyz;
+  float fase = aB.w * 6.2831853;
+  p += uVagueio * vec3(
+    0.42 * sin(t * f.x + fase) + 0.14 * sin(t * f.y * 2.3 + fase * 1.7),
+    0.2 * sin(t * f.y + fase * 2.3) + 0.06 * sin(t * f.z * 2.9 + fase),
+    0.36 * cos(t * f.z + fase * 0.6));
+
+  vec4 mv = viewMatrix * vec4(p, 1.0);
+  if (uDedo.z > 0.001) mv.xy += fugaDoDedo(mv.xyz, 0.12, 0.26);
+  float prof = -mv.z;
+  gl_Position = projectionMatrix * mv;
+
+  // Respira: sobe e desce em curva suave, sem nunca apagar de todo.
+  float r = 0.5 - 0.5 * cos(6.2831853 * t / aRespira + fase);
+  r = r * r * (3.0 - 2.0 * r);
+  float a = uBrilho * mix(0.42, 1.0, r);
+  a *= smoothstep(0.5, 1.4, prof) * (1.0 - smoothstep(9.0, 17.0, prof));
+
+  // Na frente da frase ou da carta, quase some.
+  if (uProtegeK > 0.001) {
+    vec2 ndc = gl_Position.xy / max(gl_Position.w, 1e-4);
+    vec2 fora = max(max(uProtege.xy - ndc, ndc - uProtege.zw), 0.0);
+    a *= 1.0 - 0.85 * uProtegeK * (1.0 - smoothstep(0.0, 0.12, length(fora)));
+  }
+
+  if (a < 0.003) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    gl_PointSize = 0.0;
+    vLuz = 0.0;
+    return;
+  }
+  gl_PointSize = clamp(aA.w * (0.88 + 0.12 * r) * uEscala / max(prof, 0.1), 2.0, uMaxPx);
+  vLuz = a;
+}
+`;
+
+const FRAGMENTO_VAGA = /* glsl */ `
+uniform vec3 uCorNucleo;
+uniform vec3 uCorHalo;
+varying float vLuz;
+
+void main() {
+  vec2 c = gl_PointCoord * 2.0 - 1.0;
+  float r2 = dot(c, c);
+  if (r2 >= 1.0) discard;
+  // Um ponto quente no meio e um halo largo que chega a zero na borda.
+  float nucleo = exp(-r2 * 70.0);
+  float halo = exp(-r2 * 6.5) * (1.0 - r2);
+  vec3 cor = (uCorNucleo * nucleo * 1.25 + uCorHalo * halo * 0.5) * vLuz;
+  gl_FragColor = vec4(cor, min(max(cor.r, max(cor.g, cor.b)), 1.0));
+  #include <colorspace_fragment>
 }
 `;
 
@@ -443,14 +581,19 @@ export function criarPetalas(mundo, amb = mundo.amb) {
     uProtege: { value: new THREE.Vector4(...MIOLO) },
     uProtegeK: { value: 0 },
     uMagia: { value: new THREE.Vector4(0, -10, 0, 0) },
-    uLuzHora: { value: new THREE.Vector3(1, 1, 1) },
+    uDedo: { value: new THREE.Vector3(0, 0, 0) },
+    uLuzHora: { value: new THREE.Vector3(0.6, 0.6, 0.66) },
+    uCalor: { value: LUZ_DA_HORA.manha.calor },
     uNevoaCor: { value: cena.fog?.color || new THREE.Color(0xffffff) },
-    uCorBaseA: { value: new THREE.Color('#6d0a22') },
-    uCorBordaA: { value: new THREE.Color('#b3123a') },
-    uCorBaseB: { value: new THREE.Color('#7d0c28') },
-    uCorBordaB: { value: new THREE.Color('#c9184a') },
-    uCorLuz: { value: new THREE.Color('#e4486c') },
-    uCorSombra: { value: new THREE.Color('#2a1b22') },
+    // Sakura: o miolo mais fundo, a borda clara. O calor vem da luz, não da tinta.
+    uCorBaseA: { value: new THREE.Color('#c96f8c') },
+    uCorBordaA: { value: new THREE.Color('#f2b6c6') },
+    uCorBaseB: { value: new THREE.Color('#c4728c') },
+    uCorBordaB: { value: new THREE.Color('#f7c3cd') },
+    // A borda e o verso contra a luz: rosa aquecido pela lanterna.
+    uCorLuz: { value: new THREE.Color('#ffbccb') },
+    uChama: { value: new THREE.Color('#ffb45e') },
+    uCorSombra: { value: new THREE.Color('#070a1c') },
   };
   const uChuva = {
     uCaixa: { value: new THREE.Vector3(LARGURA_MINIMA, ALTURA_CAIXA, FUNDO_CAIXA) },
@@ -554,6 +697,57 @@ export function criarPetalas(mundo, amb = mundo.amb) {
   grupo.add(malhaChao, malhaChuva, malhaSoltas);
   cena.add(grupo);
 
+  /* ---- vaga-lumes ---- */
+  // Semente própria: não mexe no sorteio das pétalas.
+  const sorteVaga = semente(1223);
+  const geoVaga = new THREE.BufferGeometry();
+  const vA = new Float32Array(MAX_VAGALUMES * 4);
+  const vB = new Float32Array(MAX_VAGALUMES * 4);
+  const vRespira = new Float32Array(MAX_VAGALUMES);
+  for (let i = 0; i < MAX_VAGALUMES; i++) {
+    vA[i * 4] = sorteVaga();
+    // Mais perto do chão, onde há capim; uns poucos sobem até as flores.
+    vA[i * 4 + 1] = 0.3 + 1.9 * sorteVaga() ** 1.5;
+    vA[i * 4 + 2] = sorteVaga();
+    vA[i * 4 + 3] = 0.13 + 0.09 * sorteVaga();
+    for (let k = 0; k < 4; k++) vB[i * 4 + k] = sorteVaga();
+    vRespira[i] = 2 + 4 * sorteVaga();
+  }
+  geoVaga.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_VAGALUMES * 3), 3));
+  geoVaga.setAttribute('aA', new THREE.BufferAttribute(vA, 4));
+  geoVaga.setAttribute('aB', new THREE.BufferAttribute(vB, 4));
+  geoVaga.setAttribute('aRespira', new THREE.BufferAttribute(vRespira, 1));
+  const uVaga = {
+    uTempo: { value: 0 },
+    uDeriva: { value: mundo.deriva || 0 },
+    uCentroZ: { value: rig.z - VAGA_CENTRO },
+    // Movimento reduzido: quase parados, só respiram.
+    uVagueio: { value: reduzido ? 0.06 : 1 },
+    uBrilho: { value: 0 },
+    uEscala: { value: 600 },
+    uMaxPx: { value: 64 },
+    uDedo: comuns.uDedo,
+    uProtege: comuns.uProtege,
+    uProtegeK: comuns.uProtegeK,
+    uCorNucleo: { value: new THREE.Color('#f6dca6') },
+    uCorHalo: { value: new THREE.Color('#ffb45e') },
+  };
+  const matVaga = new THREE.ShaderMaterial({
+    vertexShader: VERTICE_VAGA,
+    fragmentShader: FRAGMENTO_VAGA,
+    uniforms: uVaga,
+    transparent: true,
+    premultipliedAlpha: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  const vagalumes = new THREE.Points(geoVaga, matVaga);
+  vagalumes.name = 'vagalumes';
+  vagalumes.renderOrder = 7;
+  vagalumes.frustumCulled = false;
+  grupo.add(vagalumes);
+  const buffer = new THREE.Vector2();
+
   /* ---- estado ---- */
   // uTempo é este relógio contínuo, não o tempo real: o tempo lento e a pausa dependem dele.
   let relogio = sorte() * 40;
@@ -571,6 +765,16 @@ export function criarPetalas(mundo, amb = mundo.amb) {
   let vivas = 0;
   let preparo = null;
   let fora = false;
+  // O tom da hora (luzDaHora) só dá a cor do luar; o quanto ele acende e o
+  // calor das lanternas vêm de LUZ_DA_HORA e mudam devagar.
+  const tomDaHora = new THREE.Vector3(0.86, 0.88, 1);
+  let lua = LUZ_DA_HORA.manha.lua;
+  // Os vaga-lumes respiram no tempo real (o tempo lento os acalma, o reduzido não).
+  let relogioVaga = sorteVaga() * 60;
+  // O dedo dela em NDC, enquanto está no mundo.
+  let dedo = null;
+  const dedoPos = { x: 0, y: 0 };
+  const forcaDedo = reduzido ? 0.4 : 1;
   const posCamera = new THREE.Vector3();
   const meia = { x: 0, y: 0 };
 
@@ -593,6 +797,7 @@ export function criarPetalas(mundo, amb = mundo.amb) {
     const folga = clamp(largura / LARGURA_MINIMA, 1, FOLGA_TELA_LARGA);
     geoChuva.instanceCount = Math.min(MAX_CHUVA, Math.round(q.chuva * folga));
     geoChao.instanceCount = Math.min(MAX_CHAO, Math.round(q.chao * folga));
+    geoVaga.setDrawRange(0, VAGALUMES[amb?.nivel] || VAGALUMES.medio);
   }
 
   // A caixa de ar cobre a largura do quadro no fundo dela (9 m), com 6% de sobra.
@@ -780,6 +985,34 @@ export function criarPetalas(mundo, amb = mundo.amb) {
       comuns.uAbertura.value.x = 0.04 * abertura;
     }
 
+    // Luar e lanternas seguem a hora em ~2 s, como o céu.
+    const luz = LUZ_DA_HORA[document.documentElement.dataset.hora] || LUZ_DA_HORA.manha;
+    lua = amortecer(lua, luz.lua, 0.6, dt);
+    comuns.uCalor.value = amortecer(comuns.uCalor.value, luz.calor, 0.6, dt);
+    comuns.uLuzHora.value.copy(tomDaHora).multiplyScalar(lua);
+
+    // O dedo: entra macio e segue o toque; ao sair, devolve tudo sem pressa.
+    const d = comuns.uDedo.value;
+    if (dedo) {
+      if (d.z < 0.02) d.set(dedo.x, dedo.y, d.z);
+      d.x = amortecer(d.x, dedo.x, 10, dt);
+      d.y = amortecer(d.y, dedo.y, 10, dt);
+    }
+    d.z = amortecer(d.z, dedo ? forcaDedo : 0, dedo ? 5 : 0.5, dt);
+
+    relogioVaga += dt * tempoAgora;
+    uVaga.uTempo.value = relogioVaga;
+    uVaga.uDeriva.value = deriva;
+    uVaga.uCentroZ.value = rig.z - VAGA_CENTRO;
+    // Acompanham a densidade das pétalas, sem nunca sumir de todo enquanto há alguma.
+    const alvoVaga = densidadeAlvo > 0 ? (0.6 + 0.4 * densidadeAlvo) * (0.7 + 0.3 * comuns.uCalor.value) : 0;
+    uVaga.uBrilho.value = amortecer(uVaga.uBrilho.value, alvoVaga, 0.7, dt);
+    renderer?.getDrawingBufferSize?.(buffer);
+    if (buffer.y > 0) {
+      uVaga.uEscala.value = buffer.y * 0.5 * camera.projectionMatrix.elements[5];
+      uVaga.uMaxPx.value = Math.min(buffer.y * 0.08, 140);
+    }
+
     atualizarProtecao(dt);
 
     if (vivas > 0) atualizarSoltas(passo);
@@ -795,13 +1028,17 @@ export function criarPetalas(mundo, amb = mundo.amb) {
       densidadeAlvo = clamp(Number(k) || 0);
     },
 
-    // cor = [r, g, b] (e.petalas de js/mundo/hora.js); multiplica a cor de cada pétala.
+    // cor = [r, g, b] (e.petalas de js/mundo/hora.js). Só o matiz conta, pela
+    // metade: o brilho do luar é o de LUZ_DA_HORA, para a pétala nunca virar
+    // um borrão escuro nem um confete aceso, qualquer que seja a tabela da hora.
     luzDaHora(cor) {
       if (!Array.isArray(cor)) return;
       const r = Number(cor[0]);
       const g = Number(cor[1]);
       const b = Number(cor[2]);
-      if (Number.isFinite(r + g + b)) comuns.uLuzHora.value.set(r, g, b);
+      const maior = Math.max(r, g, b);
+      if (!Number.isFinite(r + g + b) || maior <= 0) return;
+      tomDaHora.set(0.5 + 0.5 * (r / maior), 0.5 + 0.5 * (g / maior), 0.5 + 0.5 * (b / maior));
     },
 
     // Number.isFinite não converte: null, '' ou true são inválidos (Number(null)
@@ -828,6 +1065,7 @@ export function criarPetalas(mundo, amb = mundo.amb) {
       uChuva.uDesde.value = 0;
       uChuva.uSopro.value = 0;
       uChao.uDensidade.value = 0;
+      uVaga.uBrilho.value = 0;
     },
 
     protagonistas() {
@@ -922,6 +1160,20 @@ export function criarPetalas(mundo, amb = mundo.amb) {
       magiaAlvo = clamp(Number(forca) || 0, 0, 1);
     },
 
+    // ndc: {x, y} do dedo na tela (js/mundo/toque.js), ou null quando ele sai.
+    // Pétalas no ar e vaga-lumes abrem caminho; as do chão ficam.
+    fugir(ndc) {
+      const x = Number(ndc?.x);
+      const y = Number(ndc?.y);
+      if (!ndc || !Number.isFinite(x + y)) {
+        dedo = null;
+        return;
+      }
+      dedoPos.x = x;
+      dedoPos.y = y;
+      dedo = dedoPos;
+    },
+
     atualizar,
 
     dispose() {
@@ -931,8 +1183,8 @@ export function criarPetalas(mundo, amb = mundo.amb) {
       pararTamanho?.();
       pararNivel?.();
       cena.remove(grupo);
-      for (const g of [geoChuva, geoChao, geoSoltas]) g.dispose();
-      for (const m of [matChuva, matChao, matSoltas]) m.dispose();
+      for (const g of [geoChuva, geoChao, geoSoltas, geoVaga]) g.dispose();
+      for (const m of [matChuva, matChao, matSoltas, matVaga]) m.dispose();
       base.dispose();
     },
   };

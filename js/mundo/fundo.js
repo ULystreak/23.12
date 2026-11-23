@@ -1,5 +1,5 @@
 /* ============================================================================
-   FUNDO: a foto da alameda sem WebGL e os véus claros atrás do texto
+   FUNDO: a foto da alameda sem WebGL e os véus anil atrás do texto
    ============================================================================
    Sem WebGL, a alameda é a foto de CONTEUDO.pagina.fundo (uma renderização do
    próprio 3D) numa camada DOM, #mundo-fundo, atrás do mundo leve. Camada DOM e
@@ -12,10 +12,13 @@
    ela dissolve numa cópia vista de mais longe, sem salto visível. As
    caminhadas só aceleram o laço.
 
-   A hora do dia são três camadas pintadas uma vez sobre a foto (tarde, noite
-   e cometa), e só a opacidade delas muda.
+   A foto é do entardecer da v2: noite, todas as lanternas acesas. A hora são
+   quatro camadas pintadas uma vez sobre ela, e só a opacidade delas muda: o
+   véu da hora azul (a névoa anil) cobre as lanternas e se abre conforme elas
+   acendem na alameda 3D; o último lilás do pôr do sol sai no mesmo passo; a
+   noite funda e o cometa chegam depois.
 
-   Com WebGL a foto não existe: criarVeus monta só as duas clareiras claras
+   Com WebGL a foto não existe: criarVeus monta só as duas clareiras anil
    (#mundo-veus) que dão contraste à frase e aos botões sobre a alameda 3D.
    O CSS das camadas (#mundo-fundo, #mundo-veus, .fundo-*) é de css/mundo.css.
    ========================================================================== */
@@ -23,8 +26,9 @@
 import { clamp, suave, debounce, el } from '../nucleo/util.js';
 import { pintarCometa } from './hora.js';
 
-// A mesma névoa do fundo do túnel na alameda 3D.
-const COR_HORIZONTE = '#ece0e6';
+// A névoa violeta no fim do túnel, medida na foto; sem foto, a noite (--noite).
+const COR_HORIZONTE = '#4a3a66';
+const COR_NOITE = '#0b1026';
 // A câmera fica no meio do caminho e o horizonte cai um nada abaixo do centro
 // (o comentário de content.js diz "no centro"; vale esta medida).
 const PONTO_FUGA = { x: 0.5, y: 0.515 };
@@ -40,13 +44,19 @@ const TROCA_SOZINHA = 2.2; // metros de passo de base que a dissolvência do la�
 const TETO = LIMITE * 1.35;
 // Entrada direta por ?cena=: a foto nasce na escala que a caminhada teria deixado.
 const INICIAL = { inicio: 1, poppy: 1.15, carta2: 1.15, yourname: 1.32, mao: 1.32, final: 1.4 };
+// O filtro da foto vai no próprio <img> e vence o de css/mundo.css, que
+// escurecia uma foto de dia: esta já é noite, e quem escurece é a hora (as
+// camadas por cima, que só mudam de opacidade). Meio pixel de desfoque funde
+// as duas cópias; na troca de cópia, um pouco mais (a transição é do CSS).
+const FILTRO_QUIETO = 'blur(0.5px)';
+const FILTRO_TROCANDO = 'blur(2.6px)';
 
 /** O objeto de quem não tem foto: nada é criado e tudo é vazio. */
 function nada() {
   return {
     ativo: false,
     pronto: Promise.resolve(false),
-    cor: '#ffffff',
+    cor: COR_NOITE,
     caminhada() {},
     atualizar() {},
     aplicarHora() {},
@@ -56,29 +66,28 @@ function nada() {
 }
 
 /**
- * Pinta as duas clareiras ovais uma vez e publica em <html> como --fundo-veu
- * (dia) e --fundo-veu-noite. Um gradiente radial grande em CSS custaria um
- * quadro longo cada vez que o véu aparece; a imagem pronta só é esticada.
- * Sem canvas não há véu, e a auréola das letras continua dando a leitura.
+ * Pinta a clareira oval uma vez e publica em <html> como --fundo-veu-noite:
+ * anil da sombra da noite (--hora-sombra-noite), nunca preto. Um gradiente
+ * radial grande em CSS custaria um quadro longo cada vez que o véu aparece; a
+ * imagem pronta só é esticada. Sem canvas não há véu, e a auréola das letras
+ * continua dando a leitura.
  */
 function pintarVeu() {
+  if (document.documentElement.style.getPropertyValue('--fundo-veu-noite')) return;
   try {
     const tela = document.createElement('canvas');
     tela.width = 128;
     tela.height = 128;
     const g = tela.getContext('2d');
-    const raiz = document.documentElement.style;
-    for (const [nome, rgb, forca] of [['--fundo-veu', '255, 250, 252', 1], ['--fundo-veu-noite', '7, 10, 30', 0.86]]) {
-      g.clearRect(0, 0, 128, 128);
-      const r = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-      r.addColorStop(0, `rgba(${rgb}, ${0.82 * forca})`);
-      r.addColorStop(0.44, `rgba(${rgb}, ${0.62 * forca})`);
-      r.addColorStop(0.72, `rgba(${rgb}, ${0.26 * forca})`);
-      r.addColorStop(1, `rgba(${rgb}, 0)`);
-      g.fillStyle = r;
-      g.fillRect(0, 0, 128, 128);
-      raiz.setProperty(nome, `url("${tela.toDataURL('image/png')}")`);
-    }
+    // O miolo a 0,72 sobre a lanterna mais clara da foto ainda deixa o luar a mais de 7:1.
+    const r = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    r.addColorStop(0, 'rgba(6, 9, 22, 0.72)');
+    r.addColorStop(0.44, 'rgba(6, 9, 22, 0.56)');
+    r.addColorStop(0.72, 'rgba(8, 11, 30, 0.24)');
+    r.addColorStop(1, 'rgba(8, 11, 30, 0)');
+    g.fillStyle = r;
+    g.fillRect(0, 0, 128, 128);
+    document.documentElement.style.setProperty('--fundo-veu-noite', `url("${tela.toDataURL('image/png')}")`);
   } catch {
     /* sem canvas: sem véu */
   }
@@ -90,7 +99,7 @@ export function criarFundo({ amb, antesDe } = {}) {
   if (typeof url !== 'string' || !url.trim() || !antesDe?.parentNode) return nada();
 
   const novaFoto = () => {
-    const img = el('img', { alt: '', decoding: 'async', draggable: 'false' });
+    const img = el('img', { alt: '', decoding: 'async', draggable: 'false', style: { filter: FILTRO_QUIETO } });
     return { quadro: el('div', 'fundo-foto', img), img, z: 1, transform: '', opacidade: '' };
   };
   const camada = (classe) => el('div', { class: classe, style: { opacity: '0' } });
@@ -145,10 +154,13 @@ export function criarFundo({ amb, antesDe } = {}) {
     // A foto falhou e a raiz saiu: nada a pintar (nem o cometa).
     if (!raiz.isConnected) return;
     const p = clamp(Number(e?.p) || 0, 0, 4);
-    const noite = Number(e?.noite) || 0;
-    por(camadaTarde, p <= 1 ? 0 : p <= 2 ? (p - 1) * 0.8 : p <= 3 ? 0.8 + (p - 2) * 0.2 : 1 - (p - 3) * 0.75);
-    por(camadaNoite, p <= 2 ? 0 : p <= 3 ? (p - 2) * 0.42 : 0.42 + (p - 3) * 0.58);
-    por(nevoa, 1 - 0.85 * noite);
+    const noite = clamp(Number(e?.noite) || 0);
+    // A fração acesa das lanternas 3D; sem ela, a posição faz as vezes (acesas no entardecer).
+    const acesas = clamp(Number.isFinite(e?.lanternas) ? e.lanternas : p / 2);
+    por(nevoa, 1 - 0.78 * acesas);
+    por(camadaTarde, 0.25 * (1 - acesas));
+    // Multiplicada: até ~0,5 a noite aprofunda o anil sem apagar a luz das lanternas.
+    por(camadaNoite, p <= 2 ? 0 : (p - 2) * 0.25);
     const k = clamp((noite - 0.2) / 0.8);
     if (k > 0 && !cometaPintado) {
       cometaPintado = true;
@@ -206,6 +218,7 @@ export function criarFundo({ amb, antesDe } = {}) {
     b.z = z;
     b.quadro.style.visibility = '';
     raiz.classList.add('fundo-trocando');
+    for (const f of fotos) f.img.style.filter = FILTRO_TROCANDO;
     troca = { andado: 0, distancia };
     mistura = 0;
   }
@@ -247,6 +260,7 @@ export function criarFundo({ amb, antesDe } = {}) {
     troca = null;
     mistura = 0;
     raiz.classList.remove('fundo-trocando');
+    for (const foto of fotos) foto.img.style.filter = FILTRO_QUIETO;
   }
 
   /** Escreve uma cópia; o DOM só é tocado quando o transform ou a opacidade mudam. */
@@ -321,7 +335,7 @@ export function criarFundo({ amb, antesDe } = {}) {
     },
   };
 
-  // A foto não veio: volta ao mundo branco, sem buraco e sem aviso.
+  // A foto não veio: fica só a noite, sem buraco e sem aviso.
   function falhou() {
     pedirEnquadrar.cancelar();
     removeEventListener('resize', pedirEnquadrar);
@@ -330,7 +344,7 @@ export function criarFundo({ amb, antesDe } = {}) {
     natural = null;
     caixa = null;
     fundo.ativo = false;
-    fundo.cor = '#ffffff';
+    fundo.cor = COR_NOITE;
     resolver(false);
   }
 
@@ -345,7 +359,7 @@ export function criarFundo({ amb, antesDe } = {}) {
       natural = { w: img.naturalWidth, h: img.naturalHeight };
       fotos[1].img.src = img.src;
       enquadrar();
-      // Dois quadros: a foto já está pintada quando a opacidade começa a subir do branco.
+      // Dois quadros: a foto já está pintada quando a opacidade começa a subir da noite.
       requestAnimationFrame(() => requestAnimationFrame(() => {
         raiz.classList.add('fundo-pronto');
         document.documentElement.classList.add('com-fundo');

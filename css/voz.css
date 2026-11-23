@@ -1,14 +1,17 @@
 /* ============================================================================
    VOZ: o cartão "A minha voz" (#voz, montado por js/voz.js)
    ============================================================================
-   Abre por cima de tudo, a partir da fita que mora na bolsa. Uma folha de
-   papel com o lacinho, a fita cassete cujos carretéis giram enquanto ele fala
-   e a lista dos áudios presos num fio vermelho com um nó. As peças .ui-* vêm
-   de css/base.css. Só transform e opacity são animados; o raio das massas da
-   fita é um atributo SVG que o JS grava.
+   Abre por cima de tudo, a partir da fita que mora na bolsa. Um cartão de
+   vidro escuro com filete e laço dourados, a fita cassete (corpo anil,
+   etiqueta de papel washi) cujos carretéis giram enquanto ele fala, e a lista
+   dos áudios presos no fio vermelho, que brilha e termina num nó. As peças
+   .ui-* vêm de css/base.css. Só transform e opacity são animados; o raio das
+   massas da fita é um atributo SVG que o JS grava.
    ========================================================================== */
 
 #voz {
+  /* O laço do cartão é de ouro: o vermelho, aqui, é só do fio. */
+  --voz-laco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 26' fill='none' stroke='%23e9c27a' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M24 11C19 3.5 9.5 1.5 7 6.5S13.5 15 24 11zM24 11c5-7.5 14.5-9.5 17-4.5S34.5 15 24 11z'/%3E%3Cpath d='M23 12.5c-2.5 3-5 6.5-6 11M25 12.5c2.5 3 5 6.5 6 11'/%3E%3Ccircle cx='24' cy='11' r='2.2' fill='%23f6dca6' stroke='none'/%3E%3C/svg%3E");
   position: fixed;
   top: 0;
   left: 0;
@@ -19,8 +22,8 @@
   grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   place-items: center;
   padding: calc(var(--seguro-topo) + 28px) calc(var(--seguro-dir) + 16px) calc(var(--seguro-base) + 20px) calc(var(--seguro-esq) + 16px);
-  font-family: var(--fonte-mao);
-  color: var(--tinta);
+  font-family: var(--fonte-titulo);
+  color: var(--luar);
   user-select: none;
   -webkit-user-select: none;
 }
@@ -29,7 +32,7 @@
 /* Saindo, o toque já passa para a cena. */
 #voz:not([data-aberto]) { pointer-events: none; }
 
-/* ---- véu e folha ---------------------------------------------------------- */
+/* ---- véu e cartão --------------------------------------------------------- */
 
 .voz-veu {
   position: absolute;
@@ -43,13 +46,20 @@
   transition-duration: var(--dur-ui-lenta);
 }
 
-/* A folha sobe e assenta com a mola firme; sai rápido, sem mola. */
+/* O cartão sobe e assenta com a mola firme; sai rápido, sem mola. O vidro é o
+   da .ui-folha; aqui ele ganha o filete aceso no alto e a luz quente por baixo. */
 .voz-cartao {
   width: min(100%, 420px);
   max-height: 100%;
   display: flex;
   flex-direction: column;
   padding: 0;
+  box-shadow:
+    0 2px 6px rgba(3, 5, 18, 0.4),
+    0 28px 60px -12px rgba(3, 5, 18, 0.75),
+    0 30px 60px -30px rgba(255, 180, 94, 0.3),
+    inset 0 0 0 1px var(--fio-ouro),
+    inset 0 1px 0 rgba(246, 220, 166, 0.2);
   opacity: 0;
   transform: translate3d(0, 14px, 0) scale(0.94);
   transition: transform var(--dur-sair) var(--curva-sair), opacity var(--dur-sair) linear;
@@ -60,9 +70,11 @@
   transition: transform var(--dur-folha) var(--mola-firme), opacity var(--dur-ui) linear;
 }
 
-/* O lacinho chega por último, como quem fecha o embrulho. */
+/* O laço de ouro chega por último, como quem fecha o embrulho. */
 .voz-cartao > .ui-laco {
   z-index: 1;
+  background-image: var(--voz-laco);
+  filter: drop-shadow(0 0 5px rgba(255, 180, 94, 0.45));
   opacity: 0;
   transform: translateX(-50%) scale(0.6) rotate(-14deg);
   transition: transform var(--dur-toque) var(--curva-sair), opacity var(--dur-toque) linear;
@@ -73,12 +85,13 @@
   transition: transform var(--dur-mola) var(--mola) 260ms, opacity var(--dur-toque) linear 260ms;
 }
 
-/* A folha não rola: quem rola é o miolo, e o pesponto fica parado. */
+/* O cartão não rola: quem rola é o miolo, e os cantinhos de ouro ficam parados. */
 .voz-miolo {
   flex: 1 1 auto;
   min-height: 0;
   padding: 34px 24px 22px;
-  border-radius: var(--raio-g);
+  border-radius: 18px;
+  scrollbar-color: var(--fio-ouro) transparent;
 }
 
 .voz-fechar {
@@ -89,43 +102,56 @@
   padding: 0;
   border: 0;
   cursor: pointer;
-  color: var(--tinta-suave);
-  box-shadow: var(--sombra-baixa);
+  --ui-tinta: var(--luar-suave);
   touch-action: manipulation;
 }
 @media (hover: hover) and (pointer: fine) {
-  .voz-fechar:hover { color: var(--tinta); }
+  .voz-fechar:hover { --ui-tinta: var(--ouro-claro); --ui-borda: rgba(233, 194, 122, 0.7); }
 }
 
-/* ---- a fita --------------------------------------------------------------- */
+/* ---- a fita: corpo anil com filete de ouro, etiqueta de washi -------------- */
 
 /* Parada, a fita fica a −3°: −1,8° aqui e −1,2° do começo do balanço. */
 .voz-fita {
+  position: relative;
   width: 148px;
   margin: 0 auto;
   transform: rotate(-1.8deg);
 }
+/* A luz de uma lanterna por baixo da fita. */
+.voz-fita::before {
+  content: "";
+  position: absolute;
+  left: -30%;
+  right: -30%;
+  top: 30%;
+  bottom: -40%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 180, 94, 0.26), rgba(255, 138, 61, 0.08) 60%, rgba(255, 138, 61, 0));
+  pointer-events: none;
+}
 .voz-fita-desenho {
+  position: relative;
   width: 100%;
   height: auto;
   border-radius: var(--raio-p);
-  box-shadow: var(--sombra-baixa), 0 14px 18px -12px rgba(30, 14, 40, 0.4);
+  box-shadow: 0 2px 4px rgba(3, 5, 18, 0.5), 0 16px 24px -12px rgba(3, 5, 18, 0.85);
 }
 .voz-fita-desenho * { stroke-linejoin: round; stroke-linecap: round; }
-.voz-fita-corpo { fill: var(--branco); stroke: var(--tinta); stroke-width: 2.2; }
-.voz-fita-etiqueta { fill: var(--papel); stroke: var(--tinta); stroke-opacity: 0.3; stroke-width: 1; }
-.voz-fita-listra { fill: none; stroke: var(--fio); stroke-width: 2; }
-.voz-fita-linha { fill: none; stroke: var(--tinta); stroke-opacity: 0.28; stroke-width: 1.2; }
-.voz-fita-coracao { fill: var(--fio); }
-.voz-fita-janela { fill: var(--branco); }
-.voz-massa { fill: var(--tinta); fill-opacity: 0.82; }
-.voz-fita-vidro { fill: none; stroke: var(--tinta); stroke-width: 1.6; }
-.voz-rolo circle { fill: var(--branco); stroke: var(--tinta); stroke-width: 1.4; }
+.voz-fita-corpo { fill: var(--anil); stroke: var(--ouro); stroke-width: 1.8; }
+.voz-fita-etiqueta { fill: var(--papel); stroke: var(--papel-sombra); stroke-width: 1; }
+.voz-fita-listra { fill: none; stroke: var(--ouro-escuro); stroke-width: 2; }
+.voz-fita-linha { fill: none; stroke: var(--tinta); stroke-opacity: 0.26; stroke-width: 1.2; }
+.voz-fita-coracao { fill: var(--sakura-tinta); }
+.voz-fita-janela { fill: var(--noite-funda); }
+.voz-massa { fill: var(--ouro-escuro); fill-opacity: 0.9; }
+.voz-fita-vidro { fill: none; stroke: var(--tinta); stroke-opacity: 0.7; stroke-width: 1.6; }
+.voz-rolo circle { fill: var(--papel); stroke: var(--tinta); stroke-width: 1.4; }
 .voz-rolo rect { fill: var(--tinta); }
-.voz-fita-base { fill: var(--papel-sombra); stroke: var(--tinta); stroke-width: 1.6; }
-.voz-fita-roda { fill: var(--branco); stroke: var(--tinta); stroke-width: 1.2; }
-.voz-fita-meio { fill: none; stroke: var(--tinta); stroke-width: 1.2; }
-.voz-fita-ponto { fill: var(--tinta); opacity: 0.4; }
+.voz-fita-base { fill: var(--noite); stroke: var(--ouro); stroke-opacity: 0.8; stroke-width: 1.4; }
+.voz-fita-roda { fill: var(--ouro-escuro); stroke: var(--ouro); stroke-width: 1; }
+.voz-fita-meio { fill: none; stroke: var(--ouro); stroke-opacity: 0.8; stroke-width: 1.2; }
+.voz-fita-ponto { fill: var(--ouro); opacity: 0.6; }
 
 /* Enquanto ele fala, a fita balança de leve e os carretéis giram em volta do
    próprio centro. As animações ficam pausadas, não removidas: quando ele para,
@@ -152,14 +178,18 @@
 /* ---- título e frase ------------------------------------------------------- */
 
 .voz-titulo {
-  margin: 16px 0 0;
+  margin: 18px 0 0;
+  letter-spacing: 0.08em;
+  color: var(--ouro-claro);
   text-align: center;
   text-wrap: balance;
 }
+/* A frase é dele: letra à mão, no luar. */
 .voz-frase {
   margin: 6px auto 0;
   max-width: 22em;
   font-size: 1.0625rem;
+  color: var(--luar-suave);
   text-align: center;
   text-wrap: balance;
   white-space: pre-line;
@@ -169,11 +199,11 @@
 
 .voz-lista {
   position: relative;
-  margin: 18px 0 0;
+  margin: 20px 0 0;
   padding: 0;
   list-style: none;
 }
-/* O fio desce pelo meio dos botões e termina num nó. */
+/* O fio desce pelo meio dos botões, brilhando, e termina num nó. */
 .voz-lista::before {
   content: "";
   position: absolute;
@@ -183,6 +213,7 @@
   width: 2px;
   border-radius: 1px;
   background: var(--fio);
+  box-shadow: 0 0 8px var(--fio-brilho);
 }
 .voz-lista::after {
   content: "";
@@ -193,6 +224,7 @@
   height: 8px;
   border-radius: 50%;
   background: var(--fio);
+  box-shadow: 0 0 8px var(--fio-brilho);
 }
 
 .voz-item {
@@ -205,8 +237,11 @@
   padding: 8px 0;
 }
 
-/* O botão de tocar: a conta fica vermelha por baixo do ícone (uma camada; a cor em si não anima). */
+/* O botão de tocar é uma conta de vidro no fio: opaca, para o fio não passar
+   por dentro. Tocando, acende em ouro por baixo do ícone (a cor não anima). */
 .voz-tocar {
+  --ui-fundo: radial-gradient(circle at 50% 32%, rgba(246, 220, 166, 0.16), rgba(246, 220, 166, 0) 68%), var(--noite);
+  --ui-borda: rgba(233, 194, 122, 0.55);
   position: relative;
   padding: 0;
   border: 0;
@@ -214,6 +249,7 @@
   display: inline-grid;
   place-items: center;
   touch-action: manipulation;
+  transition: transform var(--dur-mola) var(--mola);
 }
 .voz-tocar .ui-icone {
   position: relative;
@@ -231,52 +267,53 @@
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: var(--fio);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.28) inset;
+  background: radial-gradient(circle at 50% 36%, var(--ouro-claro) 0%, var(--chama) 58%, var(--brasa) 100%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset, 0 0 18px -2px rgba(255, 180, 94, 0.6);
   opacity: 0;
   transform: scale(0.7);
   transition: opacity var(--dur-sair) linear, transform var(--dur-sair) var(--curva-ui);
 }
-.voz-item[data-tocando] .voz-tocar { color: var(--branco); }
+/* Sobre o ouro, o ícone é noite: 11:1. */
+.voz-item[data-tocando] .voz-tocar { color: var(--noite); }
 .voz-item[data-tocando] .voz-tocar::before {
   opacity: 1;
   transform: none;
   transition: opacity var(--dur-toque) linear, transform var(--dur-mola) var(--mola);
 }
-/* O anel se abre, devagar, enquanto ele fala. */
+/* A luz se abre, devagar, enquanto ele fala: respira, não pisca. */
 .voz-tocar::after {
   content: "";
   position: absolute;
   inset: 0;
-  border: 1.5px solid var(--fio);
+  border: 1px solid var(--chama);
   border-radius: 50%;
   opacity: 0;
   pointer-events: none;
 }
 .voz-item[data-tocando] .voz-tocar::after {
-  animation: voz-onda 1.9s var(--curva-ui) infinite;
+  animation: voz-onda 3.2s var(--curva-branco-deriva) infinite;
 }
 @keyframes voz-onda {
-  from { opacity: 0.55; transform: scale(1); }
-  to { opacity: 0; transform: scale(1.5); }
+  from { opacity: 0.5; transform: scale(1); }
+  to { opacity: 0; transform: scale(1.45); }
 }
 @media (hover: hover) and (pointer: fine) {
   .voz-tocar:hover { transform: scale(1.06); }
 }
 .voz-tocar:active { transform: scale(0.95); }
 
-/* Sem arquivo, ou que não abriu: apagado e opaco, para o fio não aparecer por trás. */
+/* Sem arquivo, ou que não abriu: uma conta apagada e opaca. */
 .voz-lista .voz-tocar-vazio,
 .voz-lista .voz-tocar:disabled {
   opacity: 1;
-  background: var(--papel-sombra);
-  box-shadow: 0 0 0 1px var(--papel-linha) inset;
-  color: var(--tinta-fraca);
+  background: var(--noite);
+  box-shadow: 0 0 0 1px rgba(244, 239, 230, 0.16) inset;
+  color: var(--luar-fraco);
   cursor: default;
   pointer-events: none;
 }
-/* A linha vazia fica mais quieta pela cor, não pela opacidade: o texto segue legível (4,5:1). */
-.voz-item[data-estado="vazio"] .voz-nome { color: var(--tinta-suave); }
+/* A linha vazia fica mais quieta pela cor, não pela opacidade: o texto segue legível (9:1). */
+.voz-item[data-estado="vazio"] .voz-nome { color: var(--luar-suave); }
 
 /* ---- o meio da linha: nome, fio de progresso, tempo e aviso ---------------- */
 
@@ -289,34 +326,36 @@
 }
 .voz-nome {
   min-width: 0;
-  font-size: 1.1875rem;
+  font-size: 1.125rem;
   font-weight: 600;
   line-height: 1.3;
+  letter-spacing: 0.03em;
   overflow-wrap: anywhere;
 }
-/* Letra à mão, como o resto do cartão: a Fredoka só mora no capítulo do jogo. */
 .voz-tempo {
   flex: none;
   min-width: 5.6em;
   text-align: right;
   font-size: 0.8125rem;
   line-height: 1.3;
-  color: var(--tinta-suave);
+  letter-spacing: 0.04em;
+  color: var(--luar-suave);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .voz-aviso {
   margin: 2px 0 0;
+  font-family: var(--fonte-mao);
   font-size: 1rem;
   line-height: 1.4;
-  color: var(--tinta-suave);
+  color: var(--luar-suave);
 }
 .voz-aviso[hidden] { display: none; }
-.voz-item[data-estado="falhou"] .voz-aviso { color: var(--sakura-tinta); }
+.voz-item[data-estado="falhou"] .voz-aviso { color: var(--sakura); }
 .voz-item[data-estado="falhou"] .voz-barra,
 .voz-item[data-estado="falhou"] .voz-baixar { display: none; }
 
-/* O progresso: o mesmo desenho do volume da música. A conta, parada no começo, alinha com o nome. */
+/* O progresso: o fio vermelho como o do volume da música, com uma conta de luz. */
 .voz-barra {
   display: flex;
   align-items: center;
@@ -337,10 +376,10 @@
   height: 2px;
   margin-top: -1px;
   border-radius: 1px;
-  background: var(--papel-linha);
+  background: rgba(244, 239, 230, 0.14);
   pointer-events: none;
 }
-/* Dois nós: o do começo é do fio (vermelho); o do fim, ainda cinza. */
+/* Dois nós: o do começo é do fio (vermelho); o do fim, ainda apagado. */
 .voz-fio::before,
 .voz-fio::after {
   content: "";
@@ -350,7 +389,7 @@
   height: 6px;
   margin-top: -3px;
   border-radius: 50%;
-  background: var(--tinta-fraca);
+  background: var(--luar-fraco);
 }
 .voz-fio::before { left: -2px; background: var(--fio); }
 .voz-fio::after { right: -2px; }
@@ -359,6 +398,7 @@
   inset: 0;
   border-radius: 1px;
   background: var(--fio);
+  box-shadow: 0 0 6px var(--fio-brilho);
   transform: scaleX(0);
   transform-origin: 0 50%;
 }
@@ -389,46 +429,47 @@
   margin-top: 12px;
   border: 0;
   border-radius: 50%;
-  background: var(--fio);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset, 0 0 0 3px var(--papel), 0 2px 5px 2px rgba(42, 27, 34, 0.24);
+  background: radial-gradient(circle at 38% 32%, var(--ouro-claro) 0%, var(--chama) 46%, var(--ouro-escuro) 92%);
+  box-shadow: 0 0 0 3px var(--noite), 0 0 12px 1px rgba(255, 180, 94, 0.5);
 }
 .voz-controle::-moz-range-thumb {
   width: 20px;
   height: 20px;
   border: 0;
   border-radius: 50%;
-  background: var(--fio);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset, 0 0 0 3px var(--papel), 0 2px 5px 2px rgba(42, 27, 34, 0.24);
+  background: radial-gradient(circle at 38% 32%, var(--ouro-claro) 0%, var(--chama) 46%, var(--ouro-escuro) 92%);
+  box-shadow: 0 0 0 3px var(--noite), 0 0 12px 1px rgba(255, 180, 94, 0.5);
 }
 .voz-controle:disabled { cursor: default; }
 .voz-controle:disabled::-webkit-slider-thumb {
-  background: var(--papel-sombra);
-  box-shadow: 0 0 0 1.5px var(--tinta-fraca) inset, 0 0 0 3px var(--papel);
+  background: var(--anil);
+  box-shadow: 0 0 0 1px rgba(244, 239, 230, 0.22) inset, 0 0 0 3px var(--noite);
 }
 .voz-controle:disabled::-moz-range-thumb {
-  background: var(--papel-sombra);
-  box-shadow: 0 0 0 1.5px var(--tinta-fraca) inset, 0 0 0 3px var(--papel);
+  background: var(--anil);
+  box-shadow: 0 0 0 1px rgba(244, 239, 230, 0.22) inset, 0 0 0 3px var(--noite);
 }
 .voz-controle:focus-visible {
-  outline: 2px solid var(--fio);
+  outline: 2px solid var(--ouro);
   outline-offset: -8px;
   border-radius: var(--raio-pilula);
 }
 
-/* O baixar é um redondo sem sombra: o destaque da linha é a conta de tocar. */
+/* O baixar é um redondo sem vidro: o destaque da linha é a conta de tocar. */
 .voz-baixar {
   width: 44px;
   height: 44px;
   margin-right: -8px;
   background: none;
   box-shadow: none;
-  color: var(--tinta-suave);
+  color: var(--luar-suave);
   text-decoration: none;
   touch-action: manipulation;
+  transition: transform var(--dur-mola) var(--mola), color var(--dur-ui) linear;
 }
 .voz-baixar:active { transform: scale(0.92) translateY(3px); }
 @media (hover: hover) and (pointer: fine) {
-  .voz-baixar:hover { transform: translateY(2px); color: var(--tinta); }
+  .voz-baixar:hover { transform: translateY(2px); color: var(--ouro-claro); }
   /* Repetido depois do hover: com o mouse, os dois valem ao mesmo tempo e o toque tem de vencer. */
   .voz-baixar:active { transform: scale(0.92) translateY(3px); }
 }
@@ -462,6 +503,13 @@
   .voz-lista { margin-top: 10px; }
   .voz-item { min-height: 68px; padding: 4px 0; }
 }
+
+/* ---- aparelho fraco: o fio e a luz sem halo -------------------------------- */
+
+html[data-nivel="baixo"] .voz-lista::before,
+html[data-nivel="baixo"] .voz-lista::after,
+html[data-nivel="baixo"] .voz-fio-cheio { box-shadow: none; }
+html[data-nivel="baixo"] .voz-cartao > .ui-laco { filter: none; }
 
 /* ---- versão calma: o cartão só dissolve; nada gira nem balança ------------- */
 

@@ -226,6 +226,7 @@ Este arquivo é a referência rápida do que cada módulo exporta e com que assi
   - `protagonistas()`: agenda as protagonistas (ver Comportamento, item 8). Não faz nada no movimento reduzido.
   - `preparar()` → Promise: `renderer.compileAsync(malhaSoltas, camera, cena)`, uma vez. Chamadas seguintes devolvem a mesma Promise.
   - `rajada(posMundo, n = 12)`: `posMundo` é um `THREE.Vector3`. Não faz nada se `x` não for número.
+  - `fugir(ndc)` (v2): `{x, y}` em coordenadas normalizadas da tela, ou `null`. As pétalas no ar e os vaga-lumes se afastam desse ponto; com `null`, voltam em uns 2 s. Não existe no modo leve (quem chama usa `?.`).
   - `magia(pos, forca = 1)`: `pos` = `{x, y, z}` ou `null`. A força vira alvo `clamp(forca, 0, 1)`.
   - `atualizar(dt)`: chamado a cada quadro (js/mundo/mundo.js: `aoQuadro(petalas.atualizar)`). O segundo argumento, `t`, chega e é ignorado.
   - `dispose()`: tira o grupo da cena, libera as três geometrias e os três materiais e cancela `aoRedimensionar` e `aoMudarNivel`.
