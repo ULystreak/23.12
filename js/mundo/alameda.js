@@ -987,6 +987,7 @@ uniform float uTempo;
 uniform vec3 uVao;
 uniform float uVaoZ;
 uniform float uLanternas;
+uniform float uPassoLuz;
 uniform float uVeu;
 
 const vec3 CHAMA = vec3(1.0, 0.64, 0.32);
@@ -1011,9 +1012,10 @@ vec3 aquecer(vec3 c, vec3 q) { return c * (uLuz + q); }
 vec3 acabar(vec3 c) { return mix(NOITE, c, uSurgir); }
 
 /* A luz das lanternas, sem luz real. A frente acesa fica a uLanternas × 62 m
-   da câmera e cada lanterna leva 6 m de caminho para acender inteira. */
+   da câmera (a hora) ou a uPassoLuz m (o passo dela: as mais próximas se acendem
+   conforme ela anda), o que for maior; cada uma leva 6 m para acender inteira. */
 float acesa(float z) {
-  float x = clamp((uLanternas * 62.0 - max(0.0, camA.z - z)) / 6.0, 0.0, 1.0);
+  float x = clamp((max(uLanternas * 62.0, uPassoLuz) - max(0.0, camA.z - z)) / 6.0, 0.0, 1.0);
   return x * x * (3.0 - 2.0 * x);
 }
 // Respira devagar: 3,6 a 5,5 s por ciclo, ±10%. Nada pisca.
@@ -1024,7 +1026,7 @@ float poca(vec3 d, float r2) {
   return 1.0 / (q * q);
 }
 vec3 luzQuente(vec3 p) {
-  if (uLanternas < 0.001) return vec3(0.0);
+  if (uLanternas < 0.001 && uPassoLuz < 0.001) return vec3(0.0);
   float soma = 0.0;
   // As baixas: as duas vizinhas de cada lado.
   for (int i = 0; i < 2; i++) {
@@ -1615,6 +1617,7 @@ export function criarAlameda(mundo) {
   let ultimaVaga = null;
   let vaoIniciado = false;
   let derivaAtual = 0;
+  let zInicio = null; // onde a caminhada começou, para medir o caminho feito
   let cometa = null; // false se não deu para criar: não tenta de novo a cada quadro
   let cometaDesde = 0;
   let cometaPronto = false;
@@ -1636,6 +1639,7 @@ export function criarAlameda(mundo) {
     uVaoZ: { value: 0 },
     uDeriva: { value: 0 },
     uLanternas: { value: 0 },
+    uPassoLuz: { value: 0 },
     uVeu: { value: 1 },
     uEstrelas: { value: 0 },
   };
@@ -2062,6 +2066,12 @@ export function criarAlameda(mundo) {
     comuns.uDeriva.value = derivaAtual;
     camera.getWorldPosition(olho);
     camPos.set(olho.x, olho.y, olho.z - derivaAtual);
+    // As lanternas mais próximas se acendem conforme ela anda: o alcance cresce
+    // com o caminho já feito (até 17 m à frente) e não volta atrás.
+    const zA = camPos.z;
+    if (zInicio === null) zInicio = zA;
+    const alvoPerto = Math.min(17, Math.max(0, zInicio - zA) * 2.4);
+    if (alvoPerto > comuns.uPassoLuz.value) comuns.uPassoLuz.value = alvoPerto;
 
     // O vão segue a câmera de lado com atraso (~1,25 s): o galho sai do caminho
     // do olhar devagar, como quem passa por baixo.
