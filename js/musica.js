@@ -508,7 +508,17 @@ export function criarMusica({ conteudo, som, amb, recursos, mini }) {
     function centrar(i) {
       const antes = atual;
       irPara(i);
-      if (atual !== antes) som?.efeito?.('toque');
+      if (atual === antes) return;
+      // O foco anda com o centro: um foco esquecido na capa antiga puxaria o
+      // trilho (e a música) de volta quando a janela fosse reativada.
+      if (trilho.contains(document.activeElement)) vivas()[atual]?.botao.focus({ preventScroll: true });
+      som?.efeito?.('toque');
+      // Com uma música já escolhida, passar é trocar: a capa que chega ao centro
+      // vira a escolha e começa a tocar, sem ela precisar tocar de novo na capa.
+      const linha = vivas()[atual];
+      if (!escolhida || !linha || linha === escolhida || terminado || fora.has(linha.faixa.indice)) return;
+      som?.tocar?.(linha.faixa.indice);
+      marcar(linha);
     }
 
     function passar(dir) {

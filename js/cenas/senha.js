@@ -10,8 +10,8 @@
    esperado responde no lugar do aviso, sem contar erro (a lanterna só
    balança); antes de liberaEm a senha certa diz "ainda não", com a contagem
    regressiva até o dia. No acerto a lanterna acende inteira, o fio vermelho é
-   costurado por baixo do campo, o coração pousa na ponta, duas notas fecham a
-   frase e a luz da lanterna se abre sobre a tela.
+   costurado por baixo do campo, o coração pousa na ponta, a caixinha segue
+   sozinha o Parabéns até o fim e a luz da lanterna se abre sobre a tela.
 
    sairDaEntrada abre as pálpebras, tingidas de luz quente, sobre a alameda e
    tira #entrada do DOM.
@@ -30,7 +30,11 @@ const COR_MUNDO = '#0b1026';
 // O Parabéns (Hill, 1893, domínio público; só a melodia), uma oitava acima, no
 // registro de caixinha de música. O caractere N toca a nota N; depois da 19ª recomeça.
 const PARABENS = [784, 784, 880, 784, 1174.7, 1046.5, 784, 784, 1568, 1318.5, 1046.5, 987.8, 880, 1396.9, 1396.9, 1318.5, 1046.5, 1174.7, 1046.5];
-// As duas notas que fecham a primeira frase da melodia, tocadas no acerto.
+// Quanto dura cada nota, em tempos (3/4): no acerto a caixinha segue sozinha
+// de onde a senha parou até o fim da melodia.
+const TEMPOS = [0.75, 0.25, 1, 1, 1, 2, 0.75, 0.25, 1, 1, 1, 1, 2, 0.75, 0.25, 1, 1, 1, 2];
+const TEMPO = 400; // ms por tempo: andamento de caixinha, sem pressa
+// Se a senha acabou junto com a melodia, estas duas notas fecham a frase.
 const FECHO = [1046.5, 987.8];
 
 const RESPOSTA = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
@@ -402,8 +406,23 @@ export async function cenaSenha(ctx) {
         .to(halo, { scale: 9, duration: 1.7, ease: 'sine.inOut' }, 1.3)
         .to(forma, { opacity: 0, y: -10, duration: 1, ease: 'power1.inOut' }, 1.95);
     }
-    tl.call(() => som?.efeito?.('caixinha', { nota: FECHO[0] }), null, 0.5)
-      .call(() => som?.efeito?.('caixinha', { nota: FECHO[1] }), null, 0.86);
+    // O Parabéns continua sozinho da nota em que ela parou, atravessa a luz que
+    // se abre e só se cala no fim da melodia, ou quando a música dela começa.
+    const resto = tamanho % PARABENS.length;
+    if (tamanho > 0 && resto > 0) {
+      tl.call(() => {
+        (async () => {
+          for (let i = resto; i < PARABENS.length; i++) {
+            if (som?.estado?.tocando) return;
+            som?.efeito?.('caixinha', { nota: PARABENS[i] });
+            await espera(TEMPOS[i] * TEMPO);
+          }
+        })();
+      }, null, 0.5);
+    } else {
+      tl.call(() => som?.efeito?.('caixinha', { nota: FECHO[0] }), null, 0.5)
+        .call(() => som?.efeito?.('caixinha', { nota: FECHO[1] }), null, 0.86);
+    }
     await comoPromise(tl);
   } finally {
     clearInterval(relogio);
