@@ -658,3 +658,30 @@ html.reduzido .galeria-ponto { transition-duration: 0.01ms; }
   .visor-pausa,
   .galeria-ponto { transition-duration: 0.01ms; }
 }
+
+/* "Nossos momentos" com o texto dele: uma carta escrita à mão que rola por dentro */
+.visor-cartao.visor-escrita {
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: 1.05em;
+  width: min(calc(var(--maxL) - 24px), 440px);
+  max-height: min(var(--maxA), 70vh);
+  padding: 30px 24px 26px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  text-align: left;
+  scrollbar-width: thin;
+  scrollbar-color: var(--papel-linha) transparent;
+  outline: none;
+}
+.carta-chao-escrita {
+  margin: 0;
+  font-family: var(--fonte-mao);
+  font-size: 1.0625rem;
+  line-height: 1.75;
+  color: var(--tinta);
+  white-space: pre-line;
+}
+.carta-chao-escrita:first-child { font-weight: 600; }
+.carta-chao-escrita:last-child { padding-bottom: 6px; }

@@ -224,8 +224,11 @@ async function verCartas(s, extra) {
 
   if (extra.op.fluxo) {
     const n = contarCartas(extra.conteudo);
-    await reabrirDaBolsa(s, 'chao-1', n + 2, extra);
-    await reabrirDaBolsa(s, 'carta-poppy', n + 2, extra);
+    // Com texto dele, "Nossos momentos" também vai para a bolsa, além da fita da voz.
+    const c = extra.conteudo;
+    const comTexto = String(c?.cartasChao?.surpresinha?.texto || '').trim() && (c?.voz?.itens?.length || 0) > 0 ? 1 : 0;
+    await reabrirDaBolsa(s, 'chao-1', n + 2 + comTexto, extra);
+    await reabrirDaBolsa(s, 'carta-poppy', n + 2 + comTexto, extra);
     await esperarAgora(s, 'escolhendo', T_CARTAS);
   }
   await pausa(600);

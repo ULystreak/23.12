@@ -73,7 +73,7 @@ export function cartasDoChao(conteudo) {
     const midias = (Array.isArray(s.midias) ? s.midias : [])
       .filter((m) => (typeof m?.foto === 'string' && m.foto) || (typeof m?.video === 'string' && m.video))
       .map((m) => ({ foto: m.foto || '', video: m.video || '', legenda: typeof m.legenda === 'string' ? m.legenda : '' }));
-    lista.push({ id: 'chao-surpresinha', nome: nomeS, tipo: 'galeria', video: '', capa: '', midias });
+    lista.push({ id: 'chao-surpresinha', nome: nomeS, tipo: 'galeria', video: '', capa: '', midias, texto: String(s.texto || '').trim() });
   }
   return lista;
 }

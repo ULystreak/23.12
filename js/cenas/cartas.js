@@ -278,6 +278,15 @@ function criarVisor(ctx) {
     // O vídeo que falhou mostra só o nome (no rodapé); aqui ele é dito ao leitor de tela.
     const texto = semGlifo ? carta.nome : String(modelo || '').replaceAll('{nome}', carta.nome);
     const caixa = el('div', { class: 'visor-cartao', dataset: semGlifo ? { falhou: '1' } : null });
+    // "Nossos momentos" com texto dele: a carta escrita à mão, no lugar do aviso de vazio.
+    if (!semGlifo && carta.texto) {
+      caixa.classList.add('visor-escrita');
+      caixa.tabIndex = 0;
+      for (const paragrafo of carta.texto.split(/\n\s*\n/)) {
+        if (paragrafo.trim()) caixa.append(el('p', { class: 'carta-chao-escrita', texto: paragrafo.trim() }));
+      }
+      return caixa;
+    }
     if (!semGlifo) caixa.append(svg(galeria ? GLIFO_CORACAO : GLIFO_VIDEO));
     if (texto) caixa.append(el('p', { class: 'carta-chao-vazio', texto }));
     return caixa;
@@ -1043,7 +1052,8 @@ export async function cenaCartas(ctx, { frio = false } = {}) {
     som?.destravar?.();
     som?.efeito?.('papel');
     const { carta } = item;
-    const temMidias = carta.midias.length > 0;
+    // O texto dele conta como conteúdo: a carta abre no visor antes dos áudios.
+    const temMidias = carta.midias.length > 0 || !!carta.texto;
     // "Nossos momentos" é o presente da voz dele: as fotos (se houver) passam antes dos áudios.
     const comVoz = item.ultima && !!ctx.voz && (conteudo.voz?.itens?.length || 0) > 0;
     let falhou = false;

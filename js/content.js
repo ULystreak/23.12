@@ -816,6 +816,26 @@ window.CONTEUDO = {
     surpresinha: {
       nome: 'Nossos momentos',
 
+      // O que você escreve para ela nesta carta. Aparece escrito à mão quando
+      // ela abre, antes dos áudios. Uma linha em branco começa outro parágrafo.
+      // Deixe `` (vazio) para a carta não ter texto.
+      texto: `oi gatinha... deixei aqui para escrever um pouquinho sobre vc
+
+nao sei por onde começar
+
+voce é complexa tipo a sinfonia de betoven
+linda como a abertura de nanatzu nutaizai
+mas me apaixono por voce todo dia como o encontro de taki e mitsuha em your name
+
+intensa como o amor de hardin e tessa em after
+viciante como undressed, que mesmo depois de acabar continua ecoando na minha cabeça
+inesquecível como uma história que nunca chegou a ter um fim, igual we never dated
+e tão cheia de surpresas quanto os corredores de poppy playtime, onde cada cantinho esconde algo novo para descobrir
+
+voce é como uma cena de your name, daquelas que fazem a gente acreditar que algumas pessoas estão destinadas a se encontrar.
+
+e talvez eu nunca encontre palavras suficientes para explicar o quanto gosto de voce, mas, se depender de mim, vou continuar descobrindo novas formas de me apaixonar por cada detalhe seu.`,
+
       // As fotos e os vídeos, na ordem em que aparecem. Fotos em
       // assets/images/, vídeos em assets/videos/. Exemplos de linhas prontas:
       //
