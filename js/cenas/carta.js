@@ -29,8 +29,7 @@ const FORCA_CHACOALHO = 11;
 const PICOS_CHACOALHO = 3;
 const JANELA_CHACOALHO = 1000;
 const ENTRE_PICOS = 90;
-const ESPERA_CHACOALHO = 10000; // ms: depois disso a dica volta a pedir o toque
-const DEPOIS_DO_CONVITE = 600; // ms: o segundo toque de um toque duplo não abre
+const SENSOR_MUDO = 8000; // ms sem nenhuma leitura do sensor: só então o toque abre (aparelho com defeito)
 const ARRASTO = 14; // px: o dedo andou mais que isso, é arrasto
 
 // A dica é luar sobre um véu anil que se desfaz nas bordas (sem caixa nem
@@ -214,6 +213,7 @@ function esperarToque(ctx, env, baixar, textoChacoalhar) {
     let terminado = false;
     let fase = ''; // '' | 'pedindo' | 'chacoalhar'
     let convidadoEm = 0;
+    let ultimoSensor = 0;
     let inicio = null;
     let apertado = false;
     let sobre = false;
@@ -276,7 +276,10 @@ function esperarToque(ctx, env, baixar, textoChacoalhar) {
       if (dicaVisivel) posicionarDica();
     };
 
-    const mostrarDica = (texto = textoDica) => {
+    const mostrarDica = (pedido) => {
+      // Depois do convite a dica é sempre a de chacoalhar: o lembrete dos 4 s e o
+      // toque fora da carta não a trocam de volta por "toque na carta".
+      const texto = fase === 'chacoalhar' ? textoChacoalhar : pedido ?? textoDica;
       if (terminado || !texto || !dica) return;
       if (dicaVisivel && texto === textoAtual) return;
       const minha = ++geracaoDica;
@@ -380,6 +383,7 @@ function esperarToque(ctx, env, baixar, textoChacoalhar) {
       else if (Number.isFinite(g?.x)) forca = Math.abs(Math.hypot(g.x, g.y || 0, g.z || 0) - 9.81);
       if (forca === null) return;
       mediuSensor = true;
+      ultimoSensor = performance.now();
       if (fase !== 'chacoalhar' || terminado || inventario?.aberto) return;
       const agora = performance.now();
       if (forca < FORCA_CHACOALHO || agora - ultimoPico < ENTRE_PICOS) return; // é o mesmo tranco
@@ -401,9 +405,6 @@ function esperarToque(ctx, env, baixar, textoChacoalhar) {
       window.addEventListener('devicemotion', aoMexer);
       mostrarDica(textoChacoalhar);
       tremer();
-      espera(ESPERA_CHACOALHO).then(() => {
-        if (!terminado) mostrarDica(textoDica);
-      });
     };
 
     // Chacoalhar nunca prende: negado ou sem sensor, o toque abre.
@@ -455,8 +456,13 @@ function esperarToque(ctx, env, baixar, textoChacoalhar) {
         pedirSensor();
         return;
       }
-      if (fase === 'chacoalhar' && performance.now() - convidadoEm < DEPOIS_DO_CONVITE) {
+      // Decisão do autor: com o sensor liberado, a última carta só abre chacoalhando.
+      // O toque repete o pedido; só abre se o sensor ficou mudo (aparelho com defeito).
+      if (fase === 'chacoalhar') {
         soltar();
+        const agora = performance.now();
+        if (agora - convidadoEm > SENSOR_MUDO && agora - ultimoSensor > SENSOR_MUDO) concluir();
+        else mostrarDica(textoChacoalhar);
         return;
       }
       concluir();

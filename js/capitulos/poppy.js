@@ -182,6 +182,7 @@ export const capitulo = {
         p.el.style.removeProperty('transform');
         p.el.style.removeProperty('opacity');
         p.el.style.removeProperty('z-index');
+        p.el.classList.remove('pp-longe');
         p.el.classList.add('foco');
       }
       raiz.classList.add('pp-chegou');
@@ -301,9 +302,11 @@ export const capitulo = {
             p.visto = false;
             p.el.style.opacity = '0';
             p.el.classList.remove('foco');
+            p.el.classList.add('pp-longe'); // fora de vista: o balanço não gasta quadro
           }
           continue;
         }
+        if (p.visto !== true) p.el.classList.remove('pp-longe');
         p.visto = true;
         corredor.projetar(p.ancora.x, p.ancora.y, p.ancora.z, tela);
         const escala = Math.min(1.14, DF / Math.max(0.5, tela.prof));

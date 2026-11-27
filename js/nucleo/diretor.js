@@ -14,7 +14,6 @@
    ========================================================================== */
 
 import { cenaAbertura } from '../cenas/abertura.js';
-import { cenaCarta } from '../cenas/carta.js';
 import { menuLembrado, lembrarMenu, espera } from './util.js';
 
 export const ORDEM = ['senha', 'musica', 'inicio', 'poppy', 'carta2', 'yourname', 'mao', 'cartas', 'encontro', 'final', 'menu'];
@@ -41,6 +40,9 @@ const carregar = {
   menu: () => import('../cenas/menu.js'),
 };
 const carregarEntrada = () => import('../cenas/senha.js');
+// A carta (e o envelope 3D que ela puxa) não segura a tela da senha: o main.js
+// pede os dois logo depois da primeira tela, bem antes de a carta chegar.
+const carregarCarta = () => import('../cenas/carta.js');
 
 /* ---- o que o conteúdo sustenta -------------------------------------------- */
 
@@ -333,7 +335,7 @@ export function criarDiretor() {
     async inicio(ctx, { frio }) {
       if (frio) ctx.musica.mostrarMini();
       await cenaAbertura(ctx, { frio });
-      await cenaCarta(ctx, { tema: 'poppy', lacre: 'coracao', amarracao: 'cordao', distancia: 7 });
+      await (await carregarCarta()).cenaCarta(ctx, { tema: 'poppy', lacre: 'coracao', amarracao: 'cordao', distancia: 7 });
     },
 
     poppy(ctx, { frio }) {
@@ -342,7 +344,7 @@ export function criarDiretor() {
 
     async carta2(ctx, { frio }) {
       if (frio) ctx.musica.mostrarMini();
-      await cenaCarta(ctx, { tema: 'yourname', lacre: 'estrela', amarracao: 'cordao', distancia: 7 });
+      await (await carregarCarta()).cenaCarta(ctx, { tema: 'yourname', lacre: 'estrela', amarracao: 'cordao', distancia: 7 });
     },
 
     yourname(ctx, { frio }) {

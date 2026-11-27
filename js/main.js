@@ -16,11 +16,34 @@ import { criarDiretor } from './nucleo/diretor.js';
 import { criarRecursos } from './nucleo/recursos.js';
 import { criarSom } from './som.js';
 import { criarMusica } from './musica.js';
-import { criarPergaminho } from './pergaminho.js';
 import { criarInventario } from './inventario.js';
-import { criarBolso } from './cenas/bolso.js';
-import { ligarHora } from './mundo/hora.js';
-import { ligarToque } from './mundo/toque.js';
+
+// O que só existe com o mundo montado chega junto com ele, fora do caminho da
+// primeira tela (a senha não usa folha, bolso, hora nem toque no mundo).
+// As folhas de estilo das cenas depois da tela preta (data-depois no index.html)
+// não seguram a primeira pintura; o mundo só monta com todas elas valendo.
+const estilosProntos = () => Promise.all([...document.querySelectorAll('link[data-depois]')].map((folha) => {
+  if (folha.media !== 'print') return null;
+  return new Promise((resolve) => {
+    const pronto = () => {
+      folha.media = 'all';
+      resolve();
+    };
+    if (folha.sheet) pronto();
+    else {
+      folha.addEventListener('load', pronto, { once: true });
+      folha.addEventListener('error', resolve, { once: true });
+    }
+  });
+}));
+
+const pecasDoMundo = () => Promise.all([
+  import('./mundo/mundo.js'),
+  import('./pergaminho.js'),
+  import('./cenas/bolso.js'),
+  import('./mundo/hora.js'),
+  import('./mundo/toque.js'),
+]);
 
 const diretor = criarDiretor();
 let jaFalhou = false;
@@ -67,15 +90,21 @@ async function iniciar() {
   };
 
   let montando = null;
+  let pecas = null;
   const montarMundo = () => {
-    montando ||= import('./mundo/mundo.js')
+    montando ||= Promise.all([pecasDoMundo(), estilosProntos()])
+      .then(([m]) => m)
       .then((m) => new Promise((resolve) => setTimeout(() => resolve(m), 0)))
-      .then(({ criarMundo }) => criarMundo({
-        amb,
-        canvas: document.getElementById('mundo'),
-        recipienteLeve: document.getElementById('mundo-leve'),
-      }))
+      .then(([{ criarMundo }, { criarPergaminho }, { criarBolso }, { ligarHora }, { ligarToque }]) => {
+        pecas = { criarPergaminho, criarBolso, ligarHora, ligarToque };
+        return criarMundo({
+          amb,
+          canvas: document.getElementById('mundo'),
+          recipienteLeve: document.getElementById('mundo-leve'),
+        });
+      })
       .then((mundo) => {
+        const { criarPergaminho, criarBolso, ligarHora, ligarToque } = pecas;
         if (naEntrada) mundo.desligar();
         window.__carta.gpu = mundo.gpu || null;
         ligarHora({ mundo, diretor, amb });
@@ -125,8 +154,10 @@ async function iniciar() {
       if (baixou) return;
       baixou = true;
       Promise.all([
-        import('./mundo/mundo.js').catch(() => {}),
+        pecasDoMundo().catch(() => {}),
         import('../lib/three.module.min.js').catch(() => {}),
+        // A carta e o envelope dela: saíram do caminho da senha e chegam aqui.
+        import('./cenas/carta.js').catch(() => {}),
         espera(1600),
       ]).then(montarNaHora);
     };

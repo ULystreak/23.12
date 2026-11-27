@@ -943,10 +943,10 @@ e talvez eu nunca encontre palavras suficientes para explicar o quanto gosto de 
 
     // Só nesta última carta: no celular, quando ela toca na carta, o aparelho pede
     // licença para sentir o movimento (no iPhone aparece uma janela do sistema) e a
-    // dica vira este texto; a carta abre quando ela chacoalha o celular. Se ela não
-    // deixar, ou no computador, o toque abre na hora; um segundo toque também abre.
+    // dica vira este texto; a carta SÓ abre quando ela chacoalha o celular (tocar de
+    // novo apenas repete o pedido). Se ela não deixar, ou no computador, o toque abre.
     // Deixe vazio ('') para a carta abrir só com o toque, como as outras.
-    dicaChacoalhar: '[Chacoalha o celular.]',
+    dicaChacoalhar: 'Chacoalha o celular.',
   },
 
   /* --------------------------------------------------------------------------

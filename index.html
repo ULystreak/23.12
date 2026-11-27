@@ -23,6 +23,9 @@
 
   <!-- A fonte da primeira frase vem antes de tudo. -->
   <link rel="preload" href="assets/fonts/shippori-mincho-400.woff2" as="font" type="font/woff2" crossorigin>
+  <!-- A tela da senha escreve em Klee One 600: sem isto a fonte só era pedida
+       depois de todo o JS, e a letra trocava na frente dela. -->
+  <link rel="preload" href="assets/fonts/klee-one-600.woff2" as="font" type="font/woff2" crossorigin>
 
   <!-- CSS crítico: só o que a primeira tela precisa. O resto vem em css/. -->
   <style>
@@ -85,24 +88,39 @@
     })();
   </script>
 
+  <!-- As folhas com media="print" são das cenas depois da tela preta: baixam sem
+       segurar a primeira pintura e passam a valer ao chegar, na mesma ordem da
+       cascata. O main.js só monta o mundo (e nada sai da tela preta sem o mundo)
+       depois de todas terem chegado. -->
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/senha.css">
   <link rel="stylesheet" href="css/mundo.css">
   <link rel="stylesheet" href="css/musica.css">
-  <link rel="stylesheet" href="css/pergaminho.css">
-  <link rel="stylesheet" href="css/poppy.css">
-  <link rel="stylesheet" href="css/yourname.css">
-  <link rel="stylesheet" href="css/bolso.css">
+  <link rel="stylesheet" href="css/pergaminho.css" media="print" onload="this.media='all'" data-depois>
+  <link rel="stylesheet" href="css/poppy.css" media="print" onload="this.media='all'" data-depois>
+  <link rel="stylesheet" href="css/yourname.css" media="print" onload="this.media='all'" data-depois>
+  <link rel="stylesheet" href="css/bolso.css" media="print" onload="this.media='all'" data-depois>
   <link rel="stylesheet" href="css/inventario.css">
   <link rel="stylesheet" href="css/voz.css">
-  <link rel="stylesheet" href="css/cartas.css">
-  <link rel="stylesheet" href="css/mao.css">
-  <link rel="stylesheet" href="css/encontro.css">
-  <link rel="stylesheet" href="css/final.css">
-  <link rel="stylesheet" href="css/resposta.css">
-  <link rel="stylesheet" href="css/menu.css">
+  <link rel="stylesheet" href="css/cartas.css" media="print" onload="this.media='all'" data-depois>
+  <link rel="stylesheet" href="css/mao.css" media="print" onload="this.media='all'" data-depois>
+  <link rel="stylesheet" href="css/encontro.css" media="print" onload="this.media='all'" data-depois>
+  <link rel="stylesheet" href="css/final.css" media="print" onload="this.media='all'" data-depois>
+  <link rel="stylesheet" href="css/resposta.css" media="print" onload="this.media='all'" data-depois>
+  <link rel="stylesheet" href="css/menu.css" media="print" onload="this.media='all'" data-depois>
   <link rel="stylesheet" href="css/letra.css">
 
+  <!-- O grafo inteiro do boot de uma vez: sem isto cada nível de import só era
+       descoberto depois do anterior chegar (três idas à rede em fila). -->
+  <link rel="modulepreload" href="js/nucleo/ambiente.js">
+  <link rel="modulepreload" href="js/nucleo/util.js">
+  <link rel="modulepreload" href="js/nucleo/movimento.js">
+  <link rel="modulepreload" href="js/nucleo/diretor.js">
+  <link rel="modulepreload" href="js/nucleo/recursos.js">
+  <link rel="modulepreload" href="js/som.js">
+  <link rel="modulepreload" href="js/musica.js">
+  <link rel="modulepreload" href="js/inventario.js">
+  <link rel="modulepreload" href="js/cenas/abertura.js">
   <link rel="modulepreload" href="js/voz.js">
   <link rel="modulepreload" href="js/letra.js">
   <link rel="modulepreload" href="js/cenas/senha.js">

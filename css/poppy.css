@@ -8,7 +8,7 @@
    em cada `.pp-est`; tudo o mais é daqui. O vermelho cheio é só do fio.
    Fredoka no que é brinquedo, VT323 no que é "da fita".
    Classes de estado (postas pelo poppy.js): aguardando, pp-plano (versão 2D,
-   sem WebGL ou com movimento reduzido), foco, pp-chegou, guardando, visivel.
+   sem WebGL ou com movimento reduzido), foco, pp-longe (parada fora de vista), pp-chegou, guardando, visivel.
    ========================================================================== */
 
 #pergaminho .poppy-fundo,
@@ -170,6 +170,9 @@
   transform-origin: 50% -30vh;
   animation: pp-balanco 5.2s ease-in-out infinite alternate;
 }
+/* Parada fora de vista (opacidade 0, posta pelo JS): o balanço e a luzinha esperam parados. */
+.pp-est.pp-longe .pp-corpo,
+.pp-est.pp-longe .pp-corpo::before { animation-play-state: paused; }
 .pp-texto {
   margin: 0;
   overflow-wrap: break-word;
