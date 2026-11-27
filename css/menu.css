@@ -1,13 +1,15 @@
 /* ============================================================================
    MENU: o varal do fio
    ============================================================================
-   O fio vermelho desce do alto (um SVG atrás do papel e outro na frente, que só
-   aparece nas janelas dos furos), as etiquetas de papel com ilhó em zigue-zague,
-   a saudade na ponta, as coisas dela no chão, os cartões das referências que
-   passam, a folha que sobe do fim e o portão do som.
+   Noite de lanternas. O fio vermelho desce do alto (um SVG atrás e outro na
+   frente, que só aparece nas janelas dos furos) e passa por dentro de uma
+   lanterninha de papel em cada etiqueta de vidro. As lanternas ficam em brasa,
+   respirando, e se acendem ao foco e ao toque. Na ponta, a saudade; no chão,
+   as coisas dela, cada uma na sua poça de luz; os cartões das referências são
+   lanternas de washi acesas por dentro; a folha do fim e o portão são vidro.
 
-   Linguagem: as peças .ui-* de css/base.css. Só transform e opacity são
-   animados; sem backdrop-filter; sombras fixas. As alturas seguem --tela
+   Linguagem: as peças .ui-* de css/base.css. Só transform, opacity e cor são
+   animados; sem backdrop-filter; sombras fixas, em anil. As alturas seguem --tela
    (100dvh): no Safari do iPhone o vh conta a tela sem as barras e o varal
    encostaria no chão.
    ========================================================================== */
@@ -20,7 +22,12 @@
   --menu-cruza: 30px; /* quanto cada etiqueta passa do meio: o fio ondula */
   --menu-letra: clamp(1rem, 0.955rem + 0.22vw, 1.125rem);
   --menu-halo: 0 0 0.3em rgba(6, 8, 26, 0.9), 0 0 0.9em rgba(6, 8, 26, 0.7);
-  --menu-papel: linear-gradient(168deg, #fffdf8, var(--papel) 46%, #f6efe3);
+  --menu-papel: radial-gradient(120% 90% at 50% 34%, #fff6e3, var(--papel) 58%, var(--papel-sombra));
+  --menu-vidro: linear-gradient(180deg, rgba(246, 220, 166, 0.07), rgba(246, 220, 166, 0) 46%), var(--vidro-forte);
+  --menu-anil: 0 2px 4px rgba(3, 5, 18, 0.5), 0 14px 28px -12px rgba(3, 5, 18, 0.85);
+  --lan-l: 22px; /* a lanterninha do furo */
+  --lan-a: 30px;
+  --lan-x: 18px; /* o centro do furo, a partir da borda do lado do fio */
 }
 
 .menu {
@@ -39,8 +46,9 @@
   inset: 0;
   z-index: 0;
   background:
-    linear-gradient(to top, rgba(7, 9, 30, 0.8), rgba(7, 9, 30, 0) 34%),
-    linear-gradient(to bottom, rgba(7, 9, 30, 0.34), rgba(7, 9, 30, 0) 15%);
+    radial-gradient(70% 22% at 50% 100%, rgba(255, 180, 94, 0.1), rgba(255, 180, 94, 0)),
+    linear-gradient(to top, rgba(6, 9, 20, 0.86), rgba(6, 9, 20, 0) 36%),
+    linear-gradient(to bottom, rgba(6, 9, 20, 0.42), rgba(6, 9, 20, 0) 17%);
   opacity: 0;
   transition: opacity 1.2s linear;
 }
@@ -49,7 +57,7 @@
   position: absolute;
   inset: 0;
   z-index: 3;
-  background: rgb(7, 9, 30);
+  background: var(--noite-funda);
   pointer-events: none;
 }
 
@@ -87,23 +95,20 @@ html[data-cena="menu"] #letra { opacity: 0; }
   stroke-linejoin: round;
 }
 .menu-fio-frente { z-index: 2; }
+/* O fio brilha por conta própria: o traço de trás é o halo, não uma sombra. */
 .menu-fio-sombra {
-  stroke: rgba(4, 6, 20, 0.42);
-  stroke-width: 2.6;
-  transform: translate(2px, 3px);
+  stroke: var(--fio-brilho);
+  stroke-width: 8;
+  opacity: 0.3;
 }
-.menu-fio-linha { stroke: var(--fio); stroke-width: 2.3; }
+.menu-fio-linha { stroke: var(--fio); stroke-width: 2.2; }
 .menu-fio-torcao {
-  stroke: rgba(255, 214, 205, 0.36);
+  stroke: rgba(255, 214, 205, 0.42);
   stroke-width: 0.9;
   stroke-dasharray: 2.4 3.6;
 }
-/* Na frente, por cima do papel, a sombra é curta e de tinta. */
-.menu-fio-frente .menu-fio-sombra {
-  stroke: rgba(42, 27, 34, 0.2);
-  stroke-width: 2.3;
-  transform: translate(1.6px, 1.2px);
-}
+/* Na frente, por cima do vidro, o halo é curto. */
+.menu-fio-frente .menu-fio-sombra { stroke-width: 5; opacity: 0.36; }
 /* Aparelho fraco: uma sombra só (a do fio de trás). */
 html[data-nivel="baixo"] .menu-fio-frente .menu-fio-sombra { display: none; }
 
@@ -121,12 +126,12 @@ html[data-nivel="baixo"] .menu-fio-frente .menu-fio-sombra { display: none; }
 .menu-partes li[data-lado="dir"] {
   justify-content: flex-start;
   padding-left: calc(50% - var(--menu-cruza));
-  transform-origin: calc(50% - var(--menu-cruza) + 18px) 50%;
+  transform-origin: calc(50% - var(--menu-cruza) + var(--lan-x)) 50%;
 }
 .menu-partes li[data-lado="esq"] {
   justify-content: flex-end;
   padding-right: calc(50% - var(--menu-cruza));
-  transform-origin: calc(50% + var(--menu-cruza) - 18px) 50%;
+  transform-origin: calc(50% + var(--menu-cruza) - var(--lan-x)) 50%;
 }
 
 .menu-etiqueta,
@@ -137,67 +142,124 @@ html[data-nivel="baixo"] .menu-fio-frente .menu-fio-sombra { display: none; }
   align-items: center;
   max-width: 100%;
   min-width: 44px;
-  background: var(--menu-papel);
-  color: var(--tinta);
-  font-family: var(--fonte-mao);
+  background: var(--menu-vidro);
+  color: var(--luar);
+  font-family: var(--fonte-titulo);
   font-weight: 600;
+  letter-spacing: 0.03em;
   line-height: 1.25;
   text-align: left;
   text-decoration: none;
   text-wrap: balance;
-  box-shadow: var(--sombra-flutua), 0 0 0 1px var(--papel-linha);
+  box-shadow: var(--menu-anil), inset 0 0 0 1px var(--fio-ouro), inset 0 1px 0 rgba(246, 220, 166, 0.16);
   transform: rotate(var(--giro));
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
   user-select: none;
   -webkit-user-select: none;
 }
 .menu-etiqueta {
   min-height: var(--menu-alt);
-  padding: 6px 18px 7px 37px;
-  border-radius: 999px 13px 13px 999px;
+  padding: 6px 20px 7px 42px;
+  border-radius: 999px 14px 14px 999px;
   font-size: var(--menu-letra);
-  transform-origin: 18px 50%; /* o ilhó */
+  transform-origin: var(--lan-x) 50%; /* o ilhó */
   pointer-events: auto;
   touch-action: manipulation;
-  transition: transform var(--dur-mola) var(--mola);
+  transition: transform var(--dur-mola) var(--mola), color var(--dur-ui-lenta) linear;
 }
 li[data-lado="esq"] .menu-etiqueta {
-  padding: 6px 37px 7px 18px;
-  border-radius: 13px 999px 999px 13px;
-  transform-origin: calc(100% - 18px) 50%;
+  padding: 6px 42px 7px 20px;
+  border-radius: 14px 999px 999px 14px;
+  transform-origin: calc(100% - var(--lan-x)) 50%;
 }
-/* O pesponto, por dentro da borda. */
+/* A lanterninha de papel em volta do furo: em brasa, respirando. */
 .menu-etiqueta::before,
 .menu-portao-etiqueta::before {
   content: "";
   position: absolute;
-  inset: 4px;
-  border-radius: inherit;
-  border: 1px dashed var(--ponto);
+  top: 50%;
+  left: calc(var(--lan-x) - var(--lan-l) / 2);
+  width: var(--lan-l);
+  height: var(--lan-a);
+  margin-top: calc(var(--lan-a) / -2);
+  border-radius: 46% 46% 40% 40% / 30% 30% 22% 22%;
+  background:
+    repeating-linear-gradient(to bottom, rgba(10, 14, 34, 0) 0 4px, rgba(10, 14, 34, 0.3) 4px 5px),
+    radial-gradient(circle at 50% 54%, var(--ouro-claro), var(--chama) 58%, var(--brasa));
+  box-shadow: 0 0 10px rgba(255, 180, 94, 0.5);
+  opacity: 0.6;
   pointer-events: none;
+}
+li[data-lado="esq"] .menu-etiqueta::before { left: auto; right: calc(var(--lan-x) - var(--lan-l) / 2); }
+.menu[data-vivo] .menu-etiqueta::before {
+  animation: menu-brasa var(--tempo, 6s) var(--curva-branco-deriva) infinite alternate;
+}
+@keyframes menu-brasa {
+  from { opacity: 0.48; }
+  to { opacity: 0.78; }
+}
+/* A luz que se acende: derrama da lanterna pelo vidro e contorna a etiqueta. */
+.menu-etiqueta::after,
+.menu-portao-etiqueta::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(130px 90px at var(--lan-x) 50%, rgba(255, 180, 94, 0.5), rgba(255, 180, 94, 0.14) 46%, rgba(255, 180, 94, 0) 78%);
+  box-shadow: inset 0 0 0 1px rgba(246, 220, 166, 0.8), 0 0 26px -2px rgba(255, 180, 94, 0.55);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-sair) linear; /* apagar é rápido */
+}
+li[data-lado="esq"] .menu-etiqueta::after {
+  background: radial-gradient(130px 90px at calc(100% - var(--lan-x)) 50%, rgba(255, 180, 94, 0.5), rgba(255, 180, 94, 0.14) 46%, rgba(255, 180, 94, 0) 78%);
 }
 .menu-etiqueta-nome,
 .menu-portao-nome { position: relative; }
 
+.menu-etiqueta:focus-visible { color: var(--ouro-claro); }
+.menu-etiqueta:focus-visible::after {
+  opacity: 1;
+  transition: opacity 760ms var(--curva-yn-florescer); /* acender cresce devagar */
+}
+.menu-etiqueta:active { color: var(--ouro-claro); }
+.menu-etiqueta:active::after { opacity: 1; transition-duration: var(--dur-toque); }
 .menu-etiqueta:active {
   transform: rotate(var(--giro)) scale(0.96);
   transition-duration: var(--dur-toque);
 }
 @media (hover: hover) and (pointer: fine) {
-  .menu-etiqueta:hover { transform: translateY(-1px) rotate(0deg); }
+  .menu-etiqueta:hover { color: var(--ouro-claro); transform: translateY(-1px) rotate(0deg); }
+  .menu-etiqueta:hover::after { opacity: 1; transition: opacity 760ms var(--curva-yn-florescer); }
 }
 
-/* O ilhó: o furo escuro com o fio vermelho passando por dentro. */
+/* O ilhó: o furo de noite com aro dourado e o fio vermelho, aceso, por dentro. */
 .menu-ilho {
   position: absolute;
   top: 50%;
-  left: 12px;
+  left: calc(var(--lan-x) - 6px);
   width: 12px;
   height: 12px;
   margin-top: -6px;
   border-radius: 50%;
-  background: #141a44;
-  box-shadow: 0 0 0 2.5px var(--papel-sombra), 0 0 0 3.5px rgba(42, 27, 34, 0.2);
+  background: var(--noite-funda);
+  box-shadow: 0 0 0 1.5px var(--ouro-escuro), 0 0 0 2.5px rgba(6, 9, 20, 0.5);
+}
+/* A tampa e a base da lanterna (a base é a sombra da tampa). */
+.menu-ilho::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: calc(3px - var(--lan-a) / 2);
+  width: calc(var(--lan-l) * 0.6);
+  height: 3px;
+  margin-left: calc(var(--lan-l) * -0.3);
+  border-radius: 1.5px;
+  background: var(--noite-funda);
+  box-shadow: 0 calc(var(--lan-a) + 3px) 0 var(--noite-funda), 0 0 0 0.5px var(--ouro-escuro), 0 calc(var(--lan-a) + 3px) 0 0.5px var(--ouro-escuro);
 }
 .menu-ilho::after {
   content: "";
@@ -205,8 +267,9 @@ li[data-lado="esq"] .menu-etiqueta {
   inset: 3px;
   border-radius: 50%;
   background: var(--fio);
+  box-shadow: 0 0 6px 1px var(--fio-brilho);
 }
-li[data-lado="esq"] .menu-ilho { left: auto; right: 12px; }
+li[data-lado="esq"] .menu-ilho { left: auto; right: calc(var(--lan-x) - 6px); }
 
 /* Cada posição pende de um jeito e balança no seu tempo. */
 .menu-partes li:nth-child(1) { --tempo: 6.3s; }
@@ -264,10 +327,10 @@ li[data-lado="esq"] .menu-ilho { left: auto; right: 12px; }
   margin-top: 12px;
   padding: 0 16px;
   font-size: 0.9375rem;
-  line-height: 1.4;
+  line-height: 1.5;
   text-align: center;
   text-wrap: balance;
-  color: var(--luar);
+  color: var(--luar-suave);
   text-shadow: var(--menu-halo);
 }
 .menu-ponta-laco { width: 52px; height: 28px; }
@@ -286,6 +349,10 @@ li[data-lado="esq"] .menu-ilho { left: auto; right: 12px; }
   list-style: none;
 }
 .menu-coisa {
+  position: relative;
+  isolation: isolate;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -313,9 +380,36 @@ li[data-lado="esq"] .menu-ilho { left: auto; right: 12px; }
   width: 66px;
   height: 46px;
   transform: rotate(var(--pouso, -4deg));
-  filter: drop-shadow(0 2px 2px rgba(3, 4, 22, 0.4)) drop-shadow(0 8px 10px rgba(3, 4, 22, 0.32));
+  filter: drop-shadow(0 2px 2px rgba(3, 5, 18, 0.5)) drop-shadow(0 8px 10px rgba(3, 5, 18, 0.4));
   transition: transform var(--dur-mola) var(--mola);
 }
+/* A poça de luz: cada coisa pousa no clarão de uma lanterna que respira. */
+.menu-coisa::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  top: 2px;
+  width: 104px;
+  height: 66px;
+  margin-left: -52px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 180, 94, 0.34), rgba(255, 180, 94, 0.1) 58%, rgba(255, 180, 94, 0));
+  opacity: 0.55;
+  pointer-events: none;
+  transition: opacity var(--dur-sair) linear;
+}
+.menu[data-vivo] li:nth-child(odd) > .menu-coisa::before { animation: menu-brasa 5.2s var(--curva-branco-deriva) infinite alternate; }
+.menu[data-vivo] li:nth-child(even) > .menu-coisa::before { animation: menu-brasa 6.4s var(--curva-branco-deriva) -2s infinite alternate; }
+.menu .menu-chao li > .menu-coisa:active::before,
+.menu .menu-chao li > .menu-coisa:focus-visible::before {
+  animation: none;
+  opacity: 1;
+  transition: opacity var(--dur-ui) linear;
+}
+.menu-coisa { transition: color var(--dur-ui-lenta) linear; }
+.menu-coisa:active,
+.menu-coisa:focus-visible { color: var(--ouro-claro); }
 .menu-coisa-desenho svg { width: 100%; height: 100%; }
 .menu-coisa-nome { white-space: nowrap; }
 .menu-coisa[data-longo] .menu-coisa-nome {
@@ -370,26 +464,46 @@ li[data-lado="esq"] .menu-ilho { left: auto; right: 12px; }
   position: relative;
   width: min(calc(100% - 48px), 400px);
   padding: 40px 26px 24px;
-  border-radius: 22px;
+  border-radius: 20px 20px 26px 26px;
   background: var(--menu-papel);
   color: var(--tinta);
   text-align: center;
-  box-shadow: var(--sombra-papel), 0 0 0 1px var(--papel-linha);
+  box-shadow: 0 2px 6px rgba(3, 5, 18, 0.4), 0 26px 54px -14px rgba(3, 5, 18, 0.8), 0 0 46px -8px rgba(255, 180, 94, 0.42);
   transform: rotate(var(--giro));
   transform-origin: 50% 19px; /* o ilhó */
 }
+/* Lanterna de washi: as varetas por dentro do papel, a tampa escura no alto. */
 .menu-cred::before {
   content: "";
   position: absolute;
-  inset: 8px;
-  border-radius: 15px;
-  border: 1px dashed var(--ponto);
+  inset: 0;
+  border-radius: inherit;
+  background: repeating-linear-gradient(to bottom, rgba(169, 124, 53, 0) 0 27px, rgba(169, 124, 53, 0.13) 27px 28px);
+  box-shadow: inset 0 0 0 1px rgba(169, 124, 53, 0.38), inset 0 -18px 30px -18px rgba(169, 124, 53, 0.35);
   pointer-events: none;
 }
+.menu-cred::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -5px;
+  width: 92px;
+  height: 10px;
+  margin-left: -46px;
+  border-radius: 5px 5px 2px 2px;
+  background: var(--noite-funda);
+  box-shadow: inset 0 0 0 1px var(--fio-ouro), 0 3px 6px rgba(3, 5, 18, 0.4);
+  pointer-events: none;
+}
+.menu-cred > * { position: relative; }
+.menu-cred > .menu-ilho { position: absolute; }
+.menu-cred .menu-ilho::before { content: none; }
 .menu-cred .menu-ilho { top: 19px; left: 50%; margin: -6px 0 0 -6px; }
 .menu-cred .menu-marca { margin: 0 auto 12px; color: var(--sakura-tinta); }
 .menu-cred .ui-icone.menu-marca { width: 28px; height: 28px; }
 .menu-cred-titulo {
+  font-family: var(--fonte-titulo);
+  letter-spacing: 0.04em;
   font-weight: 600;
   font-size: 1.3125rem;
   line-height: 1.3;
@@ -441,8 +555,8 @@ li[data-lado="esq"] .menu-ilho { left: auto; right: 12px; }
   height: 44px;
   border-radius: 50%;
   overflow: hidden;
-  background: repeating-radial-gradient(circle at 50% 50%, rgba(42, 27, 34, 0.2) 0 1px, transparent 1px 3.5px), var(--fio);
-  box-shadow: var(--sombra-baixa);
+  background: repeating-radial-gradient(circle at 50% 50%, rgba(233, 194, 122, 0.3) 0 1px, rgba(233, 194, 122, 0) 1px 3.5px), var(--anil);
+  box-shadow: 0 0 0 1px var(--ouro-escuro), 0 4px 10px -4px rgba(3, 5, 18, 0.6);
 }
 .menu-disco img {
   position: absolute;
@@ -461,8 +575,8 @@ li[data-lado="esq"] .menu-ilho { left: auto; right: 12px; }
   height: 9px;
   margin: -4.5px 0 0 -4.5px;
   border-radius: 50%;
-  background: var(--papel);
-  box-shadow: 0 0 0 1px rgba(42, 27, 34, 0.35);
+  background: var(--ouro-claro);
+  box-shadow: 0 0 0 1px rgba(6, 9, 20, 0.5);
 }
 .menu-musica-texto { display: grid; min-width: 0; }
 .menu-musica-nome { font-weight: 600; font-size: 1rem; line-height: 1.3; }
@@ -481,7 +595,7 @@ li[data-lado="esq"] .menu-ilho { left: auto; right: 12px; }
   content: "·";
   content: "·" / "";
   margin: 0 0.45em;
-  color: var(--fio);
+  color: var(--ouro-escuro);
 }
 
 /* Movimento reduzido: um cartão por vez, no centro, sobre a linha parada. */
@@ -574,33 +688,35 @@ li[data-lado="esq"] .menu-ilho { left: auto; right: 12px; }
   gap: 0 12px;
   padding: 15px 0 14px;
 }
-.menu-ref + .menu-ref { border-top: 1px dashed var(--ponto); }
+.menu-ref + .menu-ref { border-top: 1px solid rgba(233, 194, 122, 0.16); }
 .menu-ref-marca {
   display: grid;
   justify-items: center;
   align-content: start;
   padding-top: 3px;
-  color: var(--sakura-tinta);
+  color: var(--ouro);
 }
 .menu-ref-marca .ui-laco { width: 44px; height: 24px; }
 .menu-ref-marca .ui-icone { width: 26px; height: 26px; }
 .menu-ref-texto { min-width: 0; }
-.menu-ref-titulo { font-weight: 600; font-size: 1.1875rem; line-height: 1.3; color: var(--tinta); }
-.menu-ref-de { margin-top: 2px; font-size: 0.875rem; line-height: 1.4; color: var(--tinta-suave); }
-.menu-ref-sobre { margin-top: 8px; font-size: 0.9375rem; line-height: 1.55; text-wrap: pretty; }
+.menu-ref-titulo { font-family: var(--fonte-titulo); font-weight: 600; font-size: 1.125rem; line-height: 1.35; letter-spacing: 0.04em; color: var(--ouro-claro); }
+.menu-ref-de { margin-top: 2px; font-size: 0.875rem; line-height: 1.4; color: var(--luar-suave); }
+.menu-ref-sobre { margin-top: 8px; font-size: 1rem; line-height: 1.6; color: var(--luar); text-wrap: pretty; }
 .menu-ref-dele {
   margin-top: 8px;
   font-weight: 600;
   font-size: 1.0625rem;
   line-height: 1.45;
-  color: var(--sakura-tinta);
+  color: var(--sakura);
 }
+.menu-ref .menu-musica-artista { color: var(--luar-suave); }
+.menu-ref .menu-amigos span + span::before { color: var(--ouro); }
 .menu-ref .menu-musicas { margin-top: 10px; }
 .menu-ref .menu-disco { width: 40px; height: 40px; }
 .menu-ref .menu-amigos { margin-top: 6px; }
 
 /* Os bilhetes: o liberado abre por baixo do título; o fechado mostra a data. */
-.menu-bilhete-item + .menu-bilhete-item { border-top: 1px dashed var(--ponto); }
+.menu-bilhete-item + .menu-bilhete-item { border-top: 1px solid rgba(233, 194, 122, 0.16); }
 .menu-bilhete-abrir {
   display: flex;
   align-items: center;
@@ -610,10 +726,15 @@ li[data-lado="esq"] .menu-ilho { left: auto; right: 12px; }
   min-height: 52px;
   padding: 8px 0;
   border-radius: var(--raio-p);
-  color: var(--tinta);
+  color: var(--luar);
   text-align: left;
+  cursor: pointer;
   touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: color var(--dur-ui) linear;
 }
+.menu-bilhete-abrir:active,
+.menu-bilhete-item[data-aberto] .menu-bilhete-abrir { color: var(--ouro-claro); }
 .menu-bilhete-titulo {
   display: block;
   font-weight: 600;
@@ -621,7 +742,7 @@ li[data-lado="esq"] .menu-ilho { left: auto; right: 12px; }
   line-height: 1.35;
 }
 .menu-bilhete-seta {
-  color: var(--sakura-tinta);
+  color: var(--ouro);
   transition: transform var(--dur-ui-lenta) var(--curva-ui);
 }
 .menu-bilhete-item[data-aberto] .menu-bilhete-seta { transform: rotate(180deg); }
@@ -630,15 +751,16 @@ li[data-lado="esq"] .menu-ilho { left: auto; right: 12px; }
   font-size: 1.0625rem;
   line-height: 1.6;
   white-space: pre-line;
+  color: var(--luar);
   animation: ui-aparece 240ms linear both;
 }
 .menu-bilhete-item[data-fechado] { padding: 12px 0; }
-.menu-bilhete-item[data-fechado] .menu-bilhete-titulo { color: var(--tinta-suave); }
+.menu-bilhete-item[data-fechado] .menu-bilhete-titulo { color: var(--luar-suave); }
 .menu-bilhete-quando {
   display: block;
   margin-top: 2px;
   font-size: 0.875rem;
-  color: var(--tinta-suave);
+  color: var(--luar-suave);
 }
 
 /* ---- O portão: um toque antes da parte ------------------------------------------------ */
@@ -671,7 +793,9 @@ html[data-portao] #letra { visibility: hidden; }
 .menu-portao-veu {
   position: absolute;
   inset: 0;
-  background: radial-gradient(120% 80% at 50% 44%, rgba(9, 12, 40, 0.58), rgba(9, 12, 40, 0.8));
+  background:
+    radial-gradient(60% 34% at 50% 40%, rgba(255, 180, 94, 0.14), rgba(255, 180, 94, 0)),
+    radial-gradient(120% 80% at 50% 44%, rgba(11, 16, 38, 0.66), rgba(6, 9, 20, 0.9));
 }
 .menu-portao-meio {
   position: absolute;
@@ -690,21 +814,38 @@ html[data-portao] #letra { visibility: hidden; }
 .menu-portao-pendura { display: block; }
 .menu-portao-etiqueta {
   --giro: 1.2deg;
+  --lan-l: 32px;
+  --lan-a: 44px;
+  --lan-x: 34px;
   min-height: 76px;
-  padding: 10px 36px 12px 60px;
-  border-radius: 999px 16px 16px 999px;
+  padding: 10px 36px 12px 68px;
+  border-radius: 999px 18px 18px 999px;
+  color: var(--ouro-claro);
   font-size: clamp(1.25rem, 1.1rem + 0.8vw, 1.5rem);
-  transform-origin: 30px 50%; /* o ilhó: o fio não sai do furo quando ela balança */
+  transform-origin: var(--lan-x) 50%; /* o ilhó: o fio não sai do furo quando ela balança */
   animation: menu-balanco 5.6s var(--curva-branco-deriva) infinite alternate;
 }
-.menu-portao-etiqueta .menu-ilho { left: 24px; }
+/* No portão a lanterna já espera acesa, e a luz respira. */
+.menu-portao-etiqueta::before { opacity: 0.92; }
+.menu-portao-etiqueta::after { opacity: 1; animation: menu-brasa-alta 4.6s var(--curva-branco-deriva) infinite alternate; }
+@keyframes menu-brasa-alta {
+  from { opacity: 0.62; }
+  to { opacity: 1; }
+}
+.menu-portao-toque { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.menu-portao-toque:active .menu-portao-pendura { transform: scale(0.97); }
+.menu-portao-pendura { transition: transform var(--dur-toque) var(--curva-ui); }
 .menu-portao-dica {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
+  font-family: var(--fonte-titulo);
   font-weight: 600;
-  font-size: var(--texto-corpo);
+  font-size: 0.875rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ouro);
   text-shadow: var(--menu-halo);
 }
 .menu-portao-petala { animation: ui-boia 2.6s var(--curva-branco-deriva) infinite alternate; }
@@ -803,7 +944,7 @@ html[data-portao] #letra { visibility: hidden; }
   }
   .menu-coisa-nome { white-space: normal; }
   .menu-chao { flex-wrap: wrap; }
-  .menu-portao-etiqueta { min-height: 64px; padding: 8px 24px 10px 52px; }
+  .menu-portao-etiqueta { --lan-l: 26px; --lan-a: 36px; --lan-x: 28px; min-height: 64px; padding: 8px 24px 10px 54px; }
 }
 /* Celular deitado e zoom alto: o menu vira uma coluna que rola. */
 @media (max-height: 559px), (max-width: 299px) {
@@ -839,7 +980,25 @@ html.reduzido .menu-bilhete-seta { transition-duration: 0.01ms; }
 html.reduzido .menu[data-vivo] .menu-partes li,
 html[data-nivel="baixo"] .menu[data-vivo] .menu-partes li,
 html.reduzido .menu-portao-etiqueta,
-html.reduzido .menu-portao-petala { animation: none; }
+html.reduzido .menu-portao-petala,
+html.reduzido .menu-etiqueta::before,
+html.reduzido .menu-etiqueta::after,
+html.reduzido .menu-coisa::before,
+html[data-nivel="baixo"] .menu-etiqueta::before,
+html[data-nivel="baixo"] .menu-coisa::before { animation: none; }
+html.reduzido .menu-etiqueta::after,
+html.reduzido .menu-portao-pendura { transition-duration: 150ms; transition-timing-function: linear; }
+@media (prefers-reduced-motion: reduce) {
+  .menu[data-vivo] .menu-partes li,
+  .menu-etiqueta::before,
+  .menu-etiqueta::after,
+  .menu-portao-etiqueta,
+  .menu-portao-petala,
+  .menu-coisa::before { animation: none; }
+  .menu-etiqueta,
+  .menu-coisa-desenho,
+  .menu-portao-pendura { transition-duration: 0.01ms; }
+}
 html.reduzido .menu-gaveta .menu-folha {
   opacity: 0;
   transform: none;

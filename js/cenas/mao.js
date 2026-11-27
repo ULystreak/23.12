@@ -60,9 +60,9 @@ const LARGURAS = { inicio: 0.0048, chao: 0.013, fim: 0.0065 }; // m
 // Cores do desenho (tinta, fio e o manuscrito na palma).
 const TINTA = '#2a1b22';
 const TINTA_ESCRITO = '#2b1e2c';
-const FIO = '#d7192d';
-const FIO_ESCURO = '#8f0b1d';
-const FIO_CLARO = '#ff9a93';
+const FIO = '#e3283c';
+const FIO_ESCURO = '#a80f22';
+const FIO_CLARO = '#ffa59c';
 const FONTE_ESCRITO = '"Klee One", "Shippori Mincho", Georgia, serif';
 
 // Onde a escrita mora na palma (unidades do desenho). `alto` estica as letras
@@ -612,8 +612,8 @@ function montarDesenho(amb) {
     const g = noSvg(tipo, { id, ...attrs }, defs);
     for (const [offset, cor, opacidade] of paradas) noSvg('stop', { offset, 'stop-color': cor, 'stop-opacity': opacidade }, g);
   };
-  gradiente('radialGradient', 'mao-brilho', [[0, '#fff4d6', 0.95], [0.28, '#ffc77a', 0.62], [0.62, '#ff8a6e', 0.2], [1, '#ff8a6e', 0]]);
-  gradiente('radialGradient', 'mao-brasa', [[0, '#fffaf0', 1], [0.22, '#ffd890', 1], [0.5, '#ff8a5c', 0.78], [0.74, '#e2283f', 0.32], [1, FIO, 0]]);
+  gradiente('radialGradient', 'mao-brilho', [[0, '#fff6dc', 0.95], [0.28, '#ffb45e', 0.6], [0.62, '#ff404e', 0.2], [1, '#ff404e', 0]]);
+  gradiente('radialGradient', 'mao-brasa', [[0, '#fffaf0', 1], [0.22, '#f6dca6', 1], [0.5, '#ffb45e', 0.78], [0.74, '#e3283c', 0.32], [1, FIO, 0]]);
   const silhueta = caminhoFechado(geo.silhueta);
   const recorte = noSvg('clipPath', { id: 'mao-recorte' }, defs);
   noSvg('path', { class: 'mao-recorte-forma', d: silhueta }, recorte);
@@ -625,7 +625,7 @@ function montarDesenho(amb) {
   // A aguada entra depois do contorno (o CSS não conhece este grupo: o JS anima).
   const fundo = noSvg('g', { class: 'mao-fundo' }, raiz);
   fundo.style.opacity = '0';
-  noSvg('path', { class: 'mao-silhueta', d: silhueta, fill: '#ffffff' }, fundo);
+  noSvg('path', { class: 'mao-silhueta', d: silhueta, fill: '#f7ecd6' }, fundo);
   const dentro = noSvg('g', { 'clip-path': 'url(#mao-recorte)' }, fundo);
   noSvg('path', { class: 'mao-aguada', d: silhueta, fill: '#f3d3c8', 'fill-opacity': 0.36, transform: 'translate(2.6 3.4)' }, dentro);
   noSvg('path', { class: 'mao-sombra-braco', d: caminhoFechado(geo.sombra.pontos), fill: 'url(#mao-sombra)' }, dentro);

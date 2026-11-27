@@ -20,10 +20,10 @@ const GIROS_PARAFUSO = [34, -52, 78, 12];
 
 function parafuso(giro, i) {
   return `<svg class="poppy-parafuso p${i}" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-    <circle cx="8.4" cy="8.9" r="6.4" fill="#2c393d"/>
-    <circle cx="8" cy="8" r="6.4" fill="#5d6d70"/>
-    <path d="M3.9 6.3a4.6 4.6 0 0 1 4-3.1" fill="none" stroke="#a9b6b2" stroke-width="1.3" stroke-linecap="round"/>
-    <rect x="3.3" y="7.15" width="9.4" height="1.7" rx="0.85" fill="#2c393d" transform="rotate(${giro} 8 8)"/>
+    <circle cx="8.4" cy="8.9" r="6.4" fill="#3a2c14"/>
+    <circle cx="8" cy="8" r="6.4" fill="#a97c35"/>
+    <path d="M3.9 6.3a4.6 4.6 0 0 1 4-3.1" fill="none" stroke="#f6dca6" stroke-width="1.3" stroke-linecap="round"/>
+    <rect x="3.3" y="7.15" width="9.4" height="1.7" rx="0.85" fill="#3a2c14" transform="rotate(${giro} 8 8)"/>
   </svg>`;
 }
 

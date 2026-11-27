@@ -6,6 +6,11 @@
    o fio SVG do modo sem WebGL. Os traços da mão são desenhados pelo JS
    (js/cenas/mao.js); aqui só a caixa, a origem do giro e as transições.
    Só transform, opacity e cor animam.
+
+   Direção "Noite de lanternas". O detalhe da tela: a mão é uma lanterna de
+   papel. A silhueta é washi, uma chama respira por trás dela, a pena desenha
+   com um fio de luz dourada em volta da tinta e só o akai ito é vermelho,
+   com halo próprio.
    ========================================================================== */
 
 :root {
@@ -26,18 +31,18 @@
   pointer-events: none;
 }
 
-/* As bordas da alameda escurecem de leve em volta do laço (centro em
-   --vx/--vy, posto pelo JS). Só a opacidade anima. */
+/* A noite fecha em volta do laço (centro em --vx/--vy, posto pelo JS): um
+   nada de chama no meio, anil profundo nas bordas. Só a opacidade anima. */
 .mao-veu {
   position: absolute;
   inset: 0;
   opacity: 0;
   pointer-events: none;
   background: radial-gradient(ellipse 72% 58% at var(--vx, 50%) var(--vy, 62%),
-    rgba(70, 14, 34, 0) 0%,
-    rgba(70, 14, 34, 0) 40%,
-    rgba(70, 14, 34, 0.12) 72%,
-    rgba(52, 10, 26, 0.3) 100%);
+    rgba(255, 180, 94, 0.1) 0%,
+    rgba(255, 180, 94, 0) 34%,
+    rgba(3, 5, 18, 0.26) 70%,
+    rgba(3, 5, 18, 0.58) 100%);
 }
 
 /* A origem do giro e do zoom: 69% 69% na foto (igual a ORIGEM_IMAGEM no JS);
@@ -48,8 +53,45 @@
   opacity: 0;
   will-change: transform, opacity;
 }
+/* A chama por trás do papel: um halo quente pintado uma vez, centrado na
+   palma, que respira devagar (só opacidade). Entra e sai com a mão, que é
+   quem tem a opacidade. */
+.mao-corpo::before {
+  content: "";
+  position: absolute;
+  left: -22%;
+  right: -22%;
+  top: -6%;
+  height: 84%;
+  pointer-events: none;
+  background: radial-gradient(ellipse closest-side,
+    rgba(255, 196, 120, 0.3) 0%,
+    rgba(255, 180, 94, 0.13) 44%,
+    rgba(255, 138, 61, 0) 100%);
+  animation: mao-respira 4.6s var(--curva-branco-deriva) infinite alternate;
+}
+@keyframes mao-respira {
+  from { opacity: 0.62; }
+  to { opacity: 1; }
+}
+.mao-com-imagem .mao-corpo::before { top: -14%; height: 128%; }
+
+/* A pena desenha com luz: um filete de ouro claro atrás de cada traço de
+   tinta. Sobre a noite, é ele que se lê; sobre o washi, some no papel. */
+.mao-tinta path {
+  stroke: rgba(246, 220, 166, 0.6);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  paint-order: stroke fill;
+}
+/* O akai ito brilha por conta própria. */
+.mao-cordao { filter: drop-shadow(0 0 3.5px var(--fio-brilho)); }
+/* A foto do autor ganha sombra de noite, nunca preta. */
+.mao-corpo > img { filter: drop-shadow(0 16px 28px rgba(3, 5, 18, 0.6)); }
+
 .mao-desenho,
 .mao-corpo > img {
+  position: relative;
   display: block;
   width: 100%;
   height: auto;
@@ -74,16 +116,20 @@
   user-select: none;
   -webkit-user-select: none;
 }
+.mao-pulso:focus-visible {
+  outline: 2px solid var(--estrela);
+  outline-offset: 2px;
+}
 /* Só com a foto do autor: o brilho do pulso é este disco (o desenho acende o nó). */
 .mao-pulso-brilho {
   position: absolute;
   inset: -12px;
   border-radius: 50%;
   background: radial-gradient(closest-side,
-    rgba(255, 244, 214, 0.95),
-    rgba(255, 199, 122, 0.55) 35%,
-    rgba(255, 138, 110, 0.18) 65%,
-    rgba(255, 138, 110, 0));
+    rgba(255, 246, 220, 0.95),
+    rgba(255, 180, 94, 0.55) 35%,
+    rgba(255, 64, 78, 0.18) 65%,
+    rgba(255, 64, 78, 0));
   opacity: 0;
   pointer-events: none;
 }
@@ -118,6 +164,22 @@
   top: calc(30px + min(var(--seguro-base), 36px));
 }
 .botao-fio::after { display: none; }
+/* O véu anil atrás do texto solto sobre a alameda: pintado uma vez, chega
+   com o texto (só opacidade). */
+.botao-fio::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -14px -30px -16px;
+  pointer-events: none;
+  background: radial-gradient(ellipse closest-side,
+    rgba(6, 9, 22, 0.56) 0%,
+    rgba(6, 9, 22, 0.34) 55%,
+    rgba(6, 9, 22, 0) 100%);
+  opacity: 0;
+  transition: opacity 1.1s var(--curva-branco-entrar);
+}
+.botao-fio-visivel::before { opacity: 1; }
 
 /* Celular em pé e baixo: ali embaixo o botão encostaria na bolsa; ele sobe e
    vai um pouco para a direita. */
@@ -152,6 +214,8 @@
   height: 9px;
   margin: 0 -4px;
   overflow: visible;
+  /* o halo do fio: o sublinhado é pequeno e se desenha uma vez só */
+  filter: drop-shadow(0 0 5px var(--fio-brilho));
 }
 .botao-fio-linha path {
   fill: none;
@@ -166,8 +230,10 @@
 }
 .botao-fio-visivel .botao-fio-linha path { stroke-dashoffset: 0; }
 @media (hover: hover) and (pointer: fine) {
-  .botao-fio:hover .botao-fio-linha path { stroke: var(--rosa); }
+  .botao-fio:hover .botao-fio-linha path { stroke: #ff5563; }
 }
+/* No dedo o fio acende na hora. */
+.botao-fio:active .botao-fio-linha path { stroke: #ff5563; }
 
 /* ---- o fio sem WebGL (js/mundo/fio.js também põe isto inline) ------------------- */
 .fio-leve {
@@ -186,6 +252,11 @@ html.reduzido .botao-fio-texto {
 html.reduzido .botao-fio-linha path {
   transition-duration: 0.6s, var(--dur-ui);
   transition-delay: 0s;
+}
+html.reduzido .botao-fio::before { transition-duration: 0.6s; }
+html.reduzido .mao-corpo::before { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .mao-corpo::before { animation: none; }
 }
 
 /* ---- deitado (celular com pouca altura): a mão menor à esquerda, o botão no canto ---- */

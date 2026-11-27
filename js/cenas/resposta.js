@@ -298,8 +298,8 @@ export function criarDepois(ctx) {
     if (!g) return null;
     g.setTransform(dpr, 0, 0, dpr, (lado * dpr) / 2, (lado * dpr) / 2);
     const tokens = getComputedStyle(html);
-    const corFio = tokens.getPropertyValue('--fio').trim() || '#d7192d';
-    const corLuar = tokens.getPropertyValue('--luar').trim() || '#fdf6ee';
+    const corFio = tokens.getPropertyValue('--fio').trim() || '#e3283c';
+    const corLuar = tokens.getPropertyValue('--luar').trim() || '#f4efe6';
 
     const hoje = el('span', { class: 'contador-hoje', 'aria-hidden': 'true', style: { left: `${cx}px`, top: `${cy + R}px` } });
     const marcas = [];

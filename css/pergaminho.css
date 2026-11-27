@@ -2,7 +2,10 @@
    PERGAMINHO: a folha onde os capítulos são lidos (js/pergaminho.js)
    ============================================================================
    No celular a folha cobre a tela; no computador é uma coluna central de até
-   720 px, com o mundo branco e as pétalas dos lados. Camadas: a sombra (pousada
+   720 px, com a noite e as lanternas dos lados. Noite de lanternas: o washi é
+   aceso por trás (a luz respira só na folha em branco), a janela tem moldura de
+   filete duplo dourado, o rolo é de laca anil com ponteiras de ouro e o fio da
+   costura brilha. Camadas: a sombra (pousada
    e "no ar"), o papel com fibra, a folha em branco, a camada do capítulo com a
    janela recortada, a costura do fio na margem direita, a aba de dica e o rolo.
    O JS põe transform, opacity, clip-path e as variáveis; aqui fica o que não
@@ -15,7 +18,10 @@
   --perg-margem-costura: 18px; /* a margem direita é maior: é onde a costura passa */
   --perg-rolo: clamp(50px, 7.6vh, 72px); /* espessura do rolo cheio */
   --perg-ladrilho: 256px;
-  --perg-sombra-cor: 42, 27, 34; /* a tinta */
+  --perg-sombra-cor: 42, 27, 34; /* a tinta: só o que é marcado no papel */
+  --perg-noite: 3, 5, 18; /* a sombra é noite */
+  --perg-ouro: 169, 124, 53; /* o ouro escuro, que aparece sobre o washi */
+  --perg-luz: 255, 180, 94; /* a chama por trás do papel */
   position: fixed;
   top: 0; left: 0;
   width: 100%;
@@ -49,15 +55,19 @@
   inset: 0;
   pointer-events: none;
   box-shadow:
-    0 2px 3px rgba(var(--perg-sombra-cor), 0.05),
-    0 16px 30px -14px rgba(var(--perg-sombra-cor), 0.17),
-    0 46px 110px -26px rgba(var(--perg-sombra-cor), 0.2);
+    0 0 0 1px rgba(233, 194, 122, 0.3),
+    0 2px 4px rgba(var(--perg-noite), 0.3),
+    0 18px 34px -14px rgba(var(--perg-noite), 0.62),
+    0 46px 110px -26px rgba(var(--perg-noite), 0.7),
+    0 6px 96px -8px rgba(var(--perg-luz), 0.26);
 }
 .perg-sombra-alta {
   opacity: 0;
   box-shadow:
-    0 34px 70px -18px rgba(var(--perg-sombra-cor), 0.2),
-    0 90px 150px -40px rgba(var(--perg-sombra-cor), 0.18);
+    0 0 0 1px rgba(233, 194, 122, 0.22),
+    0 38px 76px -18px rgba(var(--perg-noite), 0.66),
+    0 96px 160px -40px rgba(var(--perg-noite), 0.6),
+    0 10px 140px -4px rgba(var(--perg-luz), 0.32);
 }
 
 .perg-papel {
@@ -72,10 +82,32 @@
   pointer-events: none;
   background-image:
     var(--perg-fibra, none),
-    linear-gradient(158deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0) 36%, rgba(188, 158, 116, 0) 58%, rgba(188, 158, 116, 0.09) 100%);
-  background-size: var(--perg-ladrilho) var(--perg-ladrilho), 100% 100%;
-  background-repeat: repeat, no-repeat;
+    radial-gradient(120% 70% at 50% 42%, rgba(255, 250, 236, 0.62) 0%, rgba(255, 244, 220, 0.24) 46%, rgba(232, 214, 180, 0) 72%),
+    linear-gradient(180deg, rgba(var(--perg-ouro), 0.1) 0%, rgba(var(--perg-ouro), 0) 16%, rgba(var(--perg-ouro), 0) 80%, rgba(var(--perg-ouro), 0.16) 100%);
+  background-size: var(--perg-ladrilho) var(--perg-ladrilho), 100% 100%, 100% 100%;
+  background-repeat: repeat, no-repeat, no-repeat;
 }
+/* A chama por trás do washi. Só respira na folha em branco: com o capítulo
+   aberto ela fica parada (a folha inteira não é recomposta a cada quadro). */
+.perg-fibra::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(110% 58% at 50% 44%, rgba(var(--perg-luz), 0.2) 0%, rgba(var(--perg-luz), 0.11) 46%, rgba(var(--perg-luz), 0) 82%);
+  opacity: 0.7;
+}
+#pergaminho[data-estado="folha"] .perg-papel > .perg-fibra::after {
+  animation: perg-respirar 5.6s var(--curva-branco-deriva) infinite;
+}
+@keyframes perg-respirar {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+html.reduzido #pergaminho .perg-fibra::after { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  #pergaminho .perg-fibra::after { animation: none; }
+}
+#pergaminho ::selection { background: rgba(233, 194, 122, 0.5); color: var(--tinta); }
 
 /* A folha em branco. O primeiro e o último filho com margem automática
    centralizam o que for montado nela. */
@@ -111,8 +143,8 @@
   background: var(--papel);
 }
 
-/* A janela recortada no papel: luz nas bordas de baixo e da direita,
-   contraluz em cima e à esquerda. */
+/* A janela recortada no papel, montada como pintura em rolo: um filete de
+   ouro rente ao corte e outro, mais fraco, a 4 px. */
 .perg-janela {
   position: absolute;
   top: max(var(--perg-margem), var(--seguro-topo));
@@ -121,10 +153,10 @@
   left: max(var(--perg-margem), var(--seguro-esq));
   border-radius: 2px;
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.95),
-    1px 0 0 rgba(255, 255, 255, 0.7),
-    0 -1px 0 rgba(var(--perg-sombra-cor), 0.09),
-    -1px 0 0 rgba(var(--perg-sombra-cor), 0.06);
+    0 0 0 1px rgba(var(--perg-ouro), 0.62),
+    0 1px 0 1px rgba(255, 250, 236, 0.9),
+    0 0 0 3px var(--papel),
+    0 0 0 4px rgba(var(--perg-ouro), 0.3);
 }
 /* O transform faz desta caixa a referência de qualquer position: fixed do
    capítulo, que fica preso à janela e não à tela. */
@@ -156,8 +188,9 @@
 }
 .perg-rolagem::-webkit-scrollbar { display: none; }
 .perg-rolagem:focus-visible {
-  outline: 2px solid var(--fio);
+  outline: 2px solid var(--ouro);
   outline-offset: -5px;
+  box-shadow: inset 0 0 0 3px rgba(var(--perg-noite), 0.55); /* o ouro se lê sobre fundo claro ou escuro */
   border-radius: 2px;
 }
 /* O título recebe o foco só para o leitor de tela: sem contorno. */
@@ -175,9 +208,9 @@
   border-radius: inherit;
   pointer-events: none;
   box-shadow:
-    inset 0 3px 4px -2px rgba(12, 6, 9, 0.55),
-    inset 2px 0 3px -2px rgba(12, 6, 9, 0.38),
-    inset 0 0 0 1px rgba(12, 6, 9, 0.12);
+    inset 0 4px 6px -3px rgba(var(--perg-noite), 0.6),
+    inset 2px 0 4px -2px rgba(var(--perg-noite), 0.4),
+    inset 0 0 0 1px rgba(var(--perg-noite), 0.16);
 }
 
 /* ---- A costura: o fio de progresso na margem direita ------------------------ */
@@ -195,13 +228,16 @@
   max-width: none;
   overflow: visible;
 }
-.perg-furos { fill: rgba(var(--perg-sombra-cor), 0.24); }
+.perg-furos { fill: rgba(var(--perg-sombra-cor), 0.3); }
 /* Os pontos já dados: o JS abre o recorte conforme ela lê. */
 .perg-pontos {
   position: absolute;
   inset: 0;
   -webkit-clip-path: inset(0 0 100% 0);
   clip-path: inset(0 0 100% 0);
+  /* o halo do fio: parado, nunca animado */
+  -webkit-filter: drop-shadow(0 0 2.5px var(--fio-brilho)) drop-shadow(0 0 7px rgba(255, 64, 78, 0.3));
+  filter: drop-shadow(0 0 2.5px var(--fio-brilho)) drop-shadow(0 0 7px rgba(255, 64, 78, 0.3));
 }
 .perg-pontos path {
   fill: none;
@@ -209,7 +245,7 @@
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.perg-ponto-sombra { stroke: rgba(var(--perg-sombra-cor), 0.2); }
+.perg-ponto-sombra { stroke: rgba(var(--perg-sombra-cor), 0.22); }
 .perg-ponto-fio { stroke: var(--fio); }
 .perg-pontos .perg-laco { stroke-width: 1.4; }
 .perg-no { fill: var(--fio); }
@@ -222,12 +258,31 @@
   transform-origin: 5px 4px;
   will-change: transform;
 }
-.perg-agulha-corpo { fill: var(--tinta); fill-opacity: 0.86; }
-.perg-agulha-brilho { fill: none; stroke: rgba(255, 255, 255, 0.6); stroke-width: 0.5; stroke-linecap: round; }
+/* O vaga-lume pousado no olho da agulha: marca onde ela está, e respira. */
+.perg-agulha::before {
+  content: "";
+  position: absolute;
+  top: -9px; left: -8px;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 138, 61, 0.55) 0%, rgba(var(--perg-luz), 0.34) 26%, rgba(var(--perg-luz), 0) 68%);
+  animation: perg-vagalume 3.4s var(--curva-branco-deriva) infinite;
+}
+@keyframes perg-vagalume {
+  0%, 100% { opacity: 0.5; transform: scale(0.86); }
+  50% { opacity: 1; transform: scale(1); }
+}
+html.reduzido .perg-agulha::before { animation: none; opacity: 0.8; }
+@media (prefers-reduced-motion: reduce) {
+  .perg-agulha::before { animation: none; opacity: 0.8; }
+}
+.perg-agulha svg { position: relative; }
+.perg-agulha-corpo { fill: var(--ouro-escuro); stroke: rgba(var(--perg-sombra-cor), 0.7); stroke-width: 0.45; }
+.perg-agulha-brilho { fill: none; stroke: rgba(255, 244, 214, 0.85); stroke-width: 0.6; stroke-linecap: round; }
 .perg-agulha-olho { fill: var(--papel); }
 .perg-agulha-laco { fill: none; stroke: var(--fio); stroke-width: 1.1; stroke-linecap: round; }
 
-/* ---- A aba de dica: um pedaço de papel que espia de baixo, com a seta ------- */
+/* ---- A aba de dica: o topo de uma lanterna de papel que espia de baixo ------- */
 .perg-dica {
   position: absolute;
   left: 50%;
@@ -235,18 +290,21 @@
   z-index: 4;
   width: 64px; height: 38px;
   margin-left: -32px;
-  border-radius: 32px 32px 0 0;
+  border-radius: 46% 46% 0 0 / 78% 78% 0 0;
   display: grid;
   place-items: center;
   padding-top: 5px;
   color: var(--tinta);
   background-color: var(--papel);
-  background-image: var(--perg-fibra, none);
-  background-size: var(--perg-ladrilho) var(--perg-ladrilho);
+  background-image:
+    radial-gradient(70% 90% at 50% 100%, rgba(var(--perg-luz), 0.5) 0%, rgba(var(--perg-luz), 0) 78%),
+    var(--perg-fibra, none);
+  background-size: 100% 100%, var(--perg-ladrilho) var(--perg-ladrilho);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 0 0 1px rgba(var(--perg-sombra-cor), 0.06),
-    0 0 7px rgba(12, 6, 9, 0.26);
+    inset 0 1px 0 rgba(255, 250, 236, 0.95),
+    0 0 0 1px rgba(var(--perg-ouro), 0.6),
+    0 -6px 14px -6px rgba(var(--perg-noite), 0.5),
+    0 -2px 22px -2px rgba(var(--perg-luz), 0.45);
   pointer-events: none;
   visibility: hidden; /* o JS mostra com autoAlpha */
 }
@@ -283,11 +341,11 @@ html.reduzido .perg-dica.ativa .ui-icone { animation-name: perg-dica-pulsar; }
   top: calc(var(--perg-rolo) / -2);
   height: var(--perg-rolo);
   overflow: hidden;
-  background: var(--papel);
+  background: #131a3d; /* laca anil */
   will-change: transform;
   outline: 1px solid transparent;
 }
-/* Dois ladrilhos desencontrados: o rolo parece mais denso que a folha. */
+/* Dois ladrilhos desencontrados: sobre a laca, a fibra clara vira pó de ouro. */
 .perg-rolo-fibra {
   position: absolute;
   left: 0; right: 0;
@@ -296,38 +354,40 @@ html.reduzido .perg-dica.ativa .ui-icone { animation-name: perg-dica-pulsar; }
   background-image: var(--perg-fibra, none), var(--perg-fibra, none);
   background-size: var(--perg-ladrilho) var(--perg-ladrilho);
   background-position: 0 0, 97px 131px;
+  opacity: 0.55;
   will-change: transform;
 }
-/* A luz: as voltas do papel nas pontas, a sombra das laterais e o volume. */
+/* A luz: o volume do cilindro por cima de tudo, e as ponteiras de ouro nas
+   duas pontas (os 8 px de fora ficam escondidos pela folha). */
 .perg-rolo-luz {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(to right,
-      transparent 11px, rgba(84, 60, 38, 0.2) 11px 12px,
-      transparent 12px 16px, rgba(84, 60, 38, 0.1) 16px 17px,
-      transparent 17px),
-    linear-gradient(to left,
-      transparent 10px, rgba(84, 60, 38, 0.16) 10px 11px,
-      transparent 11px 14px, rgba(84, 60, 38, 0.12) 14px 15px,
-      transparent 15px 21px, rgba(84, 60, 38, 0.07) 21px 22px,
-      transparent 22px),
-    linear-gradient(to right,
-      rgba(84, 60, 38, 0.24) 0, rgba(84, 60, 38, 0.07) 15px, rgba(84, 60, 38, 0) 30px,
-      rgba(84, 60, 38, 0) calc(100% - 30px), rgba(84, 60, 38, 0.07) calc(100% - 15px), rgba(84, 60, 38, 0.24) 100%),
     linear-gradient(to bottom,
-      rgba(96, 70, 44, 0.38) 0%,
-      rgba(96, 70, 44, 0.11) 5%,
-      rgba(255, 255, 255, 0.24) 11%,
-      rgba(255, 255, 255, 0.82) 22%,
-      rgba(255, 255, 255, 0.32) 36%,
-      rgba(92, 66, 42, 0.05) 48%,
-      rgba(92, 66, 42, 0.2) 63%,
-      rgba(92, 66, 42, 0.4) 80%,
-      rgba(66, 44, 28, 0.27) 91%,
-      rgba(66, 44, 28, 0.52) 100%);
-  background-size: 40px 100%, 40px 100%, 100% 100%, 100% 100%;
-  background-position: left top, right top, left top, left top;
+      rgba(var(--perg-noite), 0.78) 0%,
+      rgba(var(--perg-noite), 0.26) 7%,
+      rgba(246, 220, 166, 0.1) 15%,
+      rgba(255, 240, 206, 0.46) 23%,
+      rgba(246, 220, 166, 0.14) 34%,
+      rgba(var(--perg-noite), 0) 48%,
+      rgba(var(--perg-noite), 0.34) 64%,
+      rgba(var(--perg-noite), 0.62) 82%,
+      rgba(var(--perg-noite), 0.84) 100%),
+    linear-gradient(to right,
+      #a97c35 0 8px, #f6dca6 12px, #e9c27a 17px, #a97c35 24px,
+      rgba(var(--perg-noite), 0.85) 24px 25px,
+      #e9c27a 25px 27px,
+      rgba(var(--perg-noite), 0.6) 27px 28px,
+      transparent 28px),
+    linear-gradient(to left,
+      #a97c35 0 8px, #f6dca6 12px, #e9c27a 17px, #a97c35 24px,
+      rgba(var(--perg-noite), 0.85) 24px 25px,
+      #e9c27a 25px 27px,
+      rgba(var(--perg-noite), 0.6) 27px 28px,
+      transparent 28px),
+    linear-gradient(to right, rgba(233, 194, 122, 0) 0%, rgba(233, 194, 122, 0.16) 50%, rgba(233, 194, 122, 0) 100%);
+  background-size: 100% 100%, 40px 100%, 40px 100%, 100% 1px;
+  background-position: left top, left top, right top, left 50%;
   background-repeat: no-repeat;
 }
 /* A curva: o papel que se dobra para entrar no rolo (acima do eixo). */
@@ -336,7 +396,7 @@ html.reduzido .perg-dica.ativa .ui-icone { animation-name: perg-dica-pulsar; }
   left: -8px; right: -8px;
   bottom: 0;
   height: 46px;
-  background: linear-gradient(to bottom, rgba(14, 7, 10, 0) 0%, rgba(14, 7, 10, 0.07) 42%, rgba(14, 7, 10, 0.22) 78%, rgba(14, 7, 10, 0.46) 100%);
+  background: linear-gradient(to bottom, rgba(var(--perg-noite), 0) 0%, rgba(var(--perg-noite), 0.08) 42%, rgba(var(--perg-noite), 0.26) 78%, rgba(var(--perg-noite), 0.56) 100%);
   will-change: transform;
   outline: 1px solid transparent;
 }
@@ -346,7 +406,7 @@ html.reduzido .perg-dica.ativa .ui-icone { animation-name: perg-dica-pulsar; }
   left: -8px; right: -8px;
   top: 0;
   height: 42px;
-  background: linear-gradient(to bottom, rgba(58, 38, 24, 0.38) 0%, rgba(58, 38, 24, 0.2) 12%, rgba(58, 38, 24, 0.09) 40%, rgba(58, 38, 24, 0.025) 74%, rgba(58, 38, 24, 0) 100%);
+  background: linear-gradient(to bottom, rgba(var(--perg-noite), 0.5) 0%, rgba(var(--perg-noite), 0.24) 12%, rgba(var(--perg-noite), 0.1) 40%, rgba(var(--perg-noite), 0.03) 74%, rgba(var(--perg-noite), 0) 100%);
   will-change: transform;
   outline: 1px solid transparent;
 }

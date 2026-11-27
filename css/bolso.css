@@ -3,7 +3,7 @@
    ============================================================================
    A camada fica por cima do mundo e abaixo da folha e do palco. O JS põe
    tamanhos e posições em px da tela; aqui só o que não muda. Só transform e
-   opacity são animados. A versão calma (só a carta, que aparece e some) é
+   opacity são animados. Noite de lanternas: sombra anil, luz de ouro. A versão calma (só a carta, que aparece e some) é
    decidida no JS; este arquivo não precisa de regra própria para ela.
    ========================================================================== */
 
@@ -21,17 +21,38 @@
 /* Explícito: se um dia #bolso ganhar display, é esta regra que o mantém escondido. */
 #bolso[hidden] { display: none; }
 
-/* O olhar desce: o pé da tela escurece de leve (sombra é tinta). */
+/* O olhar desce: o pé da tela vira noite (sombra é anil) e, lá embaixo, a
+   claridade de uma lanterna espera a carta. */
 .bolso-veu {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, rgba(42, 27, 34, 0) 30%, rgba(42, 27, 34, 0.38) 100%);
+  background:
+    radial-gradient(70% 34% at 50% 100%, rgba(255, 180, 94, 0.2), rgba(255, 180, 94, 0) 72%),
+    linear-gradient(to bottom, rgba(6, 9, 22, 0) 26%, rgba(6, 9, 22, 0.62) 100%);
   will-change: opacity;
 }
 
 .bolso-bolsa {
   position: absolute;
   will-change: transform, opacity;
+}
+/* A bolsa guarda luz: um halo de lanterna atrás dela, que respira enquanto a
+   carta entra. Fica por baixo do desenho (vem antes das partes). */
+.bolso-bolsa::before {
+  content: "";
+  position: absolute;
+  inset: -34% -26% -18%;
+  background: radial-gradient(closest-side, rgba(255, 180, 94, 0.4), rgba(255, 180, 94, 0.1) 56%, rgba(255, 180, 94, 0));
+  pointer-events: none;
+  animation: bolso-respira 3.6s var(--curva-branco-deriva) infinite alternate;
+}
+@keyframes bolso-respira {
+  from { opacity: 0.55; transform: scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
+html.reduzido .bolso-bolsa::before { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .bolso-bolsa::before { animation: none; }
 }
 /* fundo, frente e aba empilhados; a alça sobe para fora do desenho */
 .bolso-bolsa-parte {
@@ -43,7 +64,7 @@
 }
 /* a sombra fica na aba (e não na bolsa) para acompanhar a aba quando ela abre */
 .bolso-aba {
-  filter: drop-shadow(0 6px 8px rgba(42, 27, 34, 0.18));
+  filter: drop-shadow(0 6px 8px rgba(3, 5, 18, 0.42));
   will-change: transform;
 }
 
@@ -59,7 +80,8 @@
   /* o recorte acompanha o envelope em qualquer tamanho */
   border-radius: 2.2% / 3.2%;
   background-color: var(--papel);
-  box-shadow: 0 10px 26px rgba(42, 27, 34, 0.2), 0 2px 5px rgba(42, 27, 34, 0.16);
+  /* washi aceso: sombra anil e a claridade quente em volta */
+  box-shadow: 0 12px 28px rgba(3, 5, 18, 0.55), 0 2px 5px rgba(3, 5, 18, 0.35), 0 0 30px 2px rgba(255, 180, 94, 0.34);
   overflow: hidden;
 }
 /* a face (canvas), a cor do papel e as dobras: cada filho ocupa a carta inteira */

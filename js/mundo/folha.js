@@ -1088,7 +1088,7 @@ export function criarFolha(mundo) {
 /* ============================================================================
    A FOLHA 3D
    ============================================================================
-   Cores em sRGB cru (sem colorspace_fragment), como o fio: o papel sai #fbf7f0
+   Cores em sRGB cru (sem colorspace_fragment), como o fio: o papel sai #f7ecd6
    na tela e a tinta sai com a cor do canvas.
    ========================================================================== */
 
@@ -1131,7 +1131,7 @@ vec4 tintaNa(sampler2D t, vec4 faixa) {
   return texture2D(t, clamp(q, 0.0, 1.0)) * dentro;
 }
 void main() {
-  vec3 cor = vec3(0.984, 0.969, 0.941); // #fbf7f0 (--papel)
+  vec3 cor = vec3(0.969, 0.925, 0.839); // #f7ecd6 (--papel, washi aceso)
   float s = (1.0 - vUv.y) * uTamanho.y; // m, do topo
   float x = (vUv.x - 0.5) * uTamanho.x;
   float frente = gl_FrontFacing ? 1.0 : 0.0;

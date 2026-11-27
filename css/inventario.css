@@ -1,7 +1,8 @@
 /* ============================================================================
    INVENTÁRIO: a bolsa no canto e a folha com o que ela guardou
    ============================================================================
-   O botão é um disco de papel pespontado com a bolsinha e o selo. A folha sobe
+   O botão é um disco de vidro com a bolsinha, uma luz que respira lá dentro e
+   o selo em forma de lanterna. A folha (vidro, filete dourado) sobe
    de baixo no celular; a partir de 720 px vira um cartão de 440 px acima do
    botão. Entra devagar com mola e sai rápido, sem mola. Só transform e
    opacity são animados. O botão sai de cena onde só atrapalharia (encontro,
@@ -15,7 +16,7 @@
   bottom: calc(var(--seguro-base) + 16px);
   z-index: calc(var(--z-mini) + 1);
   font-family: var(--fonte-mao);
-  color: var(--tinta);
+  color: var(--luar);
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
@@ -31,21 +32,46 @@
   cursor: pointer;
   transition: transform var(--dur-mola) var(--mola), opacity var(--dur-ui-lenta) var(--curva-ui);
 }
-/* o pesponto, a 4 px da borda */
+/* a luz guardada: um vaga-lume dentro da bolsa, que respira */
 .inventario-botao::before {
   content: "";
   position: absolute;
-  inset: 4px;
+  inset: 5px;
   border-radius: 50%;
-  border: 1px dashed var(--ponto);
+  background: radial-gradient(circle at 50% 62%, rgba(255, 180, 94, 0.36), rgba(255, 180, 94, 0) 68%);
   pointer-events: none;
+  animation: inventario-respira 4.8s var(--curva-branco-deriva) infinite alternate;
 }
-.inventario-icone { width: 30px; height: 30px; }
-.inventario-icone-corpo { fill: var(--branco); }
+.inventario-botao:disabled::before { animation: none; opacity: 0.4; }
+@keyframes inventario-respira {
+  from { opacity: 0.45; transform: scale(0.9); }
+  to { opacity: 1; transform: none; }
+}
+.inventario-icone { position: relative; width: 30px; height: 30px; }
+.inventario-icone-corpo { fill: rgba(233, 194, 122, 0.16); }
+/* o selo é uma lanterninha acesa: corpo de papel, tampa e base escuras */
 .inventario-conta {
   position: absolute;
-  top: -5px; right: -5px;
+  top: -8px; right: -5px;
+  min-width: 20px; height: 23px;
+  padding: 1px 5px 0;
+  border-radius: 46% 46% 40% 40% / 30% 30% 22% 22%;
+  background: radial-gradient(circle at 50% 42%, #fff3d2, var(--chama) 78%);
+  color: var(--noite-funda);
+  box-shadow: 0 0 0 1px var(--ouro-escuro), 0 0 12px 1px rgba(255, 180, 94, 0.6);
 }
+.inventario-conta::before,
+.inventario-conta::after {
+  content: "";
+  position: absolute;
+  left: calc(50% - 5px);
+  width: 10px; height: 3px;
+  border-radius: 1.5px;
+  background: var(--noite-funda);
+  box-shadow: 0 0 0 1px var(--ouro-escuro);
+}
+.inventario-conta::before { top: -3px; }
+.inventario-conta::after { bottom: -3px; left: calc(50% - 4px); width: 8px; }
 .inventario-conta:empty { display: none; }
 
 /* Fora das esperas a bolsa fica à vista e quieta: o toque continua parando
@@ -114,8 +140,8 @@ html[data-etapa="lendo"] #inventario .inventario-botao {
   max-height: 78vh;
   max-height: min(78vh, 78dvh);
   padding: 12px 0 calc(var(--seguro-base) + 18px);
-  /* a faixa de 28 px embaixo é o papel que continua quando a mola passa do ponto */
-  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.7) inset, 0 -16px 44px -10px rgba(30, 14, 40, 0.4), 0 28px 0 var(--papel);
+  /* a faixa de 28 px embaixo é o vidro que continua quando a mola passa do ponto */
+  box-shadow: inset 0 0 0 1px var(--fio-ouro), inset 0 1px 0 rgba(246, 220, 166, 0.16), 0 -18px 48px -10px rgba(3, 5, 18, 0.8), 0 28px 0 var(--vidro-forte);
   opacity: 0;
   transform: translate3d(0, 100%, 0);
   transition: transform 220ms var(--curva-sair), opacity 160ms linear 60ms;
@@ -128,6 +154,17 @@ html[data-etapa="lendo"] #inventario .inventario-botao {
   transition: transform var(--dur-folha) var(--mola-firme), opacity 120ms linear;
 }
 
+/* a lanterna pendurada acima da folha: a luz dela escorre pelo alto do vidro */
+#inventario .inventario-folha::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 128px;
+  border-radius: inherit;
+  background: radial-gradient(58% 100% at 50% 0%, rgba(255, 180, 94, 0.17), transparent 72%);
+  pointer-events: none;
+}
+
 .inventario-topo {
   display: flex;
   align-items: center;
@@ -138,11 +175,12 @@ html[data-etapa="lendo"] #inventario .inventario-botao {
 .inventario-titulo { min-width: 0; }
 .inventario-fechar {
   flex: none;
-  color: var(--tinta-suave);
-  box-shadow: var(--sombra-baixa);
+  color: var(--luar-suave);
 }
+/* o fio brilha por conta própria */
 .inventario-costura {
   width: auto;
+  filter: drop-shadow(0 0 3px var(--fio-brilho));
   margin: 10px calc(var(--seguro-dir) + 26px) 0 calc(var(--seguro-esq) + 26px);
 }
 .inventario-miolo {
@@ -167,18 +205,16 @@ html[data-etapa="lendo"] #inventario .inventario-botao {
   min-height: 80px;
   padding: 10px 14px 10px 16px;
   border-radius: var(--raio-m);
-  background: var(--sakura-clara);
-  color: var(--sakura-tinta);
+  background: linear-gradient(100deg, rgba(255, 180, 94, 0.16), rgba(255, 180, 94, 0.04) 46%, rgba(255, 180, 94, 0)), var(--vidro-forte);
+  color: var(--luar);
+  box-shadow: inset 0 0 0 1px var(--fio-ouro), inset 0 1px 0 rgba(246, 220, 166, 0.14), 0 8px 20px -8px rgba(3, 5, 18, 0.8);
   text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--dur-ui) var(--curva-ui);
 }
-.inventario-fixo::before {
-  content: "";
-  position: absolute;
-  inset: 4px;
-  border-radius: calc(var(--raio-m) - 4px);
-  border: 1px dashed rgba(143, 31, 69, 0.26);
-  pointer-events: none;
-}
+.inventario-fixo:active { transform: scale(0.97); }
 .inventario-fita {
   position: relative;
   flex: none;
@@ -189,11 +225,12 @@ html[data-etapa="lendo"] #inventario .inventario-botao {
   width: 100%;
   height: auto;
   border-radius: 5px;
-  box-shadow: var(--sombra-baixa);
+  box-shadow: 0 6px 14px -6px rgba(3, 5, 18, 0.85), 0 0 16px -3px rgba(255, 180, 94, 0.5);
 }
 .inventario-fixo-nome {
   flex: 1 1 auto;
   min-width: 0;
+  color: var(--ouro-claro);
   font-size: 1.25rem;
   font-weight: 600;
   line-height: 1.25;
@@ -206,9 +243,9 @@ html[data-etapa="lendo"] #inventario .inventario-botao {
   place-items: center;
   width: 44px; height: 44px;
   border-radius: 50%;
-  background: var(--papel);
-  color: var(--fio);
-  box-shadow: var(--sombra-baixa);
+  background: radial-gradient(circle at 50% 40%, rgba(255, 196, 120, 0.32), rgba(233, 194, 122, 0.1));
+  color: var(--ouro-claro);
+  box-shadow: inset 0 0 0 1px rgba(233, 194, 122, 0.7), var(--brilho-ouro);
 }
 
 /* ---- As cartas ------------------------------------------------------------------ */
@@ -230,8 +267,12 @@ html[data-etapa="lendo"] #inventario .inventario-botao {
   padding: 8px 4px;
   border-radius: var(--raio-m);
   background: none;
-  color: var(--tinta);
+  color: var(--luar);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
+.inventario-item:active .inventario-miniatura { transform: scale(0.94); transition-duration: var(--dur-toque); }
 .inventario-miniatura {
   position: relative;
   display: block;
@@ -250,7 +291,8 @@ html[data-etapa="lendo"] #inventario .inventario-botao {
   border-radius: 5px;
   background-color: var(--papel);
   background-size: 100% 100%;
-  box-shadow: 0 0 0 1px rgba(42, 27, 34, 0.42), var(--sombra-baixa);
+  /* papel aceso: filete de ouro, sombra anil e a claridade em volta */
+  box-shadow: 0 0 0 1px rgba(233, 194, 122, 0.45), 0 8px 18px -8px rgba(3, 5, 18, 0.85), 0 0 20px -4px rgba(255, 180, 94, 0.45);
   overflow: hidden;
 }
 .inventario-carta svg {
@@ -261,12 +303,13 @@ html[data-etapa="lendo"] #inventario .inventario-botao {
 .inventario-carta-branca {
   border-radius: 4px;
   overflow: visible;
-  box-shadow: var(--sombra-baixa);
+  box-shadow: 0 8px 18px -8px rgba(3, 5, 18, 0.85), 0 0 20px -4px rgba(255, 180, 94, 0.45);
 }
 .inventario-nome {
   font-size: 1rem;
   font-weight: 600;
   line-height: 1.25;
+  letter-spacing: 0.01em;
   text-align: center;
   text-wrap: balance;
   overflow-wrap: anywhere;
@@ -290,7 +333,7 @@ html[data-etapa="lendo"] #inventario .inventario-botao {
   .inventario-botao:not(:disabled):hover { transform: translateY(-2px); }
   #inventario[data-aberto] .inventario-botao:not(:disabled):hover { transform: scale(0.92); }
   .inventario-botao:not(:disabled):active { transform: scale(0.95); }
-  .inventario-fechar:hover { color: var(--tinta); }
+  .inventario-fechar:hover { color: var(--ouro-claro); }
   .inventario-item:hover .inventario-miniatura { transform: translateY(-4px) rotate(0); }
   .inventario-fixo:hover { transform: translateY(-2px); }
   .inventario-fixo:active { transform: scale(0.95); }
@@ -302,7 +345,7 @@ html[data-etapa="lendo"] #inventario .inventario-botao {
     right: calc(var(--seguro-dir) + 24px);
     bottom: calc(var(--seguro-base) + 24px);
   }
-  .inventario-fundo { background: rgba(9, 12, 40, 0.3); }
+  .inventario-fundo { background: rgba(6, 9, 22, 0.5); }
   #inventario .inventario-folha {
     left: auto;
     right: calc(var(--seguro-dir) + 24px);
@@ -313,7 +356,7 @@ html[data-etapa="lendo"] #inventario .inventario-botao {
     margin: 0;
     padding-bottom: 18px;
     border-radius: var(--raio-g);
-    box-shadow: var(--sombra-papel), 0 0 0 1px var(--papel-linha);
+    box-shadow: 0 2px 6px rgba(3, 5, 18, 0.4), 0 28px 60px -12px rgba(3, 5, 18, 0.78), inset 0 0 0 1px var(--fio-ouro), inset 0 1px 0 rgba(246, 220, 166, 0.16);
     transform: translate3d(0, 10px, 0) scale(0.94);
     transform-origin: calc(100% - 28px) 100%;
     transition: transform var(--dur-sair) var(--curva-sair), opacity var(--dur-sair) linear;
@@ -321,11 +364,6 @@ html[data-etapa="lendo"] #inventario .inventario-botao {
   #inventario[data-aberto] .inventario-folha {
     transform: none;
     transition: transform var(--dur-mola) var(--mola), opacity 140ms linear;
-  }
-  #inventario .inventario-folha[data-borda="base"]::before {
-    bottom: 8px;
-    border-bottom: 1px dashed var(--ponto);
-    border-radius: calc(var(--raio-g) - 8px);
   }
   .inventario-folha .ui-puxador { visibility: hidden; height: 0; margin-bottom: 12px; }
   .inventario-topo { padding: 2px 20px 0 28px; }
@@ -348,6 +386,7 @@ html.reduzido #inventario[data-aberto] .inventario-folha {
 html.reduzido .inventario-fundo,
 html.reduzido .inventario-botao,
 html.reduzido .inventario-miniatura { transition-duration: 0.01ms; }
+html.reduzido .inventario-botao::before,
 html.reduzido .inventario-botao.chegou,
 html.reduzido .inventario-botao.recebeu,
 html.reduzido .inventario-botao.vazia,
@@ -363,6 +402,7 @@ html.reduzido .inventario-nova { animation: none; }
   .inventario-fundo,
   .inventario-botao,
   .inventario-miniatura { transition-duration: 0.01ms; }
+  .inventario-botao::before,
   .inventario-botao.chegou,
   .inventario-botao.recebeu,
   .inventario-botao.vazia,

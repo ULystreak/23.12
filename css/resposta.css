@@ -34,6 +34,20 @@
     rgba(var(--depois-noite), 0.9));
   opacity: 0;
 }
+/* Uma lanterna longe, atrás do número: a noite do fim não é um preto chapado. */
+.depois-veu::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(58% 30% at 50% 44%, rgba(255, 180, 94, 0.1), rgba(255, 180, 94, 0) 72%),
+    radial-gradient(120% 46% at 50% 108%, rgba(74, 57, 140, 0.22), rgba(74, 57, 140, 0) 70%);
+  animation: depois-respira 6s var(--curva-branco-deriva) infinite;
+}
+@keyframes depois-respira {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
 
 /* ---- O contador ------------------------------------------------------------ */
 .contador {
@@ -59,7 +73,8 @@
   font-size: clamp(3.75rem, 2.6rem + 6vw, 5.75rem);
   line-height: 1.1;
   font-variant-numeric: tabular-nums lining-nums;
-  text-shadow: 0 0 28px rgba(255, 209, 161, 0.22);
+  color: var(--ouro-claro);
+  text-shadow: 0 0 34px rgba(255, 180, 94, 0.42), 0 2px 14px rgba(3, 5, 18, 0.6);
   white-space: nowrap;
 }
 /* Uma caixa por algarismo: a contagem não treme. */
@@ -75,14 +90,17 @@
   width: min(60vw, 228px);
   height: 8px;
   background: var(--enfeite-fio) left center / 24px 8px repeat-x;
+  /* o fio brilha por conta própria */
+  filter: drop-shadow(0 0 4px var(--fio-brilho));
   transform-origin: left center;
 }
 
 .contador-rotulo {
   margin-top: 4px;
+  font-family: var(--fonte-titulo);
   font-size: 1.1875rem;
   line-height: 1.4;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   color: var(--luar-suave);
   transform-origin: 50% 0;
 }
@@ -94,13 +112,14 @@
   font-family: var(--fonte-titulo);
   font-size: clamp(1.2rem, 1.1rem + 0.6vw, 1.45rem);
   line-height: 1.6;
+  letter-spacing: 0.04em;
   text-wrap: balance;
 }
 
 /* No alto: o rótulo cresce para ser lido na escala 0,46. */
 .contador[data-alto] {
   gap: 6px;
-  text-shadow: 0 1px 10px rgba(4, 6, 20, 0.7);
+  text-shadow: 0 1px 10px rgba(3, 5, 18, 0.7);
 }
 .contador[data-alto] .contador-rotulo {
   font-size: 2rem;
@@ -118,9 +137,12 @@
   width: 348px;
   margin-left: -174px;
   height: calc(clamp(3.75rem, 2.6rem + 6vw, 5.75rem) * 1.1 + 3rem + 46px);
-  border-radius: 44px;
-  background: rgba(13, 17, 48, 0.84);
-  box-shadow: inset 0 0 0 2px rgba(214, 222, 255, 0.16), 0 10px 26px rgba(4, 6, 20, 0.4);
+  /* a etiqueta é uma lanterna de vidro: ombros largos, base mais estreita, luz no alto */
+  border-radius: 46% 46% 40% 40% / 30% 30% 22% 22%;
+  background:
+    radial-gradient(70% 60% at 50% 0%, rgba(255, 180, 94, 0.16), rgba(255, 180, 94, 0) 70%),
+    var(--vidro-forte);
+  box-shadow: inset 0 0 0 2px var(--fio-ouro), inset 0 3px 0 rgba(246, 220, 166, 0.14), 0 16px 34px -10px rgba(3, 5, 18, 0.8);
   opacity: 0;
   transition: opacity 0.9s linear;
   z-index: -1;
@@ -137,9 +159,9 @@
   margin-left: -150px;
   height: calc(clamp(3.75rem, 2.6rem + 6vw, 5.75rem) * 1.1 + 28px);
   background: radial-gradient(closest-side,
-    rgba(255, 209, 161, 0.5),
-    rgba(255, 209, 161, 0.16) 55%,
-    rgba(255, 209, 161, 0));
+    rgba(255, 180, 94, 0.55),
+    rgba(233, 194, 122, 0.18) 55%,
+    rgba(233, 194, 122, 0));
   opacity: 0;
   z-index: -1;
   pointer-events: none;
@@ -162,6 +184,7 @@
   width: 5px;
   height: 5px;
   margin: -2.5px 0 0 -2.5px;
+  box-shadow: 0 0 8px 1px var(--fio-brilho);
 }
 .contador-dia {
   width: 4px;
@@ -183,9 +206,10 @@
   line-height: 1.45;
 }
 .contador-lembra-dia {
-  font-size: 1rem;
-  letter-spacing: 0.06em;
-  color: var(--luar-suave);
+  font-family: var(--fonte-titulo);
+  font-size: 0.9375rem;
+  letter-spacing: 0.16em;
+  color: var(--ouro);
 }
 .contador-lembra-fala {
   max-width: 17em;
@@ -205,7 +229,11 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 30px 24px 20px;
+  padding: 32px 24px 20px;
+  /* o que ela não desenha também é da noite: seleção, cursor e rolagem em ouro */
+  caret-color: var(--chama);
+  scrollbar-width: thin;
+  scrollbar-color: var(--fio-ouro) transparent;
   transform-origin: 50% 0;
   pointer-events: auto;
   /* O #palco tira a seleção; no Safari o campo herdaria isso e não aceitaria texto. */
@@ -220,6 +248,35 @@
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
+.resposta ::selection { background: rgba(233, 194, 122, 0.34); color: var(--luar); }
+
+/* A lanterna da folha: um filete de luz no alto e um clarão que desce por dentro
+   do vidro. Fica em brasa enquanto a folha está em branco; quando ela escreve
+   ([data-tem]), acende e respira. Só opacidade. */
+.resposta::after {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: 0;
+  height: 132px;
+  background:
+    linear-gradient(90deg, rgba(246, 220, 166, 0), var(--ouro-claro) 50%, rgba(246, 220, 166, 0)) center top / 62% 1px no-repeat,
+    radial-gradient(58% 100% at 50% 0%, rgba(255, 180, 94, 0.26), rgba(255, 180, 94, 0) 72%);
+  opacity: 0.32;
+  pointer-events: none;
+  transition: opacity 900ms var(--curva-yn-florescer);
+}
+.resposta[data-tem]::after {
+  opacity: 1;
+  animation: resposta-lanterna 5.2s var(--curva-branco-deriva) 900ms infinite;
+}
+@keyframes resposta-lanterna {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.66; }
+}
+.resposta[data-rola]::after { display: none; }
+
 /* Rolando, o laço do alto sairia cortado. */
 .resposta[data-rola] > .ui-laco { display: none; }
 
@@ -233,7 +290,7 @@
    iPhone não dá zoom ao focar. */
 .resposta-texto {
   --linha: 2.05rem;
-  --pauta: var(--papel-linha);
+  --pauta: rgba(233, 194, 122, 0.2);
   flex: 1 1 auto;
   height: clamp(8.2rem, 32vh, 16.4rem);
   min-height: 4.1rem;
@@ -241,6 +298,9 @@
   border-radius: 0;
   font-size: 1.1875rem;
   line-height: var(--linha);
+  color: var(--luar);
+  scrollbar-width: thin;
+  scrollbar-color: var(--fio-ouro) transparent;
   background-image: linear-gradient(to bottom, transparent calc(var(--linha) - 1px), var(--pauta) calc(var(--linha) - 1px));
   background-size: 100% var(--linha);
   background-attachment: local;
@@ -250,14 +310,14 @@
   -webkit-user-select: text;
   user-select: text;
 }
-/* O foco do caderno é a pauta que fica rosa (e o cursor vermelho piscando). */
+/* O foco do caderno é a pauta que se acende em ouro (e o cursor de chama). */
 .resposta-texto:focus,
 .resposta-texto:focus-visible {
-  --pauta: var(--sakura);
+  --pauta: rgba(233, 194, 122, 0.5);
   outline: none;
 }
-/* A dica apagada com o mesmo contraste do texto pequeno (a tinta fraca não chega a 4,5:1). */
-.resposta-texto::placeholder { color: var(--tinta-suave); }
+/* A dica apagada em luar suave: 9:1 sobre o vidro (o luar fraco não chega a 4,5:1). */
+.resposta-texto::placeholder { color: var(--luar-suave); opacity: 1; }
 
 .resposta-aviso {
   display: flex;
@@ -268,13 +328,18 @@
 .resposta-aviso:not(:empty)::before {
   content: "";
   flex: none;
+  /* um vaga-lume pousado ao lado do aviso: respira, não pisca */
   width: 13px;
   height: 13px;
-  background: var(--enfeite-petala) center / contain no-repeat;
-  transform: rotate(-18deg);
+  background: radial-gradient(closest-side, var(--ouro-claro) 0 22%, rgba(255, 180, 94, 0.5) 34%, rgba(255, 180, 94, 0) 100%);
+  animation: resposta-vagalume 3.6s var(--curva-branco-deriva) infinite;
+}
+@keyframes resposta-vagalume {
+  0%, 100% { opacity: 0.5; transform: scale(0.86); }
+  50% { opacity: 1; transform: scale(1.12); }
 }
 .resposta-aviso[data-erro] {
-  color: var(--sakura-tinta);
+  color: var(--sakura);
   font-weight: 600;
   animation: resposta-nega 280ms var(--curva-ui);
 }
@@ -299,8 +364,8 @@
 }
 .resposta-enviar { text-decoration: none; }
 .resposta-enviar .ui-icone { width: 22px; height: 22px; }
-/* Sem texto fica apagado, mas segue tocável: o toque mostra o aviso. */
-.resposta-enviar[aria-disabled="true"] { opacity: 0.5; }
+/* Sem texto fica apagado (lanterna por acender), mas segue tocável: o toque mostra o aviso. */
+.resposta-enviar[aria-disabled="true"] { opacity: 0.56; }
 .resposta-coracao {
   width: 12px;
   height: 12px;
@@ -317,10 +382,11 @@
   padding: 0 4px;
   font-family: var(--fonte-mao);
   font-size: 0.9375rem;
-  color: var(--tinta-suave);
+  letter-spacing: 0.02em;
+  color: var(--luar-suave);
   text-decoration: underline;
-  text-decoration-thickness: 1.5px;
-  text-decoration-color: var(--ponto);
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--ponto-noite);
   text-underline-offset: 5px;
   -webkit-touch-callout: none;
   transition: transform var(--dur-mola) var(--mola), color var(--dur-ui) var(--curva-ui);
@@ -330,7 +396,7 @@
   transition-duration: var(--dur-toque);
 }
 @media (hover: hover) and (pointer: fine) {
-  .resposta-outro:hover { color: var(--tinta); }
+  .resposta-outro:hover { color: var(--ouro-claro); }
 }
 
 /* Até 419 px, cada botão ocupa a linha inteira. */
@@ -362,7 +428,8 @@
 .depois-ir-seta {
   width: 20px;
   height: 20px;
-  color: var(--fio);
+  /* ouro: o vermelho cheio é só do fio */
+  color: var(--ouro);
 }
 
 @media (max-width: 380px) {
@@ -422,7 +489,15 @@
 /* ---- Movimento reduzido ---------------------------------------------------------- */
 html.reduzido .resposta-aviso[data-erro] { animation: none; }
 html.reduzido .resposta-outro { transition-duration: 0.01ms; }
+html.reduzido .depois-veu::after,
+html.reduzido .resposta[data-tem]::after,
+html.reduzido .resposta-aviso::before { animation: none; }
+html.reduzido .resposta::after { transition-duration: 0.01ms; }
 @media (prefers-reduced-motion: reduce) {
   .resposta-aviso[data-erro] { animation: none; }
   .resposta-outro { transition-duration: 0.01ms; }
+  .depois-veu::after,
+  .resposta[data-tem]::after,
+  .resposta-aviso::before { animation: none; }
+  .resposta::after { transition-duration: 0.01ms; }
 }

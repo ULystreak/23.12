@@ -1,31 +1,39 @@
 /* ============================================================================
-   ENCONTRO: o crepúsculo, os planos do filme, as mãos, o fio e o clarão
+   ENCONTRO: a noite, os planos do filme, as mãos, o fio e o clarão
    ============================================================================
-   Quase tudo que se move é feito por js/cenas/encontro.js: transform e
-   opacity nas peças, e o traço do fio (atributo d) no SVG enquanto ela puxa.
-   Aqui fica a aparência. Máscaras, desfoques e degradês são pintados uma vez
-   e nunca animam; a única animação do CSS é o grão do filme.
+   Direção "Noite de lanternas". Quase tudo que se move é feito por
+   js/cenas/encontro.js: transform e opacity nas peças, e o traço do fio
+   (atributo d) no SVG enquanto ela puxa. Aqui fica a aparência. Máscaras,
+   desfoques e degradês são pintados uma vez e nunca animam; o CSS só anima
+   transform e opacity: o grão, a luz do horizonte e
+   o vaga-lume que espera no dedinho dele.
 
-   Em pé (celular) o céu do crepúsculo cobre a tela e os quadros ocupam uma
-   faixa alta no meio, com as bordas dissolvidas no próprio quadro desfocado.
-   Deitado (computador) o céu é um véu sobre a alameda, que continua andando
-   atrás, e a faixa de cinema se dissolve nela pelos quatro lados.
+   Em pé (celular) o céu da noite cobre a tela e os quadros ocupam uma faixa
+   alta no meio, com as bordas dissolvidas no próprio quadro desfocado.
+   Deitado (computador) o céu é um véu anil sobre a alameda, que continua
+   andando atrás, e a faixa de cinema se dissolve nela pelos quatro lados.
+
+   O detalhe da tela: quatro cantoneiras de filete dourado seguram cada
+   quadro, e um vaga-lume pousa no dedinho dele enquanto espera o nó.
    ========================================================================== */
 
 .encontro {
-  /* A paleta do crepúsculo é desta cena, como as paletas dos capítulos. */
-  --enc-ceu-1: #2c2a5e;
-  --enc-ceu-2: #4a3c74;
-  --enc-ceu-3: #382b58;
-  --enc-ceu-4: #1c1530;
-  --enc-veu-1: rgba(22, 14, 40, 0.42);
-  --enc-veu-2: rgba(18, 11, 34, 0.62);
-  --enc-veu-3: rgba(12, 7, 26, 0.84);
-  --enc-sombra: rgba(40, 6, 20, 0.34); /* sombra do fio: tinta, nunca preto */
-  --enc-luz-fio: rgba(255, 214, 196, 0.85);
-  --enc-halo-texto: rgba(12, 7, 26, 0.7);
-  --enc-luz: #fffaf2;
-  --enc-branco: #fff8f3;
+  /* A paleta da noite é desta cena, como as paletas dos capítulos. */
+  --enc-ceu-1: #070b1c;
+  --enc-ceu-2: #101741;
+  --enc-ceu-3: #231d4d; /* o véu violeta perto do horizonte */
+  --enc-ceu-4: #060914;
+  --enc-veu-1: rgba(11, 16, 38, 0.46);
+  --enc-veu-2: rgba(8, 12, 30, 0.68);
+  --enc-veu-3: rgba(4, 6, 18, 0.9);
+  --enc-halo: rgba(255, 64, 78, 0.24); /* o halo do fio: luz, não sombra */
+  --enc-luz-fio: rgba(255, 232, 200, 0.9);
+  --enc-halo-texto: rgba(3, 5, 18, 0.85);
+  --enc-luz: #fff8e6;
+  --enc-branco: #fbf1da; /* washi aceso: a carta nasce da luz da lanterna */
+  --enc-canto: rgba(246, 220, 166, 0.78);
+  --enc-canto-x: 7%;
+  --enc-canto-y: 9%;
   --enc-fio-l: 3px; /* espessura do fio; o js põe a real em cada medida */
   position: absolute;
   inset: 0;
@@ -34,7 +42,7 @@
   contain: strict;
 }
 
-/* ---- O crepúsculo: em pé cobre a tela; deitado é um véu sobre a alameda ---- */
+/* ---- A noite: em pé cobre a tela; deitado é um véu sobre a alameda ---------- */
 .enc-ceu {
   position: absolute;
   inset: 0;
@@ -43,7 +51,38 @@
   background: radial-gradient(ellipse 120% 90% at 50% 46%, var(--enc-veu-1) 0%, var(--enc-veu-2) 70%, var(--enc-veu-3) 100%);
 }
 .enc-em-pe .enc-ceu {
-  background: linear-gradient(var(--enc-ceu-1) 0%, var(--enc-ceu-2) 34%, var(--enc-ceu-3) 62%, var(--enc-ceu-4) 100%);
+  background: linear-gradient(var(--enc-ceu-1) 0%, var(--enc-ceu-2) 38%, var(--enc-ceu-3) 70%, var(--enc-ceu-4) 100%);
+}
+/* Estrelas pequenas e nítidas, pintadas uma vez (só em pé: deitado a alameda
+   tem as dela). */
+.enc-em-pe .enc-ceu::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle 1px at 12% 7%, rgba(244, 239, 230, 0.9) 99%, transparent),
+    radial-gradient(circle 1px at 31% 12%, rgba(244, 239, 230, 0.6) 99%, transparent),
+    radial-gradient(circle 1.4px at 58% 5%, rgba(246, 220, 166, 0.9) 99%, transparent),
+    radial-gradient(circle 1px at 77% 10%, rgba(244, 239, 230, 0.7) 99%, transparent),
+    radial-gradient(circle 1px at 90% 4%, rgba(244, 239, 230, 0.5) 99%, transparent),
+    radial-gradient(circle 1px at 22% 90%, rgba(244, 239, 230, 0.45) 99%, transparent),
+    radial-gradient(circle 1.2px at 68% 93%, rgba(246, 220, 166, 0.6) 99%, transparent),
+    radial-gradient(circle 1px at 86% 87%, rgba(244, 239, 230, 0.5) 99%, transparent);
+}
+/* A luz das lanternas lá embaixo, no horizonte: respira devagar. */
+.enc-ceu::after {
+  content: "";
+  position: absolute;
+  left: -20%;
+  right: -20%;
+  bottom: -18%;
+  height: 46%;
+  background: radial-gradient(ellipse closest-side, rgba(255, 180, 94, 0.2) 0%, rgba(255, 138, 61, 0.07) 55%, transparent 100%);
+  animation: enc-respira 5.4s var(--curva-branco-deriva) infinite alternate;
+}
+@keyframes enc-respira {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
 }
 
 /* ---- Os planos ---------------------------------------------------------------- */
@@ -57,7 +96,7 @@
 
 /* O quadro desfocado atrás da faixa, só em pé. Rasterizado a um quarto do
    tamanho e ampliado 4×: o desfoque custa pouco e nunca é refeito. O resto
-   é o céu do crepúsculo (opacidade 0,78). */
+   é o céu da noite (opacidade 0,7). */
 .enc-fundo { display: none; }
 .enc-em-pe .enc-fundo {
   display: block;
@@ -67,7 +106,7 @@
   width: 25%;
   height: 25%;
   overflow: hidden;
-  opacity: 0.78;
+  opacity: 0.7;
   transform: scale(4);
   transform-origin: 0 0;
 }
@@ -76,7 +115,7 @@
   height: 100%;
   max-width: none;
   object-fit: cover;
-  filter: blur(9px) brightness(0.66) saturate(1.12);
+  filter: blur(9px) brightness(0.5) saturate(1.08);
   /* a borda mole do desfoque fica fora */
   transform: scale(1.3);
 }
@@ -85,8 +124,12 @@
 .enc-faixa {
   position: absolute;
   overflow: hidden;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 15%, #000 85%, transparent 100%);
-  mask-image: linear-gradient(to bottom, transparent 0%, #000 15%, #000 85%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%);
+}
+.enc-em-pe .enc-faixa {
+  --enc-canto-x: 18px;
+  --enc-canto-y: 13.5%;
 }
 /* Deitado, o miolo do quadro é opaco (rostos inteiros); só uma margem
    estreita se dissolve na alameda, nos quatro lados. */
@@ -102,8 +145,32 @@
 .encontro:not(.enc-em-pe) .enc-faixa.enc-faixa-alta {
   --enc-mascara-v: linear-gradient(to bottom, transparent 0%, #000 7%, #000 93%, transparent 100%);
   --enc-mascara-h: linear-gradient(to right, transparent 0%, #000 9%, #000 91%, transparent 100%);
+  --enc-canto-x: 11%;
+  --enc-canto-y: 9%;
 }
 
+/* A moldura: quatro cantoneiras de filete dourado (1 px, 22 px de braço),
+   dentro da parte opaca do quadro. Pintadas uma vez; somem e voltam com o
+   plano, que é quem tem a opacidade. */
+.enc-faixa::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: var(--enc-canto-y) var(--enc-canto-x);
+  pointer-events: none;
+  --c: var(--enc-canto);
+  background:
+    linear-gradient(var(--c), var(--c)) 0 0 / 22px 1px,
+    linear-gradient(var(--c), var(--c)) 0 0 / 1px 22px,
+    linear-gradient(var(--c), var(--c)) 100% 0 / 22px 1px,
+    linear-gradient(var(--c), var(--c)) 100% 0 / 1px 22px,
+    linear-gradient(var(--c), var(--c)) 0 100% / 22px 1px,
+    linear-gradient(var(--c), var(--c)) 0 100% / 1px 22px,
+    linear-gradient(var(--c), var(--c)) 100% 100% / 22px 1px,
+    linear-gradient(var(--c), var(--c)) 100% 100% / 1px 22px;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 0 4px rgba(255, 180, 94, 0.55));
+}
 /* As imagens dos planos e das mãos: o js calcula translate3d e scale a partir
    do canto (origem 0 0). Um nada de desfoque junta os pixels dos quadros
    pequenos; o grão faz o resto. */
@@ -137,6 +204,15 @@
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 20%, #000 80%, transparent 100%);
   mask-image: linear-gradient(to bottom, transparent 0%, #000 20%, #000 80%, transparent 100%);
 }
+/* A noite entra pelas beiradas de cada mão: um véu anil pintado uma vez, que
+   deixa o dedinho no claro e dá ao fio um fundo escuro para brilhar. */
+.enc-mao::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 62% 58% at 50% 52%, transparent 38%, rgba(6, 9, 22, 0.34) 78%, rgba(6, 9, 22, 0.6) 100%);
+}
 
 /* ---- O fio ------------------------------------------------------------------- */
 .enc-fio {
@@ -153,11 +229,11 @@
   stroke-linejoin: round;
   opacity: 0; /* o js põe a opacidade */
 }
-/* Sombra é tinta, com deslocamento: o fio tem peso. */
+/* O fio brilha por conta própria: no lugar da sombra, um halo vermelho largo
+   e translúcido (sem filtro: o traço é refeito a cada quadro enquanto ela puxa). */
 .enc-fio-sombra {
-  stroke: var(--enc-sombra);
-  stroke-width: calc(var(--enc-fio-l) * 2.1);
-  transform: translateY(calc(var(--enc-fio-l) * 0.6));
+  stroke: var(--enc-halo);
+  stroke-width: calc(var(--enc-fio-l) * 3.6);
 }
 .enc-fio-linha {
   stroke: var(--fio);
@@ -165,11 +241,12 @@
 }
 .enc-fio-luz {
   stroke: var(--enc-luz-fio);
-  stroke-width: calc(var(--enc-fio-l) * 0.55);
+  stroke-width: calc(var(--enc-fio-l) * 0.5);
 }
 
 /* A brasinha: a conta de luz que espera no dedinho e corre pelo laço é só
-   transform e opacity. O margin negativo, metade do lado, põe o centro no ponto. */
+   transform e opacity. Miolo de luar, corpo de ouro, borda no halo do fio.
+   O margin negativo, metade do lado, põe o centro no ponto. */
 .enc-brasa {
   position: absolute;
   left: 0;
@@ -180,7 +257,7 @@
   border-radius: 50%;
   opacity: 0;
   will-change: transform, opacity;
-  background: radial-gradient(circle closest-side, var(--enc-luz) 0%, rgba(255, 236, 214, 0.95) 9%, rgba(255, 190, 160, 0.5) 26%, rgba(255, 150, 130, 0.16) 55%, transparent 100%);
+  background: radial-gradient(circle closest-side, var(--enc-luz) 0%, rgba(246, 220, 166, 0.96) 9%, rgba(255, 180, 94, 0.52) 24%, rgba(255, 64, 78, 0.2) 52%, transparent 100%);
 }
 
 /* ---- Amarrar ------------------------------------------------------------------
@@ -216,31 +293,91 @@
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
 }
-/* O anel de foco (só pelo teclado) é estrela, como em todo contexto escuro. */
+/* Um vaga-lume pousado no dedinho dele: um anel de filete dourado que chega
+   com mola e um ponto de luz que respira. Sem legenda: é só luz esperando. */
+.enc-alvo::before,
+.enc-alvo::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.enc-alvo::before {
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
+  border: 1px solid rgba(246, 220, 166, 0.62);
+  box-shadow: 0 0 14px rgba(255, 180, 94, 0.3), 0 0 10px rgba(255, 180, 94, 0.18) inset;
+  animation:
+    enc-pousa var(--dur-mola) var(--mola) 0.5s both,
+    enc-anel 3.2s var(--curva-branco-deriva) 0.96s infinite alternate;
+}
+.enc-alvo::after {
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  background: radial-gradient(circle closest-side, #fff6dc 0%, var(--ouro-claro) 16%, rgba(255, 180, 94, 0.5) 38%, transparent 100%);
+  animation:
+    enc-pousa var(--dur-mola) var(--mola) 0.62s both,
+    enc-respira 2.6s var(--curva-branco-deriva) 1.08s infinite alternate;
+}
+@keyframes enc-pousa {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes enc-anel {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0.5; transform: scale(1.14); }
+}
+/* O toque acende o anel na hora (saída rápida: o js tira o alvo em seguida). */
+.enc-alvo:active::before {
+  animation: none;
+  transform: scale(0.9);
+  opacity: 1;
+  transition: transform var(--dur-toque) var(--curva-ui);
+}
+/* O anel de foco (só pelo teclado) é ouro, como em todo contexto escuro. */
 .enc-alvo:focus-visible {
   outline: 2px solid var(--estrela);
   outline-offset: 2px;
   border-radius: 50%;
 }
 
+/* A dica: um bilhete em Klee One sobre a mão dele, com um véu anil pintado
+   atrás e um filete de luz dourada embaixo. */
 .enc-dica {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: calc(var(--seguro-base) + clamp(22px, 5vh, 56px));
-  margin: 0;
-  padding: 0 var(--margem);
+  bottom: calc(var(--seguro-base) + clamp(18px, 4vh, 48px));
+  width: fit-content;
+  max-width: calc(100% - var(--margem) * 2);
+  margin: 0 auto;
+  padding: 16px 30px 20px;
   text-align: center;
   text-wrap: balance;
   font-family: var(--fonte-mao);
   font-weight: 600;
   font-size: clamp(1rem, 0.94rem + 0.3vw, 1.15rem);
   line-height: 1.5;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
   color: var(--luar);
-  /* um halo de tinta da noite garante a leitura sobre a mão dele */
-  text-shadow: 0 1px 8px var(--enc-halo-texto);
+  text-shadow: 0 1px 10px var(--enc-halo-texto);
+  background: radial-gradient(ellipse closest-side, rgba(6, 9, 22, 0.82) 0%, rgba(6, 9, 22, 0.66) 58%, rgba(6, 9, 22, 0) 100%);
   opacity: 0;
+}
+.enc-dica::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  width: 56px;
+  height: 1px;
+  margin-left: -28px;
+  background: linear-gradient(90deg, transparent, var(--ouro-claro) 50%, transparent);
+  box-shadow: 0 0 8px rgba(255, 180, 94, 0.7);
 }
 
 /* ---- O grão do filme ----------------------------------------------------------- */
@@ -257,7 +394,8 @@
   to { transform: translate3d(-58px, 46px, 0); }
 }
 
-/* ---- O clarão: um disco de luz bem maior que a tela, centrado no meio do fio ---- */
+/* ---- O clarão: uma lanterna que se abre, bem maior que a tela, centrada no
+   meio do fio. Miolo de luar, corpo de ouro claro, borda de chama. ---- */
 .enc-clarao {
   position: absolute;
   left: 50%;
@@ -269,17 +407,23 @@
   opacity: 0;
   transform: scale(0.08);
   will-change: transform, opacity;
-  background: radial-gradient(circle closest-side, var(--enc-luz) 0%, rgba(255, 244, 232, 0.96) 22%, rgba(255, 226, 214, 0.7) 44%, transparent 100%);
+  background: radial-gradient(circle closest-side, var(--enc-luz) 0%, rgba(253, 240, 212, 0.97) 22%, rgba(246, 220, 166, 0.72) 42%, rgba(255, 180, 94, 0.24) 66%, transparent 100%);
 }
 .enc-branco {
   position: absolute;
   inset: 0;
   opacity: 0;
-  background: var(--enc-branco);
+  background: radial-gradient(ellipse 90% 70% at 50% 46%, #fffaf0 0%, var(--enc-branco) 62%, #f3e2bd 100%);
 }
 
-/* ---- Movimento reduzido: o grão fica parado ---------------------------------- */
-html.reduzido .enc-grao { animation: none; }
+/* ---- Movimento reduzido: nada respira, nada pousa; só a opacidade do js ----- */
+html.reduzido .enc-grao,
+html.reduzido .enc-ceu::after,
+html.reduzido .enc-alvo::before,
+html.reduzido .enc-alvo::after { animation: none; }
 @media (prefers-reduced-motion: reduce) {
-  .enc-grao { animation: none; }
+  .enc-grao,
+  .enc-ceu::after,
+  .enc-alvo::before,
+  .enc-alvo::after { animation: none; }
 }

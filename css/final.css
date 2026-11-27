@@ -16,13 +16,19 @@
    - a perspectiva é 4 × L: o balanço em graus do JS foi medido com ela.
    Prefixos -webkit- em toda propriedade 3D: o Safari antigo precisa deles.
    Movimento reduzido: nada aqui se desloca; os tempos curtos são do JS.
+
+   Noite de lanternas: a folha é washi aceso por trás. A luz mora no terço do
+   meio e esfria para as pontas (um degradê só, repartido pelos três painéis);
+   atrás dela, um halo de chama respira devagar; a sombra é anil.
    ========================================================================== */
 
 .folha-leve {
   /* L: em pé, 86% da largura; deitado, 40% da altura (a folha fica com 80% dela). */
   --folha-l: min(86vw, calc(var(--tela) * 0.4), 440px);
   /* O tom do vinco no próprio papel (a paleta da folha). */
-  --fl-vinco: rgba(176, 156, 128, 0.35);
+  --fl-vinco: rgba(169, 124, 53, 0.3);
+  /* A luz por trás do papel: o centro fica no meio da folha inteira. */
+  --fl-luz: radial-gradient(92% 150% at 50% var(--fl-luz-y, 50%), #fff8e8, var(--papel) 52%, var(--papel-sombra) 100%);
   position: absolute;
   top: 50%;
   left: 50%;
@@ -52,7 +58,9 @@
   inset: 0;
   background-color: var(--papel);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9 0.12' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.33 0 0 0 0 0.24 0 0 0 0 0.2 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23f)'/%3E%3C/svg%3E");
-  background-size: 180px 180px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9 0.12' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.33 0 0 0 0 0.24 0 0 0 0 0.2 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23f)'/%3E%3C/svg%3E"), var(--fl-luz);
+  background-size: 180px 180px, 100% 100%;
+  background-repeat: repeat, no-repeat;
   -webkit-backface-visibility: visible;
   backface-visibility: visible;
 }
@@ -74,29 +82,29 @@
   -webkit-transform-style: preserve-3d;
   transform-style: preserve-3d;
 }
-.fl-cima { top: 0; transform-origin: 50% 100%; }
-.fl-baixo { bottom: 0; transform-origin: 50% 0%; }
+.fl-cima { top: 0; transform-origin: 50% 100%; --fl-luz-y: 150%; }
+.fl-baixo { bottom: 0; transform-origin: 50% 0%; --fl-luz-y: -50%; }
 
 /* Cada vinco: um risco fino na dobra e uma penumbra que se abre para dentro da aba. */
 .fl-cima .fl-painel {
   box-shadow:
     inset 0 0 0 0.5px var(--fl-vinco),
-    inset 0 -1px 0 rgba(120, 96, 84, 0.16),
-    inset 0 -10px 12px -10px rgba(42, 27, 34, 0.07);
+    inset 0 -1px 0 rgba(120, 88, 52, 0.18),
+    inset 0 -10px 12px -10px rgba(24, 32, 74, 0.1);
 }
 .fl-baixo .fl-painel {
   box-shadow:
     inset 0 0 0 0.5px var(--fl-vinco),
-    inset 0 1px 0 rgba(120, 96, 84, 0.18),
-    inset 0 12px 14px -12px rgba(42, 27, 34, 0.08);
+    inset 0 1px 0 rgba(120, 88, 52, 0.2),
+    inset 0 12px 14px -12px rgba(24, 32, 74, 0.11);
 }
 
 /* A aba ainda dobrada é um nada mais escura; o JS a apaga enquanto desdobra. */
 .fl-escuro {
   position: absolute;
   inset: 0;
-  background: var(--tinta);
-  opacity: 0.035;
+  background: var(--anil);
+  opacity: 0.06;
   pointer-events: none;
 }
 
@@ -106,9 +114,23 @@
   inset: 1% 3% 0;
   border-radius: 2px;
   box-shadow:
-    0 calc(var(--folha-l) * 0.05) calc(var(--folha-l) * 0.12) rgba(42, 27, 34, 0.13),
-    0 2px 6px rgba(42, 27, 34, 0.06);
+    0 calc(var(--folha-l) * 0.06) calc(var(--folha-l) * 0.16) rgba(3, 5, 18, 0.62),
+    0 2px 6px rgba(3, 5, 18, 0.4);
   transform: translateZ(-2px);
+}
+/* A lanterna atrás da folha: um halo de chama que respira (só opacidade, 6 s). */
+.fl-sombra::after {
+  content: "";
+  position: absolute;
+  inset: -9% -16%;
+  background: radial-gradient(closest-side, rgba(255, 180, 94, 0.3), rgba(233, 194, 122, 0.1) 58%, rgba(233, 194, 122, 0));
+  opacity: 0.7;
+  pointer-events: none;
+  animation: fl-lanterna 6s var(--curva-branco-deriva) infinite;
+}
+@keyframes fl-lanterna {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
 }
 
 /* A tinta é um canvas por cima do papel, não uma imagem. */
@@ -132,13 +154,13 @@
   transform: translateZ(26px);
   pointer-events: none;
 }
-.fl-fio-sombra { stroke: rgba(42, 27, 34, 0.16); }
+.fl-fio-sombra { stroke: rgba(24, 32, 74, 0.2); }
 .fl-fio-brilho { opacity: 0; }
 /* Depois de deitado, o fio respira: só a opacidade do brilho, a cada 7,5 s. */
 .fl-fio-respira .fl-fio-brilho { animation: fl-fio-respira 7.5s var(--curva-branco-deriva) infinite; }
 @keyframes fl-fio-respira {
   0%, 100% { opacity: 0; }
-  50% { opacity: 0.32; }
+  50% { opacity: 0.4; }
 }
 
 /* A pétala que pousa: a mesma forma das pétalas do mundo, acima do fio. */
@@ -151,7 +173,7 @@
   margin: calc(var(--folha-l) * -0.047) 0 0 calc(var(--folha-l) * -0.0375);
   background: var(--rosa);
   border-radius: 60% 60% 55% 55% / 85% 85% 35% 35%;
-  filter: drop-shadow(1px 2px 1.5px rgba(42, 27, 34, 0.22));
+  filter: drop-shadow(1px 2px 1.5px rgba(24, 32, 74, 0.3));
   transform: translateZ(28px);
   opacity: 0;
   will-change: transform, opacity;
@@ -165,4 +187,13 @@
   height: 100%;
   overflow: visible;
   pointer-events: none;
+}
+
+/* O fio é a única linha que brilha por conta própria. */
+.fio-leve-caminho { filter: drop-shadow(0 0 5px var(--fio-brilho)); }
+
+/* Movimento reduzido: a lanterna fica acesa, parada. */
+html.reduzido .fl-sombra::after { animation: none; opacity: 0.8; }
+@media (prefers-reduced-motion: reduce) {
+  .fl-sombra::after { animation: none; opacity: 0.8; }
 }

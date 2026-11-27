@@ -354,7 +354,7 @@ function criarFioLeve(ctx) {
   const recipiente = mundo.recipienteLeve;
   if (!recipiente) return null;
   const duracao = amb.reduzido ? 0.8 : 1.6;
-  const traco = svg('<svg class="fio-leve-caminho" aria-hidden="true" focusable="false"><path fill="none" stroke="#d7192d" stroke-linecap="round"/></svg>');
+  const traco = svg('<svg class="fio-leve-caminho" aria-hidden="true" focusable="false"><path fill="none" stroke="#e3283c" stroke-linecap="round"/></svg>');
   const caminho = traco.firstElementChild;
   // No início de #mundo-leve, atrás da figura dele: onde cruza o corpo, a mão ou o
   // rosto, o fio passa por trás e nunca encosta neles.

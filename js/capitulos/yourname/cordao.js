@@ -25,7 +25,7 @@ const AMPLITUDE = 1.75; // quanto cada fio se afasta da linha central
 const ESPESSURA = 2.3; // largura de cada fio
 const PASSO = 2; // px entre amostras da linha central
 const FIOS = [
-  { cima: '#d7192d', baixo: '#a80f22' },
+  { cima: '#e3283c', baixo: '#a80f22' },
   { cima: '#e2303d', baixo: '#8f0b1d' },
   { cima: '#c3152a', baixo: '#8f0b1d' },
 ];

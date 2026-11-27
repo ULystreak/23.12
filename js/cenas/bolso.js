@@ -55,7 +55,7 @@ function desenhoFundo() {
     <path d="${ALCA_D}" stroke="${SOMBRA}" stroke-width="16"/>
   </g>
   <path d="M34 80 C34 60 40 47 54 43 Q150 31 246 43 C260 47 266 60 266 80 Z" fill="${SOMBRA}" stroke="${TINTA}" stroke-width="2" stroke-linejoin="round"/>
-  <path d="M58 46.5 Q150 36 242 46.5" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round"/>
+  <path d="M58 46.5 Q150 36 242 46.5" fill="none" stroke="#f6dca6" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round"/>
   <path d="M44 84 C45 66 52 56 64 53 Q150 45 236 53 C248 56 255 66 256 84 Z" fill="${FORRO}"/>
 </svg>`;
 }
@@ -70,7 +70,7 @@ function desenhoFrente() {
   <path d="M106 179.5 H194" stroke="${TINTA}" stroke-opacity="0.12" stroke-width="2.4"/>
   <path d="M110 183 H190 V208 Q190 214 184 214 H116 Q110 214 110 208 Z" fill="none" stroke="${TINTA}" stroke-opacity="0.3" stroke-width="1.1" stroke-dasharray="3.5 3.5"/>
   <path transform="translate(139 186) scale(1.1)" d="${PETALA}" fill="#f4b8c8" stroke="#b3123a" stroke-opacity="0.55" stroke-width="0.9" stroke-dasharray="1.6 1.2"/>
-  <path d="M34 77.6 Q150 85.6 266 77.6" fill="none" stroke="#ffffff" stroke-opacity="0.7" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M34 77.6 Q150 85.6 266 77.6" fill="none" stroke="#f6dca6" stroke-opacity="0.7" stroke-width="2.4" stroke-linecap="round"/>
   <path d="${CORPO}" fill="none" stroke="${TINTA}" stroke-width="2.2" stroke-linejoin="round"/>
 </svg>`;
 }
@@ -80,11 +80,11 @@ function desenhoAba() {
   return `<svg class="bolso-bolsa-parte bolso-aba" viewBox="0 0 300 240" aria-hidden="true" focusable="false">
   <path d="${ABA}" fill="${LONA}" stroke="${TINTA}" stroke-width="2.2" stroke-linejoin="round"/>
   <path d="M35 54 Q150 43.5 265 54 L262.5 115 Q259 137 234 143 L167 155.5 Q150 158.5 133 155.5 L66 143 Q41 137 37.5 115 Z" fill="none" stroke="${TINTA}" stroke-opacity="0.36" stroke-width="1.4" stroke-dasharray="5 4.5" stroke-linecap="round"/>
-  <path d="M28 46.5 Q150 35 272 46.5" fill="none" stroke="#ffffff" stroke-opacity="0.6" stroke-width="2.4" stroke-linecap="round"/>
-  <path d="M150 168.4c2.6 5.4 8 9 12.6 9.6" fill="none" stroke="#d7192d" stroke-width="2.2" stroke-linecap="round"/>
-  <ellipse cx="150" cy="156" rx="14.5" ry="12.5" fill="none" stroke="#d7192d" stroke-width="2.2"/>
-  <circle cx="150" cy="156" r="10" fill="#fbf7f0" stroke="${TINTA}" stroke-width="1.8"/>
-  <path d="M146.4 156h7.2" stroke="#d7192d" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M28 46.5 Q150 35 272 46.5" fill="none" stroke="#f6dca6" stroke-opacity="0.6" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M150 168.4c2.6 5.4 8 9 12.6 9.6" fill="none" stroke="#e3283c" stroke-width="2.2" stroke-linecap="round"/>
+  <ellipse cx="150" cy="156" rx="14.5" ry="12.5" fill="none" stroke="#e3283c" stroke-width="2.2"/>
+  <circle cx="150" cy="156" r="10" fill="#f7ecd6" stroke="${TINTA}" stroke-width="1.8"/>
+  <path d="M146.4 156h7.2" stroke="#e3283c" stroke-width="2.2" stroke-linecap="round"/>
   <circle cx="146.4" cy="156" r="1.2" fill="${TINTA}"/>
   <circle cx="153.6" cy="156" r="1.2" fill="${TINTA}"/>
 </svg>`;
@@ -93,9 +93,9 @@ function desenhoAba() {
 // As dobras do envelope por cima da face (460 × 320, como a carta).
 const DOBRAS = `<svg viewBox="0 0 460 320" preserveAspectRatio="none" aria-hidden="true" focusable="false">
   <path d="M5 6 230 176 455 6" fill="none" stroke="${TINTA}" stroke-opacity="0.26" stroke-width="2.6" stroke-linejoin="round"/>
-  <path d="M7 10 230 180 453 10" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1.8"/>
+  <path d="M7 10 230 180 453 10" fill="none" stroke="#f6dca6" stroke-opacity="0.55" stroke-width="1.8"/>
   <path d="M6 314 184 150M454 314 276 150" fill="none" stroke="${TINTA}" stroke-opacity="0.12" stroke-width="2"/>
-  <rect x="1.5" y="1.5" width="457" height="317" rx="8" fill="none" stroke="#ffffff" stroke-opacity="0.5" stroke-width="2"/>
+  <rect x="1.5" y="1.5" width="457" height="317" rx="8" fill="none" stroke="#f6dca6" stroke-opacity="0.5" stroke-width="2"/>
 </svg>`;
 
 /**

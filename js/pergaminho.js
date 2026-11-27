@@ -100,7 +100,7 @@ function desenharFibra() {
     const y = r() * T;
     const raio = (0.25 + r() * 0.75) * escala;
     const claro = r() < 0.22;
-    g.fillStyle = claro ? `rgba(255, 255, 255, ${f1(0.25 + r() * 0.35)})` : `rgba(120, 96, 84, ${f1(0.03 + r() * 0.08)})`;
+    g.fillStyle = claro ? `rgba(255, 246, 222, ${f1(0.25 + r() * 0.35)})` : `rgba(132, 100, 72, ${f1(0.03 + r() * 0.08)})`;
     emTodos(x, y, raio, (cx, cy) => {
       g.beginPath();
       g.arc(cx, cy, raio, 0, Math.PI * 2);
@@ -116,7 +116,7 @@ function desenharFibra() {
     const angulo = r() * Math.PI;
     const barriga = (r() * 2 - 1) * comprimento * 0.35;
     const claro = r() < 0.3;
-    g.strokeStyle = claro ? `rgba(255, 255, 255, ${f1(0.3 + r() * 0.3)})` : `rgba(150, 118, 88, ${f1(0.06 + r() * 0.1)})`;
+    g.strokeStyle = claro ? `rgba(255, 240, 204, ${f1(0.3 + r() * 0.3)})` : `rgba(169, 124, 53, ${f1(0.06 + r() * 0.1)})`;
     g.lineWidth = (0.35 + r() * 0.6) * escala;
     const dx = (Math.cos(angulo) * comprimento) / 2;
     const dy = (Math.sin(angulo) * comprimento) / 2;

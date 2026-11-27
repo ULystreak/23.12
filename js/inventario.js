@@ -18,19 +18,19 @@ const SAIDA_MS = 240;
 
 /** A fita cassete pequena, com o coração no rótulo (92 × 60). Também usada no chão do menu. */
 export const FITA_PEQUENA = `<svg viewBox="0 0 92 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-  <rect x="1.2" y="1.2" width="89.6" height="57.6" rx="6" fill="#fffdf9" stroke="${TINTA}" stroke-width="1.6"/>
-  <rect x="8" y="6" width="76" height="33" rx="3.2" fill="#fbf7f0" stroke="${TINTA}" stroke-opacity="0.45"/>
-  <path d="M8.5 11.5h75" stroke="#d7192d" stroke-width="1.5"/>
+  <rect x="1.2" y="1.2" width="89.6" height="57.6" rx="6" fill="#18204a" stroke="#e9c27a" stroke-width="1.6"/>
+  <rect x="8" y="6" width="76" height="33" rx="3.2" fill="#f1e2c4" stroke="${TINTA}" stroke-opacity="0.45"/>
+  <path d="M8.5 11.5h75" stroke="#e3283c" stroke-width="1.5"/>
   <path d="M14 15.2h36" stroke="${TINTA}" stroke-opacity="0.28" stroke-linecap="round"/>
-  <path d="M74 19.6C71.1 17.5 69.7 16 69.7 14.4a2.25 2.25 0 0 1 4.3-.9 2.25 2.25 0 0 1 4.3.9c0 1.6-1.4 3.1-4.3 5.2z" fill="#d7192d"/>
-  <rect x="24" y="21" width="44" height="14" rx="7" fill="#ffffff" stroke="${TINTA}" stroke-opacity="0.55"/>
+  <path d="M74 19.6C71.1 17.5 69.7 16 69.7 14.4a2.25 2.25 0 0 1 4.3-.9 2.25 2.25 0 0 1 4.3.9c0 1.6-1.4 3.1-4.3 5.2z" fill="#e3283c"/>
+  <rect x="24" y="21" width="44" height="14" rx="7" fill="#fff6e3" stroke="${TINTA}" stroke-opacity="0.55"/>
   <circle cx="33" cy="28" r="4.6" fill="${TINTA}" fill-opacity="0.82"/>
   <circle cx="59" cy="28" r="3.2" fill="${TINTA}" fill-opacity="0.82"/>
-  <circle cx="33" cy="28" r="1.5" fill="#ffffff"/>
-  <circle cx="59" cy="28" r="1.5" fill="#ffffff"/>
-  <path d="M22 58.8 27 46h38l5 12.8" fill="none" stroke="${TINTA}" stroke-opacity="0.5" stroke-width="1.2" stroke-linejoin="round"/>
-  <circle cx="35" cy="53" r="2" fill="${TINTA}" fill-opacity="0.4"/>
-  <circle cx="57" cy="53" r="2" fill="${TINTA}" fill-opacity="0.4"/>
+  <circle cx="33" cy="28" r="1.5" fill="#fff6e3"/>
+  <circle cx="59" cy="28" r="1.5" fill="#fff6e3"/>
+  <path d="M22 58.8 27 46h38l5 12.8" fill="none" stroke="#e9c27a" stroke-opacity="0.7" stroke-width="1.2" stroke-linejoin="round"/>
+  <circle cx="35" cy="53" r="2" fill="#e9c27a" fill-opacity="0.7"/>
+  <circle cx="57" cy="53" r="2" fill="#e9c27a" fill-opacity="0.7"/>
 </svg>`;
 
 const ICONE_BOLSA = `<svg class="ui-icone inventario-icone" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -47,19 +47,19 @@ const ICONE_OUVIR = `<svg class="ui-icone" viewBox="0 0 24 24" aria-hidden="true
 // As dobras do envelope por cima da face do tema.
 const DOBRA = `<svg viewBox="0 0 460 320" preserveAspectRatio="none" aria-hidden="true" focusable="false">
   <path d="M6 8 230 178 454 8" fill="none" stroke="${TINTA}" stroke-opacity="0.3" stroke-width="5" stroke-linejoin="round"/>
-  <path d="M8 13 230 183 452 13" fill="none" stroke="#ffffff" stroke-opacity="0.5" stroke-width="3"/>
+  <path d="M8 13 230 183 452 13" fill="none" stroke="#f6dca6" stroke-opacity="0.5" stroke-width="3"/>
   <path d="M8 312 186 150M452 312 274 150" fill="none" stroke="${TINTA}" stroke-opacity="0.14" stroke-width="4"/>
 </svg>`;
 
 /** O envelope branco das cartas do chão (92 × 64): a galeria leva um coração; as outras, um lacre redondo. */
 function envelopeBranco(tipo) {
   const selo = tipo === 'galeria'
-    ? '<path d="M46 42.6c-4.6-3.4-6.9-5.9-6.9-8.6a3.55 3.55 0 0 1 6.9-1.3 3.55 3.55 0 0 1 6.9 1.3c0 2.7-2.3 5.2-6.9 8.6z" fill="#d7192d"/>'
-    : '<circle cx="46" cy="35" r="7" fill="#d7192d"/><circle cx="46" cy="35" r="4.3" fill="none" stroke="#ffffff" stroke-opacity="0.45" stroke-width="1.2"/>';
+    ? '<path d="M46 42.6c-4.6-3.4-6.9-5.9-6.9-8.6a3.55 3.55 0 0 1 6.9-1.3 3.55 3.55 0 0 1 6.9 1.3c0 2.7-2.3 5.2-6.9 8.6z" fill="#e3283c"/>'
+    : '<circle cx="46" cy="35" r="7" fill="#e9c27a" stroke="#a97c35" stroke-width="0.9"/><circle cx="46" cy="35" r="4.3" fill="none" stroke="#a97c35" stroke-opacity="0.7" stroke-width="1.1"/>';
   return `<svg viewBox="0 0 92 64" aria-hidden="true" focusable="false">
-    <rect x="0.75" y="0.75" width="90.5" height="62.5" rx="4" fill="#ffffff" stroke="${TINTA}" stroke-opacity="0.26" stroke-width="1.2"/>
+    <rect x="0.75" y="0.75" width="90.5" height="62.5" rx="4" fill="#fff6e3" stroke="${TINTA}" stroke-opacity="0.26" stroke-width="1.2"/>
     <path d="M2 62 36 31M90 62 56 31" fill="none" stroke="${TINTA}" stroke-opacity="0.14" stroke-width="1.2"/>
-    <path d="M1.5 2.5 46 35 90.5 2.5" fill="#fbf7f0" stroke="${TINTA}" stroke-opacity="0.32" stroke-width="1.3" stroke-linejoin="round"/>
+    <path d="M1.5 2.5 46 35 90.5 2.5" fill="#f1e2c4" stroke="${TINTA}" stroke-opacity="0.32" stroke-width="1.3" stroke-linejoin="round"/>
     ${selo}
   </svg>`;
 }

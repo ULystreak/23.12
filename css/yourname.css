@@ -28,8 +28,18 @@
 }
 :where(.yn) :where(figure, figcaption, h2, p) { margin: 0; }
 :where(.yn) img { -webkit-user-drag: none; }
-/* Um vermelho por tela: o do fio. O foco aqui é pêssego. */
-.yn :focus-visible { outline-color: var(--yn-pessego); }
+/* Um vermelho por tela: o do fio. O foco é ouro, como a luz das lanternas. */
+.yn :focus-visible { outline-color: var(--ouro-claro); }
+
+/* A luz respira (nunca pisca): um só compasso para lanternas, ponta e fecho. */
+@keyframes yn-respira {
+  from { opacity: 0.62; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes yn-brasa {
+  from { opacity: 0.16; }
+  to { opacity: 0.46; }
+}
 
 /* ---- o céu sem WebGL (yourname/ceu-leve.js) e o canvas do shader ---------- */
 
@@ -178,7 +188,21 @@ canvas.yn-leve-camada { display: block; opacity: 0; } /* as estrelas acendem com
   font-family: var(--fonte-titulo);
   font-size: var(--texto-subtitulo);
   line-height: 1.6;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
+}
+/* O filete do título: um fio de ouro com uma lanterna pequena no meio, que
+   ainda respira fraca no céu claro e vai ganhando a noite com a rolagem. */
+.yn-titulos::after {
+  content: '';
+  display: block;
+  width: 132px;
+  height: 15px;
+  margin: clamp(14px, 2.4vh, 22px) auto 0;
+  background:
+    radial-gradient(4.5px 6.5px at 50% 50%, #fff1cf 0%, var(--chama) 55%, var(--ouro-escuro) 100%, transparent 101%) center / 11px 15px no-repeat,
+    linear-gradient(90deg, transparent 0%, var(--ouro-escuro) 34%, transparent 44%, transparent 56%, var(--ouro-escuro) 66%, transparent 100%) center / 100% 1px no-repeat;
+  animation: yn-respira 4.6s var(--curva-branco-deriva) infinite alternate;
+  pointer-events: none;
 }
 
 /* A capa que chega depois do prazo surge devagar, e o título desce para dar
@@ -233,13 +257,45 @@ canvas.yn-leve-camada { display: block; opacity: 0; } /* as estrelas acendem com
     rgba(var(--yn-veu-dia), 0.1) 93%, rgba(var(--yn-veu-dia), 0) 100%);
 }
 
+/* Vidro noturno com filete dourado. A caixa do parágrafo não muda (o cordão
+   mede a margem livre por ela): o vidro cresce para fora em sombras de
+   espalhamento, a última delas o filete de 1 px; por baixo, a sombra anil. */
 .yn-texto {
+  --yn-vidro: rgba(10, 14, 34, 0.5);
   max-width: 30em;
+  border-radius: 8px;
+  background:
+    radial-gradient(closest-side, rgba(255, 180, 94, 0.07), rgba(255, 180, 94, 0)) center / 100% 100% no-repeat,
+    var(--yn-vidro);
+  /* O filete é contorno (acompanha o raio), não sombra: sombras empilhadas
+     tingiriam o anel do vidro. */
+  outline: 1px solid rgba(233, 194, 122, 0.5);
+  outline-offset: 10px;
+  box-shadow:
+    0 0 0 10px var(--yn-vidro),
+    0 30px 36px -16px rgba(3, 5, 18, 0.6);
   text-wrap: wrap;
-  text-shadow: 0 1px 16px rgba(5, 8, 38, 0.5);
+  text-shadow: 0 1px 14px rgba(3, 5, 18, 0.7);
   -webkit-hyphens: auto;
   hyphens: auto;
 }
+/* A lanterna de cada verso, pendurada no filete: é ela que acende a leitura. */
+.yn-verso::before {
+  content: '';
+  position: absolute;
+  top: calc(var(--yn-vh) * 0.15 - 21px);
+  left: calc(var(--yn-lado) + 8px);
+  width: 13px;
+  height: 18px;
+  border-radius: 46% 46% 40% 40% / 30% 30% 22% 22%;
+  background: radial-gradient(circle at 50% 62%, #fff1cf 0%, var(--chama) 46%, var(--brasa) 100%);
+  box-shadow: 0 0 0 1px rgba(169, 124, 53, 0.9), 0 0 16px 3px rgba(255, 180, 94, 0.5);
+  transform-origin: 50% 0;
+  animation: yn-respira 4.8s var(--curva-branco-deriva) infinite alternate;
+  pointer-events: none;
+}
+.yn-verso:nth-of-type(3n + 1)::before { animation-delay: -1.7s; }
+.yn-verso:nth-of-type(3n + 2)::before { animation-delay: -3.4s; animation-duration: 5.6s; }
 .yn-p {
   display: inline-block;
   max-width: 100%;
@@ -259,7 +315,7 @@ canvas.yn-leve-camada { display: block; opacity: 0; } /* as estrelas acendem com
   left: -52px;
   right: -52px;
   z-index: -1;
-  background: radial-gradient(closest-side, rgba(7, 10, 44, 0.86) 0%, rgba(7, 10, 44, 0.74) 46%, rgba(7, 10, 44, 0.3) 78%, rgba(7, 10, 44, 0) 100%);
+  background: radial-gradient(closest-side, rgba(6, 9, 30, 0.88) 0%, rgba(6, 9, 30, 0.76) 46%, rgba(6, 9, 30, 0.3) 78%, rgba(6, 9, 30, 0) 100%);
   pointer-events: none;
 }
 
@@ -282,16 +338,19 @@ canvas.yn-leve-camada { display: block; opacity: 0; } /* as estrelas acendem com
   stroke-dasharray: 0 2;
   transition: stroke 600ms var(--curva-yn-florescer), stroke-width 600ms var(--curva-yn-florescer);
 }
+/* A sombra do fio é noite (anil); ao guardar, ela vira o halo do próprio fio. */
 .yn-fio-sombra {
-  stroke: rgba(30, 2, 12, 0.42);
+  stroke: rgba(3, 5, 18, 0.46);
   stroke-width: 4.6;
   stroke-dasharray: 0 2;
+  transition: stroke 600ms var(--curva-yn-florescer);
 }
 /* Ao guardar, o fio engrossa e acende (o vermelho mais claro da trança). */
 .yn-fechando .yn-fio-linha {
-  stroke: #e2303d;
+  stroke: #ff4a58;
   stroke-width: 2.8;
 }
+.yn-fechando .yn-fio-sombra { stroke: var(--fio-brilho); }
 
 /* O nó: um respiro na página onde o cordão dá a volta. */
 .yn-no {
@@ -321,9 +380,18 @@ canvas.yn-leve-camada { display: block; opacity: 0; } /* as estrelas acendem com
   border-radius: 50%;
   opacity: 0;
   pointer-events: none;
-  background: radial-gradient(closest-side, rgba(255, 236, 214, 0.95) 0%, rgba(255, 150, 120, 0.5) 22%, rgba(215, 25, 45, 0.16) 52%, transparent 100%);
+  background: radial-gradient(closest-side, rgba(255, 244, 220, 0.95) 0%, rgba(255, 180, 94, 0.5) 22%, rgba(255, 64, 78, 0.16) 52%, transparent 100%);
   transition: opacity var(--dur-ui-lenta) var(--curva-ui);
   will-change: transform, opacity;
+}
+/* O vaga-lume da ponta: um halo de ouro que respira em volta (o JS só move a ponta). */
+.yn > .yn-ponta::after {
+  content: '';
+  position: absolute;
+  inset: -14px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 180, 94, 0.3) 0%, rgba(233, 194, 122, 0.1) 55%, transparent 100%);
+  animation: yn-respira 3.2s var(--curva-branco-deriva) infinite alternate;
 }
 
 /* ---- o encontro ------------------------------------------------------------ */
@@ -403,12 +471,32 @@ canvas.yn-leve-camada { display: block; opacity: 0; } /* as estrelas acendem com
   margin-top: calc(var(--yn-vh) * 0.2);
   padding: 0 var(--yn-lado);
 }
+/* Papel washi aceso por trás, preso por uma lanterna pequena no alto. */
 .yn-postal-foto {
+  position: relative;
   max-width: min(100%, 440px);
   padding: 9px 9px 10px;
-  background: #fbf3e6;
+  background: radial-gradient(120% 90% at 50% 0%, #fff6e2 0%, var(--papel) 55%, var(--papel-sombra) 100%);
   transform: rotate(-1.6deg);
-  box-shadow: 0 2px 5px rgba(3, 4, 22, 0.28), 0 20px 44px rgba(3, 4, 22, 0.42);
+  box-shadow:
+    0 0 0 1px rgba(233, 194, 122, 0.5),
+    0 2px 5px rgba(3, 5, 18, 0.3),
+    0 22px 46px -10px rgba(3, 5, 18, 0.62),
+    0 0 36px -6px rgba(255, 180, 94, 0.4);
+}
+.yn-postal-foto::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  width: 14px;
+  height: 19px;
+  margin-left: -7px;
+  border-radius: 46% 46% 40% 40% / 30% 30% 22% 22%;
+  background: radial-gradient(circle at 50% 62%, #fff1cf 0%, var(--chama) 46%, var(--brasa) 100%);
+  box-shadow: 0 0 0 1px rgba(169, 124, 53, 0.9), 0 0 18px 3px rgba(255, 180, 94, 0.55);
+  animation: yn-respira 5.2s var(--curva-branco-deriva) infinite alternate;
+  pointer-events: none;
 }
 .yn-postal-foto img,
 .yn-par-quadro img {
@@ -421,8 +509,9 @@ canvas.yn-leve-camada { display: block; opacity: 0; } /* as estrelas acendem com
 .yn-par figcaption {
   font-size: var(--texto-pequeno);
   line-height: 1.6;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
   text-align: center;
+  color: var(--luar);
 }
 
 .yn-par {
@@ -440,11 +529,15 @@ canvas.yn-leve-camada { display: block; opacity: 0; } /* as estrelas acendem com
   will-change: transform, opacity;
 }
 .yn-par-b { margin-top: 16%; }
-/* Uma borda de papel fina, como fotos presas pelo fio (sem raio, sem sombra de cartão). */
+/* Uma borda de washi fina com filete de ouro, como fotos presas pelo fio. */
 .yn-par-quadro {
   position: relative;
   overflow: hidden;
-  box-shadow: 0 0 0 6px #fbf7f0;
+  box-shadow:
+    0 0 0 6px var(--papel),
+    0 0 0 7px rgba(233, 194, 122, 0.5),
+    0 18px 36px -6px rgba(3, 5, 18, 0.6),
+    0 0 30px 2px rgba(255, 180, 94, 0.26);
 }
 
 /* ---- o fecho ---------------------------------------------------------------- */
@@ -457,7 +550,9 @@ canvas.yn-leve-camada { display: block; opacity: 0; } /* as estrelas acendem com
   padding: 0 var(--yn-lado) calc(var(--yn-vh) * 0.12 + var(--seguro-base));
 }
 
-/* O sublinhado do botão é o próprio fio (desenhado pelo JS, 14 px acima da base). */
+/* O fecho: uma pílula de vidro com filete dourado, e o fio passa por dentro
+   dela (o sublinhado é o próprio fio, desenhado pelo JS a 14 px da base). A
+   brasa respira; ao tocar e ao guardar, o vidro acende. */
 .yn-fechar {
   position: relative;
   isolation: isolate;
@@ -470,39 +565,63 @@ canvas.yn-leve-camada { display: block; opacity: 0; } /* as estrelas acendem com
   font-weight: 600;
   font-size: var(--texto-subtitulo);
   line-height: 1.3;
-  letter-spacing: 0.06em;
-  color: var(--yn-texto);
-  text-shadow: 0 1px 14px rgba(5, 8, 38, 0.6);
+  letter-spacing: 0.08em;
+  color: var(--ouro-claro);
+  text-shadow: 0 1px 12px rgba(3, 5, 18, 0.7);
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   transition:
-    transform var(--dur-ui) var(--curva-ui),
+    transform var(--dur-mola) var(--mola),
     color var(--dur-ui) var(--curva-ui),
     opacity var(--dur-ui-lenta) var(--curva-ui);
 }
-.yn-fechar::before {
+.yn-fechar::before,
+.yn-fechar::after {
   content: '';
   position: absolute;
-  inset: -8px -24px;
+  inset: 0 -12px;
   z-index: -1;
-  background: radial-gradient(closest-side, rgba(7, 10, 44, 0.8) 0%, rgba(7, 10, 44, 0.6) 50%, rgba(7, 10, 44, 0) 100%);
+  border-radius: var(--raio-pilula);
   pointer-events: none;
 }
-.yn-fechar:active { transform: scale(0.97); }
+.yn-fechar::before {
+  border: 1px solid var(--fio-ouro);
+  background: var(--vidro-forte);
+  box-shadow:
+    0 1px 0 rgba(246, 220, 166, 0.14) inset,
+    0 12px 28px -10px rgba(3, 5, 18, 0.85),
+    0 0 26px -6px rgba(255, 180, 94, 0.4);
+}
+.yn-fechar::after {
+  background: radial-gradient(120% 140% at 50% 110%, rgba(255, 180, 94, 0.42) 0%, rgba(233, 194, 122, 0.14) 48%, rgba(233, 194, 122, 0) 78%);
+  opacity: 0.3;
+  animation: yn-brasa 5s var(--curva-branco-deriva) infinite alternate;
+  transition: opacity var(--dur-ui) var(--curva-ui);
+}
+.yn-fechar:active {
+  transform: scale(0.96);
+  transition-duration: var(--dur-toque);
+}
+.yn-fechar:active::after,
+.yn-fechando .yn-fechar::after {
+  animation: none;
+  opacity: 1;
+}
 .yn-fechar.so-fio { min-width: 140px; }
 .yn-fechar-texto {
   display: inline-block;
   transition: opacity 900ms var(--curva-yn-florescer);
 }
-.yn-fechando .yn-fechar-texto { opacity: 0.55; }
+.yn-fechando .yn-fechar-texto { opacity: 0.6; }
 .yn-fechar[disabled] {
-  opacity: 0.72;
+  opacity: 0.82;
   pointer-events: none;
   cursor: default;
 }
 @media (hover: hover) and (pointer: fine) {
-  .yn-fechar:hover { color: var(--yn-pessego); }
+  .yn-fechar:hover { color: var(--luar); }
+  .yn-fechar:hover::after { animation: none; opacity: 0.7; }
 }
 
 /* ---- computador ------------------------------------------------------------- */
@@ -510,6 +629,7 @@ canvas.yn-leve-camada { display: block; opacity: 0; } /* as estrelas acendem com
 @media (min-width: 760px) {
   /* Os versos alternam de lado; o cordão acha a margem livre pelo JS. */
   .yn-verso:nth-of-type(even) .yn-texto { margin-left: auto; }
+  .yn-verso:nth-of-type(even)::before { left: auto; right: calc(var(--yn-lado) + 8px); }
   .yn-texto { max-width: 25em; }
   .yn-par { padding: 0 var(--yn-lado); }
 }
@@ -520,3 +640,21 @@ html.reduzido .yn-c,
 html.reduzido .yn-fechar { transition-duration: 0.01ms; }
 html.reduzido .yn-fechar-texto { transition-duration: var(--dur-ui-lenta); }
 html.reduzido .yn-postal-foto { transform: none; }
+/* A luz fica acesa e parada: sem respiro, sem mola. */
+html.reduzido .yn-titulos::after,
+html.reduzido .yn-verso::before,
+html.reduzido .yn-postal-foto::before,
+html.reduzido .yn > .yn-ponta::after,
+html.reduzido .yn-fechar::after { animation: none; }
+html.reduzido .yn-fechar:active { transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .yn-titulos::after,
+  .yn-verso::before,
+  .yn-postal-foto::before,
+  .yn > .yn-ponta::after,
+  .yn-fechar::after { animation: none; }
+  .yn-fechar,
+  .yn-c { transition-duration: 0.01ms; }
+  .yn-fechar:active { transform: none; }
+  .yn-postal-foto { transform: none; }
+}
