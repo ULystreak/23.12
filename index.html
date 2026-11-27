@@ -73,6 +73,19 @@
   <!-- O atalho ?cena= de inicio em diante pula a tela preta: a classe tem de
        estar no <html> antes do primeiro quadro, por isso o script fica aqui. -->
   <script>
+    // Abrir o site começa sempre do início. A única volta ao meio é a da aba
+    // que ficou escondida mais de 4 s e foi recarregada pelo aparelho (o
+    // iPhone descarta abas em segundo plano): aí o atalho ?cena= é reposto.
+    (function () {
+      try {
+        var p = new URLSearchParams(location.search);
+        var r = JSON.parse(sessionStorage.getItem('carta2312:retomada') || 'null');
+        if (p.get('cena') || !r || !r.cena || !r.oculto || Date.now() - r.oculto < 4000) return;
+        p.set('cena', r.cena);
+        if (r.musica >= 0) p.set('musica', String(r.musica));
+        history.replaceState(history.state, '', location.pathname + '?' + p + location.hash);
+      } catch (e) { /* sem armazenamento: começa do início */ }
+    })();
     (function () {
       var p = new URLSearchParams(location.search);
       var c = p.get('cena');

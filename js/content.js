@@ -1042,7 +1042,7 @@ e talvez eu nunca encontre palavras suficientes para explicar o quanto gosto de 
      chão, a sua voz, as referências e a folha em que ela escreve de volta.
      Na primeira vez as referências passam amarradas no fio, como os créditos
      de um filme (dá para pular com um toque). Das outras vezes o menu abre
-     direto, e o link do site passa a fazer senha, música e menu.
+     direto. O link do site começa sempre do início: senha, música e a carta.
 
      Tudo o que está entre [colchetes] é exemplo: troque pela sua fala.
      Texto vazio ('') = aquela coisa não aparece.

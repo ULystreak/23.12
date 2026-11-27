@@ -14,7 +14,7 @@
    ========================================================================== */
 
 import { cenaAbertura } from '../cenas/abertura.js';
-import { menuLembrado, lembrarMenu, espera } from './util.js';
+import { lembrarMenu, espera, enderecoDaCena } from './util.js';
 
 export const ORDEM = ['senha', 'musica', 'inicio', 'poppy', 'carta2', 'yourname', 'mao', 'cartas', 'encontro', 'final', 'menu'];
 
@@ -27,7 +27,7 @@ const BOLSA_LIVRE = new Set([
   'carta2:caminhada', 'carta2:carta-chegando', 'carta2:carta-espera',
   'mao:mao-espera', 'cartas:escolhendo', 'final:fim', 'menu:menu',
 ]);
-// Recarregar, voltar ou o iPhone descartar a aba caem no atalho ?cena=, não na senha.
+// Cenas a que a aba volta quando o iPhone a descarta em segundo plano (ver gravarRetomada).
 const RETOMAR = new Set(['inicio', 'poppy', 'carta2', 'yourname', 'mao', 'cartas', 'encontro', 'final', 'menu']);
 
 const carregar = {
@@ -115,13 +115,44 @@ export function voltarAoMundo(ctx) {
 
 /* ---- apoios ---------------------------------------------------------------- */
 
+// A retomada mora na aba (sessionStorage), não no endereço: o link do site é
+// sempre o limpo e abrir o site começa sempre do início. Só volta para onde
+// ela estava a aba que ficou escondida e foi recarregada pelo aparelho (o
+// iPhone descarta abas em segundo plano); quem decide é o script do
+// index.html, pelo tempo que a aba passou oculta. Recarregar na mão recomeça.
+const CHAVE_RETOMADA = 'carta2312:retomada';
+
+function gravarRetomada(mudar) {
+  try {
+    const r = mudar ? JSON.parse(sessionStorage.getItem(CHAVE_RETOMADA) || 'null') || {} : null;
+    if (!mudar) return sessionStorage.removeItem(CHAVE_RETOMADA);
+    mudar(r);
+    if (r.cena) sessionStorage.setItem(CHAVE_RETOMADA, JSON.stringify(r));
+  } catch {
+    /* aba anônima ou armazenamento cheio: sem retomada */
+  }
+  return undefined;
+}
+
 function marcarRetomada(cena, som) {
+  gravarRetomada((r) => {
+    r.cena = cena;
+    const indice = som?.estado?.indice;
+    if (Number.isInteger(indice) && indice >= 0) r.musica = indice;
+    r.oculto = document.hidden ? r.oculto || Date.now() : 0;
+  });
+}
+
+/** Tira do endereço o que só serve à chegada: o link que fica é o do início. */
+function limparEndereco() {
   try {
     const params = new URLSearchParams(location.search);
-    params.set('cena', cena);
-    const indice = som?.estado?.indice;
-    if (Number.isInteger(indice) && indice >= 0) params.set('musica', String(indice));
-    history.replaceState(history.state, '', `${location.pathname}?${params}${location.hash}`);
+    if (!['cena', 'musica', 'volta'].some((n) => params.has(n))) return;
+    // O fundo ainda pode nascer depois e quer saber por onde ela chegou.
+    if (params.get('cena')) document.documentElement.dataset.chegada = params.get('cena');
+    for (const n of ['cena', 'musica', 'volta']) params.delete(n);
+    const resto = params.toString();
+    history.replaceState(history.state, '', `${location.pathname}${resto ? `?${resto}` : ''}${location.hash}`);
   } catch {
     /* sem histórico */
   }
@@ -136,14 +167,7 @@ function seguirFaixa(som) {
     ultimo = indice;
     const cena = document.documentElement.dataset.cena;
     if (!RETOMAR.has(cena)) return;
-    // O Safari limita a frequência de replaceState; só reescrevemos quando a faixa muda.
-    try {
-      const params = new URLSearchParams(location.search);
-      params.set('musica', String(indice));
-      history.replaceState(history.state, '', `${location.pathname}?${params}${location.hash}`);
-    } catch {
-      /* ignora */
-    }
+    gravarRetomada((r) => { r.musica = indice; });
   });
 }
 
@@ -242,6 +266,27 @@ export function criarDiretor() {
         } catch { /* ignora */ }
       }
 
+      // A partir daqui o endereço é o limpo; a retomada antiga já foi usada (ou não).
+      limparEndereco();
+      gravarRetomada(null);
+      const aoEsconder = () => gravarRetomada((r) => { r.oculto = document.hidden ? Date.now() : 0; });
+      document.addEventListener('visibilitychange', aoEsconder);
+      // Sair de verdade (recarregar, ir a outro endereço, fechar) apaga a retomada:
+      // o descarte em segundo plano, o único caso que retoma, não passa por aqui.
+      // O visibilitychange da saída vem depois do pagehide e não pode regravar.
+      window.addEventListener('pagehide', (e) => {
+        if (e.persisted) return;
+        document.removeEventListener('visibilitychange', aoEsconder);
+        gravarRetomada(null);
+      });
+      // De volta do cache do Safari (botão voltar): a retomada é a desta página de novo.
+      window.addEventListener('pageshow', (e) => {
+        if (!e.persisted) return;
+        const c = document.documentElement.dataset.cena;
+        if (RETOMAR.has(c)) marcarRetomada(c, ctx.som);
+        else gravarRetomada(null);
+      });
+
       const comMenu = temMenu(conteudo);
       let comeco = Math.max(0, ORDEM.indexOf(cenaInicial));
       let frio = comeco > 0;
@@ -261,7 +306,8 @@ export function criarDiretor() {
         if (cena === 'menu' && etapa === 'menu' && inv.itens.length) inv.mostrarBotao();
       });
 
-      const direto = NA_ENTRADA.has(ORDEM[comeco]) && comMenu && menuLembrado();
+      // Abrir o site começa sempre do início, mesmo com o menu já visto.
+      const direto = false;
       ctx.estado.direto = direto;
 
       if (frio && ORDEM[comeco] !== 'menu' && comMenu && params.get('volta') === '1') {
@@ -296,7 +342,8 @@ export function criarDiretor() {
         } catch (erro) {
           console.error(`[carta] a cena "${nome}" falhou`, erro);
           if (!frio && i === ORDEM.length - 1) {
-            location.reload();
+            // Com cena explícita: uma recarga pura recomeçaria da senha.
+            location.replace(enderecoDaCena(nome, {}, ctx.som));
             return;
           }
           await recuperar(ctx);

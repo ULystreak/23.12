@@ -129,7 +129,7 @@ export function criarFundo({ amb, antesDe } = {}) {
   pintarVeu();
 
   // Lido uma vez, na criação. Number() de algo herdado vira NaN, e NaN vira 1.
-  fotos[0].z = Number(INICIAL[new URLSearchParams(location.search).get('cena')]) || 1;
+  fotos[0].z = Number(INICIAL[new URLSearchParams(location.search).get('cena') || document.documentElement.dataset.chegada]) || 1;
 
   let natural = null; // { w, h } da foto carregada
   let caixa = null; // { L, A, w, h, left, top, ox, oy, focal }

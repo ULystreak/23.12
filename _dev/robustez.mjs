@@ -558,8 +558,10 @@ const casos = {
       await s.page.waitForURL((u) => u.searchParams.get('webgl') === '0', { timeout: 20000 });
       await esperarBoot(s.page);
       const u = new URL(s.page.url()).searchParams;
-      ok(u.get('webgl') === '0' && u.get('cena') === 'carta2' && u.get('musica') === '0' && u.get('rapido') === '6',
-        `contexto: recarregou no modo leve (webgl=${u.get('webgl')}, cena=${u.get('cena')}, musica=${u.get('musica')}, rapido=${u.get('rapido')})`);
+      // O endereço é limpo logo depois da chegada; a cena e a faixa se conferem na página.
+      const onde = await s.page.evaluate(() => ({ cena: document.documentElement.dataset.cena, musica: window.__carta.ctx.amb?.params?.get('musica') }));
+      ok(u.get('webgl') === '0' && onde.cena === 'carta2' && onde.musica === '0' && u.get('rapido') === '6',
+        `contexto: recarregou no modo leve (webgl=${u.get('webgl')}, cena=${onde.cena}, musica=${onde.musica}, rapido=${u.get('rapido')})`);
       const depois = await s.page.evaluate(() => ({ ok: window.__carta.ctx.mundo.ok, tocando: !!window.__carta.ctx.som?.estado?.tocando }));
       ok(depois.ok === false, 'contexto: depois da recarga, mundo.ok é false');
       ok(!depois.tocando, 'contexto: a música espera o primeiro toque');
@@ -1008,7 +1010,7 @@ async function menuVariante(extra) {
     ok(!a.creditos && !a.pular, `${rotulo}: sem créditos nem botão de pular (créditos ${a.creditos}, pular ${a.pular})`);
     ok(a.ordem === 'menu,depois', `${rotulo}: ordem no palco menu,depois (${a.ordem || 'nada'})`);
     ok(a.partes.join(',') === PARTES_MENU.join(','), `${rotulo}: uma etiqueta por parte (${a.partes.join(', ')})`);
-    ok(a.cena === 'menu' && a.musica === '0', `${rotulo}: o endereço tem cena=menu e musica=0 (cena=${a.cena}, musica=${a.musica})`);
+    ok(a.cena === null && a.musica === null, `${rotulo}: o endereço fica limpo, sem cena nem musica (cena=${a.cena}, musica=${a.musica})`);
     if (a.saudade) {
       ok(/^https:\/\/wa\.me\//.test(a.saudade.href) && a.saudade.target === '_blank' && /\bnoopener\b/.test(a.saudade.rel),
         `${rotulo}: a pílula da saudade abre o WhatsApp em nova aba (_blank, noopener)`);
@@ -1053,11 +1055,19 @@ async function menuVariante(extra) {
         `${rotulo}: reler poppy pela etiqueta não muda a etapa e o foco volta a ela (${durante.cena}:${durante.etapa} → ${depois.cena}:${depois.etapa}, foco ${foco || 'nada'})`);
     }
 
-    // Recarregar com a marca volta ao menu, sem as referências.
+    // Recarregar na mão recomeça do início; ?cena=menu com a marca abre o menu sem as referências.
     await page.reload({ waitUntil: 'domcontentloaded' });
     await esperarBoot(page);
+    await pausa(800);
+    const recomeco = await page.evaluate(() => document.documentElement.dataset.cena);
+    ok(recomeco === 'senha' || recomeco === 'musica', `${rotulo}: recarregar na mão recomeça do início (${recomeco})`);
+    const volta = new URL(page.url());
+    volta.searchParams.set('cena', 'menu');
+    volta.searchParams.set('musica', '0');
+    await page.goto(volta.href, { waitUntil: 'domcontentloaded' });
+    await esperarBoot(page);
     await s.esperarEtapa('menu:menu', 30000);
-    ok(!(await historico(s)).includes('menu:referencias'), `${rotulo}: recarregar com a marca volta ao menu, sem as referências`);
+    ok(!(await historico(s)).includes('menu:referencias'), `${rotulo}: ?cena=menu com a marca abre o menu, sem as referências`);
 
     // O portão: a etiqueta de uma parte que não é capítulo recarrega com volta=1.
     const parte = a.partes.includes('mao') ? 'mao' : a.partes.find((c) => !RELIDAS.has(c));
@@ -1092,22 +1102,14 @@ async function menuVariante(extra) {
   });
 }
 
-/** (b) Link limpo com a marca: da música direto ao menu; ?cena=menu&menu=0 traz as referências e apaga a marca. */
+/** (b) Link limpo com a marca: começa do início mesmo assim; ?cena=menu&menu=0 traz as referências e apaga a marca. */
 async function menuLinkLimpo() {
   await sessao('menu link limpo', { vp: 'iphone-safari', params: { ...NO_MENU, menu: 1 }, entrar: true }, async (s) => {
     const { page } = s;
-    await s.esperarEtapa('menu:menu', 60000);
-    await pausa(1500);
+    // Abrir o site começa sempre do início: mesmo com a marca, depois da música vem a carta.
+    for (let t = 0; t < 60000 && !(await historico(s)).some((p) => p.startsWith('inicio:')); t += 300) await pausa(300);
     const h = await historico(s);
-    ok(!h.includes('menu:referencias') && !h.some((p) => p.startsWith('inicio:')), `menu link limpo: da música direto ao menu, sem referências (${h.slice(-3).join(' → ')})`);
-    const r = await page.evaluate(() => ({
-      itens: (window.__carta.ctx.inventario?.itens || []).map((i) => i.id),
-      hora: document.documentElement.dataset.hora || '',
-      entrada: !!document.getElementById('entrada'),
-    }));
-    ok(r.itens.includes('carta-poppy') && r.itens.includes('carta-yourname'), `menu link limpo: a bolsa tem carta-poppy e carta-yourname (${r.itens.join(', ') || 'nada'})`);
-    ok(r.hora === 'noite', `menu link limpo: a hora é noite (${r.hora || 'nenhuma'})`);
-    ok(!r.entrada, 'menu link limpo: sem #entrada');
+    ok(h.some((p) => p.startsWith('inicio:')) && !h.some((p) => p.startsWith('menu:')), `menu link limpo: com a marca, da música vai à carta, não ao menu (${h.slice(-3).join(' → ')})`);
 
     const u = new URL(s.endereco);
     u.search = new URLSearchParams({ cena: 'menu', menu: '0', rapido: '3', musica: '0' }).toString();
