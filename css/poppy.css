@@ -1,1105 +1,684 @@
 /* ============================================================================
-   POPPY: o capítulo do jogo (a fita VHS da fábrica de brinquedos)
+   POPPY: o capítulo do jogo (a fábrica de brinquedos, em primeira pessoa)
    ============================================================================
-   Petróleo + vermelho, amarelo, azul e verde de brinquedo, visto da noite de
-   lanternas: a moldura, os cartões e a tecla são vidro anil com filete dourado,
-   a etiqueta é washi aceso por trás e toda luz-piloto é uma lâmpada quente
-   (parente da lanterna) que respira. O vermelho cheio fica só no fio. Fredoka no que é
-   brinquedo, VT323 no que é "da fita" (as duas só existem aqui). Física:
-   molas, quiques, peso e cortes de vídeo; nada desliza suave. Só transform e
-   opacity se movem. O JS põe e tira as classes de estado:
-   aguardando, chegando, desligado, apertada, desligada (poppy.js); visivel e
-   sob-texto (osd.js); caindo, digitando, digitado, apagado, piscou
-   (titulo.js); ligado (cartao.js); carregada (fita.js); em-falha, clarao e
-   sem-vhs (fundo.js).
+   O fundo do pergaminho recebe um canvas 3D (js/capitulos/poppy/corredor.js).
+   Por cima dele, um palco preso à janela guarda o HTML de cada parada: cartaz
+   de papel washi (para ler), monitor de tubo aceso, etiquetas penduradas e, no
+   fim, o botão de vidro com filete dourado. O JS escreve transform e opacity
+   em cada `.pp-est`; tudo o mais é daqui. O vermelho cheio é só do fio.
+   Fredoka no que é brinquedo, VT323 no que é "da fita".
+   Classes de estado (postas pelo poppy.js): aguardando, pp-plano (versão 2D,
+   sem WebGL ou com movimento reduzido), foco, pp-chegou, guardando, visivel.
    ========================================================================== */
 
-/* ---- O fundo atrás da janela ------------------------------------------------- */
 #pergaminho .poppy-fundo,
-.poppy-fundo { background: var(--poppy-fundo); }
-#pergaminho .poppy-fundo.desligada,
-.poppy-fundo.desligada { background: var(--noite-funda); }
-
-/* Contexto próprio de empilhamento (sem camada de GPU): as camadas do modo
-   leve, com z-index, ficam presas aqui dentro, por baixo do texto. */
-.poppy-tubo {
+.poppy-fundo { background: #0a1a24; }
+.pp-canvas {
   position: absolute;
   inset: 0;
-  overflow: hidden;
-  isolation: isolate;
-}
-.poppy-parada,
-.poppy-vhs {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
   display: block;
   width: 100%;
   height: 100%;
-  max-width: none;
-}
-.poppy-parada {
-  object-fit: cover;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-user-drag: none;
 }
 
-/* O modo leve, sem WebGL: a tela de espera, o chuvisco e a faixa de tracking. */
-.poppy-leve-chuvisco {
-  position: absolute;
-  inset: -96px;
-  z-index: 1;
-  opacity: 0.075;
-  background-size: 96px 96px;
-  animation: poppy-chuvisco 0.4s steps(4) infinite;
+.poppy {
+  --pp-papel: var(--papel, #f7ecd6);
+  --pp-tinta: var(--tinta, #2a1b22);
+  --pp-tubo: #0a1d24;
+  --pp-fosforo: #dff5e6;
+  --pp-carcaca: #1b242b;
+  --pp-noite: 3, 5, 18;
+  position: relative;
+  color: var(--luar, #f4efe6);
+  font-family: var(--fonte-brinquedo);
 }
-.poppy-leve-faixa {
+
+/* ---- A camada do videocassete: grão, varredura, modo e contador ------------- */
+.pp-osd {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  height: 0;
+  pointer-events: none;
+}
+.pp-tela {
   position: absolute;
+  top: 0;
   left: 0;
   right: 0;
-  top: 0;
-  z-index: 2;
-  height: 7%;
-  margin-top: -3.5%;
-  background:
-    repeating-linear-gradient(to bottom, rgba(242, 234, 216, 0.16) 0 1px, transparent 1px 3px),
-    rgba(242, 234, 216, 0.05);
-  box-shadow: 0 0 18px rgba(242, 234, 216, 0.08);
-  transition: opacity 120ms steps(2);
-  will-change: transform;
+  height: var(--pp-h, 100vh);
+  overflow: hidden;
 }
-.poppy-leve-azul {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  background: var(--poppy-fundo);
-  transition: opacity 200ms steps(3);
-}
-.poppy-leve-azul.clarao { background: #1420b8; }
-.sem-vhs .poppy-parada { filter: brightness(0.86) saturate(0.85); }
-.sem-vhs .poppy-tubo::after {
+.pp-tela::after { /* os cantos do tubo */
   content: "";
   position: absolute;
   inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  background: radial-gradient(ellipse 75% 70% at 50% 48%, transparent 52%, rgba(3, 5, 18, 0.62) 100%);
+  background: radial-gradient(120% 90% at 50% 50%, rgba(var(--pp-noite), 0) 62%, rgba(var(--pp-noite), 0.5) 100%);
 }
-/* O engasgo no modo leve: a imagem tropeça (translate, para não brigar com o zoom). */
-.poppy-tubo.em-falha .poppy-parada { animation: poppy-tremor 140ms steps(3) infinite; }
-
-/* O desligar: a linha de fósforo e a brasa que esfria. */
-.poppy-fosforo,
-.poppy-fosforo-ponto {
+.pp-grao {
   position: absolute;
-  z-index: 5;
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
+  inset: -64px;
+  opacity: 0.07;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1.4 -0.2'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 128px 128px;
+  animation: pp-grao 0.5s steps(5) infinite;
 }
-.poppy-fosforo {
+.pp-varredura {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(to bottom, rgba(var(--pp-noite), 0.07) 0 1px, transparent 1px 3px);
+}
+.pp-varredura::after { /* a faixa de tracking, que desce devagar */
+  content: "";
+  position: absolute;
   left: 0;
   right: 0;
-  top: 50%;
-  height: 4px;
-  margin-top: -2px;
-  background: #f4fbff;
-  box-shadow: 0 0 10px rgba(244, 251, 255, 0.9), 0 0 40px rgba(190, 220, 255, 0.55);
+  top: -12%;
+  height: 9%;
+  background: linear-gradient(to bottom, transparent, rgba(244, 239, 230, 0.05) 40%, rgba(244, 239, 230, 0.08) 50%, transparent);
+  animation: pp-tracking 7s linear infinite;
 }
-.poppy-fosforo-ponto {
+.pp-modo,
+.pp-contador {
+  position: absolute;
+  top: 0.75rem;
+  padding: 0.1rem 0.55rem 0.05rem;
+  border-radius: 6px;
+  background: rgba(var(--pp-noite), 0.62);
+  color: var(--luar, #f4efe6);
+  font-family: var(--fonte-fita);
+  font-size: 1.375rem;
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  text-shadow: 0 0 8px rgba(244, 239, 230, 0.4);
+}
+.pp-modo {
+  left: 0.85rem;
+  opacity: 0;
+  transition: opacity 120ms steps(2);
+}
+.pp-modo.visivel { opacity: 1; }
+.pp-modo[data-modo="tocar"]::before { content: "\25B6\00A0"; }
+.pp-modo[data-modo="avancar"]::before { content: "\25B6\25B6\00A0"; }
+.pp-modo[data-modo="voltar"]::before { content: "\25C0\25C0\00A0"; }
+.pp-modo[data-modo="parar"]::before { content: "\25A0\00A0"; }
+.pp-contador { right: 0.85rem; font-variant-numeric: tabular-nums; }
+.poppy.aguardando .pp-contador { opacity: 0; }
+
+/* ---- O palco preso à janela --------------------------------------------------- */
+.pp-palco {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 0;
+  height: var(--pp-h, 100vh);
+  overflow: hidden;
+  pointer-events: none;
+  transition: opacity 900ms var(--curva-ui, ease-out);
+}
+.poppy.aguardando .pp-palco { opacity: 0; }
+.pp-trilho { pointer-events: none; }
+
+/* A luz da porta do fundo: cresce quando ela chega e toma a tela ao guardar. */
+.pp-luz {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: radial-gradient(90% 62% at 50% 42%, rgba(255, 243, 212, 0.9), rgba(255, 226, 166, 0.45) 46%, rgba(255, 200, 120, 0) 78%);
+}
+.pp-luz::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: var(--pp-papel);
+  transition: opacity 620ms var(--curva-ui, ease-out);
+}
+.poppy.guardando .pp-luz { opacity: 1 !important; z-index: 40; }
+.poppy.guardando .pp-luz::after { opacity: 1; }
+
+/* ---- Uma parada: o suporte pendurado ------------------------------------------- */
+.pp-est {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: min(86%, 23.5rem);
+  margin: 0;
+  opacity: 0;
+  transform-origin: 50% 50%;
+  will-change: transform, opacity;
+}
+.pp-est.foco {
+  pointer-events: auto;
+  -webkit-user-select: text;
+  user-select: text;
+}
+/* Os dois cabos que seguram o suporte no teto. */
+.pp-est::before,
+.pp-est::after {
+  content: "";
+  position: absolute;
+  bottom: calc(100% - 6px);
+  left: 15%;
+  width: 2px;
+  height: 130vh;
+  background: linear-gradient(to top, #10171c, #1e2a32);
+}
+.pp-est::after { left: auto; right: 15%; }
+.pp-corpo {
+  position: relative;
+  transform-origin: 50% -30vh;
+  animation: pp-balanco 5.2s ease-in-out infinite alternate;
+}
+.pp-texto {
+  margin: 0;
+  overflow-wrap: break-word;
+}
+
+/* Cartaz: papel washi, tinta escura, uma faixa de tinta de brinquedo e fita crepe. */
+.pp-e-cartaz .pp-corpo {
+  padding: 1.6rem 1.3rem 1.35rem;
+  border-top: 10px solid var(--pp-cor, #edb733);
+  border-radius: 5px;
+  background:
+    radial-gradient(120% 90% at 50% 30%, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 60%),
+    var(--pp-papel);
+  color: var(--pp-tinta);
+  box-shadow:
+    0 16px 34px rgba(var(--pp-noite), 0.55),
+    0 0 46px rgba(255, 180, 94, 0.16),
+    inset 0 0 0 1px rgba(42, 27, 34, 0.1),
+    inset 0 -18px 30px -18px rgba(169, 124, 53, 0.35);
+  font-size: 1.0625rem;
+  font-weight: 400;
+  line-height: 1.58;
+  letter-spacing: 0.005em;
+}
+.pp-e-cartaz .pp-corpo::before { /* fita crepe */
+  content: "";
+  position: absolute;
+  top: -19px;
   left: 50%;
+  width: 4.6rem;
+  height: 1.25rem;
+  margin-left: -2.3rem;
+  border-radius: 2px;
+  background: rgba(246, 220, 166, 0.82);
+  box-shadow: 0 1px 2px rgba(var(--pp-noite), 0.3);
+  transform: rotate(-2.5deg);
+}
+.pp-v0 { --pp-cor: #edb733; }
+.pp-v1 { --pp-cor: #3b83c6; }
+.pp-v2 { --pp-cor: #46a873; }
+.pp-v3 { --pp-cor: #f2b6c6; }
+
+/* Monitor de tubo: carcaça escura, fósforo esverdeado, luz-piloto quente. */
+.pp-e-monitor .pp-corpo {
+  padding: 0.8rem 0.8rem 2.1rem;
+  border-radius: 20px 20px 16px 16px;
+  background: linear-gradient(to bottom, #26323a, var(--pp-carcaca));
+  box-shadow:
+    0 18px 36px rgba(var(--pp-noite), 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px rgba(233, 194, 122, 0.22);
+}
+.pp-e-monitor .pp-corpo::before { /* luz-piloto */
+  content: "";
+  position: absolute;
+  right: 1.2rem;
+  bottom: 0.75rem;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--chama, #ffb45e);
+  box-shadow: 0 0 10px rgba(255, 180, 94, 0.8);
+  animation: pp-respira 3.6s ease-in-out infinite alternate;
+}
+.pp-e-monitor .pp-corpo::after { /* a grade do alto-falante */
+  content: "";
+  position: absolute;
+  left: 1.2rem;
+  bottom: 0.72rem;
+  width: 3.4rem;
+  height: 10px;
+  background: repeating-linear-gradient(to right, rgba(0, 0, 0, 0.5) 0 3px, transparent 3px 7px);
+  border-radius: 3px;
+}
+.pp-e-monitor .pp-texto {
+  display: block;
+  padding: 1rem 1rem 0.9rem;
+  border-radius: 16px / 20px;
+  background:
+    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.16) 0 1px, transparent 1px 3px),
+    radial-gradient(120% 100% at 50% 40%, #14404a, var(--pp-tubo) 78%);
+  box-shadow: inset 0 0 26px rgba(0, 0, 0, 0.7), 0 0 26px rgba(90, 220, 200, 0.14);
+  color: var(--pp-fosforo);
+  font-family: var(--fonte-fita);
+  font-size: 1.4375rem;
+  line-height: 1.22;
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 9px rgba(160, 255, 220, 0.4);
+}
+.pp-imagem {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 16px / 20px;
+  margin-bottom: 0.6rem;
+}
+
+/* A placa do título. */
+.pp-e-titulo .pp-corpo {
+  padding: 1.5rem 1.1rem 1.2rem;
+  border-radius: 18px;
+  background:
+    linear-gradient(to right, #d5503f 0 25%, #edb733 0 50%, #3b83c6 0 75%, #46a873 0) top / 100% 9px no-repeat,
+    linear-gradient(to bottom, #24323b, #172128);
+  box-shadow:
+    0 18px 38px rgba(var(--pp-noite), 0.6),
+    inset 0 0 0 1px rgba(233, 194, 122, 0.3);
+  text-align: center;
+}
+.poppy:not(.aguardando):not(.pp-plano) .pp-e-titulo .pp-corpo {
+  animation: pp-cair 950ms var(--mola, ease-out) both, pp-balanco 5.2s ease-in-out 950ms infinite alternate;
+}
+.pp-logo {
+  display: block;
+  width: auto;
+  max-width: 62%;
+  max-height: 5.2rem;
+  margin: 0.2rem auto 0.7rem;
+}
+.pp-titulo {
+  margin: 0.35rem 0 0;
+  color: #fff3d4;
+  font-family: var(--fonte-brinquedo);
+  font-size: clamp(1.75rem, 1.2rem + 3.4vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: 0.01em;
+  text-wrap: balance;
+  text-shadow: 0 2px 0 #a97c35, 0 5px 0 rgba(var(--pp-noite), 0.55);
+}
+.pp-sub {
+  margin: 1rem 0 0;
+  padding: 0.6rem 0.8rem 0.5rem;
+  border-radius: 10px;
+  background:
+    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.16) 0 1px, transparent 1px 3px),
+    var(--pp-tubo);
+  box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.7);
+  color: var(--pp-fosforo);
+  font-family: var(--fonte-fita);
+  font-size: 1.3125rem;
+  line-height: 1.2;
+  text-shadow: 0 0 9px rgba(160, 255, 220, 0.4);
+}
+
+/* A etiqueta da fita: pendurada por um barbante só. */
+.pp-e-fita { width: min(72%, 17rem); }
+.pp-e-fita::before { left: 50%; height: 4.4rem; margin-left: -1px; background: #cfc3a4; }
+.pp-e-fita::after { content: none; }
+.pp-e-fita .pp-corpo { transform-origin: 50% -4rem; }
+.pp-cassete { display: none; }
+.pp-etiqueta {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  margin: 0;
+  padding: 1.5rem 1rem 0.85rem;
+  border-radius: 14px 14px 8px 8px;
+  background: var(--pp-papel);
+  color: var(--pp-tinta);
+  box-shadow: 0 14px 28px rgba(var(--pp-noite), 0.55), 0 0 40px rgba(255, 180, 94, 0.16), inset 0 0 0 1px rgba(42, 27, 34, 0.12);
+  text-align: center;
+}
+.pp-etiqueta::before { /* o furo */
+  content: "";
+  position: absolute;
+  top: 0.5rem;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  border-radius: 50%;
+  background: #1b242b;
+  box-shadow: 0 0 0 3px rgba(169, 124, 53, 0.45);
+}
+.pp-etiqueta strong {
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0.05em;
+}
+.pp-etiqueta span {
+  color: var(--tinta-suave, #5f4c45);
+  font-family: var(--fonte-fita);
+  font-size: 1.375rem;
+  line-height: 1.1;
+  letter-spacing: 0.08em;
+}
+
+/* As etiquetas da esteira: penduradas no fio vermelho, uma embaixo da outra. */
+.pp-e-esteira { width: min(64%, 15rem); }
+.pp-e-esteira::before,
+.pp-e-esteira::after { content: none; }
+.pp-tags {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.7rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  animation: none;
+}
+.pp-tags::before { /* o fio */
+  content: "";
+  position: absolute;
+  top: -60vh;
+  bottom: -60vh;
+  left: 1.05rem;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--fio, #e3283c);
+  box-shadow: 0 0 10px 1px var(--fio-brilho, rgba(255, 64, 78, 0.55));
+}
+.pp-tag {
+  position: relative;
+  padding: 0.5rem 0.95rem 0.5rem 2.1rem;
+  border-radius: 999px 12px 12px 999px;
+  border-right: 6px solid var(--pp-cor, #edb733);
+  background: var(--pp-papel);
+  color: var(--pp-tinta);
+  box-shadow: 0 8px 18px rgba(var(--pp-noite), 0.5), inset 0 0 0 1px rgba(42, 27, 34, 0.1);
+  font-size: 1.0625rem;
+  font-weight: 500;
+  line-height: 1.3;
+  opacity: 0;
+  transform: translateX(-10px) rotate(-9deg) scale(0.82);
+  transform-origin: 1.05rem 50%;
+  transition:
+    opacity 180ms linear calc(var(--i, 0) * 110ms),
+    transform var(--dur-mola, 460ms) var(--mola, ease-out) calc(var(--i, 0) * 110ms);
+}
+.pp-tag:nth-child(even) { margin-left: 0.6rem; }
+.pp-tag::before { /* o ilhós por onde o fio passa */
+  content: "";
+  position: absolute;
   top: 50%;
+  left: 1.05rem;
   width: 10px;
   height: 10px;
   margin: -5px 0 0 -5px;
   border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.95), 0 0 30px rgba(200, 228, 255, 0.7);
+  background: var(--fio-escuro, #a80f22);
+  box-shadow: 0 0 0 3px rgba(169, 124, 53, 0.5);
+}
+.pp-est.foco .pp-tag {
+  opacity: 1;
+  transform: rotate(calc((var(--i, 0) - 2) * 1.1deg));
 }
 
-/* ---- O capítulo --------------------------------------------------------------- */
-/* A janela do pergaminho já desconta as áreas seguras: aqui dentro basta a margem. */
-.poppy {
-  --pp-creme: #f2ead8;
-  --pp-tinta: #0f1c24;
-  --pp-vidro: rgba(10, 16, 38, 0.8);
-  --pp-sombra: 0 2px 4px rgba(3, 5, 18, 0.4), 0 22px 44px -14px rgba(3, 5, 18, 0.72);
-  --pp-lampada: 0 0 5px rgba(255, 180, 94, 0.95), 0 0 16px rgba(255, 138, 61, 0.55);
-  --pp-plastico: #e9dfc8;
-  --pp-chassi: #121a2c;
-  --pp-lateral: var(--margem);
-  --pp-lateral-dir: var(--margem);
-  position: relative;
-  background: transparent;
-  color: var(--pp-creme);
-  font-family: var(--fonte-brinquedo);
-  font-weight: 500;
-  line-height: 1.6;
-}
-.poppy ::selection { background: rgba(233, 194, 122, 0.4); color: #ffffff; }
-.poppy :focus-visible { outline: 2px solid var(--ouro); outline-offset: 4px; }
-
-/* Nada do corpo está lá, menos o título: ele já precisa receber o foco quando a folha abre. */
-.poppy.aguardando .poppy-corpo { visibility: hidden; }
-.poppy.aguardando .poppy-titulo { visibility: visible; }
-
-/* ---- O videocassete (OSD) --------------------------------------------------------- */
-.poppy-osd {
-  position: -webkit-sticky;
-  position: sticky;
-  top: 0;
-  z-index: 3;
-  height: 0;
-  pointer-events: none;
-}
-/* position: relative é o referencial das zonas() do osd.js. */
-.poppy-osd-tela {
-  position: relative;
-  height: var(--tela);
-  overflow: hidden;
-}
-.poppy-varredura {
-  position: absolute;
-  inset: 0;
-  opacity: 0.55;
-  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.16) 0 1px, transparent 1px 3px);
-}
-.poppy-clarao {
-  position: absolute;
-  inset: 0;
-  background: #dfeeff;
-  opacity: 0;
-}
-.poppy-osd-modo,
-.poppy-contador {
-  position: absolute;
-  font-family: var(--fonte-fita);
-  font-weight: 400;
-  line-height: 1;
-  letter-spacing: 0.06em;
-  color: #f4f8ec;
-  text-shadow: -1.5px 0 rgba(226, 51, 47, 0.55), 1.5px 0 rgba(47, 143, 216, 0.55);
-  white-space: nowrap;
-  visibility: hidden;
-  transition: opacity 160ms steps(2);
-}
-.poppy-osd-modo {
-  top: 18px;
-  left: var(--pp-lateral);
+/* O fim: o nó do fio e o botão de guardar. */
+.pp-e-fim { width: min(86%, 20rem); }
+.pp-e-fim::before,
+.pp-e-fim::after { content: none; }
+.pp-e-fim .pp-corpo {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
-  font-size: clamp(2rem, 1.6rem + 1.6vw, 2.75rem);
-}
-.poppy-contador {
-  bottom: 18px;
-  right: var(--pp-lateral-dir);
-  font-size: clamp(1.625rem, 1.4rem + 1vw, 2.125rem);
-  font-variant-numeric: tabular-nums;
-}
-.poppy-osd-icone { display: flex; }
-.poppy-osd-icone svg {
-  width: auto;
-  height: 0.62em;
-  fill: currentColor;
-  filter: drop-shadow(-1.5px 0 rgba(226, 51, 47, 0.55)) drop-shadow(1.5px 0 rgba(47, 143, 216, 0.55));
-}
-.poppy-osd-modo[data-modo="parar"] .poppy-osd-icone svg { height: 0.56em; }
-.poppy-osd-modo.visivel { visibility: visible; animation: poppy-corte 260ms steps(3) backwards; }
-.poppy-contador.visivel { visibility: visible; animation: poppy-corte 220ms steps(2) backwards; }
-/* O videocassete apaga o que escreveu por cima enquanto um texto passa por baixo. */
-.poppy-osd-modo.sob-texto,
-.poppy-contador.sob-texto { opacity: 0; }
-
-/* ---- O corpo ------------------------------------------------------------------------- */
-.poppy-corpo {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  gap: clamp(64px, 12vh, 112px);
-  padding: 72px var(--pp-lateral-dir) 96px var(--pp-lateral);
-}
-.poppy-entra { opacity: 0; }
-
-/* ---- O título em blocos ----------------------------------------------------------------- */
-.poppy-cabeca {
-  display: grid;
-  align-content: center;
-  gap: var(--esp-6);
-  min-height: calc(var(--tela) - 210px);
-}
-/* O adesivo: sem sombra e sem filtro (é a imagem do autor, colada). */
-.poppy-logo {
-  position: relative;
-  z-index: 1;
-  justify-self: start;
-  width: min(68%, 320px, calc(var(--tela) * 0.42));
-  margin-bottom: calc(var(--esp-4) - var(--esp-6));
+  animation: none;
   opacity: 0;
-  visibility: hidden;
-  transform-origin: 22% 62%;
+  transform: translateY(16px) scale(0.86);
+  transition: opacity 200ms linear, transform var(--dur-mola, 460ms) var(--mola, ease-out);
 }
-.poppy-logo img {
-  display: block;
-  width: 100%;
-  height: auto;
+.poppy.pp-chegou .pp-e-fim { pointer-events: auto; }
+.poppy.pp-chegou .pp-e-fim .pp-corpo {
+  opacity: 1;
+  transform: none;
 }
-.poppy-titulo {
-  margin: 0;
-  font-size: 1rem;
-  line-height: 1;
-}
-.poppy-pilha {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.poppy-fileira {
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-}
-.poppy-vao {
-  flex: none;
-  width: calc(var(--lado) * 0.42);
-}
-.poppy-bloco {
-  --cor: var(--poppy-amarelo);
+.pp-no {
   position: relative;
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: var(--lado);
-  height: var(--lado);
-  border-radius: calc(var(--lado) * 0.16);
-  background: var(--cor);
-  color: var(--pp-tinta);
-  box-shadow:
-    inset 0 calc(var(--lado) * -0.1) 0 rgba(0, 0, 0, 0.24),
-    inset calc(var(--lado) * 0.05) calc(var(--lado) * 0.05) 0 rgba(255, 255, 255, 0.28),
-    0 3px 0 rgba(3, 5, 18, 0.55);
-  font-family: var(--fonte-brinquedo);
-  font-weight: 600;
-  font-size: calc(var(--lado) * 0.6);
-  line-height: 1;
-  opacity: 0;
-  visibility: hidden;
-  transform-origin: 50% 100%;
-}
-.poppy-bloco > span {
-  position: relative;
-  z-index: 1;
-  margin-top: calc(var(--lado) * -0.08);
-}
-/* A lasca de tinta, num lugar diferente em cada bloco. */
-.poppy-bloco::after {
-  content: "";
-  position: absolute;
-  left: var(--mx, 30%);
-  top: var(--my, 30%);
-  width: 17%;
-  height: 11%;
-  border-radius: 40% 60% 45% 55%;
-  background: rgba(233, 222, 196, 0.42);
-}
-.poppy-bloco.estreito { width: calc(var(--lado) * 0.5); }
-.poppy-bloco.estreito::after { display: none; }
-.poppy-bloco[data-cor="vermelho"] { --cor: #c4302a; color: #fff4e0; }
-.poppy-bloco[data-cor="amarelo"] { --cor: var(--poppy-amarelo); }
-.poppy-bloco[data-cor="azul"] { --cor: #3a95da; }
-.poppy-bloco[data-cor="verde"] { --cor: #44b46c; }
-.poppy-bloco[data-cor="creme"] { --cor: var(--pp-plastico); }
-
-/* O subtítulo, digitado com letra de videocassete. */
-.poppy-subtitulo {
-  max-width: 26em;
-  font-family: var(--fonte-fita);
-  font-weight: 400;
-  font-size: clamp(1.375rem, 1.2rem + 0.9vw, 1.75rem);
-  line-height: 1.22;
-  letter-spacing: 0.03em;
-  color: #f4f8ec;
-  text-shadow: -1px 0 rgba(226, 51, 47, 0.45), 1px 0 rgba(47, 143, 216, 0.45), 0 0 10px rgba(3, 5, 18, 0.9);
-}
-.poppy-por-digitar { color: transparent; text-shadow: none; }
-/* Inline e sem largura: o cursor não abre uma quebra de linha no meio da palavra. */
-.poppy-cursor {
-  position: relative;
-  visibility: hidden;
-}
-.poppy-cursor i {
-  position: absolute;
-  left: 0.08em;
-  bottom: -0.06em;
-  width: 0.5em;
-  height: 0.92em;
-  background: currentColor;
-}
-.poppy-cursor i.apagado { opacity: 0; }
-.poppy-cabeca.digitando .poppy-cursor { visibility: visible; }
-
-/* ---- Os cinco suportes de texto ------------------------------------------------------------ */
-.poppy-cartao {
-  position: relative;
-  z-index: 1;
-  align-self: flex-start;
-  max-width: 36em;
-}
-.poppy-cartao p {
-  margin: 0;
-  white-space: pre-line;
-  text-wrap: pretty;
-}
-
-/* A tarja: um corte de vídeo de ponta a ponta. */
-.poppy-cartao[data-suporte="faixa"] {
-  align-self: stretch;
-  max-width: none;
-  margin-left: calc(-1 * var(--pp-lateral));
-  margin-right: calc(-1 * var(--pp-lateral-dir));
-}
-.poppy-tarja {
-  position: relative;
-  padding: clamp(20px, 5vw, 30px) var(--pp-lateral-dir) clamp(20px, 5vw, 30px) var(--pp-lateral);
-  background: linear-gradient(90deg, rgba(6, 9, 20, 0.86), rgba(10, 16, 38, 0.72));
-  box-shadow: inset 0 1px 0 var(--fio-ouro), inset 0 -1px 0 var(--fio-ouro), 0 18px 40px -18px rgba(3, 5, 18, 0.8);
-}
-/* A cabeça de leitura: um risco de luz quente na borda de cima do corte. */
-.poppy-tarja::before {
-  content: "";
-  position: absolute;
-  left: var(--pp-lateral);
-  top: -1px;
-  width: 56px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--chama);
-  box-shadow: 0 0 10px rgba(255, 180, 94, 0.7);
-  animation: poppy-respira 4.6s ease-in-out infinite alternate;
-}
-.poppy-tarja p {
-  max-width: 30em;
-  font-weight: 600;
-  font-size: clamp(1.5rem, 1.3rem + 0.9vw, 1.875rem);
-  line-height: 1.24;
-  letter-spacing: 0.015em;
-  color: var(--luar);
-}
-
-/* A etiqueta de papel pendurada no fio (o fio sobe até a margem de cima). */
-.poppy-cartao[data-suporte="etiqueta"] {
-  align-self: flex-end;
-  width: 74%;
-  margin-top: 64px;
-}
-.poppy-papel {
-  position: relative;
-  padding: 44px clamp(20px, 5vw, 30px) clamp(22px, 5vw, 28px);
-  border-radius: 22px 22px 6px 6px;
-  background:
-  radial-gradient(ellipse 95% 70% at 50% 34%, #fff8e6 0%, rgba(255, 248, 230, 0) 62%),
-  linear-gradient(to bottom, var(--papel) 0%, var(--papel) 58%, var(--papel-sombra) 100%);
-  color: var(--tinta);
-  font-family: var(--fonte-mao);
-  font-weight: 600;
-  font-size: var(--texto-corpo);
-  line-height: 1.6;
-  box-shadow: inset 0 0 0 1px rgba(169, 124, 53, 0.28), inset 0 -10px 18px -10px rgba(169, 124, 53, 0.35), var(--pp-sombra);
-}
-/* O washi aceso por trás: o halo de lanterna respira em volta da etiqueta. */
-.poppy-papel::after {
-  content: "";
-  position: absolute;
-  inset: -26px -22px -30px;
-  z-index: -1;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(255, 180, 94, 0.34), rgba(255, 138, 61, 0.1) 60%, transparent);
-  pointer-events: none;
-  animation: poppy-respira 5.2s ease-in-out infinite alternate;
-}
-.poppy-papel-furo {
-  position: absolute;
-  top: 15px;
-  left: 50%;
   width: 14px;
   height: 14px;
-  margin-left: -7px;
+  margin-bottom: 0.9rem;
   border-radius: 50%;
-  background: var(--poppy-fundo);
-  box-shadow: 0 0 0 2.5px var(--ouro-escuro), 0 0 0 3.5px rgba(246, 220, 166, 0.5), inset 0 2px 3px rgba(3, 5, 18, 0.6);
+  background: var(--fio, #e3283c);
+  box-shadow: 0 0 14px 3px var(--fio-brilho, rgba(255, 64, 78, 0.55));
 }
-.poppy-cordao {
+.pp-no::after { /* o fio desce do nó até o botão */
+  content: "";
   position: absolute;
+  top: 100%;
   left: 50%;
-  bottom: calc(100% - 23px);
-  width: 22px;
-  height: 92px;
-  margin-left: -11px;
-  max-width: none;
-  overflow: visible;
-  filter: drop-shadow(0 0 5px var(--fio-brilho));
+  width: 2px;
+  height: 0.9rem;
+  margin-left: -1px;
+  background: var(--fio, #e3283c);
+  box-shadow: 0 0 8px 1px var(--fio-brilho, rgba(255, 64, 78, 0.55));
 }
-.poppy-cordao path {
-  fill: none;
-  stroke-width: 3.2;
-  stroke-linecap: round;
-  vector-effect: non-scaling-stroke;
-}
-.poppy-cordao .cordao-fio { stroke: var(--fio); }
-.poppy-cordao .cordao-torcido { stroke: var(--fio-escuro); stroke-dasharray: 2.5 5.5; }
-
-/* A placa de vidro aparafusada. */
-.poppy-cartao[data-suporte="placa"] { width: 88%; }
-.poppy-vidro {
-  padding: clamp(26px, 6vw, 36px) clamp(30px, 7vw, 44px);
-  border: 1px solid var(--fio-ouro);
-  border-radius: 18px;
-  background:
-  radial-gradient(ellipse 70% 55% at 0% 0%, rgba(255, 180, 94, 0.13), transparent 70%),
-  radial-gradient(ellipse 60% 50% at 100% 100%, rgba(233, 194, 122, 0.07), transparent 70%),
-  var(--pp-vidro);
-  -webkit-backdrop-filter: blur(10px) saturate(1.15);
-  backdrop-filter: blur(10px) saturate(1.15);
-  box-shadow: inset 0 1px 0 rgba(246, 220, 166, 0.14), var(--pp-sombra);
-  color: var(--luar);
-  font-size: var(--texto-corpo);
-}
-.poppy-parafuso {
-  position: absolute;
-  z-index: 2;
-  width: 16px;
-  height: 16px;
-}
-.poppy-parafuso.p0 { top: 10px; left: 10px; }
-.poppy-parafuso.p1 { top: 10px; right: 10px; }
-.poppy-parafuso.p2 { bottom: 10px; right: 10px; }
-.poppy-parafuso.p3 { bottom: 10px; left: 10px; }
-.poppy-parafuso { color: var(--ouro); opacity: 0.82; }
-/* Sem vidro borrado no nível baixo, nem quando o tubo caiu no modo leve. */
-html[data-nivel="baixo"] .poppy-vidro,
-.sem-vhs ~ .perg-rolagem .poppy-vidro {
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  background: rgba(10, 14, 34, 0.94);
-}
-
-/* O visor âmbar de uma máquina. */
-.poppy-cartao[data-suporte="visor"] {
-  align-self: center;
-  width: min(70%, 30em);
-}
-.poppy-visor {
-  position: relative;
-  padding: 34px clamp(18px, 4.6vw, 26px) clamp(18px, 4.6vw, 24px);
-  border-radius: 8px;
-  background: radial-gradient(ellipse 90% 80% at 50% 40%, #14100a, #07090c 78%);
-  box-shadow: inset 0 0 26px rgba(246, 193, 45, 0.09), 0 0 0 6px var(--pp-chassi), 0 0 0 7px var(--fio-ouro), 0 0 34px -6px rgba(255, 180, 94, 0.28), var(--pp-sombra);
-  color: var(--poppy-amarelo);
-  font-family: var(--fonte-fita);
-  font-weight: 400;
-  font-size: clamp(1.375rem, 1.2rem + 0.8vw, 1.75rem);
-  line-height: 1.25;
-  letter-spacing: 0.02em;
-  text-shadow: 0 0 9px rgba(246, 193, 45, 0.38);
-}
-.poppy-visor-grade {
-  position: absolute;
-  left: 14px;
-  right: 14px;
-  top: 12px;
-  height: 6px;
-  background: repeating-linear-gradient(90deg, rgba(246, 193, 45, 0.3) 0 14px, transparent 14px 20px);
-}
-
-/* A legenda de fita (closed caption), alinhada à direita. */
-.poppy-cartao[data-suporte="legenda"] {
-  align-self: flex-end;
-  width: 82%;
-  text-align: right;
-}
-.poppy-cc {
-  margin: 0;
-  font-family: var(--fonte-fita);
-  font-weight: 400;
-  font-size: clamp(1.5rem, 1.3rem + 0.9vw, 1.875rem);
-  line-height: 1.5;
-  color: #f4f8ec;
-  white-space: pre-line;
-}
-.poppy-cc span {
-  padding: 0.06em 0.36em;
-  background: rgba(6, 9, 20, 0.9);
-  box-shadow: inset 0 -1px 0 var(--fio-ouro);
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
-}
-
-/* ---- O monitor antigo -------------------------------------------------------------------------- */
-.poppy-monitor {
-  position: relative;
-  z-index: 1;
-  align-self: flex-start;
-  width: min(94%, 560px);
-  margin: 0;
-  padding: 14px 14px 10px;
-  border-radius: 26px 26px 20px 20px;
-  background: linear-gradient(to bottom, #1c2538, #131a2b);
-  box-shadow: inset 0 0 0 1px var(--fio-ouro), inset 0 2px 0 rgba(246, 220, 166, 0.1), inset 0 -3px 0 rgba(3, 5, 18, 0.45), var(--pp-sombra);
-}
-.poppy-monitor[data-lado="dir"] { align-self: flex-end; }
-.poppy-monitor-tela {
-  position: relative;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  border-radius: 16px / 13px;
-  background: #05070f;
-  box-shadow: 0 0 0 1px rgba(3, 5, 18, 0.9), 0 0 22px -4px rgba(255, 180, 94, 0.16);
-}
-/* Foto em pé não vira um monitor do tamanho da tela: fica com tarjas pretas dos lados, como no tubo. */
-.poppy-monitor-img {
-  display: block;
-  width: 100%;
-  height: auto;
-  max-height: min(56vh, 520px);
-  object-fit: contain;
-}
-.poppy-monitor-linhas,
-.poppy-monitor-reflexo {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-.poppy-monitor-linhas { background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 3px); }
-.poppy-monitor-reflexo { background: radial-gradient(ellipse 85% 60% at 28% 16%, rgba(255, 232, 196, 0.13), transparent 62%); }
-.poppy-monitor-legenda {
-  margin: 12px 4px 0;
-  font-family: var(--fonte-fita);
-  font-weight: 400;
-  font-size: clamp(1.25rem, 1.15rem + 0.4vw, 1.4rem);
-  line-height: 1.3;
-  letter-spacing: 0.02em;
-  color: var(--ouro-claro);
-}
-.poppy-monitor-painel {
-  display: flex;
+.pp-guardar {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 6px 2px;
+  justify-content: center;
+  gap: 0.6rem;
+  min-width: 12.5rem;
+  min-height: 3.25rem;
+  padding: 0 1.6rem;
+  border: 1px solid var(--ouro, #e9c27a);
+  border-radius: 999px;
+  background: var(--vidro-forte, rgba(10, 14, 34, 0.88));
+  color: var(--ouro-claro, #f6dca6);
+  box-shadow: 0 12px 28px rgba(var(--pp-noite), 0.5), 0 0 0 4px rgba(255, 243, 212, 0.16);
+  font-family: var(--fonte-brinquedo);
+  font-size: 1.125rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform var(--dur-toque, 120ms) var(--curva-ui, ease-out), background-color var(--dur-ui, 160ms) var(--curva-ui, ease-out);
 }
-.poppy-monitor-painel .luz {
-  position: relative;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #3a2a1c;
-}
-.poppy-monitor.ligado .luz {
-  background: var(--chama);
-  box-shadow: var(--pp-lampada);
-  animation: poppy-respira 4.2s ease-in-out infinite alternate;
-}
-.poppy-monitor-painel .grade {
-  width: 42px;
-  height: 10px;
-  margin-left: auto;
-  background: repeating-linear-gradient(90deg, #080c18 0 2px, transparent 2px 5px);
-}
-.poppy-monitor-painel .botao {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #46506a, #262e44 70%);
-  box-shadow: 0 0 0 1px rgba(233, 194, 122, 0.22);
-}
-
-/* ---- As cenas ------------------------------------------------------------------------------------------ */
-.poppy-cena {
-  position: relative;
-  z-index: 0;
-  width: 100%;
-}
-/* Mãos e esteira sangram até as bordas. */
-.poppy-maos,
-.poppy-esteira {
-  width: auto;
-  margin-left: calc(-1 * var(--pp-lateral));
-  margin-right: calc(-1 * var(--pp-lateral-dir));
-}
-
-/* As mãos de brinquedo */
-.poppy-maos { height: clamp(210px, 52vw, 300px); }
-.poppy-maos-desenho {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  max-width: none;
-}
-.poppy-maos .mola,
-.poppy-maos .mola-sombra,
-.poppy-maos [class^="fio-"] {
+.pp-guardar .ui-icone {
+  width: 1.3rem;
+  height: 1.3rem;
   fill: none;
-  stroke-linecap: round;
+  stroke: currentColor;
+  stroke-width: 1.5;
   stroke-linejoin: round;
 }
-.poppy-maos .mola { stroke: #b9c4c0; stroke-width: 3.4; }
-.poppy-maos .mola-sombra { stroke: rgba(3, 5, 18, 0.5); stroke-width: 5; transform: translateY(5px); }
-.poppy-maos .fio-base { stroke: var(--fio); stroke-width: 6; }
-.poppy-maos .fio-torcido { stroke: var(--fio-escuro); stroke-width: 6; stroke-dasharray: 2.5 5.5; stroke-linecap: butt; }
-.poppy-maos .fio-brilho { stroke: rgba(255, 220, 220, 0.4); stroke-width: 1.4; transform: translateY(-1.6px); }
-.poppy-maos .pele { stroke: rgba(3, 5, 18, 0.32); stroke-width: 2; }
-.poppy-maos .mao.azul .pele { fill: #3a8fd4; }
-.poppy-maos .mao.vermelha .pele { fill: #d93a31; }
-.poppy-maos .sombra { fill: rgba(3, 5, 18, 0.16); }
-.poppy-maos .vinco,
-.poppy-maos .brilho,
-.poppy-maos .junta,
-.poppy-maos .friso { fill: none; stroke-linecap: round; }
-.poppy-maos .vinco { stroke: rgba(3, 5, 18, 0.3); stroke-width: 2.4; }
-.poppy-maos .brilho { stroke: rgba(255, 255, 255, 0.42); stroke-width: 4; }
-.poppy-maos .junta { stroke: rgba(3, 5, 18, 0.26); stroke-width: 2; }
-.poppy-maos .unha { fill: rgba(255, 255, 255, 0.3); }
-.poppy-maos .punho { fill: var(--pp-plastico); stroke: rgba(3, 5, 18, 0.32); stroke-width: 2; }
-.poppy-maos .friso { stroke: #a99f86; stroke-width: 2.4; }
-.poppy-maos .rebite { fill: #7d7562; }
+.pp-guardar:active {
+  transform: scale(0.96);
+  background: linear-gradient(to bottom, rgba(255, 180, 94, 0.3), rgba(255, 138, 61, 0.16)), var(--vidro-forte, rgba(10, 14, 34, 0.88));
+}
+.pp-guardar:focus-visible {
+  outline: 2px solid var(--ouro, #e9c27a);
+  outline-offset: 4px;
+}
+.pp-guardar:disabled { cursor: default; }
+.poppy.guardando .pp-est { transition: opacity 260ms linear; opacity: 0 !important; }
 
-/* As faíscas do encaixe */
-.poppy-faiscas {
+/* As mãos em 2D e a fita desenhada só existem na versão plana. */
+.pp-e-maos { display: none; }
+
+/* ---- A versão plana: sem WebGL ou com movimento reduzido ----------------------- */
+#pergaminho .poppy-fundo.pp-plano,
+.poppy-fundo.pp-plano {
+  background:
+    radial-gradient(70% 34% at 50% 0%, rgba(255, 180, 94, 0.34), rgba(255, 180, 94, 0) 100%),
+    linear-gradient(to bottom, rgba(10, 26, 36, 0) 0 71%, rgba(10, 26, 36, 0.2) 71%, rgba(6, 9, 20, 0.86) 100%),
+    linear-gradient(to bottom, transparent 0 60%, #d5503f 60% 62.5%, #edb733 62.5% 65%, #3b83c6 65% 67.5%, #46a873 67.5% 70%, #1b242b 70% 71%, transparent 71%),
+    repeating-conic-gradient(#d9d1bb 0 25%, #33424d 0 50%) 50% 100% / 72px 72px,
+    #14303c;
+  background-repeat: no-repeat, no-repeat, no-repeat, repeat, no-repeat;
+}
+.poppy-fundo.pp-plano::before { /* a parede cobre o xadrez acima do rodapé */
+  content: "";
   position: absolute;
-  left: 0;
+  inset: 0 0 40% 0;
+  background:
+    radial-gradient(70% 56% at 50% 0%, rgba(255, 180, 94, 0.3), rgba(255, 180, 94, 0) 100%),
+    linear-gradient(to bottom, #10262f, #1a3a47);
+}
+.poppy.pp-plano .pp-palco {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2.75rem;
+  height: auto;
+  max-width: 27rem;
+  margin: 0 auto;
+  padding: 4.25rem 1.1rem 4.5rem;
+  overflow: visible;
+  pointer-events: auto;
+}
+.poppy.pp-plano .pp-palco::before { /* o fio vermelho desce por trás de tudo até o botão */
+  content: "";
+  position: absolute;
   top: 0;
-  width: 0;
-  height: 0;
-  pointer-events: none;
+  bottom: 7.6rem;
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--fio, #e3283c);
+  box-shadow: 0 0 10px 1px var(--fio-brilho, rgba(255, 64, 78, 0.55));
 }
-.poppy-faiscas .risco {
-  position: absolute;
-  left: -1.5px;
-  top: -9px;
-  width: 3px;
-  height: 18px;
-  border-radius: 2px;
-  background: var(--poppy-amarelo);
-  box-shadow: 0 0 6px rgba(246, 193, 45, 0.8);
-}
-.poppy-faiscas .risco.creme { background: #fff4e0; }
-.poppy-faiscas .anel {
-  position: absolute;
-  left: -24px;
-  top: -24px;
-  width: 48px;
-  height: 48px;
-  border: 3px solid var(--poppy-amarelo);
-  border-radius: 50%;
-}
-
-/* A fita entrando no aparelho */
-.poppy-vcr {
-  display: grid;
-  justify-items: center;
-  padding: var(--esp-4) 0;
-}
-.vcr-palco {
+.poppy.pp-plano .pp-est {
   position: relative;
-  width: min(100%, 420px);
+  width: 100%;
+  transform: translateY(18px);
+  will-change: auto;
+  -webkit-user-select: text;
+  user-select: text;
+  transition: opacity 420ms linear, transform 520ms var(--mola-firme, ease-out);
 }
-.vcr-aparelho {
-  position: relative;
-  z-index: 2;
+.poppy.pp-plano .pp-est.foco {
+  opacity: 1;
+  transform: none;
 }
-.vcr-aparelho-desenho,
-.vcr-cassete-desenho {
+.poppy.pp-plano .pp-est::before,
+.poppy.pp-plano .pp-est::after { content: none; }
+.poppy.pp-plano .pp-corpo { animation: none; }
+.poppy.pp-plano .pp-e-cartaz:nth-of-type(odd) .pp-corpo { transform: rotate(-0.8deg); }
+.poppy.pp-plano .pp-e-cartaz:nth-of-type(even) .pp-corpo { transform: rotate(0.7deg); }
+.poppy.pp-plano .pp-e-maos {
+  display: block;
+  width: min(78%, 16rem);
+}
+.pp-maos2d {
   display: block;
   width: 100%;
   height: auto;
+  filter: drop-shadow(0 8px 12px rgba(var(--pp-noite), 0.5));
 }
-.vcr-luz {
-  position: absolute;
-  left: 81.4%;
-  top: 26.5%;
-  width: 3.2%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: #3a2a1c;
-}
-.poppy-vcr.carregada .vcr-luz {
-  background: var(--chama);
-  box-shadow: var(--pp-lampada);
-  animation: poppy-respira 4.2s ease-in-out infinite alternate;
-}
-.vcr-boca {
-  position: relative;
-  z-index: 1;
-  margin-top: -3.6%;
-  aspect-ratio: 100 / 50;
-  overflow: hidden;
-}
-.vcr-cassete {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  width: 72%;
-  transform: translate3d(-50%, 0, 0);
-  will-change: transform;
-}
-.vcr-cassete-desenho .carretel {
-  transform-box: fill-box;
-  transform-origin: center;
-}
-.vcr-rotulo {
-  position: absolute;
-  left: 9%;
-  right: 9%;
-  top: 13.5%;
-  height: 31%;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 0.1em;
-  padding: 0 4%;
-  font-family: var(--fonte-mao);
-  font-weight: 600;
-  line-height: 1.15;
-  text-align: center;
-  color: #24161c;
-  transform: rotate(-1.4deg);
-}
-.vcr-rotulo-nome {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
-  font-size: clamp(0.8125rem, 3.4vw, 1.0625rem);
-}
-.vcr-rotulo-data {
-  font-size: clamp(0.75rem, 2.9vw, 0.875rem);
-  font-weight: 400;
-  color: #3b2a30;
-}
-.vcr-labio {
-  position: absolute;
-  z-index: 2;
-  left: 12%;
-  right: 12%;
-  top: 0;
-  height: 6%;
-  border-radius: 0 0 4px 4px;
-  background: #0a1114;
-  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
-}
-
-/* A esteira de brinquedos */
-.esteira-palco {
-  position: relative;
-  height: clamp(230px, 56vw, 300px);
-  -webkit-clip-path: inset(-40vh 0 0 0);
-  clip-path: inset(-40vh 0 0 0);
-}
-.esteira-chao {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 26%;
-  background: linear-gradient(to bottom, rgba(3, 5, 18, 0), rgba(3, 5, 18, 0.45));
-}
-.esteira-pe {
-  position: absolute;
-  top: calc(60% + 12px);
-  bottom: 8%;
-  width: 10px;
-  border-radius: 2px;
-  background: #22323a;
-}
-.esteira-pe.a { left: 12%; }
-.esteira-pe.b { left: 68%; }
-/* A saia de perigo em ladrilho de imagem: o gradiente diagonal repetido custava um quadro de 80 ms na primeira pintura. */
-.esteira-saia {
-  position: absolute;
-  left: 4%;
-  width: 74%;
-  top: calc(60% + 12px);
-  height: 22px;
-  border-radius: 0 0 4px 4px;
-  background: #141d22 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='22'%3E%3Crect width='26' height='22' fill='%23141d22'/%3E%3Cpath d='M0 22 13 0h13L13 22z' fill='%23f6c12d'/%3E%3C/svg%3E") 0 0 / 26px 22px repeat-x;
-}
-.esteira-lona {
-  position: absolute;
-  left: 2%;
-  width: 78%;
-  top: 60%;
-  height: 14px;
-  overflow: hidden;
-  border-radius: 7px;
-  background: #1c272c;
-}
-.esteira-ripas {
-  position: absolute;
-  left: -18px;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  background: repeating-linear-gradient(90deg, #34444c 0 3px, transparent 3px 18px);
-  will-change: transform;
-}
-.esteira-rolo {
-  position: absolute;
-  left: calc(80% - 19px);
-  top: calc(60% - 2px);
-  width: 18px;
-  height: 18px;
-  border: 3px solid #4b5c64;
-  border-top-color: #c9d2ce;
-  border-radius: 50%;
-  background: #1c272c;
-}
-.esteira-itens {
-  position: absolute;
-  inset: 0;
-  -webkit-clip-path: inset(0 -60px -200px -60px);
-  clip-path: inset(0 -60px -200px -60px);
-}
-.esteira-item {
-  position: absolute;
-  left: 0;
-  top: 0;
-  will-change: transform;
-}
-.esteira-peca svg { display: block; }
-.esteira-caixa {
-  width: max-content;
-  max-width: min(11em, 44vw);
-  padding: 8px 12px 10px;
-  border-radius: 6px;
-  background: var(--poppy-amarelo);
-  color: var(--pp-tinta);
-  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.2), inset 2px 2px 0 rgba(255, 255, 255, 0.25);
-  font-family: var(--fonte-brinquedo);
-  font-weight: 600;
-  font-size: clamp(0.9375rem, 3.6vw, 1.0625rem);
-  line-height: 1.15;
-  text-align: center;
-  text-wrap: balance;
-}
-.esteira-caixa.alta { padding-top: 16px; padding-bottom: 18px; }
-.esteira-caixa[data-cor="azul"] { background: #3a95da; }
-.esteira-caixa[data-cor="verde"] { background: #44b46c; }
-.esteira-caixa[data-cor="creme"] { background: var(--pp-plastico); }
-.esteira-caixa[data-cor="vermelho"] { background: #c4302a; color: #fff4e0; }
-.esteira-cacamba {
-  position: absolute;
-  right: 2%;
-  bottom: 0;
-  width: 17%;
-  height: 32%;
-  border-radius: 6px 6px 0 0;
-  background: #245d86;
-  box-shadow: inset 0 4px 0 rgba(255, 255, 255, 0.12), inset 0 -10px 0 rgba(0, 0, 0, 0.18);
-}
-/* A calha pintada uma vez: os gradientes e a máscara custavam ~100 ms ao entrar na tela. */
-.esteira-calha {
-  --calha-sobe: clamp(150px, 26vh, 260px);
-  position: absolute;
-  left: min(34%, 150px);
-  top: calc(-1 * var(--calha-sobe));
-  width: clamp(104px, 30vw, 136px);
-  height: calc(34% + var(--calha-sobe));
-  border-left: 6px solid #2a4c5c;
-  border-right: 6px solid #2a4c5c;
-  border-bottom: 8px solid var(--poppy-amarelo);
-  border-radius: 0 0 10px 10px;
-  background: #1f3a48;
-  transform: translateX(-50%);
-  will-change: transform;
-}
-
-/* A piscada do toque no movimento reduzido (bloco do título e caixa da esteira). */
-.poppy-bloco.piscou::before,
-.esteira-caixa.piscou::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  border-radius: inherit;
-  background: #fff4e0;
-  pointer-events: none;
-  animation: poppy-pisca 0.5s var(--curva-ui) both;
-}
-
-/* ---- A tecla STOP ------------------------------------------------------------------------------------- */
-.poppy-rodape {
-  display: grid;
-  justify-items: center;
-  padding-top: var(--esp-6);
-}
-.poppy-painel {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 18px;
-  padding: 14px 16px 14px 24px;
-  border: 1px solid var(--fio-ouro);
-  border-radius: 22px;
+.pp-maos2d .cabo { fill: none; stroke: #0f161b; stroke-width: 5; stroke-linecap: round; }
+.pp-maos2d .azul { fill: #3b83c6; }
+.pp-maos2d .rubra { fill: #d5503f; }
+.pp-maos2d .anel { fill: #f1e9d2; }
+.pp-maos2d .faisca { fill: none; stroke: var(--ouro-claro, #f6dca6); stroke-width: 3; stroke-linecap: round; }
+.poppy.pp-plano .pp-e-fita,
+.poppy.pp-plano .pp-e-esteira,
+.poppy.pp-plano .pp-e-fim { width: min(100%, 19rem); }
+.poppy.pp-plano .pp-e-esteira { width: min(78%, 15rem); }
+.poppy.pp-plano .pp-tags::before { content: none; }
+.poppy.pp-plano .pp-tags { align-items: center; }
+.poppy.pp-plano .pp-tag,
+.poppy.pp-plano .pp-tag:nth-child(even) { margin-left: 0; }
+.poppy.pp-plano .pp-tag::before { left: 1.05rem; }
+.poppy.pp-plano .pp-cassete {
+  display: block;
+  width: 11.5rem;
+  height: 6.8rem;
+  margin: 0 auto 1.6rem;
+  border-radius: 10px;
   background:
-  radial-gradient(ellipse 60% 120% at 0% 50%, rgba(255, 180, 94, 0.16), transparent 70%),
-  var(--vidro-forte);
-  box-shadow: inset 0 1px 0 rgba(246, 220, 166, 0.14), var(--pp-sombra);
+    radial-gradient(circle at 34% 68%, #e8e2d2 0 12%, #0d1114 12.5% 15%, transparent 15.5%),
+    radial-gradient(circle at 66% 68%, #e8e2d2 0 12%, #0d1114 12.5% 15%, transparent 15.5%),
+    linear-gradient(#0d1114, #0d1114) 50% 78% / 62% 38% no-repeat,
+    linear-gradient(#edb733, #edb733) 50% 10% / 82% 6% no-repeat,
+    linear-gradient(var(--pp-papel), var(--pp-papel)) 50% 14% / 82% 30% no-repeat,
+    #1c2228;
+  box-shadow: 0 14px 26px rgba(var(--pp-noite), 0.55), inset 0 0 0 2px rgba(255, 255, 255, 0.08);
 }
-.poppy-painel-luz {
-  position: relative;
-  flex: none;
-  width: 12px;
-  height: 14px;
-  border-radius: 46% 46% 40% 40% / 30% 30% 22% 22%;
-  background: radial-gradient(circle at 50% 60%, #fff3d6, var(--chama) 55%, var(--brasa));
-  box-shadow: 0 -3px 0 -1px #2a2233, 0 3px 0 -1px #2a2233;
-}
-/* A lâmpada do painel é uma lanterninha: o halo respira enquanto a fita roda. */
-.poppy-painel-luz::after {
+.poppy.pp-plano .pp-e-fita .pp-etiqueta::after { /* o barbante que liga a etiqueta à fita */
   content: "";
   position: absolute;
-  inset: -14px;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(255, 180, 94, 0.6), rgba(255, 138, 61, 0.16) 55%, transparent);
+  bottom: 100%;
+  left: 50%;
+  width: 2px;
+  height: 1.7rem;
+  margin: 0 0 -0.6rem -1px;
+  background: #cfc3a4;
+}
+.poppy.pp-plano .pp-e-fim .pp-corpo {
+  opacity: 1;
+  transform: none;
+}
+.poppy.pp-plano .pp-luz {
+  position: fixed;
+  background: none;
   pointer-events: none;
-  animation: poppy-respira 3.8s ease-in-out infinite alternate;
-}
-.poppy-rodape.desligado .poppy-painel-luz {
-  background: #3a2a1c;
-}
-.poppy-rodape.desligado .poppy-painel-luz::after { animation: none; opacity: 0; transition: opacity 180ms var(--curva-sair); }
-/* O botão não recebe toque enquanto cai. */
-.poppy-rodape.chegando .poppy-fechar { pointer-events: none; }
-.poppy-fechar {
-  position: relative;
-  min-width: 60px;
-  min-height: 60px;
-  padding: 0 0 6px;
-  border-radius: 14px;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-}
-/* A espessura da tecla fica parada; só a face afunda. */
-.poppy-fechar::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 6px;
-  bottom: 0;
-  border-radius: 13px;
-  background: linear-gradient(to bottom, var(--ouro-escuro), #7d5a22);
-  box-shadow: 0 6px 14px -4px rgba(3, 5, 18, 0.7);
-}
-.poppy-tecla {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  min-height: 54px;
-  padding: 0 22px 0 18px;
-  border-radius: 13px;
-  background: linear-gradient(to bottom, #fff6e0, var(--papel) 45%, var(--papel-sombra));
-  color: var(--tinta);
-  box-shadow: inset 0 -2px 0 rgba(169, 124, 53, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  font-family: var(--fonte-brinquedo);
-  font-weight: 600;
-  font-size: var(--texto-subtitulo);
-  line-height: 1.1;
-  transition: transform var(--dur-mola) var(--mola);
-}
-.poppy-fechar.so-desenho .poppy-tecla { padding: 0 18px; }
-.poppy-tecla-icone {
-  display: inline-grid;
-  place-items: center;
-  color: #8a5f1e;
-}
-.poppy-tecla-icone .ui-icone { width: 18px; height: 18px; }
-.poppy-fechar:active .poppy-tecla,
-.poppy-fechar.apertada .poppy-tecla { transform: translateY(5px); transition: transform 90ms var(--curva-ui); }
-.poppy-fechar[disabled] { cursor: default; }
-@media (hover: hover) and (pointer: fine) {
-  .poppy-fechar:hover .poppy-tecla { transform: translateY(-1px); }
-  .poppy-fechar:active .poppy-tecla,
-  .poppy-fechar.apertada .poppy-tecla { transform: translateY(5px); }
 }
 
-/* ---- Os brinquedos são desenho: brincar com eles não seleciona a letra nem abre o menu do iPhone. ---- */
-.poppy-pilha,
-.poppy-logo,
-.poppy-cena,
-.poppy-tecla,
-.poppy-osd {
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-  -webkit-tap-highlight-color: transparent;
+/* ---- Movimento ------------------------------------------------------------------- */
+@keyframes pp-grao {
+  0% { transform: translate(0, 0); }
+  20% { transform: translate(-31px, 17px); }
+  40% { transform: translate(23px, -42px); }
+  60% { transform: translate(-47px, -9px); }
+  80% { transform: translate(38px, 29px); }
+  100% { transform: translate(0, 0); }
 }
-
-/* ---- Celular deitado: o adesivo e a pilha não cabem um em cima do outro. ---------------------------- */
-@media (max-height: 480px) and (orientation: landscape) {
-  .poppy-cabeca.com-logo {
-    grid-template-columns: auto minmax(0, 1fr);
-    column-gap: var(--esp-5);
-    align-items: center;
-  }
-  .poppy-cabeca.com-logo .poppy-logo {
-    width: calc(var(--tela) * 0.42);
-    margin-bottom: 0;
-  }
-  .poppy-cabeca.com-logo .poppy-subtitulo { grid-column: 1 / -1; }
+@keyframes pp-tracking {
+  from { transform: translateY(0); }
+  to { transform: translateY(1400%); }
 }
-
-/* ---- Movimento reduzido: a versão calma continua viva -------------------------------------------------- */
-html.reduzido .poppy-osd-modo.visivel,
-html.reduzido .poppy-contador.visivel { animation: none; }
-html.reduzido .poppy-tecla { transition: none; }
-html.reduzido .poppy-cabeca.digitado .poppy-cursor { visibility: hidden; }
-html.reduzido .poppy-leve-chuvisco { animation: none; opacity: 0.04; }
-html.reduzido .poppy-tarja::before,
-html.reduzido .poppy-papel::after,
-html.reduzido .poppy-painel-luz::after,
-html.reduzido .poppy-monitor.ligado .luz,
-html.reduzido .poppy-vcr.carregada .vcr-luz { animation: none; }
-@media (prefers-reduced-motion: reduce) {
-  .poppy-tarja::before,
-  .poppy-papel::after,
-  .poppy-painel-luz::after,
-  .poppy-monitor.ligado .luz,
-  .poppy-vcr.carregada .vcr-luz { animation: none; }
-  .poppy-tecla { transition: none; }
+@keyframes pp-balanco {
+  from { rotate: -0.45deg; }
+  to { rotate: 0.45deg; }
 }
-
-/* ---- Movimentos --------------------------------------------------------------------------------------- */
-@keyframes poppy-corte {
-  0% { opacity: 0; transform: translateX(-8px); }
-  50% { opacity: 1; transform: translateX(5px); }
-  100% { opacity: 1; transform: none; }
-}
-@keyframes poppy-tremor {
-  0% { translate: -6px 0; }
-  50% { translate: 8px 1px; }
-  100% { translate: -2px 0; }
-}
-@keyframes poppy-chuvisco {
-  0% { transform: translate3d(0, 0, 0); }
-  25% { transform: translate3d(-31px, 17px, 0); }
-  50% { transform: translate3d(23px, -41px, 0); }
-  75% { transform: translate3d(-53px, -11px, 0); }
-}
-/* A luz respira, não pisca: só a opacidade, devagar. */
-@keyframes poppy-respira {
-  from { opacity: 0.62; }
+@keyframes pp-respira {
+  from { opacity: 0.72; }
   to { opacity: 1; }
 }
-@keyframes poppy-pisca {
-  from { opacity: 0.9; }
-  to { opacity: 0; }
+@keyframes pp-cair {
+  from { translate: 0 -70vh; }
+  to { translate: 0 0; }
+}
+
+@media (min-width: 700px) {
+  .pp-est { width: min(70%, 26rem); }
+  .pp-e-fita { width: min(50%, 17rem); }
+  .pp-e-esteira { width: min(44%, 15rem); }
+}
+@media (max-height: 520px) {
+  .pp-e-cartaz .pp-corpo { padding-top: 1.1rem; font-size: 0.9375rem; line-height: 1.45; }
+  .pp-e-monitor .pp-texto { font-size: 1.1875rem; }
+  .pp-titulo { font-size: 1.5rem; }
+}
+@media (hover: hover) and (pointer: fine) {
+  .pp-guardar:hover { background: linear-gradient(to bottom, rgba(255, 180, 94, 0.18), rgba(255, 138, 61, 0.08)), var(--vidro-forte, rgba(10, 14, 34, 0.88)); }
+}
+
+html.reduzido .pp-grao,
+html.reduzido .pp-varredura::after,
+html.reduzido .pp-corpo,
+html.reduzido .pp-e-monitor .pp-corpo::before { animation: none; }
+html.reduzido .poppy.pp-plano .pp-est,
+html.reduzido .pp-tag {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+html.reduzido .pp-guardar,
+html.reduzido .pp-palco { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .pp-grao,
+  .pp-varredura::after,
+  .pp-corpo,
+  .pp-e-monitor .pp-corpo::before { animation: none; }
 }

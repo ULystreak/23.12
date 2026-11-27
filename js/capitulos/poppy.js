@@ -1,96 +1,85 @@
 /* ============================================================================
-   CAPÍTULO 1: O JOGO (uma fita VHS achada numa fábrica de brinquedos)
+   CAPÍTULO 1: O JOGO (uma fita VHS gravada dentro da fábrica de brinquedos)
    ============================================================================
-   Exporta `capitulo = { id: 'poppy', montar(raiz, api) }`. Dentro da folha que
-   o pergaminho desenrola, monta a camada do videocassete (osd.js), o corpo
-   (título em blocos, cartões de texto, monitores de imagem, as três cenas e a
-   tecla de parar) e um laço de quadro só, que alimenta o fundo, o contador do
-   OSD e só as cenas que estão na tela.
-   Fluxo: o fundo é aquecido com a primeira carta parada; montagem; abertura
-   (tela de espera, PLAY, engasgo, logo e título caem, subtítulo digitado);
-   os blocos entram conforme a rolagem; STOP desliga a TV e chama api.fechar().
-   api = { conteudo, amb, som, rolagem, fundo, gsap, recursos, fechar(), aberto }.
+   Exporta `capitulo = { id: 'poppy', montar(raiz, api) }`; montar devolve
+   { destruir() }. api = { conteudo, amb, som, rolagem, fundo, gsap, recursos,
+   fechar(), aberto }.
+   A folha vira um corredor de fábrica em 3D (poppy/corredor.js), num canvas
+   próprio dentro do fundo do pergaminho. A rolagem não move o texto: move a
+   câmera, com amortecimento. Cada bloco do content.js é uma PARADA do corredor;
+   o HTML de cada parada (cartaz, monitor de tubo, etiqueta) fica num palco
+   preso à janela e é projetado, quadro a quadro, no ponto do mundo em que o
+   suporte está pendurado: chega pequeno na névoa, para no foco em tamanho real
+   e é recolhido para o teto quando ela passa.
+   Sem WebGL (?webgl=0, html.sem-webgl) ou com movimento reduzido, a classe
+   `pp-plano` troca tudo por uma coluna 2D com os mesmos textos, na mesma ordem.
+   Classes de estado postas aqui: aguardando, pp-plano, foco, pp-chegou,
+   guardando (raiz); visivel (rótulo do OSD).
    ========================================================================== */
 
 import { carregarImagem, clamp, el, espera, svg } from '../nucleo/util.js';
-import { comoPromise } from '../nucleo/movimento.js';
-import { criarFundo, aquecerFundo } from './poppy/fundo.js';
-import { criarOsd } from './poppy/osd.js';
-import { criarTitulo } from './poppy/titulo.js';
-import { criarCartao, criarMonitor } from './poppy/cartao.js';
-import { criarMaos } from './poppy/maos.js';
-import { criarFita } from './poppy/fita.js';
-import { criarEsteira } from './poppy/esteira.js';
+import { criarCorredor, D, DF, OLHO } from './poppy/corredor.js';
 
-const CENAS = { maos: criarMaos, fita: criarFita, esteira: criarEsteira };
-
-// A tecla de ejetar do videocassete: um triângulo sobre uma barra.
-const ICONE_PARAR = `<svg class="ui-icone" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-  <path class="cheio" d="M12 3.6l8.4 10.2H3.6z"/>
-  <rect class="cheio" x="4" y="17" width="16" height="3.6" rx="1.4"/>
-</svg>`;
-
-const PRAZO_IMAGENS = 7000; // um pedido que nunca responde não segura a folha em branco
-const AQUECER_DEPOIS = 600;
-const TOQUE_MAX = 8; // px entre o pointerdown e o pointerup de um toque de verdade
-const FOLGA_LEITURA = 14; // o OSD pode passar pela borda do vidro
+const PASSO = 0.86; // quanto de rolagem (em alturas de janela) separa duas paradas
+const PRAZO_IMAGENS = 7000;
+const AMORTECE = 6.5;
 
 const texto = (v) => (typeof v === 'string' ? v.trim() : '');
+const suave = (a, b, x) => {
+  const t = clamp((x - a) / (b - a));
+  return t * t * (3 - 2 * t);
+};
 
-// O logo já fica no cache quando a montagem acontecer.
+// Duas mãos de brinquedo que se encontram: só aparecem na versão plana.
+const MAOS_2D = `<svg class="pp-maos2d" viewBox="0 0 240 96" aria-hidden="true" focusable="false">
+  <path class="cabo" d="M0 30 Q30 52 62 48"/><path class="cabo" d="M240 30 Q210 52 178 48"/>
+  <g class="mao azul"><rect x="56" y="36" width="16" height="24" rx="4"/><rect class="anel" x="70" y="33" width="6" height="30" rx="3"/>
+    <ellipse cx="88" cy="48" rx="14" ry="16"/><rect x="94" y="33" width="24" height="8" rx="4"/><rect x="96" y="42" width="24" height="8" rx="4"/>
+    <rect x="94" y="51" width="24" height="8" rx="4"/><rect x="92" y="60" width="20" height="7" rx="3.5"/><rect x="80" y="22" width="9" height="18" rx="4.5"/></g>
+  <g class="mao rubra"><rect x="168" y="36" width="16" height="24" rx="4"/><rect class="anel" x="164" y="33" width="6" height="30" rx="3"/>
+    <ellipse cx="152" cy="48" rx="14" ry="16"/><rect x="122" y="33" width="24" height="8" rx="4"/><rect x="120" y="42" width="24" height="8" rx="4"/>
+    <rect x="122" y="51" width="24" height="8" rx="4"/><rect x="128" y="60" width="20" height="7" rx="3.5"/><rect x="151" y="22" width="9" height="18" rx="4.5"/></g>
+  <path class="faisca" d="M120 8v14M108 14l7 9M132 14l-7 9M120 88V74M108 82l7-9M132 82l-7-9"/>
+</svg>`;
+
+// Com a carta ainda fechada, o logo e o motor 3D já ficam no cache.
 carregarImagem(texto(window.CONTEUDO?.poppy?.logo));
+const pedirTres = () => import('../../lib/three.module.min.js');
 
-// Com a primeira carta parada à frente dela, aquece o fundo (contexto WebGL,
-// programa e fábrica) em passos ociosos: o quadro em que o capítulo monta fica
-// leve. Com imagem do autor, ou sem WebGL, a fábrica desenhada não é usada.
-const pararVigia = (() => {
-  const html = document.documentElement;
-  if (html.classList.contains('sem-webgl') || texto(window.CONTEUDO?.poppy?.fundo)) return () => {};
-  let timer = 0;
-  const observador = new MutationObserver(conferir);
-  function conferir() {
-    if (html.dataset.cena === 'inicio' && html.dataset.etapa === 'carta-espera') {
-      observador.disconnect();
-      timer = setTimeout(aquecerFundo, AQUECER_DEPOIS);
-    }
-  }
-  observador.observe(html, { attributes: true, attributeFilter: ['data-cena', 'data-etapa'] });
-  conferir();
-  return () => {
-    observador.disconnect();
-    clearTimeout(timer);
-  };
-})();
+function segundos(marca) {
+  const partes = texto(marca).split(':').map(Number);
+  if (!partes.length || partes.some((p) => !Number.isFinite(p))) return 0;
+  return partes.reduce((soma, p) => soma * 60 + p, 0);
+}
+function relogio(s) {
+  const t = Math.max(0, Math.round(s));
+  const dois = (x) => String(x).padStart(2, '0');
+  return `${Math.floor(t / 3600)}:${dois(Math.floor(t / 60) % 60)}:${dois(t % 60)}`;
+}
+
+/** A câmera anda entre as paradas e quase para em cada uma: dá tempo de ler. */
+function caminho(s, n) {
+  const i = Math.round(s);
+  const f = s - i;
+  const u = i + Math.sign(f) * 0.5 * Math.pow(Math.abs(f) * 2, 3.4);
+  return clamp(u, 0, n - 1);
+}
 
 export const capitulo = {
   id: 'poppy',
 
   async montar(raiz, api) {
-    // Sem isto o aquecimento pendente poderia disparar depois da montagem.
-    pararVigia();
-    const { conteudo, amb = {}, som, rolagem, gsap, recursos } = api;
+    const { conteudo, amb = {}, som, rolagem, recursos } = api;
     const c = conteudo?.poppy || {};
     const rotulos = c.osd && typeof c.osd === 'object' ? c.osd : {};
+    const html = document.documentElement;
     let vivo = true;
     const limpezas = [];
-    const animacoes = new Set();
-    const falhas = new Set();
-
-    // Guarda cada animação para destruir() matar só as deste capítulo.
-    const anima = (a) => {
-      if (!a) return a;
-      if (animacoes.size > 80) {
-        for (const x of animacoes) if (!x.isActive?.() && x.progress?.() === 1) animacoes.delete(x);
-      }
-      animacoes.add(a);
-      return a;
-    };
 
     raiz.classList.add('poppy', 'aguardando');
     api.fundo?.classList.add('poppy-fundo');
 
-    /* ---- pedidos, todos com o mesmo prazo ---------------------------------- */
-    // As imagens dos blocos correm junto com o fundo: um fundo pendurado não leva as que chegaram.
+    /* ---- pedidos, todos com o mesmo prazo ------------------------------------ */
     const prazo = espera(PRAZO_IMAGENS).then(() => null);
     const comPrazo = (pedido) => Promise.race([Promise.resolve(pedido).catch(() => null), prazo]);
     const blocos = Array.isArray(c.blocos) ? c.blocos : [];
@@ -98,228 +87,236 @@ export const capitulo = {
       ? comPrazo(recursos?.elementoImagem?.(texto(b.arquivo), texto(b.alt)))
       : null));
     const pedidoLogo = texto(c.logo) ? comPrazo(recursos?.elementoImagem?.(texto(c.logo), texto(c.logoAlt))) : null;
-    const pedidoFundo = texto(c.fundo) ? comPrazo(recursos?.imagem?.(texto(c.fundo))) : null;
+    const quer3d = !!amb.webgl && !amb.reduzido && !html.classList.contains('sem-webgl') && !html.classList.contains('reduzido');
+    const pedidoTres = quer3d ? comPrazo(pedirTres()) : null;
+    const [logo, imagens, THREE] = await Promise.all([pedidoLogo, Promise.all(pedidosImagem), pedidoTres]);
 
-    // Sem a imagem do autor (ou se ela não chegou), o fundo desenha a fábrica.
-    const fundo = criarFundo({ recipiente: api.fundo, amb, imagem: (await pedidoFundo) || null });
-    const osd = criarOsd({ rotulos, contadorFinal: c.contadorFinal });
-    const corpo = el('div', 'poppy-corpo');
-    raiz.append(osd.el, corpo);
+    /* ---- as paradas, na ordem do content.js ------------------------------------ */
+    // { tipo, el, desvio (m, para que lado a câmera pende), olhar (rad), oy (m, altura do suporte) }
+    const paradas = [];
+    const parada = (tipo, tag, classe, filhos, extra = {}) => {
+      const no = el(tag, { class: `pp-est ${classe}`, ...extra.attrs }, filhos);
+      paradas.push({ tipo, el: no, desvio: 0, olhar: 0, oy: 0, ox: 0, ...extra, attrs: undefined });
+      return no;
+    };
 
-    /* ---- tempo real do OSD e as duas ferramentas que as cenas recebem ------- */
-    let agora = 0;
-    let modoAte = 0;
-    let modoFixo = null;
-    let zonas = null; // as caixas do modo e do contador (osd.zonas), lidas em medir()
+    const logoEl = logo ? (logo.classList.add('pp-logo'), logo) : null;
+    parada('titulo', 'header', 'pp-e-titulo', el('div', 'pp-corpo', [
+      logoEl,
+      texto(c.titulo) ? el('h2', { class: 'pp-titulo', texto: texto(c.titulo) }) : null,
+      texto(c.subtitulo) ? el('p', 'pp-sub', el('span', { texto: texto(c.subtitulo) })) : null,
+    ]), { oy: 0.04 });
 
-    function piscarModo(nome, ms) {
-      if (modoFixo || !vivo) return;
-      if (osd.modoAtual !== nome) {
-        osd.modo(nome);
-        // O rótulo novo muda a caixa do modo; o modo acabou de forçar o layout, ler agora é barato.
-        if (zonas) zonas = osd.zonas();
-      }
-      modoAte = agora + ms / 1000;
-    }
-
-    let topoTela = 0;
-    let alturaTela = innerHeight;
-
-    // O engasgo da fita: o fundo tropeça e o que está na tela pula em degraus.
-    function falha(forca = 1, ms = 140) {
-      if (amb.reduzido || !vivo) return;
-      fundo.falha(forca, ms);
-      if (typeof Element.prototype.animate !== 'function') return;
-      const dx = 7 + 6 * forca;
-      const quadros = [
-        { translate: `${-dx}px 0px` },
-        { translate: `${1.4 * dx}px -2px` },
-        { translate: `${-0.5 * dx}px 1px` },
-        { translate: `${0.7 * dx}px 0px` },
-        { translate: '0px 0px' },
-      ];
-      for (const filho of corpo.children) {
-        const r = filho.getBoundingClientRect();
-        if (r.bottom <= topoTela || r.top >= topoTela + alturaTela) continue;
-        const a = filho.animate(quadros, { duration: Math.max(60, ms), easing: 'steps(1)' });
-        falhas.add(a);
-        a.onfinish = () => falhas.delete(a);
-      }
-    }
-
-    /* ---- título e blocos, na ordem do content.js -------------------------- */
-    const logo = await pedidoLogo;
-    const titulo = criarTitulo({ texto: c.titulo, subtitulo: c.subtitulo, logo, amb, gsap, anima, som });
-    corpo.append(titulo.el);
-
-    const imagens = await Promise.all(pedidosImagem);
-    const entradas = [];
-    const cenas = [];
-    const ctxCena = { amb, gsap, som, anima, falha, piscarModo };
     let nTexto = 0;
-    let nMonitor = 0;
+    let nLado = 0;
+    const lado = () => ((nLado++) % 2 ? 0.3 : -0.3);
     blocos.forEach((b, i) => {
       if (b?.tipo === 'texto' && texto(b.texto)) {
-        const cartao = criarCartao({ texto: b.texto, indice: nTexto++, amb, gsap, anima });
-        corpo.append(cartao.el);
-        entradas.push(cartao);
+        const monitor = nTexto % 2 === 1;
+        parada('texto', 'section', `${monitor ? 'pp-e-monitor' : 'pp-e-cartaz'} pp-v${nTexto % 4}`,
+          el('div', 'pp-corpo', el('p', { class: 'pp-texto', texto: texto(b.texto) })), { desvio: lado() });
+        nTexto += 1;
       } else if (b?.tipo === 'imagem' && imagens[i]) {
-        const monitor = criarMonitor({ img: imagens[i], legenda: b.legenda, indice: nMonitor++, amb, gsap, anima });
-        corpo.append(monitor.el);
-        entradas.push(monitor);
-      } else if (b?.tipo === 'cena' && Object.hasOwn(CENAS, b.cena)) {
-        const cena = CENAS[b.cena](b, ctxCena);
-        cena.visivel = false;
-        corpo.append(cena.el);
-        cenas.push(cena);
+        imagens[i].classList.add('pp-imagem');
+        parada('imagem', 'figure', 'pp-e-monitor pp-e-imagem', el('div', 'pp-corpo', [
+          imagens[i],
+          texto(b.legenda) ? el('figcaption', { class: 'pp-texto', texto: texto(b.legenda) }) : null,
+        ]), { desvio: lado() });
+      } else if (b?.tipo === 'cena' && b.cena === 'maos') {
+        parada('maos', 'div', 'pp-e-maos', svg(MAOS_2D), { attrs: { 'aria-hidden': 'true' }, so2d: true });
+      } else if (b?.tipo === 'cena' && b.cena === 'fita') {
+        const tem = texto(b.etiqueta) || texto(b.data);
+        parada('fita', 'section', 'pp-e-fita', el('div', 'pp-corpo', [
+          el('i', { class: 'pp-cassete', 'aria-hidden': 'true' }),
+          tem ? el('p', 'pp-etiqueta', [
+            texto(b.etiqueta) ? el('strong', { texto: texto(b.etiqueta) }) : null,
+            texto(b.data) ? el('span', { texto: texto(b.data) }) : null,
+          ]) : null,
+        ]), { oy: -0.5, so2d: !tem });
+      } else if (b?.tipo === 'cena' && b.cena === 'esteira') {
+        const itens = (Array.isArray(b.itens) ? b.itens : []).map(texto).filter(Boolean);
+        parada('esteira', 'section', 'pp-e-esteira', el('ul', 'pp-corpo pp-tags',
+          itens.map((t, k) => el('li', { class: `pp-tag pp-v${k % 4}`, style: `--i:${k}` }, el('span', { texto: t })))),
+        { desvio: -0.45, olhar: -0.2, ox: -0.3, so2d: !itens.length });
       }
     });
 
-    /* ---- a tecla STOP --------------------------------------------------------- */
     const textoFechar = texto(c.fechar);
-    const tecla = el('span', 'poppy-tecla', [
-      el('span', 'poppy-tecla-icone', svg(ICONE_PARAR)),
-      textoFechar ? el('span', { class: 'poppy-tecla-texto', texto: textoFechar }) : null,
-    ]);
     const botao = el('button', {
       type: 'button',
-      class: textoFechar ? 'poppy-fechar' : 'poppy-fechar so-desenho',
+      class: 'pp-guardar',
       'data-acao': 'fechar-capitulo',
-      'aria-label': textoFechar ? null : texto(rotulos.parar) || 'Parar a fita',
-    }, tecla);
-    // Sem um touchstart, o :active não acende no iPhone.
-    botao.addEventListener('touchstart', () => {}, { passive: true });
-    const luz = el('i', { class: 'poppy-painel-luz', 'aria-hidden': 'true' });
-    const rodape = el('footer', 'poppy-rodape poppy-entra', el('div', 'poppy-painel', [luz, botao]));
-    corpo.append(rodape);
+      'aria-label': textoFechar ? null : texto(rotulos.parar) || 'Fechar',
+    }, [
+      svg('<svg class="ui-icone" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 20s-7-4.4-7-9.6A3.9 3.9 0 0 1 12 8a3.9 3.9 0 0 1 7 2.4C19 15.6 12 20 12 20z"/></svg>'),
+      textoFechar ? el('span', { texto: textoFechar }) : null,
+    ]);
+    botao.addEventListener('touchstart', () => {}, { passive: true }); // sem isto o :active não acende no iPhone
+    parada('fim', 'footer', 'pp-e-fim', el('div', 'pp-corpo', [el('i', { class: 'pp-no', 'aria-hidden': 'true' }), botao]));
+    const n = paradas.length;
+    const fim = paradas[n - 1];
 
-    let rodapeEntrou = false;
-    entradas.push({
-      el: rodape,
-      entrar({ imediato = false } = {}) {
-        if (rodapeEntrou) return;
-        rodapeEntrou = true;
-        rodape.classList.remove('poppy-entra');
-        if (imediato) return;
-        if (amb.reduzido) {
-          anima(gsap.fromTo(rodape, { opacity: 0 }, { opacity: 1, duration: 0.5, ease: 'none' }));
-          return;
-        }
-        // Um dedo que pousa na tecla enquanto ela cai não pode soltar fora dela.
-        rodape.classList.add('chegando');
-        const chegou = () => rodape.classList.remove('chegando');
-        anima(gsap.fromTo(rodape, { y: -70, scale: 0.94 }, {
-          y: 0, scale: 1, duration: 0.6, ease: 'back.out(2)', onComplete: chegou, onInterrupt: chegou,
-        }));
-      },
-    });
+    /* ---- a camada do videocassete e o palco -------------------------------------- */
+    const modoEl = el('span', 'pp-modo');
+    const contadorEl = el('span', { class: 'pp-contador', texto: relogio(0) });
+    const osd = el('div', { class: 'pp-osd', 'aria-hidden': 'true' }, el('div', 'pp-tela', [
+      el('i', 'pp-grao'), el('i', 'pp-varredura'), modoEl, contadorEl,
+    ]));
+    const luzFinal = el('i', { class: 'pp-luz', 'aria-hidden': 'true' });
+    const palco = el('div', 'pp-palco', [luzFinal, ...paradas.map((p) => p.el)]);
+    const trilho = el('div', { class: 'pp-trilho', 'aria-hidden': 'true' });
+    raiz.append(osd, palco, trilho);
 
-    /* ---- toque: só um toque de verdade, rolar a folha não toca em nada ------- */
-    titulo.preparar();
-    let toque = null;
-    const aoPousar = (e) => { toque = { x: e.clientX, y: e.clientY, alvo: e.target }; };
-    const aoSoltar = (e) => {
-      const t = toque;
-      toque = null;
-      if (!t || !vivo || Math.hypot(e.clientX - t.x, e.clientY - t.y) >= TOQUE_MAX) return;
-      if (!(t.alvo instanceof Element)) return;
-      titulo.tocar(t.alvo);
-      for (const cena of cenas) cena.tocar?.(t.alvo);
-    };
-    const aoCancelar = () => { toque = null; };
-    corpo.addEventListener('pointerdown', aoPousar, { passive: true });
-    corpo.addEventListener('pointerup', aoSoltar, { passive: true });
-    corpo.addEventListener('pointercancel', aoCancelar, { passive: true });
-
-    /* ---- medidas -------------------------------------------------------------- */
     const janela = rolagem?.el || raiz.parentElement || raiz;
-    let leituras = [];
-    let raizTopo = 0;
+    let alturaTela = janela.clientHeight || innerHeight;
+    let larguraTela = janela.clientWidth || innerWidth;
 
-    // Os textos que ela precisa ler, em coordenadas do conteúdo (y) e da raiz (x).
-    function medirLeituras() {
-      const rj = janela.getBoundingClientRect();
-      const rr = raiz.getBoundingClientRect();
-      const sy = janela.scrollTop || 0;
-      raizTopo = rr.top - rj.top + sy;
-      leituras = [...corpo.querySelectorAll('.poppy-cartao, .poppy-monitor-legenda, .poppy-subtitulo, .poppy-painel')].map((n) => {
-        const r = n.getBoundingClientRect();
-        return { topo: r.top - rj.top + sy, base: r.bottom - rj.top + sy, esq: r.left - rr.left, dir: r.right - rr.left };
-      });
+    /* ---- o corredor (ou a versão plana) ------------------------------------------- */
+    let corredor = null;
+    function ficarPlano() {
+      corredor?.destruir();
+      corredor = null;
+      raiz.classList.add('pp-plano');
+      api.fundo?.classList.add('pp-plano');
+      for (const p of paradas) {
+        p.el.style.removeProperty('transform');
+        p.el.style.removeProperty('opacity');
+        p.el.style.removeProperty('z-index');
+        p.el.classList.add('foco');
+      }
+      raiz.classList.add('pp-chegou');
+      luzFinal.style.removeProperty('opacity');
+      trilho.style.height = '';
     }
+    if (THREE && api.fundo) {
+      try {
+        corredor = criarCorredor({
+          THREE,
+          recipiente: api.fundo,
+          amb,
+          n,
+          desvios: paradas.map((p) => p.desvio),
+          olhares: paradas.map((p) => p.olhar),
+          cenas: {
+            maos: paradas.findIndex((p) => p.tipo === 'maos'),
+            fita: paradas.findIndex((p) => p.tipo === 'fita'),
+            esteira: paradas.findIndex((p) => p.tipo === 'esteira'),
+          },
+          aoFaiscar: () => som?.efeito?.('brilho'),
+          aoPerder: () => { if (vivo) ficarPlano(); },
+        });
+      } catch (erro) {
+        console.warn('[carta] a fábrica em 3D não subiu; segue a versão plana', erro);
+        corredor = null;
+      }
+    }
+    if (!corredor) ficarPlano();
+
+    // Onde cada suporte está pendurado no mundo: DF metros à frente da câmera parada.
+    paradas.forEach((p, i) => {
+      const cos = Math.cos(p.olhar);
+      const sen = Math.sin(p.olhar);
+      p.ancora = i === n - 1 && corredor ? corredor.ancoraFim : {
+        x: p.desvio + p.ox * cos - DF * sen,
+        y: OLHO + p.oy,
+        z: -i * D - p.ox * sen - DF * cos,
+      };
+      p.visto = null;
+      if (corredor) p.el.style.zIndex = String(n - i);
+    });
 
     function medir() {
       if (!vivo) return;
       alturaTela = janela.clientHeight || innerHeight;
-      topoTela = janela.getBoundingClientRect().top;
-      osd.medir(alturaTela);
-      for (const cena of cenas) cena.medir?.();
-      medirLeituras();
-      zonas = osd.zonas();
+      larguraTela = janela.clientWidth || innerWidth;
+      raiz.style.setProperty('--pp-h', `${alturaTela}px`);
+      trilho.style.height = corredor ? `${Math.round((n - 1) * PASSO * alturaTela)}px` : '';
+      corredor?.medir();
     }
-
-    // O videocassete apaga o modo ou o contador enquanto um texto passa por baixo.
-    function vigiarOsd(y) {
-      if (modoFixo || !zonas) return; // STOP fica sempre por cima
-      const telaTopo = Math.max(y, raizTopo);
-      const sob = (z) => !!z && leituras.some((l) => l.base > telaTopo + z.topo - FOLGA_LEITURA
-        && l.topo < telaTopo + z.base + FOLGA_LEITURA
-        && l.dir > z.esq - FOLGA_LEITURA
-        && l.esq < z.dir + FOLGA_LEITURA);
-      osd.encobrir('modo', sob(zonas.modo));
-      osd.encobrir('contador', sob(zonas.contador));
-    }
-
     if (typeof ResizeObserver === 'function') {
       const ro = new ResizeObserver(() => medir());
       ro.observe(janela);
-      ro.observe(corpo);
       limpezas.push(() => ro.disconnect());
     }
 
-    /* ---- entradas -------------------------------------------------------------- */
-    let entradasLigadas = false;
-
-    function ligarEntradas() {
-      if (entradasLigadas || !vivo) return;
-      entradasLigadas = true;
-      if (typeof IntersectionObserver !== 'function') {
-        for (const e of entradas) e.entrar();
-        for (const cena of cenas) cena.visivel = true;
-        return;
-      }
-      const porElemento = new Map(entradas.map((e) => [e.el, e]));
-      const ioEntradas = new IntersectionObserver((lista) => {
+    // Na versão plana, cada bloco acende quando entra na janela.
+    if (!corredor && typeof IntersectionObserver === 'function' && !amb.reduzido) {
+      for (const p of paradas) p.el.classList.remove('foco');
+      const io = new IntersectionObserver((lista) => {
         for (const item of lista) {
           if (!item.isIntersecting) continue;
-          ioEntradas.unobserve(item.target);
-          porElemento.get(item.target)?.entrar();
+          item.target.classList.add('foco');
+          io.unobserve(item.target);
         }
-      }, { root: janela, rootMargin: '0px 0px -7% 0px', threshold: 0.06 });
-      for (const e of entradas) ioEntradas.observe(e.el);
-
-      const porCena = new Map(cenas.map((cena) => [cena.el, cena]));
-      const ioCenas = new IntersectionObserver((lista) => {
-        for (const item of lista) {
-          const cena = porCena.get(item.target);
-          if (cena) cena.visivel = item.isIntersecting;
-        }
-      }, { root: janela, rootMargin: '12% 0px 12% 0px', threshold: 0 });
-      for (const cena of cenas) ioCenas.observe(cena.el);
-      limpezas.push(() => ioEntradas.disconnect(), () => ioCenas.disconnect());
+      }, { root: janela, rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+      for (const p of paradas) io.observe(p.el);
+      limpezas.push(() => io.disconnect());
     }
 
-    // O foco do teclado chega antes da rolagem: o bloco entra na hora.
-    const aoFocar = (e) => entradas.find((x) => x.el.contains(e.target))?.entrar({ imediato: true });
-    corpo.addEventListener('focusin', aoFocar);
+    // O foco do teclado chega ao botão antes da rolagem: a câmera vai até a porta.
+    const aoFocar = () => {
+      if (!corredor) return;
+      const max = Math.max(0, janela.scrollHeight - janela.clientHeight);
+      if (janela.scrollTop < max - 4) rolagem?.irPara?.(max, { imediato: true });
+    };
+    botao.addEventListener('focus', aoFocar);
 
-    /* ---- o laço ----------------------------------------------------------------- */
+    /* ---- o videocassete: modo e contador --------------------------------------------- */
+    const total = segundos(c.contadorFinal);
+    let modoAte = 0;
+    let modoFixo = false;
+    let modoAtual = '';
+    let contadorAtual = '';
+    function modo(nome, ms = 0) {
+      if (modoFixo) return;
+      const rotulo = nome ? texto(rotulos[nome]) : '';
+      if (rotulo !== modoAtual) {
+        modoAtual = rotulo;
+        if (rotulo) {
+          modoEl.textContent = rotulo;
+          modoEl.dataset.modo = nome;
+        }
+        modoEl.classList.toggle('visivel', !!rotulo);
+      }
+      modoAte = ms ? agora + ms / 1000 : 0;
+    }
+
+    /* ---- o laço ------------------------------------------------------------------------ */
     let quadroId = 0;
     let anterior = 0;
-    let yAnterior = null;
-    let vel = 0;
+    let agora = 0;
+    let u = 0;
+    let sAnt = 0;
     let pressa = 0;
     let parado = false;
+    let chegou = false;
+    const tela = { x: 0, y: 0, prof: 0 };
+
+    function posicionar() {
+      for (let i = 0; i < n; i += 1) {
+        const p = paradas[i];
+        const r = i - u; // quantas paradas faltam (negativo: já passou)
+        if (p.so2d || r > 0.96 || r < -0.2) {
+          if (p.visto !== false) {
+            p.visto = false;
+            p.el.style.opacity = '0';
+            p.el.classList.remove('foco');
+          }
+          continue;
+        }
+        p.visto = true;
+        corredor.projetar(p.ancora.x, p.ancora.y, p.ancora.z, tela);
+        const escala = Math.min(1.14, DF / Math.max(0.5, tela.prof));
+        // Depois do foco o suporte é recolhido para o teto.
+        const some = i === n - 1 ? 0 : suave(0.03, 0.17, -r);
+        const y = tela.y - some * alturaTela * 0.9;
+        const opaco = Math.min(1 - some, 1 - suave(0.5, 0.95, r));
+        const gira = clamp(r, 0, 1) * (i % 2 ? 2.5 : -2.5);
+        p.el.style.transform = `translate3d(${tela.x.toFixed(1)}px,${y.toFixed(1)}px,0) translate(-50%,-50%) scale(${escala.toFixed(4)}) rotate(${gira.toFixed(2)}deg)`;
+        p.el.style.opacity = opaco.toFixed(3);
+        p.el.classList.toggle('foco', Math.abs(r) < 0.2);
+      }
+    }
 
     function quadro(instante) {
       quadroId = requestAnimationFrame(quadro);
@@ -327,159 +324,67 @@ export const capitulo = {
       const passou = anterior ? Math.max(0, (instante - anterior) / 1000) : 0;
       anterior = instante;
       const dt = Math.min(0.05, passou);
-      // Relógio de tempo real com teto: num aparelho que perde quadros o PLAY não pode ficar parado.
       agora += Math.min(0.5, passou);
 
-      const y = rolagem?.y || 0;
-      const progresso = clamp(rolagem?.progresso || 0);
-      if (yAnterior === null) yAnterior = y;
-      const bruta = passou > 0 ? (y - yAnterior) / Math.max(dt, Math.min(0.25, passou)) : 0;
-      yAnterior = y;
-      vel += (bruta - vel) * Math.min(1, dt * 11);
-      const rapidez = clamp(Math.abs(vel) / 2600);
-      const sentido = vel < 0 ? -1 : 1;
+      let s;
+      if (corredor) {
+        s = clamp((janela.scrollTop || 0) / Math.max(1, PASSO * alturaTela), 0, n - 1);
+        u += (caminho(s, n) - u) * (1 - Math.exp(-AMORTECE * dt));
+        corredor.quadro(dt, u, agora);
+        posicionar();
+        luzFinal.style.opacity = (suave(n - 1.5, n - 1, u) * 0.2).toFixed(3);
+      } else {
+        s = clamp(rolagem?.progresso || 0) * (n - 1);
+      }
+      const noFim = s > n - 1 - 0.1;
+      if (noFim !== chegou && corredor) {
+        chegou = noFim;
+        raiz.classList.toggle('pp-chegou', chegou);
+      }
 
-      fundo.rolar(progresso, rapidez, sentido);
-      fundo.quadro(dt);
-      osd.contador(progresso);
-      if (!entradasLigadas && y > 24) ligarEntradas();
-
-      // Rolando depressa, o videocassete avança (FF) ou volta (REW).
-      if (rapidez > 0.42) pressa += dt;
+      // O contador da fita anda com a rolagem; rolando depressa, FF ou REW.
+      const marca = relogio((s / Math.max(1, n - 1)) * total);
+      if (marca !== contadorAtual) {
+        contadorAtual = marca;
+        contadorEl.textContent = marca;
+      }
+      const rapidez = dt > 0 ? (s - sAnt) / dt : 0;
+      sAnt = s;
+      if (Math.abs(rapidez) > 1.5) pressa += dt;
       else pressa = Math.max(0, pressa - 3 * dt);
-      if (pressa > 0.1 && rapidez > 0.3) piscarModo(sentido > 0 ? 'avancar' : 'voltar', 420);
-      if (modoAte && agora >= modoAte && !modoFixo) {
-        modoAte = 0;
-        osd.modo(null);
-      }
-      vigiarOsd(y);
-
-      const info = { y, vel, rapidez, topo: topoTela, altura: alturaTela };
-      for (const cena of cenas) if (cena.visivel) cena.quadro(dt, info);
+      if (pressa > 0.12 && Math.abs(rapidez) > 1.1) modo(rapidez > 0 ? 'avancar' : 'voltar', 420);
+      if (modoAte && agora >= modoAte) modo(null);
     }
 
-    /* ---- a abertura -------------------------------------------------------------- */
-    let desligando = false;
-    const segue = () => vivo && !desligando;
-
-    // A folha desenrolou: a promessa do pergaminho ou, sem ela, a etapa 'lendo' do diretor.
-    function folhaAberta() {
-      if (api.aberto) return api.aberto;
-      const html = document.documentElement;
-      if (html.dataset.etapa === 'lendo') return Promise.resolve(true);
-      return new Promise((resolve) => {
-        const observador = new MutationObserver(() => {
-          if (html.dataset.etapa !== 'lendo') return;
-          observador.disconnect();
-          resolve(true);
-        });
-        observador.observe(html, { attributes: true, attributeFilter: ['data-etapa'] });
-        limpezas.push(() => observador.disconnect());
-      });
-    }
-
-    // A ordem e os tempos são uma sequência: mexer num espera desloca o PLAY, o
-    // clarão, a queda e a digitação.
+    /* ---- a abertura: as lâmpadas acendem e a fita começa a tocar ---------------------- */
     async function abertura() {
-      await Promise.race([folhaAberta(), espera(4200)]);
-      await espera(280);
-      if (!segue()) return;
-      som?.efeito?.('fita');
-      piscarModo('tocar', 3600);
-      await espera(560);
-      if (!segue()) return;
-      if (amb.reduzido) {
-        const mistura = { v: 1 };
-        await comoPromise(anima(gsap.to(mistura, { v: 0, duration: 0.7, ease: 'none', onUpdate: () => fundo.azul(mistura.v) })));
-        await espera(500);
-      } else {
-        fundo.clarao(45);
-        falha(1, 220);
-        await espera(70);
-        fundo.azul(0);
-        await espera(300);
-      }
-      if (!segue()) return;
-      // Só agora: antes do engasgo o corpo apareceria sobre a tela de espera.
+      await Promise.race([Promise.resolve(api.aberto), espera(4200)]);
+      await espera(240);
+      if (!vivo) return;
       raiz.classList.remove('aguardando');
-      // A digitação começa mesmo que a queda ainda não tenha acabado.
-      await Promise.race([titulo.cair(), espera(logo ? 2000 : 1700)]);
-      if (!segue()) return;
-      await titulo.digitar();
-      if (!segue()) return;
-      osd.mostrarContador();
-      ligarEntradas();
+      corredor?.acender();
+      som?.efeito?.('fita');
+      modo('tocar', 3600);
     }
 
-    /* ---- desligar a TV ------------------------------------------------------------ */
-    let fosforo = null;
-    let brasa = null;
-
-    async function desligar() {
-      if (desligando || !vivo) return;
-      desligando = true;
-      modoFixo = 'parar';
-      osd.modo('parar');
-      osd.mostrarContador();
-      osd.encobrir('modo', false);
-      osd.encobrir('contador', false);
-      som?.efeito?.('fita');
+    /* ---- guardar: a luz da porta toma a tela ---------------------------------------- */
+    let guardando = false;
+    async function guardar() {
+      if (guardando || !vivo) return;
+      guardando = true;
       botao.disabled = true;
-      botao.classList.add('apertada');
-      rodape.classList.add('desligado');
+      modo('parar');
+      modoFixo = true;
+      som?.efeito?.('fita');
       raiz.classList.remove('aguardando');
-      const travarToque = (e) => e.preventDefault();
-      janela.addEventListener('wheel', travarToque, { passive: false });
-      janela.addEventListener('touchmove', travarToque, { passive: false });
-      limpezas.push(() => {
-        janela.removeEventListener('wheel', travarToque);
-        janela.removeEventListener('touchmove', travarToque);
-      });
-
-      if (amb.reduzido) {
-        await espera(450);
-        if (!vivo) return;
-        await comoPromise(anima(gsap.to([raiz, fundo.el], { autoAlpha: 0, duration: 0.7, ease: 'none' })));
-        parado = true;
-      } else {
-        // A inércia da rolagem para antes; o recorte e o colapso usam a janela de agora.
-        const y = rolagem?.y || 0;
-        rolagem?.irPara?.(y, { imediato: true });
-        // A janela medida na própria raiz (a raiz pode não começar no topo do conteúdo).
-        const visto = Math.max(0, janela.getBoundingClientRect().top - raiz.getBoundingClientRect().top);
-        const corteBaixo = Math.max(0, raiz.offsetHeight - visto - alturaTela);
-        const recorte = `inset(${visto}px 0px ${corteBaixo}px 0px)`;
-        raiz.style.clipPath = recorte;
-        raiz.style.webkitClipPath = recorte;
-        gsap.set(raiz, { transformOrigin: `50% ${visto + alturaTela / 2}px` });
-        gsap.set(fundo.el, { transformOrigin: '50% 50%' });
-        fosforo = el('i', { class: 'poppy-fosforo', 'aria-hidden': 'true' });
-        brasa = el('i', { class: 'poppy-fosforo-ponto', 'aria-hidden': 'true' });
-        api.fundo?.append(fosforo, brasa);
-        falha(0.7, 130);
-        await espera(520);
-        if (!vivo) return;
-        parado = true;
-        // O tubo desliga: a imagem colapsa numa linha, a linha vira um ponto e a brasa esfria.
-        const tl = anima(gsap.timeline());
-        tl.to(osd.clarao, { opacity: 0.5, duration: 0.07 }, 0)
-          .to([raiz, fundo.el], { scaleY: 0.004, duration: 0.24, ease: 'power3.in' }, 0.02)
-          .fromTo(fosforo, { autoAlpha: 0, scaleY: 0.3 }, { autoAlpha: 1, scaleY: 1, duration: 0.1 }, 0.16)
-          .set([raiz, fundo.el], { autoAlpha: 0 }, 0.27)
-          .add(() => api.fundo?.classList.add('desligada'), 0.27)
-          .to(fosforo, { scaleX: 0.012, duration: 0.2, ease: 'power2.in' }, 0.32)
-          .fromTo(brasa, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.06 }, 0.47)
-          .to(fosforo, { autoAlpha: 0, duration: 0.06 }, 0.53)
-          .to(brasa, { scale: 0.25, duration: 0.7, ease: 'power2.in' }, 0.62)
-          .to(brasa, { autoAlpha: 0, duration: 0.6, ease: 'power1.in' }, 0.72);
-        await comoPromise(tl);
-      }
-      await espera(140);
+      raiz.classList.add('guardando');
+      await espera(amb.reduzido ? 380 : 720);
+      parado = true; // o corredor já está coberto pela luz: o laço para
       if (vivo) api.fechar?.();
     }
-    botao.addEventListener('click', desligar);
+    botao.addEventListener('click', guardar);
 
-    /* ---- começa ------------------------------------------------------------------- */
+    /* ---- começa -------------------------------------------------------------------------- */
     medir();
     quadroId = requestAnimationFrame(quadro);
     abertura().catch((erro) => console.error('[carta] a abertura da fita falhou', erro));
@@ -495,24 +400,13 @@ export const capitulo = {
             /* segue limpando */
           }
         }
-        corpo.removeEventListener('pointerdown', aoPousar);
-        corpo.removeEventListener('pointerup', aoSoltar);
-        corpo.removeEventListener('pointercancel', aoCancelar);
-        corpo.removeEventListener('focusin', aoFocar);
-        for (const a of animacoes) a.kill?.();
-        animacoes.clear();
-        for (const a of falhas) a.cancel();
-        falhas.clear();
-        for (const cena of cenas) cena.destruir?.();
-        titulo.destruir();
-        fundo.destruir();
-        fosforo?.remove();
-        brasa?.remove();
-        api.fundo?.classList.remove('poppy-fundo', 'desligada');
-        raiz.style.removeProperty('clip-path');
-        raiz.style.removeProperty('-webkit-clip-path');
-        gsap.set(raiz, { clearProps: 'transform,transformOrigin,opacity,visibility' });
-        raiz.classList.remove('poppy', 'aguardando');
+        botao.removeEventListener('click', guardar);
+        botao.removeEventListener('focus', aoFocar);
+        corredor?.destruir();
+        corredor = null;
+        api.fundo?.classList.remove('poppy-fundo', 'pp-plano');
+        raiz.style.removeProperty('--pp-h');
+        raiz.classList.remove('poppy', 'aguardando', 'pp-plano', 'pp-chegou', 'guardando');
         raiz.textContent = '';
       },
     };
