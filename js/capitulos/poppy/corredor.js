@@ -10,6 +10,11 @@
    cenas = { maos, fita, esteira }: o índice da parada de cada cena (ou -1).
    Um renderer só deste capítulo, sem sombras e sem pós-processamento: três
    luzes pontuais que acompanham as lâmpadas mais próximas, o resto é textura.
+   A resolução do desenho se adapta (vigiar): se os quadros ficam lentos de
+   verdade com a folha aberta, o pixel ratio desce aos degraus, nunca abaixo
+   de 1; se nem no piso ajudou (o gargalo não era o preenchimento), volta à
+   resolução de antes e desiste. Ritmo certinho de 30 quadros não é lentidão, é
+   o aparelho poupando bateria: aí nem tenta.
    ========================================================================== */
 
 import { clamp, lerp, semente } from '../../nucleo/util.js';
@@ -26,6 +31,17 @@ const ALT = 3.4;
 const NEVOA = 0x0a1a24;
 const FIO = 0xe3283c;
 const N_LUZES = 3;
+// A resolução adaptativa: janelas de quadros, o que é "lento" e quanto tem de melhorar.
+const JANELA_QUADROS = 40;
+const QUADRO_LENTO = 21; // ms de média: abaixo de ~48 quadros por segundo
+const JANELAS_LENTAS = 3; // seguidas, antes de descer
+const JANELAS_PROVA = 2; // depois de descer, quantas janelas até julgar
+const GANHO_MINIMO = 0.85; // no piso, a média tem de ter caído pelo menos 15%
+const SALTO = 500; // ms: intervalo que não é quadro lento, é aba que voltou
+// O Modo Pouca Energia do iPhone limita a página a 30 quadros: todo intervalo fica em ~33 ms.
+const TETO_30 = [31, 36]; // ms: a média de quem está preso em 30 quadros
+const QUADRO_CURTO = 27; // ms: quadro que chegou antes disso prova que o aparelho passa de 30
+const CURTOS_TOLERADOS = 0.05; // dos quadros das janelas lentas (um quadro atrasado encurta o seguinte)
 
 const suave = (a, b, x) => {
   const t = clamp((x - a) / (b - a));
@@ -42,7 +58,9 @@ export function criarCorredor({ THREE, recipiente, amb = {}, n, desvios, olhares
   } catch {
     return null;
   }
-  const dpr = Math.min(window.devicePixelRatio || 1, amb.toque ? 1.5 : 2);
+  const dprTeto = Math.min(window.devicePixelRatio || 1, amb.toque ? 1.5 : 2);
+  const dprPiso = Math.min(1, dprTeto);
+  let dpr = dprTeto;
   renderer.setPixelRatio(dpr);
   renderer.setClearColor(NEVOA, 1);
   recipiente.append(canvas);
@@ -321,7 +339,7 @@ export function criarCorredor({ THREE, recipiente, amb = {}, n, desvios, olhares
     cena.add(faiscas);
     maos = {
       z, y, c: 0, v: 0, tocou: false, vida: 0, amor: 0,
-      a: fazer('#3b83c6', -1), b: fazer('#d5503f', 1),
+      lados: [fazer('#3b83c6', -1), fazer('#d5503f', 1)],
       coracao, coracaoMat, faiscas, posF, velF: new Float32Array(N_F * 3), N_F, matF,
     };
   }
@@ -425,6 +443,90 @@ export function criarCorredor({ THREE, recipiente, amb = {}, n, desvios, olhares
     matPoeira.uniforms.uTam.value = 0.035 * altura * dpr;
   }
 
+  /* ---- a resolução se adapta ao aparelho ----------------------------------------- */
+  // Olha a média de janelas de quadros. Três janelas lentas seguidas: desce um degrau e
+  // prova. Ficou rápido: fica ali. Continua lento: desce de novo, até o piso. No piso, se
+  // nem assim melhorou (o gargalo não era o preenchimento), volta à resolução de antes e
+  // não mexe mais. Antes de descer, confere se a lentidão não é o aparelho limitando a
+  // página a 30 quadros para poupar bateria (ritmo certinho de ~33 ms, quase nenhum quadro
+  // mais curto): aí baixar a resolução só borraria a imagem à toa, então trava sem mexer.
+  const vigia = {
+    ligado: false, travado: dprTeto <= dprPiso, pular: 0, soma: 0, n: 0, ultimo: 0,
+    lentas: 0, base: Infinity, provando: false, janelas: 0, somaProva: 0, dprAntes: dprTeto,
+    curtos: 0, curtosLentas: 0,
+  };
+  function aplicarDpr(novo) {
+    dpr = novo;
+    renderer.setPixelRatio(dpr); // refaz o buffer; o quadro é desenhado logo em seguida
+    matPoeira.uniforms.uTam.value = 0.035 * altura * dpr;
+  }
+  function descer() {
+    vigia.provando = true;
+    vigia.janelas = 0;
+    vigia.somaProva = 0;
+    vigia.pular = 12;
+    aplicarDpr(Math.max(dprPiso, dpr > 1.5 ? 1.5 : dpr > 1.25 ? 1.25 : 1));
+  }
+  /** Chamado uma vez por quadro, antes de desenhar. */
+  function vigiar() {
+    const instante = performance.now();
+    const intervalo = instante - vigia.ultimo;
+    vigia.ultimo = instante;
+    if (!vigia.ligado || vigia.travado) return;
+    if (vigia.pular > 0) {
+      vigia.pular -= 1;
+      return;
+    }
+    if (!(intervalo > 0) || intervalo > SALTO) return;
+    vigia.soma += intervalo;
+    vigia.n += 1;
+    if (intervalo < QUADRO_CURTO) vigia.curtos += 1;
+    if (vigia.n < JANELA_QUADROS) return;
+    const media = vigia.soma / vigia.n;
+    const curtos = vigia.curtos;
+    vigia.soma = 0;
+    vigia.n = 0;
+    vigia.curtos = 0;
+
+    if (vigia.provando) {
+      vigia.somaProva += media;
+      vigia.janelas += 1;
+      if (vigia.janelas < JANELAS_PROVA) return;
+      const prova = vigia.somaProva / vigia.janelas;
+      if (prova <= QUADRO_LENTO) { // resolveu: fica neste degrau e segue olhando
+        vigia.provando = false;
+        vigia.lentas = 0;
+        vigia.base = Infinity;
+        vigia.curtosLentas = 0;
+      } else if (dpr > dprPiso) {
+        descer();
+      } else {
+        if (prova > vigia.base * GANHO_MINIMO) aplicarDpr(vigia.dprAntes);
+        vigia.travado = true;
+      }
+      return;
+    }
+
+    if (media > QUADRO_LENTO) {
+      vigia.lentas += 1;
+      vigia.base = Math.min(vigia.base, media);
+      vigia.curtosLentas += curtos;
+    } else {
+      vigia.lentas = 0;
+      vigia.base = Infinity;
+      vigia.curtosLentas = 0;
+    }
+    if (vigia.lentas < JANELAS_LENTAS) return;
+    const preso30 = vigia.base > TETO_30[0] && vigia.base < TETO_30[1]
+      && vigia.curtosLentas <= vigia.lentas * JANELA_QUADROS * CURTOS_TOLERADOS;
+    if (dpr <= dprPiso || preso30) {
+      vigia.travado = true;
+      return;
+    }
+    vigia.dprAntes = dpr;
+    descer();
+  }
+
   const v = new THREE.Vector3();
   /** Um ponto do mundo na tela: saida = { x, y (px), prof (m à frente da câmera) }. */
   function projetar(x, y, z, saida) {
@@ -450,6 +552,9 @@ export function criarCorredor({ THREE, recipiente, amb = {}, n, desvios, olhares
   const eixoY = new THREE.Vector3(0, 1, 0);
   const dir = new THREE.Vector3();
   const ordem = lampadas.map((_, i) => i);
+  let zOrdem = 0;
+  const maisPerto = (a, b) => Math.abs(lampadas[a].z - zOrdem) - Math.abs(lampadas[b].z - zOrdem);
+  let aquecido = false; // o primeiro quadro desenha tudo: os shaders compilam antes de a folha abrir
 
   function faiscar() {
     const m = maos;
@@ -498,7 +603,8 @@ export function criarCorredor({ THREE, recipiente, amb = {}, n, desvios, olhares
       l.poca.position.x = l.x + (l.bulbo.x - l.x) * 3.2;
       l.poca.position.z = l.z + (l.bulbo.z - l.z) * 3.2;
     }
-    ordem.sort((a, b) => Math.abs(lampadas[a].z - camZ + 2.5) - Math.abs(lampadas[b].z - camZ + 2.5));
+    zOrdem = camZ - 2.5;
+    ordem.sort(maisPerto);
     const respira = 1 + Math.sin(t * 1.3) * 0.04;
     for (let i = 0; i < N_LUZES; i += 1) {
       const l = lampadas[ordem[i]];
@@ -556,7 +662,7 @@ export function criarCorredor({ THREE, recipiente, amb = {}, n, desvios, olhares
         m.v = -m.v * 0.42;
       }
       if (m.c < 0.5) m.tocou = false;
-      for (const lado of [m.a, m.b]) {
+      for (const lado of m.lados) {
         const x = lado.lado * (0.385 + (1 - m.c) * 1.5);
         const yy = m.y + Math.sin(t * 1.5 + lado.lado) * 0.018 + (1 - m.c) * 0.35;
         lado.mao.position.set(x, yy, m.z);
@@ -587,6 +693,9 @@ export function criarCorredor({ THREE, recipiente, amb = {}, n, desvios, olhares
         m.coracaoMat.opacity = 1 - suave(0.55, 1, m.amor);
         if (m.amor >= 1) m.amor = 0;
       }
+      // Faíscas apagadas e coração sumido não vão para a placa.
+      m.faiscas.visible = !aquecido || m.vida > 0;
+      m.coracao.visible = !aquecido || m.amor > 0;
     }
 
     if (fita) {
@@ -605,12 +714,15 @@ export function criarCorredor({ THREE, recipiente, amb = {}, n, desvios, olhares
     const aberto = clamp(portao.a / 1.75);
     clarao.material.opacity = aberto * 0.5;
     clarao.scale.setScalar(2 + aberto * 6);
+    clarao.visible = !aquecido || aberto > 0.002;
     luzPortao.intensity = aberto * 24 * aceso;
 
     matPoeira.uniforms.uT.value = t;
     matPoeira.uniforms.uZ.value = camZ;
     matPoeira.uniforms.uForca.value = 0.25 + 0.75 * aceso;
+    vigiar();
     renderer.render(cena, camera);
+    aquecido = true;
   }
 
   const aoPerderContexto = (e) => {
@@ -628,7 +740,13 @@ export function criarCorredor({ THREE, recipiente, amb = {}, n, desvios, olhares
     projetar,
     ancoraFim,
     /** As lâmpadas acendem (a luz cresce devagar). */
-    acender() { alvoAceso = 1; },
+    acender() {
+      alvoAceso = 1;
+      if (!vigia.ligado) { // só com a folha aberta: o desenrolar não conta como quadro lento
+        vigia.ligado = true;
+        vigia.pular = 45;
+      }
+    },
     destruir() {
       canvas.removeEventListener('webglcontextlost', aoPerderContexto);
       perdido = true;

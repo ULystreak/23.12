@@ -31,6 +31,9 @@ const PRAZO_IMAGENS = 7000;
 const PESO = { abre: 1, texto: 1, no: 0.7, quadro: 1.2, par: 1.4, fim: 0.8 };
 // O véu atrás dos textos, pela hora do céu: dia, crepúsculo, noite.
 const VEUS = [[0, [18, 44, 98]], [0.42, [44, 36, 96]], [0.6, [46, 26, 84]], [0.85, [8, 12, 34]], [1, [8, 12, 34]]];
+// Com a câmera andando, o véu só é repintado quando a cor andou isto (em 255): cada
+// troca refaz o texto e a sombra dele. Quando a câmera pousa, a cor fica exata.
+const VEU_FOLGA = 3;
 
 const texto = (v) => (typeof v === 'string' ? v.trim() : '');
 const meio = (v) => String(Math.round(v * 2) / 2);
@@ -63,16 +66,14 @@ function ancora(v, padrao) {
   return { x: clamp(Number.isFinite(x) ? x : padrao.x), y: clamp(Number.isFinite(y) ? y : padrao.y) };
 }
 
-function veuDaHora(h) {
-  for (let i = 1; i < VEUS.length; i++) {
-    if (h <= VEUS[i][0]) {
-      const [h0, a] = VEUS[i - 1];
-      const [h1, b] = VEUS[i];
-      const t = (h - h0) / (h1 - h0);
-      return a.map((v, j) => Math.round(lerp(v, b[j], t))).join(', ');
-    }
-  }
-  return VEUS[VEUS.length - 1][1].join(', ');
+function veuDaHora(h, cor) {
+  let i = 1;
+  while (i < VEUS.length - 1 && h > VEUS[i][0]) i++;
+  const [h0, a] = VEUS[i - 1];
+  const [h1, b] = VEUS[i];
+  const t = clamp((h - h0) / (h1 - h0));
+  for (let j = 0; j < 3; j++) cor[j] = Math.round(lerp(a[j], b[j], t));
+  return cor;
 }
 
 export const capitulo = {
@@ -311,6 +312,13 @@ export const capitulo = {
       paraLeitor(subtitulo, fraseSub);
     }
 
+    // O verso que acabou de se acender (a última palavra subiu) não se acende de novo
+    // se a folha sumir e voltar.
+    palco.addEventListener('animationend', (e) => {
+      if (e.animationName !== 'yn-sobe' || e.target.nextElementSibling) return;
+      e.target.closest?.('.yn-verso')?.classList.add('yn-aceso');
+    });
+
     /* ---- 5. a rolagem leva a câmera -------------------------------------------------- */
 
     const progresso = () => {
@@ -320,6 +328,16 @@ export const capitulo = {
       return max > 0 ? clamp(caixa.scrollTop / max) : 0;
     };
     const alvoS = () => lerp(s0, sFim, progresso());
+    // Ler a rolagem obriga o navegador a refazer estilo e layout se algo está sujo, e
+    // dentro do quadro quase sempre está (palavras se acendendo, o que o laço escreveu).
+    // A leitura é feita no evento de rolagem, que chega antes do quadro e com tudo
+    // limpo; o laço usa o valor guardado e, de meio em meio segundo, confere.
+    let pLido = 0;
+    let semLer = 0;
+    const lerProgresso = () => {
+      semLer = 0;
+      pLido = progresso();
+    };
     const P = { x: 0, y: 0, dist: 1 };
     let id = 0;
     let ultimoT = 0;
@@ -328,33 +346,65 @@ export const capitulo = {
     let sPosto = -1;
     let W = 1;
     let H = 1;
-    let ultimoVeu = '';
+    const veuAgora = [0, 0, 0];
     let ultimaNevoa = -1;
     let kAntes = 0;
     let pronto = false;
     let chegou = false;
     const lento = { soma: 0, n: 0, vezes: 0 };
 
-    function colocar(item) {
+    // Só escreve no DOM o que mudou; a peça só é camada (yn-perto) enquanto aparece.
+    function colocar(item, assentou) {
       const { anc } = item;
       const alfa = item.fim ? clamp(anc.alfa * 1.4) : anc.alfa;
       if (alfa < 0.004) {
         if (item.alfa !== 0) {
           item.alfa = 0;
+          item.ativo = false;
+          item.posto = '';
+          item.opaco = '0';
           item.el.style.opacity = '0';
-          item.el.classList.remove('yn-ativo');
+          item.el.style.transform = '';
+          item.el.classList.remove('yn-ativo', 'yn-perto');
         }
         return;
+      }
+      if (!item.alfa) item.el.classList.add('yn-perto');
+      item.alfa = alfa;
+      // O véu e a sombra do texto, pela hora: só nas peças que estão na tela.
+      if (!item.fim) {
+        const v = item.veu || (item.veu = [-9, -9, -9]);
+        const d = Math.max(Math.abs(v[0] - veuAgora[0]), Math.abs(v[1] - veuAgora[1]), Math.abs(v[2] - veuAgora[2]));
+        if (d >= VEU_FOLGA || (d > 0 && assentou)) {
+          v[0] = veuAgora[0];
+          v[1] = veuAgora[1];
+          v[2] = veuAgora[2];
+          item.el.style.setProperty('--yn-veu', `${v[0]}, ${v[1]}, ${v[2]}`);
+        }
       }
       voo.projetar(item.ponto || anc.mundo, P);
       const k = clamp(anc.d / P.dist, item.kMin, 1);
       const y = item.fim ? clamp(P.y, H * 0.3, H - 28) : P.y;
       const prende = item.fim ? '-50%, -100%' : item.topo ? '-50%, 0' : '-50%, -50%';
-      item.el.style.transform = `translate3d(${meio(P.x)}px, ${meio(y)}px, 0) translate(${prende}) scale(${k.toFixed(3)})`;
-      item.el.style.opacity = alfa.toFixed(3);
-      item.alfa = alfa;
-      item.el.classList.toggle('yn-ativo', alfa > 0.6);
-      if (item.verso && alfa > 0.2) item.el.classList.add('viu');
+      const posto = `translate3d(${meio(P.x)}px, ${meio(y)}px, 0) translate(${prende}) scale(${k.toFixed(3)})`;
+      if (posto !== item.posto) {
+        item.posto = posto;
+        item.el.style.transform = posto;
+      }
+      const opaco = alfa.toFixed(3);
+      if (opaco !== item.opaco) {
+        item.opaco = opaco;
+        item.el.style.opacity = opaco;
+      }
+      const ativo = alfa > 0.6;
+      if (ativo !== item.ativo) {
+        item.ativo = ativo;
+        item.el.classList.toggle('yn-ativo', ativo);
+      }
+      if (item.verso && !item.viu && alfa > 0.2) {
+        item.viu = true;
+        item.el.classList.add('viu');
+      }
     }
 
     function laco(agora) {
@@ -364,7 +414,8 @@ export const capitulo = {
       ultimoT = agora;
       relogio += dt;
 
-      const p = progresso();
+      if (++semLer >= 30) lerProgresso();
+      const p = pLido;
       const alvo = lerp(s0, sFim, p);
       const falta = alvo - sCam;
       // Um salto grande (retomar a leitura, ir ao fim) não vira uma viagem: chega quase lá e pousa.
@@ -376,12 +427,9 @@ export const capitulo = {
 
       if (sCam !== sPosto) {
         sPosto = sCam;
-        for (const item of itens) colocar(item);
-        const cor = veuDaHora(e.hora);
-        if (cor !== ultimoVeu) {
-          ultimoVeu = cor;
-          raiz.style.setProperty('--yn-veu', cor);
-        }
+        veuDaHora(e.hora, veuAgora);
+        const assentou = sCam === alvo;
+        for (const item of itens) colocar(item, assentou);
         if (Math.abs(e.nevoa - ultimaNevoa) > 0.004) {
           ultimaNevoa = e.nevoa;
           nevoa.style.opacity = (e.nevoa * 0.94).toFixed(3);
@@ -433,6 +481,7 @@ export const capitulo = {
         trilho.style.height = `${Math.round((S - 1) * H)}px`;
         voo.redimensionar(fundo.clientWidth || W, fundo.clientHeight || H);
         sPosto = -1;
+        lerProgresso();
       } else {
         acertarPlano();
       }
@@ -442,6 +491,17 @@ export const capitulo = {
     let pararRolagem = null;
     if (voo) {
       sCam = alvoS();
+      rolagem?.el?.addEventListener('scroll', lerProgresso, { passive: true });
+      // Os shaders são compilados já, atrás da folha fechada; as fotos sobem para a
+      // placa depois de ela abrir, uma a uma. Nada disso fica para o meio da rolagem.
+      try {
+        voo.aquecer();
+      } catch (erro) {
+        console.warn('[carta] o céu não aqueceu; compila quando aparecer', erro);
+      }
+      Promise.resolve(api.aberto).then(() => {
+        if (vivo) voo.adiantar();
+      });
       id = requestAnimationFrame(laco);
       // Com o teclado, o botão chega ao foco antes de a leitura chegar ao fim.
       botao.addEventListener('focus', () => {
@@ -500,6 +560,7 @@ export const capitulo = {
         cancelAnimationFrame(id);
         cancelAnimationFrame(pedido);
         pararRolagem?.();
+        rolagem?.el?.removeEventListener('scroll', lerProgresso);
         remedir.cancelar();
         observador?.disconnect();
         olheiro?.disconnect();

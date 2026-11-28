@@ -141,6 +141,9 @@ export const TUFO_V = /* glsl */ `
     float variante = abs(aDados.y) - 1.0;
     vUv = vec2((variante + (lado > 0.0 ? uv.x : 1.0 - uv.x)) * 0.5, uv.y);
     gl_Position = projectionMatrix * mv;
+    // Colado na câmera ou longe demais o tufo é todo transparente (o alfa abaixo
+    // dá zero): sai da tela inteiro, em vez de cobrir tudo com pixels descartados.
+    if (vDist <= 2.5 || vDist >= 330.0) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
   }
 `;
 export const TUFO_F = /* glsl */ `

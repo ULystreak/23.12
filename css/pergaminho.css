@@ -233,9 +233,16 @@ html.reduzido #pergaminho .perg-fibra::after { animation: none; }
 .perg-pontos {
   position: absolute;
   inset: 0;
-  -webkit-clip-path: inset(0 0 100% 0);
-  clip-path: inset(0 0 100% 0);
-  /* o halo do fio: parado, nunca animado */
+  overflow: hidden;
+  transform: translate3d(0, -100%, 0);
+  will-change: transform;
+}
+.perg-pontos-dentro {
+  position: absolute;
+  inset: 0;
+  transform: translate3d(0, 100%, 0);
+  will-change: transform;
+  /* o halo do fio: parado, nunca animado nem repintado */
   -webkit-filter: drop-shadow(0 0 2.5px var(--fio-brilho)) drop-shadow(0 0 7px rgba(255, 64, 78, 0.3));
   filter: drop-shadow(0 0 2.5px var(--fio-brilho)) drop-shadow(0 0 7px rgba(255, 64, 78, 0.3));
 }

@@ -184,6 +184,7 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
   let infoCostura = null;
   let dicaVisivel = false;
   let marco = null;
+  let timerMarco = 0;
   let segurando = false;
   let timerLeitura = 0;
   let pedidoRolagem = 0;
@@ -302,7 +303,9 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
 
   function avisarRolagem() {
     pedidoRolagem = 0;
-    if (estado === 'aberto' && !segurando) guardarMarco();
+    // O marco da leitura mede a tela (elementFromPoint): só quando a rolagem assenta.
+    clearTimeout(timerMarco);
+    timerMarco = setTimeout(() => { if (estado === 'aberto' && !segurando) guardarMarco(); }, 140);
     const p = rolagem.progresso;
     const y = rolagemEl.scrollTop;
     costurar(p);
@@ -388,27 +391,27 @@ export function criarPergaminho({ raiz, mundo, amb, som, conteudo, recursos }) {
     const caixa = `width="16" height="${altura}" viewBox="0 0 16 ${altura}" aria-hidden="true" focusable="false"`;
     const no = f1(topo - 1.6);
     // O nó no começo e a pontinha do fio que sobra dele.
-    const pontos = el('div', 'perg-pontos', svg(`<svg ${caixa}>
+    // A janela (.perg-pontos) e o desenho dentro dela andam em sentidos opostos:
+    // o fio aparece sem repintar o halo (drop-shadow) a cada quadro de rolagem.
+    const dentro = el('div', 'perg-pontos-dentro', svg(`<svg ${caixa}>
       <path class="perg-ponto-sombra" d="${d}" transform="translate(0.5 0.9)"/>
       <path class="perg-ponto-fio perg-laco" d="M8 ${no}c-2.8-1.2-5.2-3.9-3.9-6.3 1.3-2.2 4.6-1.2 4.2 1.4"/>
       <circle class="perg-no" cx="8" cy="${no}" r="1.9"/>
       <path class="perg-ponto-fio" d="${d}"/>
     </svg>`));
+    const pontos = el('div', 'perg-pontos', dentro);
     const agulha = el('div', 'perg-agulha', svg(DESENHO_AGULHA));
     costura.append(svg(`<svg ${caixa}><g class="perg-furos">${furos}</g></svg>`), pontos, agulha);
-    infoCostura = { topo, altura, comprimento: (n - 1) * PASSO + PONTO, pontos, agulha };
-  }
-
-  function recortar(no, valor) {
-    no.style.clipPath = valor;
-    no.style.webkitClipPath = valor;
+    infoCostura = { topo, altura, comprimento: (n - 1) * PASSO + PONTO, pontos, dentro, agulha };
   }
 
   function costurar(p) {
     if (!infoCostura) return;
-    const { topo, altura, comprimento, pontos, agulha } = infoCostura;
+    const { topo, altura, comprimento, pontos, dentro, agulha } = infoCostura;
     const y = topo + clamp(p) * comprimento;
-    recortar(pontos, `inset(0 0 ${f1(Math.max(0, altura - y))}px 0)`);
+    const falta = f1(Math.max(0, altura - y));
+    pontos.style.transform = `translate3d(0, -${falta}px, 0)`;
+    dentro.style.transform = `translate3d(0, ${falta}px, 0)`;
     const fase = ((y - topo) % PASSO) / PASSO;
     const giro = calmo() ? 7 : 7 + Math.sin(fase * Math.PI * 2) * 4.5;
     agulha.style.transform = `translate3d(0, ${f1(y)}px, 0) rotate(${f1(giro)}deg)`;

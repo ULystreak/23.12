@@ -288,6 +288,9 @@ export function criarVoo(T, { fundo, amb = {}, S, sFim, sDiv, sNo = null }) {
       anc.casa.set(anc.x, anc.y, -d).applyQuaternion(anc.quatCasa).add(p0);
     };
     anc.atualizar = (s) => {
+      anc.alfa = suave((s - (anc.sh - 0.5)) / 0.38) * (1 - suave((s - anc.so) / 0.22));
+      // Apagada, ninguém lê onde ela está: a conta fica para quando acender.
+      if (anc.alfa === 0) return;
       if (s <= anc.sh) {
         anc.mundo.copy(anc.casa);
         anc.quat.copy(anc.quatCasa);
@@ -298,7 +301,6 @@ export function criarVoo(T, { fundo, amb = {}, S, sFim, sDiv, sNo = null }) {
         pose(s, p0, anc.quat);
         anc.mundo.set(anc.x, anc.y + 2.4 * e * e, -d - 1.5 * e).applyQuaternion(anc.quat).add(p0);
       }
-      anc.alfa = suave((s - (anc.sh - 0.5)) / 0.38) * (1 - suave((s - anc.so) / 0.22));
     };
     ancoras.push(anc);
     return anc;
@@ -328,8 +330,13 @@ export function criarVoo(T, { fundo, amb = {}, S, sFim, sDiv, sNo = null }) {
   const estado = { hora: 0, nevoa: 0, corNevoa: '#ffffff', k: 0, s: 0 };
   const corMonte = new T.Color();
   const NOITE = new T.Color('#070a1c');
+  const numeros = { tufos: 0, teto: 0 };
+  let horaPosta = -1;
 
   function acertarHora(h) {
+    // Parada (ela está lendo), a hora é a mesma: as cores já estão postas.
+    if (h === horaPosta) return numeros;
+    horaPosta = h;
     const [i, t] = trecho(h);
     const mistura = (nome, destino) => destino.copy(cor[nome][i]).lerp(cor[nome][i + 1], t);
     const numero = (nome) => lerp(NUMEROS[nome][i], NUMEROS[nome][i + 1], t);
@@ -346,7 +353,9 @@ export function criarVoo(T, { fundo, amb = {}, S, sFim, sDiv, sNo = null }) {
     U.uSol.value.set(0.34 - 0.2 * h, numero('solY'), -0.9).normalize();
     U.uEstrelas.value = suave((h - 0.58) / 0.26);
     corMonte.copy(NOITE).lerp(U.uSombra.value, 0.45);
-    return { tufos: numero('tufos'), teto: numero('teto') };
+    numeros.tufos = numero('tufos');
+    numeros.teto = numero('teto');
+    return numeros;
   }
 
   /* ---- céu, mar de nuvens, lago, montes ---------------------------------------- */
@@ -356,10 +365,12 @@ export function criarVoo(T, { fundo, amb = {}, S, sFim, sDiv, sNo = null }) {
   const ceu = new T.Mesh(
     guardar(new T.SphereGeometry(1500, 24, 16)),
     guardar(new T.ShaderMaterial({
-      uniforms: U, vertexShader: G.CEU_V, fragmentShader: G.CEU_F, side: T.BackSide, depthTest: false, depthWrite: false,
+      uniforms: U, vertexShader: G.CEU_V, fragmentShader: G.CEU_F, side: T.BackSide, depthWrite: false,
     })),
   );
-  ceu.renderOrder = -10;
+  // O último dos opacos: o lago, os montes e o cordão já marcaram a profundidade,
+  // e o céu só é calculado nos pixels que sobram (as transparências vêm depois).
+  ceu.renderOrder = 1;
   ceu.frustumCulled = false;
   cena.add(ceu);
 
@@ -610,6 +621,11 @@ export function criarVoo(T, { fundo, amb = {}, S, sFim, sDiv, sNo = null }) {
   const geoPlano = guardar(new T.PlaneGeometry(1, 1));
   const figuras = [];
   const pares = [];
+  // As fotos sobem para a placa uma a uma, antes de ela chegar a cada quadro:
+  // enviar na hora em que o quadro aparece trava a rolagem por um instante.
+  const aEnviar = [];
+  let adiantando = false;
+  let quadrosAteEnviar = 0;
 
   function quadro(img) {
     const mat = guardar(new T.ShaderMaterial({
@@ -630,6 +646,7 @@ export function criarVoo(T, { fundo, amb = {}, S, sFim, sDiv, sNo = null }) {
       tex.needsUpdate = true;
       mat.uniforms.uMapa.value = tex;
       q.pronto = true;
+      aEnviar.push(tex);
     };
     if (img.complete && img.naturalWidth) (img.decode?.() ?? Promise.resolve()).then(chegou, chegou);
     else img.addEventListener('load', chegou, { once: true });
@@ -694,11 +711,21 @@ export function criarVoo(T, { fundo, amb = {}, S, sFim, sDiv, sNo = null }) {
   function acertarQuadros(s, t) {
     for (const f of figuras) {
       const { anc, q } = f;
+      if (anc.alfa === 0) {
+        q.mostrar(0);
+        continue;
+      }
       porQuadro(q, anc, 0, 0, 0, 0, t, anc.alfa);
       f.base.set(0, -q.h / 2 - 0.16, 0).applyQuaternion(anc.quat).add(anc.mundo);
     }
     for (const p of pares) {
       const { anc, a, b } = p;
+      if (anc.alfa === 0) {
+        a.mostrar(0);
+        b.mostrar(0);
+        p.fio.visible = false;
+        continue;
+      }
       const liga = suave((s - (anc.sh - 0.2)) / 0.3);
       const e = saida((s - (anc.sh + 0.08)) / 0.42);
       const r = 1 - e;
@@ -834,6 +861,39 @@ export function criarVoo(T, { fundo, amb = {}, S, sFim, sDiv, sNo = null }) {
     return true;
   }
 
+  /* ---- aquecer -------------------------------------------------------------------------- */
+
+  /**
+   * Desenha uma vez tudo o que o voo tem, num pixel só: os shaders do lago, das
+   * estrelas, do cometa e dos quadros são compilados (e as geometrias enviadas)
+   * agora, atrás da folha que ainda vai desenrolar, e não no meio da rolagem.
+   */
+  function aquecer() {
+    if (morto) return;
+    const como = [];
+    cena.traverse((o) => {
+      como.push(o, o.visible, o.frustumCulled);
+      o.visible = true;
+      o.frustumCulled = false;
+    });
+    renderer.setScissor(0, 0, 1, 1);
+    renderer.setScissorTest(true);
+    try {
+      renderer.render(cena, cam);
+    } finally {
+      renderer.setScissorTest(false);
+      for (let i = 0; i < como.length; i += 3) {
+        como[i].visible = como[i + 1];
+        como[i].frustumCulled = como[i + 2];
+      }
+    }
+  }
+
+  /** A folha abriu: daqui em diante as fotos vão sendo enviadas, uma de cada vez. */
+  function adiantar() {
+    adiantando = true;
+  }
+
   /* ---- um quadro do voo ------------------------------------------------------------------ */
 
   function passo(s, t, deriva = 1) {
@@ -893,7 +953,8 @@ export function criarVoo(T, { fundo, amb = {}, S, sFim, sDiv, sNo = null }) {
 
     // A travessia: por dentro da nuvem tudo fica da cor da luz.
     estado.nevoa = Math.exp(-(((cy - meio) / 3.4) ** 2));
-    estado.corNevoa = `#${U.uLuz.value.getHexString()}`;
+    // Longe da nuvem a névoa não aparece e a cor dela não é lida.
+    if (estado.nevoa > 0.001) estado.corNevoa = `#${U.uLuz.value.getHexString()}`;
 
     for (const a of ancoras) a.atualizar(s);
     acertarQuadros(s, t);
@@ -911,6 +972,11 @@ export function criarVoo(T, { fundo, amb = {}, S, sFim, sDiv, sNo = null }) {
     cometa.grupo.position.copy(cam.position);
     cometa.definir(k, suave((hora - 0.28) / 0.14));
 
+    if (adiantando && aEnviar.length && --quadrosAteEnviar <= 0) {
+      quadrosAteEnviar = 10;
+      renderer.initTexture(aEnviar.shift());
+    }
+
     renderer.render(cena, cam);
     return estado;
   }
@@ -926,5 +992,5 @@ export function criarVoo(T, { fundo, amb = {}, S, sFim, sDiv, sNo = null }) {
     tela.remove();
   }
 
-  return { tela, estado, ancorar, fimAnc, figura, par, projetar, redimensionar, baixar, passo, destruir };
+  return { tela, estado, ancorar, fimAnc, figura, par, projetar, redimensionar, baixar, aquecer, adiantar, passo, destruir };
 }

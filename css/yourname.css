@@ -6,7 +6,8 @@
               o JS põe cada peça (.yn-anc) na tela por transform e opacity.
    .yn-plano  sem WebGL ou com movimento reduzido: página corrida, céu em
               degradê que anda com a leitura (--yn-p), fotos em <img>.
-   O JS escreve --yn-vh, --yn-veu (a cor do véu pela hora), --yn-p e --yn-n.
+   O JS escreve --yn-vh, --yn-veu (a cor do véu pela hora; em 3D, só nas peças
+   que estão na tela), --yn-p e --yn-n.
    ========================================================================== */
 
 .yn {
@@ -89,29 +90,35 @@
   text-shadow: 0 1px 12px rgba(var(--yn-veu), 0.95);
   text-wrap: pretty;
 }
-/* Palavra por palavra, como se acendessem. */
+/* Palavra por palavra, como se acendessem. Em repouso a palavra só está
+   apagada: o desfoque e a subida existem só enquanto ela se acende (cada um
+   deles viraria uma camada de composição por palavra, o capítulo inteiro). */
 .yn-p {
   display: inline-block;
   opacity: 0;
-  transform: translate3d(0, 0.3em, 0);
-  filter: blur(5px);
-  transition:
-    opacity 0.9s var(--curva-yn-florescer),
-    transform 1.3s var(--curva-yn-florescer),
-    filter 0.9s var(--curva-yn-florescer);
-  transition-delay: calc(var(--i, 0) * 34ms);
 }
 .viu .yn-p {
   opacity: 1;
-  transform: none;
-  filter: none;
+  animation:
+    yn-acende 0.9s var(--curva-yn-florescer) backwards,
+    yn-sobe 1.3s var(--curva-yn-florescer) backwards;
+  animation-delay: calc(var(--i, 0) * 34ms);
 }
-html[data-nivel="baixo"] .yn-p { filter: none; }
+/* Verso já aceso: se a folha sumir e voltar, as palavras não se acendem de novo. */
+.yn-aceso .yn-p { animation: none; }
+@keyframes yn-acende {
+  from {
+    opacity: 0;
+    filter: blur(var(--yn-borrao, 5px));
+  }
+}
+@keyframes yn-sobe {
+  from { transform: translate3d(0, 0.3em, 0); }
+}
+html[data-nivel="baixo"] .yn-p { --yn-borrao: 0px; }
 html.reduzido .yn-p {
-  transform: none;
-  filter: none;
   transition: opacity 0.6s linear;
-  transition-delay: 0s;
+  animation: none;
 }
 .yn-legenda {
   margin: 0;
@@ -210,8 +217,11 @@ html.reduzido .yn-p {
   top: 0;
   opacity: 0;
   pointer-events: none;
-  will-change: transform, opacity;
 }
+/* Só a peça que está na tela (yn-perto, posta pelo JS) vira camada; as outras
+   esperam apagadas, sem camada nem desfoque para compor. */
+.yn-anc.yn-perto { will-change: transform, opacity; }
+.yn-3d .yn-anc:not(.yn-perto) .yn-veu { filter: none; }
 .yn-anc.yn-ativo { pointer-events: auto; }
 .yn-3d .yn-titulos,
 .yn-3d .yn-verso { width: min(84%, 34rem); }

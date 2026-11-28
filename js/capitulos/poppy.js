@@ -223,6 +223,9 @@ export const capitulo = {
         z: -i * D - p.ox * sen - DF * cos,
       };
       p.visto = null;
+      p.tf = ''; // o que já está escrito no estilo: só se escreve o que mudou
+      p.op = '';
+      p.foco = null;
       if (corredor) p.el.style.zIndex = String(n - i);
     });
 
@@ -292,6 +295,7 @@ export const capitulo = {
     let parado = false;
     let chegou = false;
     const tela = { x: 0, y: 0, prof: 0 };
+    let luzEscrita = '';
 
     function posicionar() {
       for (let i = 0; i < n; i += 1) {
@@ -300,6 +304,8 @@ export const capitulo = {
         if (p.so2d || r > 0.96 || r < -0.2) {
           if (p.visto !== false) {
             p.visto = false;
+            p.op = '0';
+            p.foco = false;
             p.el.style.opacity = '0';
             p.el.classList.remove('foco');
             p.el.classList.add('pp-longe'); // fora de vista: o balanço não gasta quadro
@@ -315,9 +321,21 @@ export const capitulo = {
         const y = tela.y - some * alturaTela * 0.9;
         const opaco = Math.min(1 - some, 1 - suave(0.5, 0.95, r));
         const gira = clamp(r, 0, 1) * (i % 2 ? 2.5 : -2.5);
-        p.el.style.transform = `translate3d(${tela.x.toFixed(1)}px,${y.toFixed(1)}px,0) translate(-50%,-50%) scale(${escala.toFixed(4)}) rotate(${gira.toFixed(2)}deg)`;
-        p.el.style.opacity = opaco.toFixed(3);
-        p.el.classList.toggle('foco', Math.abs(r) < 0.2);
+        const tf = `translate3d(${tela.x.toFixed(1)}px,${y.toFixed(1)}px,0) translate(-50%,-50%) scale(${escala.toFixed(4)}) rotate(${gira.toFixed(2)}deg)`;
+        if (tf !== p.tf) {
+          p.tf = tf;
+          p.el.style.transform = tf;
+        }
+        const op = opaco.toFixed(3);
+        if (op !== p.op) {
+          p.op = op;
+          p.el.style.opacity = op;
+        }
+        const foco = Math.abs(r) < 0.2;
+        if (foco !== p.foco) {
+          p.foco = foco;
+          p.el.classList.toggle('foco', foco);
+        }
       }
     }
 
@@ -335,7 +353,11 @@ export const capitulo = {
         u += (caminho(s, n) - u) * (1 - Math.exp(-AMORTECE * dt));
         corredor.quadro(dt, u, agora);
         posicionar();
-        luzFinal.style.opacity = (suave(n - 1.5, n - 1, u) * 0.2).toFixed(3);
+        const luz = (suave(n - 1.5, n - 1, u) * 0.2).toFixed(3);
+        if (luz !== luzEscrita) {
+          luzEscrita = luz;
+          luzFinal.style.opacity = luz;
+        }
       } else {
         s = clamp(rolagem?.progresso || 0) * (n - 1);
       }
